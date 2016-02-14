@@ -10,6 +10,13 @@
 #include <grid/grid.h>
 #include <grid/vertices.h>
 
+#ifdef ENABLE_SENSEI
+#include <gridadaptor/gridadaptor.h>
+#include <vtkNew.h>
+using GridAdaptor
+            = gridadaptor::GridAdaptor<float,3>;
+#endif
+
 #include "oscillator.h"
 #include "analysis.h"
 
@@ -21,6 +28,8 @@ using Link   = diy::RegularGridLink;
 using Master = diy::Master;
 using Proxy  = Master::ProxyWithLink;
 
+
+
 struct Block
 {
         Block(int gid_, const Bounds& bounds_, const Vertex& domain_shape_, const Oscillators& oscillators_):
@@ -29,7 +38,12 @@ struct Block
                 domain_shape(domain_shape_),
                 from(bounds.min),
                 grid(Vertex(bounds.max) - Vertex(bounds.min) + Vertex::one()),
-                oscillators(oscillators_)       {}
+                oscillators(oscillators_)
+    {
+#ifdef ENABLE_SENSEI
+        gridadaptor->Initialize(gid, bounds, domain_shape);
+#endif
+    }
 
     void    advance(float t)
     {
@@ -42,8 +56,14 @@ struct Block
             for (auto& o : oscillators)
                 gv += o.evaluate(v_global, t);
         });
-
+#ifdef ENABLE_SENSEI
+        gridadaptor->SetGrid(grid);
+        // TODO: bridge->analyze()
+        gridadaptor->ReleaseData();
+#else
         analyze(gid, grid.data());
+#endif
+
     }
 
     static void* create()                   { return new Block; }
@@ -55,6 +75,9 @@ struct Block
     Vertex                          from;
     Grid                            grid;
     Oscillators                     oscillators;
+#ifdef ENABLE_SENSEI
+    vtkNew<GridAdaptor>             gridadaptor;
+#endif
 
     private:
         Block() {}      // for create; to let Master manage the blocks

@@ -20,3 +20,7 @@ target_link_libraries(oscillator PRIVATE mpi)
 # Threads
 find_package(Threads)
 target_link_libraries(oscillator PRIVATE util ${CMAKE_THREAD_LIBS_INIT})
+
+if(ENABLE_SENSEI)
+  target_link_libraries(oscillator PRIVATE core)
+endif()
