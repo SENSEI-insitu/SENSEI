@@ -38,7 +38,7 @@ public:
   // Provides access to meta-data about the current data.
   // This can provide all metadata necessary, including global extents, fields
   // available, etc.
-  vtkGetObjectMacro(Information, vtkInformation);
+  vtkInformation* GetInformation() { return this->Information; }
 
   // Description:
   // Convenience method to get the time information.
