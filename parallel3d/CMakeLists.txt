@@ -1,6 +1,12 @@
 #------------------------------------------------------------------------------
-set (sources
+set(sources
   parallel_3D.c)
+
+if(ENABLE_SENSEI)
+  list(APPEND sources
+    DataAdaptor.h
+    DataAdaptor.cxx)
+endif()
 
 #------------------------------------------------------------------------------
 add_executable(3D_Grid ${sources})

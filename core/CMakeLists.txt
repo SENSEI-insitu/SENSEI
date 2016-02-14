@@ -15,7 +15,8 @@ if(NOT VTK_FOUND)
 endif()
 
 add_library(core STATIC ${sources})
-target_include_directories(core SYSTEM PUBLIC ${VTK_INCLUDE_DIRS})
+target_include_directories(core SYSTEM PUBLIC ${VTK_INCLUDE_DIRS}
+                                INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(core PUBLIC ${VTK_DEFINITIONS}
                                 INTERFACE ENABLE_SENSEI)
 target_link_libraries(core PUBLIC ${VTK_LIBRARIES})
