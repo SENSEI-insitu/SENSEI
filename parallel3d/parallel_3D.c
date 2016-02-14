@@ -14,6 +14,9 @@
 #include <errno.h>
 #include <math.h>
 #include <mpi.h>
+#ifdef ENABLE_SENSEI
+# include "Bridge.h"
+#endif
 
 int dim = 3;
 
@@ -133,6 +136,16 @@ int main(int argc, char **argv)
     printf("Total Blocks are %dX%dX%d \n", tot_blocks_z, tot_blocks_y, tot_blocks_x);
   }
 
+#ifdef ENABLE_SENSEI
+  bridge_initialize(MPI_COMM_WORLD,
+    g_x, g_y, g_z,
+    l_x, l_y, l_z,
+    start_extents_x, start_extents_y, start_extents_z,
+    tot_blocks_x, tot_blocks_y, tot_blocks_z,
+    block_id_x, block_id_y, block_id_z,
+    bins);
+#endif
+
   //////////////////////////////////
   // allocate the variables and
   // intialize to a pattern
@@ -197,16 +210,30 @@ int main(int argc, char **argv)
   // Compute several analyses?
   /////////////////////////////
 
+#ifdef ENABLE_SENSEI
+
+  bridge_update(pressure, temperature, density);
+
+#else
+
   // "Analysis" routine
   histogram(MPI_COMM_WORLD, pressure, l_z*l_y*l_x, bins);
   histogram(MPI_COMM_WORLD, temperature, l_z*l_y*l_x, bins);
   histogram(MPI_COMM_WORLD, density, l_z*l_y*l_x, bins);
+
+#endif
 
   MPI_Barrier(MPI_COMM_WORLD);
 
   /////////////////////////////
   // Clean up heap variables
   /////////////////////////////
+
+#ifdef ENABLE_SENSEI
+
+  bridge_finalize();
+
+#endif
 
   if (pressure){
     free(pressure);

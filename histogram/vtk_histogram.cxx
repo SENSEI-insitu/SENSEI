@@ -51,7 +51,7 @@ struct HistogramWorker
 
 } // end anon namespace
 
-void histogram(MPI_Comm comm, vtkDataArray* array, int bins)
+void vtk_histogram(MPI_Comm comm, vtkDataArray* array, int bins)
 {
   int rank;
   MPI_Comm_rank(comm, &rank);
@@ -82,7 +82,7 @@ void histogram(MPI_Comm comm, vtkDataArray* array, int bins)
   MPI_Reduce(&worker.Histogram[0], &gHist[0], bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
   if (rank == 0)
     {
-    std::cout << "Histogram:\n";
+    std::cout << "Histogram (VTK):\n";
     double width = (g_range[1] - g_range[0]) / bins;
     for (int i = 0; i < bins; ++i)
       {

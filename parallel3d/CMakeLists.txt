@@ -5,7 +5,9 @@ set(sources
 if(ENABLE_SENSEI)
   list(APPEND sources
     DataAdaptor.h
-    DataAdaptor.cxx)
+    DataAdaptor.cxx
+    Bridge.h
+    Bridge.cxx)
 endif()
 
 #------------------------------------------------------------------------------
@@ -18,4 +20,7 @@ mpi_link(3D_Grid)
 
 if(ENABLE_SENSEI)
   target_link_libraries(3D_Grid PRIVATE core)
+endif()
+if(ENABLE_HISTOGRAM)
+  target_link_libraries(3D_Grid PRIVATE histogram)
 endif()

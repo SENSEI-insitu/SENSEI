@@ -1,5 +1,5 @@
-#ifndef INSITU_BRIDGE_H
-#define INSITU_BRIDGE_H
+#ifndef PARALLEL3D_BRIDGE_H
+#define PARALLEL3D_BRIDGE_H
 
 #include <mpi.h>
 #include <stdint.h>
@@ -7,8 +7,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+  /// This defines the analysis bridge for parallel_3d miniapp.
 
-  void insitu_bridge_initialize(MPI_Comm comm,
+  /// Called before simulation loop
+  void bridge_initialize(MPI_Comm comm,
     int g_x, int g_y, int g_z,
     int l_x, int l_y, int l_z,
     uint64_t start_extents_x, uint64_t start_extents_y, uint64_t start_extents_z,
@@ -16,12 +18,15 @@ extern "C" {
     int block_id_x, int block_id_y, int block_id_z,
     int bins);
 
-  void insitu_bridge_update(double *pressure, double* temperature, double* density);
+  /// Called per timestep in the simulation loop
+  void bridge_update(double *pressure, double* temperature, double* density);
 
-  void insitu_bridge_finalize();
+  /// Called just before simulation terminates.
+  void bridge_finalize();
 
 #ifdef __cplusplus
 } // extern "C"
+
 #endif
 
 #endif
