@@ -215,12 +215,15 @@ int main(int argc, char **argv)
   bridge_update(pressure, temperature, density);
 
 #else
-
+# ifdef ENABLE_HISTOGRAM
   // "Analysis" routine
   histogram(MPI_COMM_WORLD, pressure, l_z*l_y*l_x, bins);
   histogram(MPI_COMM_WORLD, temperature, l_z*l_y*l_x, bins);
   histogram(MPI_COMM_WORLD, density, l_z*l_y*l_x, bins);
-
+# endif
+  if (rank == 0) {
+    printf("No analysis has been enabled.\n");
+  }
 #endif
 
   MPI_Barrier(MPI_COMM_WORLD);
