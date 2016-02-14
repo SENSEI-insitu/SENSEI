@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.0)
 project(sensei)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 include(CMakeDependentOption)
@@ -33,6 +33,8 @@ option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
 
 
 #------------------------------------------------------------------------------
+include(mpi)
+
 # Process subdirectories.
 if(ENABLE_SENSEI)
   message(STATUS "Enabled: Sensei infrastructure.")
@@ -53,4 +55,11 @@ if(ENABLE_PARALLEL3D)
   add_subdirectory(parallel3d)
 else()
   message(STATUS "Disabled: Parallel3D miniapp.")
+endif()
+
+if(ENABLE_OSCILLATORS)
+  message(STATUS "Enabled: Oscillators miniapp.")
+  add_subdirectory(oscillators)
+else()
+  message(STATUS "Disabled: Histogram miniapp.")
 endif()

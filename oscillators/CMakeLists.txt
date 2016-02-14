@@ -1,26 +1,22 @@
-project                     (Oscillator)
-cmake_minimum_required      (VERSION 2.8.11)
+#------------------------------------------------------------------------------
+set(sources
+  oscillator.cpp
+  analysis.cpp)
 
-# Default to Release
-if                          (NOT CMAKE_BUILD_TYPE)
-    set                     (CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-    set_property            (CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif                       (NOT CMAKE_BUILD_TYPE)
+#------------------------------------------------------------------------------
+# Build the util library.
+add_library(util STATIC src/format.cc)
+target_include_directories(util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-set                         (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-std=c++11")
+#------------------------------------------------------------------------------
+# Build the oscillator executable.
+add_executable(oscillator ${sources})
+target_compile_options(oscillator PRIVATE "-std=c++11")
+target_include_directories(oscillator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Link with MPI.
+target_link_libraries(oscillator PRIVATE mpi)
 
 # Threads
-find_package                (Threads)
-
-# MPI
-find_package                (MPI REQUIRED)
-set                         (mpi_libraries              ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
-
-include_directories         (${CMAKE_CURRENT_SOURCE_DIR}/include
-                             SYSTEM ${MPI_INCLUDE_PATH})
-
-# Format
-add_library                 (util    src/format.cc)
-
-add_executable              (oscillator oscillator.cpp analysis.cpp)
-target_link_libraries       (oscillator util ${mpi_libraries} ${CMAKE_THREAD_LIBS_INIT})
+find_package(Threads)
+target_link_libraries(oscillator PRIVATE util ${CMAKE_THREAD_LIBS_INIT})
