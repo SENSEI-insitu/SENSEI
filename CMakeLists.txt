@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(sensei)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 include(CMakeDependentOption)
 
 # Default to release.
@@ -8,7 +9,6 @@ if(NOT CMAKE_BUILD_TYPE)
     CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
-
 #------------------------------------------------------------------------------
 # Set default output directories.
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -31,21 +31,6 @@ option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
 # Options to enable various infrastructures.
 
 
-#------------------------------------------------------------------------------
-# Since we need MPI left and right, this makes it easier to deal with MPI.
-find_package(MPI REQUIRED)
-function(mpi_link target)
-  target_include_directories(${target}
-    SYSTEM PRIVATE ${MPI_C_INCLUDE_PATH} ${MPI_CXX_INCLUDE_PATH})
-  target_compile_definitions(${target}
-    PRIVATE ${MPI_C_COMPILE_FLAGS} ${MPI_CXX_COMPILE_FLAGS})
-  target_link_libraries(${target}
-    PRIVATE ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
-  if(MPI_C_LINK_FLAGS OR MPI_CXX_LINK_FLAGS)
-    set_target_properties(${target}
-      PROPERTIES LINK_FLAGS ${MPI_C_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
-  endif()
-endfunction()
 
 #------------------------------------------------------------------------------
 # Process subdirectories.

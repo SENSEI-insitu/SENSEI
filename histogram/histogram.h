@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+/// Simple parallel histogram implementation.
 void histogram(MPI_Comm comm, double* data, long sz, int bins);
 
 #ifdef __cplusplus
