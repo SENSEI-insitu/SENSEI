@@ -82,7 +82,7 @@ void vtk_histogram(MPI_Comm comm, vtkDataArray* array, int bins)
   MPI_Reduce(&worker.Histogram[0], &gHist[0], bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
   if (rank == 0)
     {
-    std::cout << "Histogram (VTK):\n";
+    std::cout << "Histogram '" << array->GetName() << "' (VTK):\n";
     double width = (g_range[1] - g_range[0]) / bins;
     for (int i = 0; i < bins; ++i)
       {
