@@ -1,0 +1,24 @@
+#ifndef OSCILLATORS_BRIDGE_H
+#define OSCILLATORS_BRIDGE_H
+
+#include <mpi.h>
+
+namespace bridge
+{
+  void initialize(MPI_Comm world,
+                  size_t window,
+                  size_t nblocks,
+                  size_t n_local_blocks,
+                  int domain_shape_x, int domain_shape_y, int domain_shape_z,
+                  int* gid,
+                  int* from_x, int* from_y, int* from_z,
+                  int* to_x,   int* to_y,   int* to_z);
+
+  void set_data(int gid, float* data);
+
+  void analyze();
+
+  void finalize(size_t k_max, size_t nblocks);
+}
+
+#endif

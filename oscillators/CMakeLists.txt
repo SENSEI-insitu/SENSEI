@@ -3,6 +3,11 @@ set(sources
   oscillator.cpp
   analysis.cpp)
 
+if(ENABLE_SENSEI)
+  list(APPEND sources
+    dataadaptor.cpp
+    bridge.cpp)
+endif()
 #------------------------------------------------------------------------------
 # Build the util library.
 add_library(util STATIC src/format.cc)
@@ -23,4 +28,7 @@ target_link_libraries(oscillator PRIVATE util ${CMAKE_THREAD_LIBS_INIT})
 
 if(ENABLE_SENSEI)
   target_link_libraries(oscillator PRIVATE core)
+endif()
+if(ENABLE_HISTOGRAM)
+  target_link_libraries(oscillator PRIVATE histogram)
 endif()

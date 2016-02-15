@@ -11,10 +11,7 @@
 #include <grid/vertices.h>
 
 #ifdef ENABLE_SENSEI
-#include <gridadaptor/gridadaptor.h>
-#include <vtkNew.h>
-using GridAdaptor
-            = gridadaptor::GridAdaptor<float,3>;
+#include "bridge.h"
 #endif
 
 #include "oscillator.h"
@@ -40,9 +37,6 @@ struct Block
                 grid(Vertex(bounds.max) - Vertex(bounds.min) + Vertex::one()),
                 oscillators(oscillators_)
     {
-#ifdef ENABLE_SENSEI
-        gridadaptor->Initialize(gid, bounds, domain_shape);
-#endif
     }
 
     void    advance(float t)
@@ -57,9 +51,7 @@ struct Block
                 gv += o.evaluate(v_global, t);
         });
 #ifdef ENABLE_SENSEI
-        gridadaptor->SetGrid(grid);
-        // TODO: bridge->analyze()
-        gridadaptor->ReleaseData();
+        bridge::set_data(gid, grid.data());
 #else
         analyze(gid, grid.data());
 #endif
@@ -75,9 +67,6 @@ struct Block
     Vertex                          from;
     Grid                            grid;
     Oscillators                     oscillators;
-#ifdef ENABLE_SENSEI
-    vtkNew<GridAdaptor>             gridadaptor;
-#endif
 
     private:
         Block() {}      // for create; to let Master manage the blocks
@@ -154,12 +143,19 @@ int main(int argc, char** argv)
                       to_z.push_back(bounds.max[2]);
                    });
 
+#ifdef ENABLE_SENSEI
+    bridge::initialize(world, window, nblocks, gids.size(),
+                       domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
+                       &gids[0],
+                       &from_x[0], &from_y[0], &from_z[0],
+                       &to_x[0],   &to_y[0],   &to_z[0]);
+#else
     init_analysis(world, window, gids.size(),
                   domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
                   &gids[0],
                   &from_x[0], &from_y[0], &from_z[0],
                   &to_x[0],   &to_y[0],   &to_z[0]);
-
+#endif
     if (world.rank() == 0)
         fmt::print("Started\n");
 
@@ -174,8 +170,11 @@ int main(int argc, char** argv)
                               {
                                 b->advance(t);
                               });
-
+#ifdef ENABLE_SENSEI
+        bridge::analyze();
+#else
         analysis_round();   // let analysis do any kind of global operations it would like
+#endif
 
         if (sync)
             world.barrier();
@@ -183,7 +182,11 @@ int main(int argc, char** argv)
     }
     world.barrier();
 
+#ifdef ENABLE_SENSEI
+    bridge::finalize(k_max, nblocks);
+#else
     analysis_final(k_max, nblocks);
+#endif
 
     auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
     if (world.rank() == 0)
