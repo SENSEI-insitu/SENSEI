@@ -27,6 +27,7 @@ option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 
 # Options to enable various analysis.
 option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
+option(ENABLE_AUTOCORRELATION "Enable autocorrelation analysis" ON)
 
 # Options to enable various infrastructures.
 
@@ -50,6 +51,13 @@ if(ENABLE_HISTOGRAM)
   add_subdirectory(histogram)
 else()
   message(STATUS "Disabled: Histogram analysis.")
+endif()
+
+if(ENABLE_AUTOCORRELATION)
+  message(STATUS "Enabled: Autocorrelation analysis.")
+  add_subdirectory(autocorrelation)
+else()
+  message(STATUS "Disabled: Autocorrelation analysis.")
 endif()
 
 if(ENABLE_PARALLEL3D)

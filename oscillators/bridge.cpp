@@ -5,6 +5,9 @@
 #ifdef ENABLE_HISTOGRAM
 #include "HistogramAnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_AUTOCORRELATION
+#include <AutocorrelationAnalysisAdaptor.h>
+#endif
 
 #include <vtkDataObject.h>
 #include <vtkInsituAnalysisAdaptor.h>
@@ -52,6 +55,17 @@ void initialize(MPI_Comm world,
   histogram->Initialize(world, 10, vtkDataObject::FIELD_ASSOCIATION_POINTS, "data");
   GlobalAnalyses.push_back(histogram.GetPointer());
 #endif
+#ifdef ENABLE_AUTOCORRELATION
+  vtkNew<AutocorrelationAnalysisAdaptor> autocorrelation;
+  autocorrelation->Initialize(world,
+                              window,
+                              n_local_blocks,
+                              domain_shape_x, domain_shape_y, domain_shape_z,
+                              gid,
+                              from_x, from_y, from_z,
+                              to_x,   to_y,   to_z);
+  GlobalAnalyses.push_back(autocorrelation.GetPointer());
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -70,6 +84,15 @@ void analyze()
 //-----------------------------------------------------------------------------
 void finalize(size_t k_max, size_t nblocks)
 {
+#ifdef ENABLE_AUTOCORRELATION
+  for (auto a : GlobalAnalyses)
+    {
+    if (AutocorrelationAnalysisAdaptor* aca = AutocorrelationAnalysisAdaptor::SafeDownCast(a))
+      {
+      aca->PrintResults(k_max, nblocks);
+      }
+    }
+#endif
   GlobalAnalyses.clear();
 }
 

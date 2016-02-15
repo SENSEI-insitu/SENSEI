@@ -10,12 +10,14 @@
 #include <grid/grid.h>
 #include <grid/vertices.h>
 
+#include "oscillator.h"
+
 #ifdef ENABLE_SENSEI
 #include "bridge.h"
+#else
+#include "analysis.h"
 #endif
 
-#include "oscillator.h"
-#include "analysis.h"
 
 using Grid   = grid::Grid<float,3>;
 using Vertex = Grid::Vertex;
@@ -132,7 +134,7 @@ int main(int argc, char** argv)
                       auto b = new Block(gid, bounds, { domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1 }, oscillators);
                       master.add(gid, b, new Link(link));
 
-                      //std::cout << "Block " << gid << ": " << Vertex(bounds.min) << " - " << Vertex(bounds.max) << std::endl;
+                      std::cout << world.rank() << " Block " << gid << ": " << Vertex(bounds.min) << " - " << Vertex(bounds.max) << std::endl;
 
                       gids.push_back(gid);
                       from_x.push_back(bounds.min[0]);
