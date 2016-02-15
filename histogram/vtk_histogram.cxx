@@ -44,7 +44,7 @@ struct HistogramWorker
       }
 
     // Merge the last two bins (the last is only when val == max)
-    this->Histogram[this->Bins] += this->Histogram[this->Bins + 1];
+    this->Histogram[this->Bins-1] += this->Histogram[this->Bins];
     this->Histogram.resize(this->Bins);
   }
 };
