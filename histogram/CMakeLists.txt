@@ -6,8 +6,6 @@ set (sources
 
 if(ENABLE_SENSEI)
   list(APPEND sources
-    vtk_histogram.cxx
-    vtk_histogram.h
     HistogramAnalysisAdaptor.cxx
     HistogramAnalysisAdaptor.h
     )

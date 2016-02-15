@@ -6,6 +6,7 @@
 #include <mpi.h>
 
 class vtkDataObject;
+class vtkDataArray;
 /// HistogramAnalysisAdaptor is a vtkInsituAnalysisAdaptor specialization for
 /// histogram analysis.
 class HistogramAnalysisAdaptor : public vtkInsituAnalysisAdaptor
@@ -23,7 +24,8 @@ protected:
   HistogramAnalysisAdaptor();
   virtual ~HistogramAnalysisAdaptor();
 
-  bool Execute(vtkDataObject* mesh);
+  vtkDataArray* GetArray(vtkDataObject* dobj);
+
 
   MPI_Comm Communicator;
   int Bins;

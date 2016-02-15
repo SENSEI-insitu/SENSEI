@@ -27,9 +27,11 @@ target_link_libraries(oscillator PRIVATE util ${CMAKE_THREAD_LIBS_INIT})
 if(ENABLE_SENSEI)
   target_link_libraries(oscillator PRIVATE core)
 endif()
-if(ENABLE_HISTOGRAM AND FALSE)
+
+if(ENABLE_HISTOGRAM)
   target_link_libraries(oscillator PRIVATE histogram)
 endif()
+
 if(ENABLE_AUTOCORRELATION)
   target_link_libraries(oscillator PRIVATE autocorrelation)
 endif()
