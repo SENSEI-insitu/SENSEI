@@ -1,7 +1,7 @@
 #include "HistogramAnalysisAdaptor.h"
 
-#include "vtkDataArray.h"
 #include "vtkDataObject.h"
+#include "vtkFieldData.h"
 #include "vtkInsituDataAdaptor.h"
 #include "vtkObjectFactory.h"
 
@@ -34,7 +34,14 @@ void HistogramAnalysisAdaptor::Initialize(
 //-----------------------------------------------------------------------------
 bool HistogramAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 {
-  vtk_histogram(this->Communicator, vtkDataArray::SafeDownCast(
-      data->GetArray(this->Association, this->ArrayName.c_str())), this->Bins);
-  return true;
+  vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
+  if (mesh && data->AddArray(mesh, this->Association, this->ArrayName.c_str()))
+    {
+    if (vtkFieldData* fd = mesh->GetAttributesAsFieldData(this->Association))
+      {
+      vtk_histogram(this->Communicator, fd->GetArray(this->ArrayName.c_str()), this->Bins);
+      return true;
+      }
+    }
+  return false;
 }

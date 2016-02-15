@@ -7,6 +7,7 @@
 #include <string>
 
 class vtkDoubleArray;
+class vtkImageData;
 
 namespace parallel3d
 {
@@ -33,19 +34,10 @@ public:
   /// Clear all arrays.
   void ClearArrays();
 
-  /// Return the topology/geometry for the simulation grid.
-  virtual vtkDataObject* GetMesh();
-
-  /// Return an array.
-  virtual vtkAbstractArray* GetArray(int association, const char* name);
-
-  /// Return number of arrays.
+  virtual vtkDataObject* GetMesh(bool structure_only=false);
+  virtual bool AddArray(vtkDataObject* mesh, int association, const char* arrayname);
   virtual unsigned int GetNumberOfArrays(int association);
-
-  /// Returns an arrays name given the index.
   virtual const char* GetArrayName(int association, unsigned int index);
-
-  /// Release all data.
   virtual void ReleaseData();
 
 protected:
@@ -58,6 +50,7 @@ protected:
   typedef std::map<std::string, vtkSmartPointer<vtkDoubleArray> > ArraysType;
   ArraysType Arrays;
 
+  vtkSmartPointer<vtkImageData> Mesh;
   int Extent[6];
 private:
   DataAdaptor(const DataAdaptor&); // not implemented.

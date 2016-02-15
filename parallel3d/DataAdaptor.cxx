@@ -1,8 +1,10 @@
 #include "DataAdaptor.h"
 
-#include "vtkObjectFactory.h"
 #include "vtkDataObject.h"
 #include "vtkDoubleArray.h"
+#include "vtkImageData.h"
+#include "vtkObjectFactory.h"
+#include "vtkPointData.h"
 
 namespace parallel3d
 {
@@ -53,26 +55,28 @@ void DataAdaptor::ClearArrays()
 }
 
 //-----------------------------------------------------------------------------
-vtkDataObject* DataAdaptor::GetMesh()
+vtkDataObject* DataAdaptor::GetMesh(bool vtkNotUsed(structure_only))
 {
-  // our analysis doesn't need a mesh so we punt on it for now.
-  // In theory, we'll create a new vtkImageData and return that.
-  vtkGenericWarningMacro("TODO: Not implemented currently.");
-  return NULL;
+  if (!this->Mesh)
+    {
+    this->Mesh = vtkSmartPointer<vtkImageData>::New();
+    this->Mesh->SetExtent(this->Extent);
+    }
+  return this->Mesh;
 }
 
 //-----------------------------------------------------------------------------
-vtkAbstractArray* DataAdaptor::GetArray(int association, const char* name)
+bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* name)
 {
   if (association != vtkDataObject::FIELD_ASSOCIATION_POINTS || name == NULL)
     {
-    return NULL;
+    return false;
     }
 
   VariablesType::iterator iterV = this->Variables.find(name);
   if (iterV == this->Variables.end())
     {
-    return NULL;
+    return false;
     }
 
   ArraysType::iterator iterA = this->Arrays.find(iterV->first);
@@ -81,17 +85,14 @@ vtkAbstractArray* DataAdaptor::GetArray(int association, const char* name)
     vtkSmartPointer<vtkDoubleArray>& vtkarray = this->Arrays[iterV->first];
     vtkarray = vtkSmartPointer<vtkDoubleArray>::New();
     vtkarray->SetName(name);
-
     const vtkIdType size = (this->Extent[1] - this->Extent[0] + 1) *
       (this->Extent[3] - this->Extent[2] + 1) *
       (this->Extent[5] - this->Extent[4] + 1);
     vtkarray->SetArray(iterV->second, size, 1);
-    return vtkarray;
+    vtkImageData::SafeDownCast(mesh)->GetPointData()->SetScalars(vtkarray);
+    return true;
     }
-  else
-    {
-    return iterA->second;
-    }
+  return true;
 }
 
 //-----------------------------------------------------------------------------
@@ -124,6 +125,7 @@ const char* DataAdaptor::GetArrayName(int association, unsigned int index)
 void DataAdaptor::ReleaseData()
 {
   this->ClearArrays();
+  this->Mesh = NULL;
 }
 
 }
