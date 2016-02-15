@@ -35,6 +35,8 @@ option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
 #------------------------------------------------------------------------------
 include(mpi)
 
+add_subdirectory(utils)
+
 # Process subdirectories.
 if(ENABLE_SENSEI)
   message(STATUS "Enabled: Sensei infrastructure.")
