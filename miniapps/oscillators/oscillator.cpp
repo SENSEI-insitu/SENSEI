@@ -173,7 +173,7 @@ int main(int argc, char** argv)
                                 b->advance(t);
                               });
 #ifdef ENABLE_SENSEI
-        bridge::analyze();
+        bridge::analyze(t);
 #else
         analysis_round();   // let analysis do any kind of global operations it would like
 #endif

@@ -16,7 +16,7 @@ namespace bridge
 
   void set_data(int gid, float* data);
 
-  void analyze();
+  void analyze(float time);
 
   void finalize(size_t k_max, size_t nblocks);
 }

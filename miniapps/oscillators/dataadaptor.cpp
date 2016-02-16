@@ -133,6 +133,7 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arr
         fa->SetName(arrayname);
         fa->SetArray(internals.Data[cc], blockMesh->GetNumberOfPoints(), 1);
         pd->SetScalars(fa);
+        pd->SetActiveScalars("data");
         fa->FastDelete();
         }
       retVal = true;

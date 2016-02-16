@@ -8,7 +8,12 @@
 #ifdef ENABLE_AUTOCORRELATION
 #include <AutocorrelationAnalysisAdaptor.h>
 #endif
-
+#ifdef ENABLE_CATALYST
+#include <vtkCatalystAnalysisAdaptor.h>
+# ifdef ENABLE_CATALYST_SLICE
+#include <vtkCatalystSlicePipeline.h>
+# endif
+#endif
 #include <vtkDataObject.h>
 #include <vtkInsituAnalysisAdaptor.h>
 #include <vtkNew.h>
@@ -66,6 +71,16 @@ void initialize(MPI_Comm world,
                               to_x,   to_y,   to_z);
   GlobalAnalyses.push_back(autocorrelation.GetPointer());
 #endif
+#ifdef ENABLE_CATALYST
+  vtkNew<vtkCatalystAnalysisAdaptor> catalyst;
+  GlobalAnalyses.push_back(catalyst.GetPointer());
+# ifdef ENABLE_CATALYST_SLICE
+  vtkNew<vtkCatalystSlicePipeline> slicePipeline;
+  slicePipeline->SetSliceOrigin(domain_shape_x/2.0, domain_shape_y/2.0, domain_shape_z/2.0);
+  slicePipeline->SetSliceNormal(0, 0, 1);
+  catalyst->AddPipeline(slicePipeline.GetPointer());
+# endif
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -75,8 +90,9 @@ void set_data(int gid, float* data)
 }
 
 //-----------------------------------------------------------------------------
-void analyze()
+void analyze(float time)
 {
+  GlobalDataAdaptor->SetDataTime(time);
   ExecuteGlobalAnalyses();
   GlobalDataAdaptor->ReleaseData();
 }

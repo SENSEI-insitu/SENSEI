@@ -30,9 +30,12 @@ option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
 option(ENABLE_AUTOCORRELATION "Enable autocorrelation analysis" ON)
 
 # Options to enable various infrastructures.
-option(ENABLE_CATALYST_SLICE "Enable Catalyst Slice analysis" ON)
-option(ENABLE_CATALYST_CONTOUR "Enable Catalyst Contour analysis" ON)
-
+cmake_dependent_option(
+  ENABLE_CATALYST "Enable analysis methods that use Catalyst" ON "ENABLE_SENSEI" OFF)
+cmake_dependent_option(
+  ENABLE_CATALYST_SLICE "Enable Catalyst Slice analysis" ON "ENABLE_CATALYST" OFF)
+cmake_dependent_option(
+  ENABLE_CATALYST_CONTOUR "Enable Catalyst Contour analysis" ON "ENABLE_CATALYST" OFF)
 
 #------------------------------------------------------------------------------
 include(mpi)
@@ -73,4 +76,8 @@ if(ENABLE_OSCILLATORS)
   add_subdirectory(miniapps/oscillators)
 else()
   message(STATUS "Disabled: Histogram miniapp.")
+endif()
+
+if(ENABLE_CATALYST)
+  add_subdirectory(catalyst)
 endif()
