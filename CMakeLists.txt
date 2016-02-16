@@ -34,8 +34,6 @@ cmake_dependent_option(
   ENABLE_CATALYST "Enable analysis methods that use Catalyst" ON "ENABLE_SENSEI" OFF)
 cmake_dependent_option(
   ENABLE_CATALYST_SLICE "Enable Catalyst Slice analysis" ON "ENABLE_CATALYST" OFF)
-cmake_dependent_option(
-  ENABLE_CATALYST_CONTOUR "Enable Catalyst Contour analysis" ON "ENABLE_CATALYST" OFF)
 
 #------------------------------------------------------------------------------
 include(mpi)
