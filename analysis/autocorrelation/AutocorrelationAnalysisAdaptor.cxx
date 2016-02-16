@@ -98,6 +98,9 @@ class AutocorrelationAnalysisAdaptor::AInternals
 {
 public:
   std::unique_ptr<diy::Master> Master;
+  int Association;
+  std::string ArrayName;
+  AInternals() : Association(vtkDataObject::POINT) {}
 };
 
 vtkStandardNewMacro(AutocorrelationAnalysisAdaptor);
@@ -120,7 +123,8 @@ void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
   int domain_shape_x, int domain_shape_y, int domain_shape_z,
   int* gid,
   int* from_x, int* from_y, int* from_z,
-  int* to_x,   int* to_y,   int* to_z)
+  int* to_x,   int* to_y,   int* to_z,
+  int association, const char* arrayname)
 {
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
@@ -134,14 +138,19 @@ void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
     Autocorrelation* b = new Autocorrelation(window, gid[i], from, to);
     internals.Master->add(gid[i], b, new diy::Link);
     }
+  internals.Association = association;
+  internals.ArrayName = arrayname;
 }
 
 //-----------------------------------------------------------------------------
 bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 {
+  AInternals& internals = (*this->Internals);
+  const int association = internals.Association;
+  const char* arrayname = internals.ArrayName.c_str();
+
   vtkDataObject* mesh = data->GetMesh(/*structure-only*/ true);
-  const char* arrayname = data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_POINTS, 0);
-  if (!data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_POINTS, arrayname))
+  if (!data->AddArray(mesh, association, arrayname))
     {
     return false;
     }
@@ -151,7 +160,6 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
     return false;
     }
 
-  AInternals& internals = (*this->Internals);
   for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
     {
     if (vtkDataObject* dataObj = md->GetBlock(cc))
@@ -159,7 +167,7 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
       int lid = internals.Master->lid(static_cast<int>(cc));
       Autocorrelation* corr = internals.Master->block<Autocorrelation>(lid);
       vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
-        dataObj->GetAttributesAsFieldData(vtkDataObject::FIELD_ASSOCIATION_POINTS)->GetArray(arrayname));
+        dataObj->GetAttributesAsFieldData(association)->GetArray(arrayname));
       if (fa)
         {
         corr->process(fa->GetPointer(0));

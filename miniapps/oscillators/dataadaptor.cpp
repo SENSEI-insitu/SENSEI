@@ -4,7 +4,7 @@
 #include <vtkImageData.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
-#include <vtkPointData.h>
+#include <vtkCellData.h>
 #include <vtkSmartPointer.h>
 
 #include <diy/master.hpp>
@@ -15,7 +15,7 @@ namespace oscillators
 class DataAdaptor::DInternals
 {
 public:
-  std::vector<diy::DiscreteBounds> Bounds;
+  std::vector<diy::DiscreteBounds> CellExtents;
   std::vector<float*> Data;
   vtkSmartPointer<vtkMultiBlockDataSet> Mesh;
   std::vector<vtkSmartPointer<vtkImageData> > BlockMesh;
@@ -43,7 +43,7 @@ DataAdaptor::~DataAdaptor()
 void DataAdaptor::Initialize(size_t nblocks)
 {
   DInternals& internals = (*this->Internals);
-  internals.Bounds.resize(nblocks);
+  internals.CellExtents.resize(nblocks);
   internals.Data.resize(nblocks);
   internals.BlockMesh.resize(nblocks);
   this->ReleaseData();
@@ -56,13 +56,13 @@ void DataAdaptor::SetBlockExtent(int gid,
   int zmin, int zmax)
 {
   DInternals& internals = (*this->Internals);
-  internals.Bounds[gid].min[0] = xmin;
-  internals.Bounds[gid].min[1] = ymin;
-  internals.Bounds[gid].min[2] = zmin;
+  internals.CellExtents[gid].min[0] = xmin;
+  internals.CellExtents[gid].min[1] = ymin;
+  internals.CellExtents[gid].min[2] = zmin;
 
-  internals.Bounds[gid].max[0] = xmax;
-  internals.Bounds[gid].max[1] = ymax;
-  internals.Bounds[gid].max[2] = zmax;
+  internals.CellExtents[gid].max[0] = xmax;
+  internals.CellExtents[gid].max[1] = ymax;
+  internals.CellExtents[gid].max[2] = zmax;
 }
 
 //-----------------------------------------------------------------------------
@@ -79,8 +79,8 @@ vtkDataObject* DataAdaptor::GetMesh(bool vtkNotUsed(structure_only))
   if (!internals.Mesh)
     {
     internals.Mesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-    internals.Mesh->SetNumberOfBlocks(static_cast<unsigned int>(internals.Bounds.size()));
-    for (size_t cc=0; cc < internals.Bounds.size(); ++cc)
+    internals.Mesh->SetNumberOfBlocks(static_cast<unsigned int>(internals.CellExtents.size()));
+    for (size_t cc=0; cc < internals.CellExtents.size(); ++cc)
       {
       internals.Mesh->SetBlock(static_cast<unsigned int>(cc), this->GetBlockMesh(cc));
       }
@@ -93,14 +93,14 @@ vtkDataObject* DataAdaptor::GetBlockMesh(int gid)
 {
   DInternals& internals = (*this->Internals);
   vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[gid];
-  const diy::DiscreteBounds& bds = internals.Bounds[gid];
-  if (!blockMesh && areBoundsValid(bds))
+  const diy::DiscreteBounds& cellExts = internals.CellExtents[gid];
+  if (!blockMesh && areBoundsValid(cellExts))
     {
     blockMesh = vtkSmartPointer<vtkImageData>::New();
     blockMesh->SetExtent(
-      bds.min[0], bds.max[0],
-      bds.min[1], bds.max[1],
-      bds.min[2], bds.max[2]);
+      cellExts.min[0], cellExts.max[0]+1,
+      cellExts.min[1], cellExts.max[1]+1,
+      cellExts.min[2], cellExts.max[2]+1);
     }
   return blockMesh;
 }
@@ -108,7 +108,7 @@ vtkDataObject* DataAdaptor::GetBlockMesh(int gid)
 //-----------------------------------------------------------------------------
 bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arrayname)
 {
-  if (association != vtkDataObject::FIELD_ASSOCIATION_POINTS ||
+  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS ||
       arrayname == NULL ||
       strcmp(arrayname, "data") != 0)
     {
@@ -125,15 +125,15 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arr
       continue;
       }
     vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
-    if (vtkPointData* pd = (blockMesh? blockMesh->GetPointData(): NULL))
+    if (vtkCellData* cd = (blockMesh? blockMesh->GetCellData(): NULL))
       {
-      if (pd->GetArray(arrayname) == NULL)
+      if (cd->GetArray(arrayname) == NULL)
         {
         vtkFloatArray* fa = vtkFloatArray::New();
         fa->SetName(arrayname);
-        fa->SetArray(internals.Data[cc], blockMesh->GetNumberOfPoints(), 1);
-        pd->SetScalars(fa);
-        pd->SetActiveScalars("data");
+        fa->SetArray(internals.Data[cc], blockMesh->GetNumberOfCells(), 1);
+        cd->SetScalars(fa);
+        cd->SetActiveScalars("data");
         fa->FastDelete();
         }
       retVal = true;
@@ -147,7 +147,7 @@ void DataAdaptor::ReleaseData()
 {
   DInternals& internals = (*this->Internals);
   internals.Mesh = NULL;
-  for (auto i : internals.Bounds)
+  for (auto i : internals.CellExtents)
     {
     i.min[0] = i.min[1] = i.min[2] = 0;
     i.max[0] = i.max[1] = i.max[2] = -1;

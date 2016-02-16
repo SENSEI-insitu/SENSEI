@@ -46,7 +46,7 @@ namespace catalyst
       }
     }
 
-  vtkSMProxy* CreateViewProxy(const char* group, const char* name)
+  vtkSMViewProxy* CreateViewProxy(const char* group, const char* name)
     {
     vtkSMSessionProxyManager* pxm =
       vtkSMProxyManager::GetProxyManager()->GetActiveSessionProxyManager();
@@ -58,30 +58,14 @@ namespace catalyst
       }
     vtkNew<vtkSMParaViewPipelineController> controller;
     controller->InitializeProxy(proxy);
-    vtkSMPropertyHelper(proxy, "ShowAnnotation", true).Set(1);
-    proxy->UpdateVTKObjects();
     controller->RegisterViewProxy(proxy);
-    return proxy;
+    return vtkSMViewProxy::SafeDownCast(proxy);
     }
 
-  void ShowAndRender(vtkSMSourceProxy* producer, vtkSMProxy* view, double time)
+  vtkSMProxy* Show(vtkSMSourceProxy* producer, vtkSMViewProxy* view)
     {
-    if (vtkSMViewProxy* vp = vtkSMViewProxy::SafeDownCast(view))
-      {
-      vtkSMPropertyHelper(vp, "ViewTime").Set(time);
-      vp->UpdateVTKObjects();
-
-      vtkNew<vtkSMParaViewPipelineControllerWithRendering> controller;
-      vtkSMProxy* repr = controller->Show(producer, 0, vp);
-      vtkSMPVRepresentationProxy::SetScalarColoring(repr, "data", vtkDataObject::POINT);
-      vtkSMPVRepresentationProxy::RescaleTransferFunctionToDataRange(repr);
-      vtkSMPVRepresentationProxy::SetScalarBarVisibility(repr, view, true);
-      if (vtkSMRenderViewProxy* rv = vtkSMRenderViewProxy::SafeDownCast(vp))
-        {
-        rv->ResetCamera();
-        }
-      vp->StillRender();
-      }
+    vtkNew<vtkSMParaViewPipelineControllerWithRendering> controller;
+    return controller->Show(producer, 0, view);
     }
 }
 #endif

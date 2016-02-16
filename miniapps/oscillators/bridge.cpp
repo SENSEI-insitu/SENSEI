@@ -57,7 +57,7 @@ void initialize(MPI_Comm world,
     }
 #ifdef ENABLE_HISTOGRAM
   vtkNew<HistogramAnalysisAdaptor> histogram;
-  histogram->Initialize(world, 10, vtkDataObject::FIELD_ASSOCIATION_POINTS, "data");
+  histogram->Initialize(world, 10, vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   GlobalAnalyses.push_back(histogram.GetPointer());
 #endif
 #ifdef ENABLE_AUTOCORRELATION
@@ -68,7 +68,8 @@ void initialize(MPI_Comm world,
                               domain_shape_x, domain_shape_y, domain_shape_z,
                               gid,
                               from_x, from_y, from_z,
-                              to_x,   to_y,   to_z);
+                              to_x,   to_y,   to_z,
+                              vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   GlobalAnalyses.push_back(autocorrelation.GetPointer());
 #endif
 #ifdef ENABLE_CATALYST
@@ -78,6 +79,7 @@ void initialize(MPI_Comm world,
   vtkNew<vtkCatalystSlicePipeline> slicePipeline;
   slicePipeline->SetSliceOrigin(domain_shape_x/2.0, domain_shape_y/2.0, domain_shape_z/2.0);
   slicePipeline->SetSliceNormal(0, 0, 1);
+  slicePipeline->ColorBy(vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   catalyst->AddPipeline(slicePipeline.GetPointer());
 # endif
 #endif

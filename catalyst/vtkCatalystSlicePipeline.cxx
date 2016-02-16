@@ -17,38 +17,60 @@ public:
   vtkSmartPointer<vtkSMSourceProxy> TrivialProducer;
   vtkSmartPointer<vtkSMSourceProxy> Slice;
   vtkSmartPointer<vtkSMProxy> SlicePlane;
-  vtkSmartPointer<vtkSMProxy> RenderView;
-
+  vtkSmartPointer<vtkSMViewProxy> RenderView;
+  vtkSmartPointer<vtkSMProxy> SliceRepresentation;
   double Origin[3];
   double Normal[3];
+  bool PipelineCreated;
+  int ColorAssociation;
+  std::string ColorArrayName;
+
+  vtkInternals() : PipelineCreated(false), ColorAssociation(0)
+  {
+  }
 
   void UpdatePipeline(vtkDataObject* data, double time)
     {
-    if (!this->TrivialProducer)
+    if (!this->PipelineCreated)
       {
       this->TrivialProducer = catalyst::CreatePipelineProxy("sources", "PVTrivialProducer");
-      }
-    vtkPVTrivialProducer *tp = vtkPVTrivialProducer::SafeDownCast(
-      this->TrivialProducer->GetClientSideObject());
-    tp->SetOutput(data, time);
-    if (!this->Slice)
-      {
+      vtkPVTrivialProducer *tp = vtkPVTrivialProducer::SafeDownCast(
+        this->TrivialProducer->GetClientSideObject());
+      tp->SetOutput(data, time);
+
       this->Slice = catalyst::CreatePipelineProxy("filters", "Cut", this->TrivialProducer);
       vtkSMProxyListDomain* pld = vtkSMProxyListDomain::SafeDownCast(
         this->Slice->GetProperty("CutFunction")->FindDomain("vtkSMProxyListDomain"));
       this->SlicePlane = pld->FindProxy("implicit_functions", "Plane");
       vtkSMPropertyHelper(this->Slice, "CutFunction").Set(this->SlicePlane);
       this->Slice->UpdateVTKObjects();
+
+      this->RenderView = catalyst::CreateViewProxy("views", "RenderView");
+      vtkSMPropertyHelper(this->RenderView, "ShowAnnotation", true).Set(1);
+      this->RenderView->UpdateVTKObjects();
+
+      this->SliceRepresentation = catalyst::Show(this->Slice, this->RenderView);
+      this->PipelineCreated = true;
       }
+    else
+      {
+      vtkPVTrivialProducer *tp = vtkPVTrivialProducer::SafeDownCast(
+        this->TrivialProducer->GetClientSideObject());
+      tp->SetOutput(data, time);
+      }
+
     vtkSMPropertyHelper(this->SlicePlane, "Origin").Set(this->Origin, 3);
     vtkSMPropertyHelper(this->SlicePlane, "Normal").Set(this->Normal, 3);
     this->SlicePlane->UpdateVTKObjects();
 
-    if (!this->RenderView)
-      {
-      this->RenderView = catalyst::CreateViewProxy("views", "RenderView");
-      }
-    catalyst::ShowAndRender(this->Slice, this->RenderView, time);
+    vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
+    this->RenderView->UpdateVTKObjects();
+
+    vtkSMPVRepresentationProxy::SetScalarColoring(
+      this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
+
+    vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
+    this->RenderView->StillRender();
     }
 
 };
@@ -85,6 +107,14 @@ void vtkCatalystSlicePipeline::SetSliceNormal(double x, double y, double z)
   this->Internals->Normal[0] = x;
   this->Internals->Normal[1] = y;
   this->Internals->Normal[2] = z;
+}
+
+//----------------------------------------------------------------------------
+void vtkCatalystSlicePipeline::ColorBy(int association, const char* arrayname)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.ColorArrayName = arrayname? arrayname : "";
+  internals.ColorAssociation = association;
 }
 
 //----------------------------------------------------------------------------

@@ -10,13 +10,15 @@ public:
   static AutocorrelationAnalysisAdaptor* New();
   vtkTypeMacro(AutocorrelationAnalysisAdaptor, vtkInsituAnalysisAdaptor);
 
+
   void Initialize(MPI_Comm world,
                   size_t window,
                   size_t n_local_blocks,
                   int domain_shape_x, int domain_shape_y, int domain_shape_z,
                   int* gid,
                   int* from_x, int* from_y, int* from_z,
-                  int* to_x,   int* to_y,   int* to_z);
+                  int* to_x,   int* to_y,   int* to_z,
+                  int association, const char* arrayname);
   virtual bool Execute(vtkInsituDataAdaptor* data);
 
   void PrintResults(size_t k_max, size_t nblocks);
