@@ -30,7 +30,7 @@ struct GridRef
 
     public:
         template<class Int>
-                GridRef(C* data, const Point<Int,D>& shape, bool c_order = true):
+                GridRef(C* data, const Point<Int,D>& shape, bool c_order = false):
                     data_(data), shape_(shape), c_order_(c_order)   { set_stride(); }
 
                 GridRef(Grid<C,D>& g):
@@ -110,7 +110,7 @@ struct Grid: public GridRef<C,D>
                 Grid():
                     Parent(new C[0], Vertex::zero())            {}
         template<class Int>
-                Grid(const Point<Int, D>& shape, bool c_order = true):
+                Grid(const Point<Int, D>& shape, bool c_order = false):
                     Parent(new C[size(shape)], shape, c_order)
                 {}
 
