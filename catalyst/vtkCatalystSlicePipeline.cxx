@@ -136,6 +136,7 @@ int vtkCatalystSlicePipeline::CoProcess(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int vtkCatalystSlicePipeline::Finalize()
 {
+  return 1;
 }
 
 //----------------------------------------------------------------------------
