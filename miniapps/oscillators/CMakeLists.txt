@@ -18,7 +18,7 @@ add_executable(oscillator ${sources})
 target_compile_options(oscillator PRIVATE "-std=c++11")
 
 # Link with MPI.
-target_link_libraries(oscillator PRIVATE mpi diy grid)
+target_link_libraries(oscillator PRIVATE mpi diy grid opts)
 
 # Threads
 find_package(Threads)

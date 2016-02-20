@@ -5,3 +5,7 @@ target_include_directories(diy
 add_library(grid INTERFACE)
 target_include_directories(grid
   SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(opts INTERFACE)
+target_include_directories(opts
+  SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
