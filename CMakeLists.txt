@@ -29,11 +29,19 @@ option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
 option(ENABLE_AUTOCORRELATION "Enable autocorrelation analysis" ON)
 
-# Options to enable various infrastructures.
+# Options to enable various frameworks.
+
+#------------------------------------------------------------------------------
+# Enable Catalyst and analysis using Catalyst.
 cmake_dependent_option(
   ENABLE_CATALYST "Enable analysis methods that use Catalyst" ON "ENABLE_SENSEI" OFF)
 cmake_dependent_option(
   ENABLE_CATALYST_SLICE "Enable Catalyst Slice analysis" ON "ENABLE_CATALYST" OFF)
+
+#------------------------------------------------------------------------------
+# Enable ADIOS and analysis using Adios
+cmake_dependent_option(
+  ENABLE_ADIOS "Enable analysis methods that use ADIOS" ON "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
 include(mpi)
@@ -77,5 +85,15 @@ else()
 endif()
 
 if(ENABLE_CATALYST)
+  message(STATUS "Enabled: Catalyst")
   add_subdirectory(catalyst)
+else()
+  message(STATUS "Disabled: Catalyst")
+endif()
+
+if(ENABLE_ADIOS)
+  message(STATUS "Enabled: ADIOS")
+  add_subdirectory(adios)
+else()
+  message(STATUS "Disabled: ADIOS")
 endif()
