@@ -48,7 +48,7 @@ void vtkCatalystAnalysisAdaptor::AddPipeline(vtkCPPipeline* pipeline)
 bool vtkCatalystAnalysisAdaptor::Execute(vtkInsituDataAdaptor* dataAdaptor)
 {
   double time = dataAdaptor->GetDataTime();
-  int timeStep=0;
+  int timeStep = dataAdaptor->GetDataTimeStep();
   int coprocessThisTimeStep;
 
   vtkCPInputDataDescription* inputDesc =
