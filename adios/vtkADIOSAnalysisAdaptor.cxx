@@ -14,8 +14,6 @@ vtkStandardNewMacro(vtkADIOSAnalysisAdaptor);
 //----------------------------------------------------------------------------
 vtkADIOSAnalysisAdaptor::vtkADIOSAnalysisAdaptor() : Initialized(false)
 {
-  this->Method = NULL;
-  this->FileName = NULL;
   this->SetMethod("MPI");
   this->SetFileName("sensei.bp");
 }
@@ -61,7 +59,7 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
   adios_init_noxml(MPI_COMM_WORLD);
   adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, 500);
   adios_declare_group(&g_handle, "sensei", "", adios_flag_yes);
-  adios_select_method(g_handle, this->Method, "", "");
+  adios_select_method(g_handle, this->Method.c_str(), "", "");
   adios_define_var(g_handle, "rank", "", adios_integer, "", "", "");
   adios_define_var(g_handle, "mpi_size", "", adios_integer, "", "", "");
 
@@ -121,7 +119,7 @@ void vtkADIOSAnalysisAdaptor::WriteTimestep(vtkInsituDataAdaptor* data)
     sizeof(double)*image->GetNumberOfCells() * data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_CELLS);
   uint64_t total_size;
   int64_t io_handle;
-  adios_open(&io_handle, "sensei", this->FileName, "w", MPI_COMM_WORLD);
+  adios_open(&io_handle, "sensei", this->FileName.c_str(), "w", MPI_COMM_WORLD);
 
   adios_group_size (io_handle, metadata_bytes + array_bytes, &total_size);
   adios_write (io_handle, "rank", &rank);

@@ -2,8 +2,16 @@
 #define vtkADIOSAnalysisAdaptor_h
 
 #include <vtkInsituAnalysisAdaptor.h>
-#include <vtkNew.h>
+#include <string>
 
+/// @brief Analysis adaptor for ADIOS.
+///
+/// vtkADIOSAnalysisAdaptor is an subclass of vtkInsituAnalysisAdaptor. Despite
+/// being called an analysis adaptor, this adaptor doesn't do any analysis. It's
+/// main purpose is to serialize data provided via vtkInsituDataAdaptor using
+/// ADIOS.
+///
+/// \sa vtkADIOSDataAdaptor, ADIOSAnalysisEndPoint
 class vtkADIOSAnalysisAdaptor : public vtkInsituAnalysisAdaptor
 {
 public:
@@ -12,12 +20,16 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Set the ADIOS method e.g. MPI, FLEXPATH etc.
-  vtkSetStringMacro(Method);
-  vtkGetStringMacro(Method);
+  void SetMethod(const std::string &method)
+    { this->Method = method; }
+  std::string GetMethod() const
+    { return this->Method; }
 
   /// @brief Set the filename.
-  vtkSetStringMacro(FileName);
-  vtkGetStringMacro(FileName);
+  void SetFileName(const std::string &filename)
+    { this->FileName = filename; }
+  std::string GetFileName() const
+    { return this->FileName; }
 
   virtual bool Execute(vtkInsituDataAdaptor* data);
 
@@ -29,8 +41,8 @@ protected:
   void InitializeADIOS(vtkInsituDataAdaptor* data);
   void WriteTimestep(vtkInsituDataAdaptor* data);
 
-  char* Method;
-  char* FileName;
+  std::string Method;
+  std::string FileName;
 private:
   vtkADIOSAnalysisAdaptor(const vtkADIOSAnalysisAdaptor&); // Not implemented.
   void operator=(const vtkADIOSAnalysisAdaptor&); // Not implemented.
