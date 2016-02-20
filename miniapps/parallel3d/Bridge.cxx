@@ -8,6 +8,15 @@
 #ifdef ENABLE_HISTOGRAM
 #include "HistogramAnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_ADIOS
+#include <vtkADIOSAnalysisAdaptor.h>
+#endif
+#ifdef ENABLE_CATALYST
+#include <vtkCatalystAnalysisAdaptor.h>
+# ifdef ENABLE_CATALYST_SLICE
+#include <vtkCatalystSlicePipeline.h>
+# endif
+#endif
 
 #include <vector>
 namespace BridgeInternals
@@ -52,13 +61,30 @@ void bridge_initialize(MPI_Comm comm,
 
 #ifdef ENABLE_HISTOGRAM
   vtkNew<HistogramAnalysisAdaptor> histogram[3];
-  histogram[0]->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_POINTS, "pressure");
-  histogram[1]->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_POINTS, "temperature");
-  histogram[2]->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_POINTS, "density");
+  histogram[0]->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_CELLS, "pressure");
+  histogram[1]->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_CELLS, "temperature");
+  histogram[2]->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_CELLS, "density");
 
   BridgeInternals::GlobalAnalyses.push_back(histogram[0].GetPointer());
   BridgeInternals::GlobalAnalyses.push_back(histogram[1].GetPointer());
   BridgeInternals::GlobalAnalyses.push_back(histogram[2].GetPointer());
+#endif
+
+#ifdef ENABLE_ADIOS
+  vtkNew<vtkADIOSAnalysisAdaptor> adios;
+  BridgeInternals::GlobalAnalyses.push_back(adios.GetPointer());
+#endif
+
+#ifdef ENABLE_CATALYST
+  vtkNew<vtkCatalystAnalysisAdaptor> catalyst;
+  BridgeInternals::GlobalAnalyses.push_back(catalyst.GetPointer());
+# ifdef ENABLE_CATALYST_SLICE
+  vtkNew<vtkCatalystSlicePipeline> slicePipeline;
+  slicePipeline->SetSliceOrigin(g_x/2.0, g_y/2.0, g_z/2.0);
+  slicePipeline->SetSliceNormal(0, 0, 1);
+  slicePipeline->ColorBy(vtkDataObject::FIELD_ASSOCIATION_CELLS, "pressure");
+  catalyst->AddPipeline(slicePipeline.GetPointer());
+# endif
 #endif
 }
 

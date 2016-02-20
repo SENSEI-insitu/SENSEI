@@ -51,7 +51,8 @@ protected:
   ArraysType Arrays;
 
   vtkSmartPointer<vtkImageData> Mesh;
-  int Extent[6];
+  int CellExtent[6];
+  int WholeExtent[6];
 private:
   DataAdaptor(const DataAdaptor&); // not implemented.
   void operator=(const DataAdaptor&); // not implemented.

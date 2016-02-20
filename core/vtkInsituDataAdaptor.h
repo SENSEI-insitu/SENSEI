@@ -25,9 +25,11 @@
 #include "vtkObjectBase.h"
 #include "vtkSetGet.h"
 
-class vtkInformation;
-class vtkDataObject;
 class vtkAbstractArray;
+class vtkDataObject;
+class vtkInformation;
+class vtkInformationIntegerKey;
+
 class vtkInsituDataAdaptor : public vtkObjectBase
 {
 public:
@@ -105,6 +107,25 @@ public:
   /// @brief Convenience methods to set the time information.
   static void SetDataTime(vtkInformation*, double time);
 
+  /// @brief Convenience method to get the time index information.
+  int GetDataTimeStep() { return this->GetDataTimeStep(this->Information); }
+
+  /// @brief Convenience method to get the time information.
+  static int GetDataTimeStep(vtkInformation*);
+
+  /// @brief Convenience methods to set the time information.
+  void SetDataTimeStep(int index) { this->SetDataTimeStep(this->Information, index); }
+
+  /// @brief Convenience methods to set the time information.
+  static void SetDataTimeStep(vtkInformation*, int index);
+
+
+  /// @brief convenience method to get full mesh will all arrays added to the
+  /// mesh.
+  vtkDataObject* GetCompleteMesh();
+
+  /// @brief Key to store the timestep index.
+  static vtkInformationIntegerKey* DATA_TIME_STEP_INDEX();
 protected:
   vtkInsituDataAdaptor();
   ~vtkInsituDataAdaptor();

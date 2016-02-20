@@ -48,6 +48,7 @@ void initialize(MPI_Comm world,
                 int* to_x,   int* to_y,   int* to_z)
 {
   GlobalDataAdaptor->Initialize(nblocks);
+  GlobalDataAdaptor->SetDataTimeStep(-1);
   for (size_t cc=0; cc < n_local_blocks; ++cc)
     {
     GlobalDataAdaptor->SetBlockExtent(gid[cc],
@@ -95,6 +96,7 @@ void set_data(int gid, float* data)
 void analyze(float time)
 {
   GlobalDataAdaptor->SetDataTime(time);
+  GlobalDataAdaptor->SetDataTimeStep(GlobalDataAdaptor->GetDataTimeStep() + 1);
   ExecuteGlobalAnalyses();
   GlobalDataAdaptor->ReleaseData();
 }

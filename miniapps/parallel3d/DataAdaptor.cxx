@@ -1,10 +1,11 @@
 #include "DataAdaptor.h"
 
+#include "vtkCellData.h"
 #include "vtkDataObject.h"
 #include "vtkDoubleArray.h"
 #include "vtkImageData.h"
+#include "vtkInformation.h"
 #include "vtkObjectFactory.h"
-#include "vtkPointData.h"
 
 namespace parallel3d
 {
@@ -29,12 +30,22 @@ void DataAdaptor::Initialize(
 {
   // we only really need to save the local extents for our current example. So
   // we'll just save that.
-  this->Extent[0] = start_extents_x;
-  this->Extent[1] = start_extents_x + l_x - 1;
-  this->Extent[2] = start_extents_y;
-  this->Extent[3] = start_extents_y + l_y - 1;
-  this->Extent[4] = start_extents_z;
-  this->Extent[5] = start_extents_z + l_z - 1;
+  this->CellExtent[0] = start_extents_x;
+  this->CellExtent[1] = start_extents_x + l_x - 1;
+  this->CellExtent[2] = start_extents_y;
+  this->CellExtent[3] = start_extents_y + l_y - 1;
+  this->CellExtent[4] = start_extents_z;
+  this->CellExtent[5] = start_extents_z + l_z - 1;
+
+  // This is point-based.
+  this->WholeExtent[0] = 0;
+  this->WholeExtent[1] = g_x;
+  this->WholeExtent[2] = 0;
+  this->WholeExtent[3] = g_y;
+  this->WholeExtent[4] = 0;
+  this->WholeExtent[5] = g_z;
+  this->GetInformation()->Set(vtkDataObject::DATA_EXTENT(),
+    this->WholeExtent, 6);
 }
 
 //-----------------------------------------------------------------------------
@@ -60,7 +71,10 @@ vtkDataObject* DataAdaptor::GetMesh(bool vtkNotUsed(structure_only))
   if (!this->Mesh)
     {
     this->Mesh = vtkSmartPointer<vtkImageData>::New();
-    this->Mesh->SetExtent(this->Extent);
+    this->Mesh->SetExtent(
+      this->CellExtent[0], this->CellExtent[1] + 1,
+      this->CellExtent[2], this->CellExtent[3] + 1,
+      this->CellExtent[4], this->CellExtent[5] + 1);
     }
   return this->Mesh;
 }
@@ -68,7 +82,7 @@ vtkDataObject* DataAdaptor::GetMesh(bool vtkNotUsed(structure_only))
 //-----------------------------------------------------------------------------
 bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* name)
 {
-  if (association != vtkDataObject::FIELD_ASSOCIATION_POINTS || name == NULL)
+  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS || name == NULL)
     {
     return false;
     }
@@ -79,17 +93,21 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* nam
     return false;
     }
 
+  vtkImageData* image = vtkImageData::SafeDownCast(mesh);
+  assert(image != NULL);
+
   ArraysType::iterator iterA = this->Arrays.find(iterV->first);
   if (iterA == this->Arrays.end())
     {
     vtkSmartPointer<vtkDoubleArray>& vtkarray = this->Arrays[iterV->first];
     vtkarray = vtkSmartPointer<vtkDoubleArray>::New();
     vtkarray->SetName(name);
-    const vtkIdType size = (this->Extent[1] - this->Extent[0] + 1) *
-      (this->Extent[3] - this->Extent[2] + 1) *
-      (this->Extent[5] - this->Extent[4] + 1);
+    const vtkIdType size = (this->CellExtent[1] - this->CellExtent[0] + 1) *
+      (this->CellExtent[3] - this->CellExtent[2] + 1) *
+      (this->CellExtent[5] - this->CellExtent[4] + 1);
+    assert(size == image->GetNumberOfCells());
     vtkarray->SetArray(iterV->second, size, 1);
-    vtkImageData::SafeDownCast(mesh)->GetPointData()->SetScalars(vtkarray);
+    vtkImageData::SafeDownCast(mesh)->GetCellData()->SetScalars(vtkarray);
     return true;
     }
   return true;
@@ -98,14 +116,14 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* nam
 //-----------------------------------------------------------------------------
 unsigned int DataAdaptor::GetNumberOfArrays(int association)
 {
-  return (association == vtkDataObject::FIELD_ASSOCIATION_POINTS)?
+  return (association == vtkDataObject::FIELD_ASSOCIATION_CELLS)?
     static_cast<unsigned int>(this->Variables.size()): 0;
 }
 
 //-----------------------------------------------------------------------------
 const char* DataAdaptor::GetArrayName(int association, unsigned int index)
 {
-  if (association != vtkDataObject::FIELD_ASSOCIATION_POINTS)
+  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS)
     {
     return NULL;
     }
