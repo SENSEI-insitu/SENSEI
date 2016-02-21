@@ -6,9 +6,9 @@ routines.
 
 Directory Structure
 -------------------
-
     - CMake/
     - core/
+    - adios/
     - catalyst/
     - analysis/
         - autocorrelation/
@@ -72,6 +72,28 @@ containing ParaViewConfig.cmake file. After enabling, you can explcitly enable/d
 * **ENABLE_CATALYST_SLICE**: (ON/OFF) Set to ON to enable a simple Catalyst analysis and visualization pipeline that slices the
 dataset and then renders it using pseudo coloring. This option is only available when **ENABLE_CATALYST** is ON.
 
+* **ENABLE_ADIOS**: (ON/OFF) Set to ON to enable ADIOS components. When enabled,
+this generates a **ADIOSAnalysisEndPoint** that can be used as an endpoint components
+that reads data being serialized by the ADIOS analysis adaptor and pass it back
+into a `Sensei` bridge for further analysis.
+
+The following table makes it easier to understand the current status of what analyis routines are supported
+by which app.
+
+| App | Histogram (B) | Histogram (S) | Autocorrelation (B) | Autocorrelation (S) | Slice (C) | ADIOS Serialization (A) |
+|-----|:-------------:|:-------------:|:-------------------:|:-------------------:|:---------:|:-----------------------:|
+| 3D_Grid / Parallel3D | x         | x             |                     |                     | x         | x                       |
+| Oscillators |       | x             | x                   | x                   | x         |                         |
+| ADIOSAnalysisEndPoint | | x         |                     |                     | x         |                         |
+
+Legend:
+* (B) : basic i.e. used when ENABLE_SENSEI is OFF
+* (S) : requires ENABLE_SENSEI to be ON
+* (C) : requires ENABLE_SENSEI and ENABLE_CATALYST to be ON
+* (A) : requires ENABLE_SENSE and ENABLE_ADIOS to be ON
+
+
+
 Typical build usage:
 
     make build
@@ -87,4 +109,5 @@ Details on each of the miniapps are as follows:
 
 * [Parallel3D](miniapps/parallel3d/README.md)
 * [Oscillators](miniapps/oscillators/README.md)
+
 
