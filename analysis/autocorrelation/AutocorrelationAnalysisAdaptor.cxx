@@ -1,10 +1,14 @@
 #include "AutocorrelationAnalysisAdaptor.h"
 
+#include <vtkCompositeDataIterator.h>
 #include <vtkFieldData.h>
 #include <vtkFloatArray.h>
+#include <vtkImageData.h>
 #include <vtkInsituDataAdaptor.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
+#include <vtkSmartPointer.h>
+#include <vtkStructuredData.h>
 
 #include <memory>
 #include <vector>
@@ -100,7 +104,59 @@ public:
   std::unique_ptr<diy::Master> Master;
   int Association;
   std::string ArrayName;
-  AInternals() : Association(vtkDataObject::POINT) {}
+  size_t Window;
+  bool BlocksInitialized;
+  AInternals() : Association(vtkDataObject::POINT), Window(10), BlocksInitialized(false) {}
+
+  void InitializeBlocks(vtkDataObject* dobj)
+    {
+    if (this->BlocksInitialized)
+      {
+      return;
+      }
+    if (vtkImageData* img = vtkImageData::SafeDownCast(dobj))
+      {
+      int ext[6];
+      img->GetExtent(ext);
+      if (this->Association == vtkDataObject::CELL)
+        {
+        vtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
+        }
+      Vertex from { ext[0], ext[2], ext[4] };
+      Vertex to   { ext[1], ext[3], ext[5] };
+      int bid = this->Master->communicator().rank();
+      Autocorrelation* b = new Autocorrelation(this->Window, bid, from, to);
+      this->Master->add(bid, b, new diy::Link);
+      }
+    else if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
+      {
+      // add blocks
+      int rank = this->Master->communicator().rank();
+      vtkSmartPointer<vtkCompositeDataIterator> iter;
+      iter.TakeReference(cd->NewIterator());
+      iter->SkipEmptyNodesOff();
+
+      int bid = 0;
+      for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), ++bid)
+        {
+        if (vtkImageData* id = vtkImageData::SafeDownCast(iter->GetCurrentDataObject()))
+          {
+          int ext[6];
+          id->GetExtent(ext);
+          if (this->Association == vtkDataObject::CELL)
+            {
+            vtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
+            }
+          Vertex from { ext[0], ext[2], ext[4] };
+          Vertex to   { ext[1], ext[3], ext[5] };
+
+          Autocorrelation* b = new Autocorrelation(this->Window, bid, from, to);
+          this->Master->add(bid, b, new diy::Link);
+          }
+        }
+      }
+    this->BlocksInitialized = true;
+    }
 };
 
 vtkStandardNewMacro(AutocorrelationAnalysisAdaptor);
@@ -119,27 +175,15 @@ AutocorrelationAnalysisAdaptor::~AutocorrelationAnalysisAdaptor()
 //-----------------------------------------------------------------------------
 void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
   size_t window,
-  size_t n_local_blocks,
-  int domain_shape_x, int domain_shape_y, int domain_shape_z,
-  int* gid,
-  int* from_x, int* from_y, int* from_z,
-  int* to_x,   int* to_y,   int* to_z,
   int association, const char* arrayname)
 {
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
                                               &Autocorrelation::create,
                                               &Autocorrelation::destroy);
-  // add blocks, one for each gid
-  for (size_t i = 0; i < n_local_blocks; ++i)
-    {
-    Vertex from { from_x[i], from_y[i], from_z[i] };
-    Vertex to   { to_x[i],   to_y[i],   to_z[i] };
-    Autocorrelation* b = new Autocorrelation(window, gid[i], from, to);
-    internals.Master->add(gid[i], b, new diy::Link);
-    }
   internals.Association = association;
   internals.ArrayName = arrayname;
+  internals.Window = window;
 }
 
 //-----------------------------------------------------------------------------
@@ -154,6 +198,9 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
     {
     return false;
     }
+
+  internals.InitializeBlocks(mesh);
+
   vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
   if (md == NULL)
     {
