@@ -94,14 +94,16 @@ bool vtkCatalystAnalysisAdaptor::FillDataDescriptionWithData(
 {
   bool structure_only = desc->GetGenerateMesh()? false : true;
   vtkDataObject* mesh = dA->GetMesh(structure_only);
-  for (unsigned int cc=0, max=desc->GetNumberOfFields(); cc<max; ++cc)
+
+  for (int attr=vtkDataObject::POINT; attr<=vtkDataObject::CELL; ++attr)
     {
-    const char* fieldName = desc->GetFieldName(cc);
-    if (desc->IsFieldNeeded(fieldName))
+    for (unsigned int cc=0, max=dA->GetNumberOfArrays(attr); cc < max; ++cc)
       {
-      dA->AddArray(mesh,
-        desc->IsFieldPointData(fieldName)? vtkDataObject::POINT : vtkDataObject::CELL,
-        fieldName);
+      const char* aname = dA->GetArrayName(attr, cc);
+      if (desc->GetAllFields() || desc->IsFieldNeeded(aname))
+        {
+        dA->AddArray(mesh, attr, aname);
+        }
       }
     }
   desc->SetGrid(mesh);

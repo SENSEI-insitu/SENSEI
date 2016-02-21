@@ -47,6 +47,7 @@ public:
 
       this->RenderView = catalyst::CreateViewProxy("views", "RenderView");
       vtkSMPropertyHelper(this->RenderView, "ShowAnnotation", true).Set(1);
+      vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
       this->RenderView->UpdateVTKObjects();
 
       this->SliceRepresentation = catalyst::Show(this->Slice, this->RenderView);
