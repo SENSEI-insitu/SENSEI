@@ -82,9 +82,9 @@ by which app.
 
 | App | Histogram (B) | Histogram (S) | Autocorrelation (B) | Autocorrelation (S) | Slice (C) | ADIOS Serialization (A) |
 |-----|:-------------:|:-------------:|:-------------------:|:-------------------:|:---------:|:-----------------------:|
-| 3D_Grid / Parallel3D | x         | x             |                     |                     | x         | x                       |
+| 3D_Grid / Parallel3D | x   | x      |                     |                     | x         | x                       |
 | Oscillators |       | x             | x                   | x                   | x         |                         |
-| ADIOSAnalysisEndPoint | | x         |                     |                     | x         |                         |
+| ADIOSAnalysisEndPoint | | x         |                     | x                   | x         |                         |
 
 Legend:
 * (B) : basic i.e. used when ENABLE_SENSEI is OFF
