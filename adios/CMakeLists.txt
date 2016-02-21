@@ -1,5 +1,7 @@
 set(sources
-  vtkADIOSAnalysisAdaptor.cxx)
+  vtkADIOSAnalysisAdaptor.cxx
+  vtkADIOSDataAdaptor.cxx
+  )
 
 #------------------------------------------------------------------------------
 find_package(ADIOS 1.9 REQUIRED)
@@ -12,4 +14,20 @@ target_link_libraries(adios PRIVATE ${ADIOS_LIBRARIES} PUBLIC core PRIVATE mpi)
 target_compile_definitions(adios INTERFACE ENABLE_ADIOS)
 if(ADIOS_DEFINITIONS)
   target_compile_definitions(adios PRIVATE ${ADIOS_DEFINITIONS})
+endif()
+
+#------------------------------------------------------------------------------
+add_executable(ADIOSAnalysisEndPoint ADIOSAnalysisEndPoint.cxx)
+target_link_libraries(ADIOSAnalysisEndPoint PRIVATE adios opts mpi ${ADIOS_LIBRARIES})
+target_include_directories(ADIOSAnalysisEndPoint SYSTEM PRIVATE ${ADIOS_INCLUDE_DIRS})
+if(ADIOS_DEFINITIONS)
+  target_compile_definitions(ADIOSAnalysisEndPoint PRIVATE ${ADIOS_DEFINITIONS})
+endif()
+
+
+if(ENABLE_HISTOGRAM)
+  target_link_libraries(ADIOSAnalysisEndPoint PRIVATE histogram)
+endif()
+if(ENABLE_CATALYST)
+  target_link_libraries(ADIOSAnalysisEndPoint PRIVATE catalyst)
 endif()

@@ -21,8 +21,6 @@ vtkADIOSAnalysisAdaptor::vtkADIOSAnalysisAdaptor() : Initialized(false)
 //----------------------------------------------------------------------------
 vtkADIOSAnalysisAdaptor::~vtkADIOSAnalysisAdaptor()
 {
-  this->SetMethod(NULL);
-  this->SetFileName(NULL);
 }
 
 //----------------------------------------------------------------------------
@@ -83,19 +81,24 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
 
   for (unsigned int cc=0, max=data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_POINTS); cc < max; ++cc)
     {
-    adios_define_var(g_handle, data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_POINTS, cc), "",
+		std::string prefix("pointcentered/");
+    adios_define_var(g_handle,
+			(prefix + data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_POINTS, cc)).c_str(), "",
       adios_double /*FIXME, assume double for now*/,
       "local_point_array_size", "total_point_array_size", "local_point_array_offset");
     }
   for (unsigned int cc=0, max=data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_CELLS); cc < max; ++cc)
     {
-    adios_define_var(g_handle, data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_CELLS, cc), "",
+		std::string prefix("cellcentered/");
+    adios_define_var(g_handle,
+			(prefix + data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_CELLS, cc)).c_str(), "",
       adios_double /*FIXME, assume double for now*/,
       "local_cell_array_size", "total_cell_array_size", "local_cell_array_offset");
     }
 
   // define the timestep.
   adios_define_var (g_handle, "ntimestep", "", adios_unsigned_long, "", "", "");
+  adios_define_var (g_handle, "time", "", adios_double, "", "", "");
 
   this->Initialized=true;
 }
@@ -112,14 +115,15 @@ void vtkADIOSAnalysisAdaptor::WriteTimestep(vtkInsituDataAdaptor* data)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   int64_t metadata_bytes = 2*sizeof(int)  + 6*sizeof(int) + 6*sizeof(int)
-    + 2*3*sizeof(double) + 6*sizeof(unsigned long);
+    + 2*3*sizeof(double) + 6*sizeof(unsigned long) +
+		+ sizeof(unsigned long) + sizeof(double);
   int64_t array_bytes =
     sizeof(double)*image->GetNumberOfPoints() * data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_POINTS);
   array_bytes +=
     sizeof(double)*image->GetNumberOfCells() * data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_CELLS);
   uint64_t total_size;
   int64_t io_handle;
-  adios_open(&io_handle, "sensei", this->FileName.c_str(), "w", MPI_COMM_WORLD);
+  adios_open(&io_handle, "sensei", this->FileName.c_str(), "a", MPI_COMM_WORLD);
 
   adios_group_size (io_handle, metadata_bytes + array_bytes, &total_size);
   adios_write (io_handle, "rank", &rank);
@@ -147,15 +151,20 @@ void vtkADIOSAnalysisAdaptor::WriteTimestep(vtkInsituDataAdaptor* data)
   adios_write(io_handle, "local_cell_array_offset", &local_cell_array_offset);
 
   int timestep = data->GetDataTimeStep();
-  adios_write (io_handle, "ntimestep", &timestep);
+  adios_write(io_handle, "ntimestep", &timestep);
+	double time = data->GetDataTime();
+	adios_write(io_handle, "time", &time);
   for (int attr=vtkDataObject::FIELD_ASSOCIATION_POINTS; attr <= vtkDataObject::FIELD_ASSOCIATION_CELLS; ++attr)
     {
+		std::string prefix(attr == vtkDataObject::FIELD_ASSOCIATION_POINTS?
+			"pointcentered/" : "cellcentered/");
+
     vtkDataSetAttributes* dsa = image->GetAttributes(attr);
     for (int cc=0, max=dsa->GetNumberOfArrays(); cc<max; ++cc)
       {
       if (vtkDoubleArray* da = vtkDoubleArray::SafeDownCast(dsa->GetArray(cc)))
         {
-        adios_write(io_handle, da->GetName(), da->GetPointer(0));
+        adios_write(io_handle, (prefix + da->GetName()).c_str(), da->GetPointer(0));
         }
       }
     }

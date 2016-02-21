@@ -20,12 +20,16 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Set the ADIOS method e.g. MPI, FLEXPATH etc.
+  ///
+  /// Default value is "MPI".
   void SetMethod(const std::string &method)
     { this->Method = method; }
   std::string GetMethod() const
     { return this->Method; }
 
   /// @brief Set the filename.
+  ///
+  /// Default value is "sensei.bp"
   void SetFileName(const std::string &filename)
     { this->FileName = filename; }
   std::string GetFileName() const
