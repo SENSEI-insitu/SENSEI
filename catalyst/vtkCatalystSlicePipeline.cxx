@@ -76,14 +76,17 @@ public:
 
     vtkSMPVRepresentationProxy::SetScalarColoring(
       this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
-    vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(this->SliceRepresentation);
-    double range[2], grange[2];
-    ai->GetComponentRange(-1, range);
-    range[0] *= -1; // make range[0] negative to simplify reduce.
-    vtkMultiProcessController::GetGlobalController()->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
-    grange[0] *= -1;
-    vtkSMTransferFunctionProxy::RescaleTransferFunction(
-      vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), grange[0], grange[1]);
+    if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
+      this->SliceRepresentation))
+      {
+      double range[2], grange[2];
+      ai->GetComponentRange(-1, range);
+      range[0] *= -1; // make range[0] negative to simplify reduce.
+      vtkMultiProcessController::GetGlobalController()->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
+      grange[0] *= -1;
+      vtkSMTransferFunctionProxy::RescaleTransferFunction(
+        vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), grange[0], grange[1]);
+      }
     vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
     this->RenderView->StillRender();
     }
