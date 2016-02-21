@@ -9,3 +9,10 @@ target_include_directories(grid
 add_library(opts INTERFACE)
 target_include_directories(opts
   SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(pugixml STATIC
+  pugixml/src/pugixml.cpp
+  pugixml/src/pugixml.hpp
+  pugixml/src/pugiconfig.hpp)
+target_include_directories(pugixml
+  SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/pugixml/src)
