@@ -93,7 +93,7 @@ public:
       MPI_Allreduce(&this->Range[1], &g_range[1], 1, MPI_DOUBLE, MPI_MAX, comm);
       this->Range[0] = g_range[0];
       this->Range[1] = g_range[1];
-      this->Worker = new HistogramWorker(g_range, bins);
+      this->Worker = new HistogramWorker(this->Range, bins);
       }
 
     void Compute(vtkDataArray* da)
