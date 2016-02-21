@@ -1,16 +1,30 @@
 #include "vtkADIOSDataAdaptor.h"
 
+#include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
-#include <vtkCompositeDataIterator.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 
 namespace internals
 {
+  vtkDataArray* createVTKArray(ADIOS_DATATYPES type)
+    {
+    switch (type)
+      {
+    case adios_real:
+      return vtkFloatArray::New();
+    case adios_double:
+      return vtkDoubleArray::New();
+    default:
+      abort();
+      }
+    }
+
   vtkSmartPointer<vtkDataSet> ReadBlockMetaData(int blockno, ADIOS_FILE* file)
     {
     vtkSmartPointer<vtkImageData> img = vtkSmartPointer<vtkImageData>::New();
@@ -64,16 +78,20 @@ namespace internals
       "block/celldata/" : "block/pointdata";
     path += arrayname;
 
-    vtkDoubleArray* vtkarray = vtkDoubleArray::New();
+    ADIOS_VARINFO* varinfo = adios_inq_var(file, path.c_str());
+    vtkDataArray* vtkarray = createVTKArray(varinfo->type);
+    adios_free_varinfo(varinfo);
+
     vtkarray->SetName(arrayname);
     vtkarray->SetNumberOfTuples(
       association == vtkDataObject::FIELD_ASSOCIATION_POINTS?
       ds->GetNumberOfPoints() : ds->GetNumberOfCells());
 
     ADIOS_SELECTION* selection = adios_selection_writeblock(block);
-    adios_schedule_read(file, selection, path.c_str(), 0, 1, vtkarray->GetPointer(0));
+    adios_schedule_read(file, selection, path.c_str(), 0, 1, vtkarray->GetVoidPointer(0));
     ds->GetAttributes(association)->AddArray(vtkarray);
     vtkarray->FastDelete();
+    vtkarray->Modified();
     return true;
     }
 }
