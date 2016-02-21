@@ -8,11 +8,12 @@ Directory Structure
 -------------------
     - CMake/
     - core/
-    - adios/
-    - catalyst/
     - analysis/
         - autocorrelation/
         - histogram/
+    - infrastuctures/
+        - adios/
+        - catalyst/
     - miniapps/
         - oscillators/
         - parallel3d/
