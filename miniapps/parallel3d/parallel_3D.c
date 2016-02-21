@@ -212,7 +212,13 @@ int main(int argc, char **argv)
 
 #ifdef ENABLE_SENSEI
 
-  bridge_update(pressure, temperature, density);
+    {
+    int cc=0;
+    for (cc=0; cc < 5; cc++)
+      {
+      bridge_update(cc, cc*10.0, pressure, temperature, density);
+      }
+    }
 
 #else
 # ifdef ENABLE_HISTOGRAM

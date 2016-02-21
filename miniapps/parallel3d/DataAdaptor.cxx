@@ -107,7 +107,7 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* nam
       (this->CellExtent[5] - this->CellExtent[4] + 1);
     assert(size == image->GetNumberOfCells());
     vtkarray->SetArray(iterV->second, size, 1);
-    vtkImageData::SafeDownCast(mesh)->GetCellData()->SetScalars(vtkarray);
+    vtkImageData::SafeDownCast(mesh)->GetCellData()->AddArray(vtkarray);
     return true;
     }
   return true;

@@ -89,8 +89,10 @@ void bridge_initialize(MPI_Comm comm,
 }
 
 //-----------------------------------------------------------------------------
-void bridge_update(double *pressure, double* temperature, double* density)
+void bridge_update(int tstep, double time, double *pressure, double* temperature, double* density)
 {
+  BridgeInternals::GlobalDataAdaptor->SetDataTime(time);
+  BridgeInternals::GlobalDataAdaptor->SetDataTimeStep(tstep);
   BridgeInternals::GlobalDataAdaptor->AddArray("pressure", pressure);
   BridgeInternals::GlobalDataAdaptor->AddArray("temperature", temperature);
   BridgeInternals::GlobalDataAdaptor->AddArray("density", density);

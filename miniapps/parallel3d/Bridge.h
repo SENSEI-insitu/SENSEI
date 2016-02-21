@@ -19,7 +19,7 @@ extern "C" {
     int bins);
 
   /// Called per timestep in the simulation loop
-  void bridge_update(double *pressure, double* temperature, double* density);
+  void bridge_update(int tstep, double time, double *pressure, double* temperature, double* density);
 
   /// Called just before simulation terminates.
   void bridge_finalize();
