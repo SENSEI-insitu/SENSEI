@@ -72,6 +72,7 @@ void bridge_initialize(MPI_Comm comm,
 
 #ifdef ENABLE_ADIOS
   vtkNew<vtkADIOSAnalysisAdaptor> adios;
+  adios->SetFileName("3D_Grid.bp");
   BridgeInternals::GlobalAnalyses.push_back(adios.GetPointer());
 #endif
 
