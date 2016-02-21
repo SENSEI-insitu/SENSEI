@@ -5,6 +5,7 @@
 #include <vtkCompositeDataSet.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkInsituDataAdaptor.h>
@@ -18,6 +19,19 @@
 #include <vector>
 namespace internals
 {
+  ADIOS_DATATYPES adiosType(vtkDataArray* da)
+    {
+    if (vtkFloatArray::SafeDownCast(da))
+      {
+      return adios_real;
+      }
+    if (vtkDoubleArray::SafeDownCast(da))
+      {
+      return adios_double;
+      }
+    // TODO:
+    abort();
+    }
   int64_t CountBlocks(vtkCompositeDataSet* cd, bool skip_null)
     {
     vtkSmartPointer<vtkCompositeDataIterator> iter;
@@ -43,17 +57,20 @@ namespace internals
     return cd? CountBlocks(cd, true) : 1;
     }
 
-  void define_attribute_data_vars(vtkInsituDataAdaptor* data, int blockno, int association,
+  void define_attribute_data_vars(vtkDataSet* ds, int blockno, int association,
     int64_t g_handle, const char* c_prefix, const char* ldims, const char* gdims, const char* offsets,
     int64_t& databytes)
     {
+    vtkDataSetAttributes* dsa = ds->GetAttributes(association);
     std::string prefix(c_prefix);
-    for (unsigned int cc=0, max=data->GetNumberOfArrays(association); cc<max;++cc)
+    for (unsigned int cc=0, max=dsa->GetNumberOfArrays(); cc<max;++cc)
       {
-      const char* aname = data->GetArrayName(association, cc);
-      adios_define_var(g_handle, (prefix + aname).c_str(), "",
-        adios_double, // FIXME: need to determine correct type.
-        ldims, gdims, offsets);
+      if (vtkDataArray* da = dsa->GetArray(cc))
+        {
+        const char* aname = da->GetName();
+        adios_define_var(g_handle, (prefix + aname).c_str(), "",
+          adiosType(da), ldims, gdims, offsets);
+        }
       }
     }
 
@@ -63,11 +80,11 @@ namespace internals
     vtkDataSetAttributes* dsa = ds->GetAttributes(association);
     for (unsigned int cc=0, max=dsa->GetNumberOfArrays(); cc<max; ++cc)
       {
-      vtkDoubleArray* da = vtkDoubleArray::SafeDownCast(dsa->GetArray(cc));
-      assert(da);
-
-      const char* aname = da->GetName();
-      adios_write(io_handle, (prefix + aname).c_str(), da->GetPointer(0));
+      if (vtkDataArray* da = dsa->GetArray(cc))
+        {
+        const char* aname = da->GetName();
+        adios_write(io_handle, (prefix + aname).c_str(), da->GetVoidPointer(0));
+        }
       }
     }
 
@@ -180,13 +197,6 @@ vtkADIOSAnalysisAdaptor::~vtkADIOSAnalysisAdaptor()
 bool vtkADIOSAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 {
   vtkDataObject* mesh = data->GetCompleteMesh();
-  vtkImageData* image = vtkImageData::SafeDownCast(mesh);
-  if (!image)
-    {
-    vtkGenericWarningMacro("We currently only support image data.");
-    return false;
-    }
-
   this->InitializeADIOS(data);
   this->WriteTimestep(data);
   return true;
@@ -210,6 +220,7 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
   vtkDataObject* structure = data->GetMesh(/*structure_only*/ true);
   int64_t local_blocks = internals::CountLocalBlocks(structure);
   int64_t total_blocks = internals::CountTotalBlocks(structure);
+  vtkDataSet* ds = internals::GetRepresentativeBlock(structure);
 
 
   int64_t databytes = 0;
@@ -243,9 +254,9 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
     adios_define_var(g_handle, "block/offset_points", "", adios_unsigned_long, "", "", ""); databytes += 6*sizeof(int64_t);
     adios_define_var(g_handle, "block/offset_cells", "", adios_unsigned_long, "", "", ""); databytes += 6*sizeof(int64_t);
 
-    internals::define_attribute_data_vars(data, block, vtkDataObject::POINT, g_handle,
+    internals::define_attribute_data_vars(ds, block, vtkDataObject::POINT, g_handle,
       "block/pointdata/", "block/num_points", "num_points", "block/offset_points", databytes);
-    internals::define_attribute_data_vars(data, block, vtkDataObject::CELL, g_handle,
+    internals::define_attribute_data_vars(ds, block, vtkDataObject::CELL, g_handle,
       "block/celldata/", "block/num_cells", "num_cells", "block/offset_cells", databytes);
     }
 

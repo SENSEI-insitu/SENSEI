@@ -14,6 +14,9 @@
 #include <vtkCatalystSlicePipeline.h>
 # endif
 #endif
+#ifdef ENABLE_ADIOS
+#include <vtkADIOSAnalysisAdaptor.h>
+#endif
 #include <vtkDataObject.h>
 #include <vtkInsituAnalysisAdaptor.h>
 #include <vtkNew.h>
@@ -65,11 +68,6 @@ void initialize(MPI_Comm world,
   vtkNew<AutocorrelationAnalysisAdaptor> autocorrelation;
   autocorrelation->Initialize(world,
                               window,
-                              n_local_blocks,
-                              domain_shape_x, domain_shape_y, domain_shape_z,
-                              gid,
-                              from_x, from_y, from_z,
-                              to_x,   to_y,   to_z,
                               vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   GlobalAnalyses.push_back(autocorrelation.GetPointer());
 #endif
@@ -84,6 +82,13 @@ void initialize(MPI_Comm world,
   catalyst->AddPipeline(slicePipeline.GetPointer());
 # endif
 #endif
+
+#ifdef ENABLE_ADIOS
+  vtkNew<vtkADIOSAnalysisAdaptor> adios;
+  adios->SetFileName("oscillators.bp");
+  GlobalAnalyses.push_back(adios.GetPointer());
+#endif
+
 }
 
 //-----------------------------------------------------------------------------

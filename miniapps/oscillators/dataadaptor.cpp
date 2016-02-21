@@ -46,6 +46,15 @@ void DataAdaptor::Initialize(size_t nblocks)
   internals.CellExtents.resize(nblocks);
   internals.Data.resize(nblocks);
   internals.BlockMesh.resize(nblocks);
+  for (size_t cc=0; cc < nblocks; cc++)
+    {
+    internals.CellExtents[cc].min[0] = 0;
+    internals.CellExtents[cc].min[1] = 0;
+    internals.CellExtents[cc].min[2] = 0;
+    internals.CellExtents[cc].max[0] = -1;
+    internals.CellExtents[cc].max[1] = -1;
+    internals.CellExtents[cc].max[2] = -1;
+    }
   this->ReleaseData();
 }
 
