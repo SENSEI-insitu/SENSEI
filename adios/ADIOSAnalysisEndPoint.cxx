@@ -25,6 +25,9 @@
 #include <vtkCatalystSlicePipeline.h>
 # endif
 #endif
+#ifdef ENABLE_AUTOCORRELATION
+#include <AutocorrelationAnalysisAdaptor.h>
+#endif
 
 using std::cout;
 using std::cerr;
@@ -52,6 +55,14 @@ int main(int argc, char** argv)
 #ifdef ENABLE_CATALYST_SLICE
   std::string colorarray;
   ops >> opts::Option('c', "color", colorarray, "cell array to color the slice with");
+#endif
+#ifdef ENABLE_AUTOCORRELATION
+  std::string acarrary;
+  int window = 10;
+  int k_max = 3;
+  ops >> opts::Option('a', "autocorrelation", acarrary, "cell array to use for computing autocorrelation");
+  ops >> opts::Option('w', "window", window, "autocorrelation window size");
+  ops >> opts::Option('k', "k-max",  k_max, "number of strongest autocorrelations to report");
 #endif
   if (ops >> opts::Present('h', "help", "show help") ||
     !(ops >> opts::PosOption(input)))
@@ -94,6 +105,17 @@ int main(int argc, char** argv)
 # endif
 #endif
 
+#ifdef ENABLE_AUTOCORRELATION
+  vtkSmartPointer<AutocorrelationAnalysisAdaptor> autocorrelation;
+  if (!acarrary.empty())
+    {
+    autocorrelation = vtkSmartPointer<AutocorrelationAnalysisAdaptor>::New();
+    autocorrelation->Initialize(comm, window,
+      vtkDataObject::FIELD_ASSOCIATION_CELLS, acarrary.c_str());
+    analyses.push_back(autocorrelation.GetPointer());
+    }
+#endif
+
   vtkNew<vtkADIOSDataAdaptor> dataAdaptor;
   dataAdaptor->Open(comm, readmethods[readmethod], input);
   do
@@ -131,5 +153,11 @@ int main(int argc, char** argv)
     dataAdaptor->ReleaseData();
     }
   while (dataAdaptor->Advance());
+#ifdef ENABLE_AUTOCORRELATION
+  if (autocorrelation)
+    {
+    autocorrelation->PrintResults(k_max);
+    }
+#endif
   return 0;
 }

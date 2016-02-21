@@ -114,7 +114,7 @@ void finalize(size_t k_max, size_t nblocks)
     {
     if (AutocorrelationAnalysisAdaptor* aca = AutocorrelationAnalysisAdaptor::SafeDownCast(a))
       {
-      aca->PrintResults(k_max, nblocks);
+      aca->PrintResults(k_max);
       }
     }
 #endif

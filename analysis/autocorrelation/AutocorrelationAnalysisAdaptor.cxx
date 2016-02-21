@@ -106,7 +106,8 @@ public:
   std::string ArrayName;
   size_t Window;
   bool BlocksInitialized;
-  AInternals() : Association(vtkDataObject::POINT), Window(10), BlocksInitialized(false) {}
+  size_t NumberOfBlocks;
+  AInternals() : Association(vtkDataObject::POINT), Window(10), BlocksInitialized(false), NumberOfBlocks(0) {}
 
   void InitializeBlocks(vtkDataObject* dobj)
     {
@@ -127,11 +128,11 @@ public:
       int bid = this->Master->communicator().rank();
       Autocorrelation* b = new Autocorrelation(this->Window, bid, from, to);
       this->Master->add(bid, b, new diy::Link);
+      this->NumberOfBlocks = this->Master->communicator().size();
       }
     else if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
       {
       // add blocks
-      int rank = this->Master->communicator().rank();
       vtkSmartPointer<vtkCompositeDataIterator> iter;
       iter.TakeReference(cd->NewIterator());
       iter->SkipEmptyNodesOff();
@@ -154,6 +155,7 @@ public:
           this->Master->add(bid, b, new diy::Link);
           }
         }
+      this->NumberOfBlocks = bid;
       }
     this->BlocksInitialized = true;
     }
@@ -201,33 +203,60 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 
   internals.InitializeBlocks(mesh);
 
-  vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
-  if (md == NULL)
-    {
-    return false;
-    }
 
-  for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
+  if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(mesh))
     {
-    if (vtkDataObject* dataObj = md->GetBlock(cc))
+    vtkSmartPointer<vtkCompositeDataIterator> iter;
+    iter.TakeReference(cd->NewIterator());
+    iter->SkipEmptyNodesOff();
+
+    int bid = 0;
+    for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), ++bid)
       {
-      int lid = internals.Master->lid(static_cast<int>(cc));
-      Autocorrelation* corr = internals.Master->block<Autocorrelation>(lid);
-      vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
-        dataObj->GetAttributesAsFieldData(association)->GetArray(arrayname));
-      if (fa)
+      if (vtkDataSet* dataObj = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
         {
-        corr->process(fa->GetPointer(0));
+        int lid = internals.Master->lid(static_cast<int>(bid));
+        Autocorrelation* corr = internals.Master->block<Autocorrelation>(lid);
+        vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
+          dataObj->GetAttributesAsFieldData(association)->GetArray(arrayname));
+        if (fa)
+          {
+          corr->process(fa->GetPointer(0));
+          }
+        else
+          {
+          cerr <<"Current implementation only supports float arrays" << endl;
+          abort();
+          }
         }
+      }
+    }
+  else if (vtkDataSet* ds = vtkDataSet::SafeDownCast(mesh))
+    {
+    int bid = internals.Master->communicator().rank();
+    int lid = internals.Master->lid(static_cast<int>(bid));
+    Autocorrelation* corr = internals.Master->block<Autocorrelation>(lid);
+    vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
+      ds->GetAttributesAsFieldData(association)->GetArray(arrayname));
+    if (fa)
+      {
+      corr->process(fa->GetPointer(0));
+      }
+    else
+      {
+      cerr <<"Current implementation only supports float arrays" << endl;
+      abort();
       }
     }
   return true;
 }
 
 //-----------------------------------------------------------------------------
-void AutocorrelationAnalysisAdaptor::PrintResults(size_t k_max, size_t nblocks)
+void AutocorrelationAnalysisAdaptor::PrintResults(size_t k_max)
 {
   AInternals& internals = (*this->Internals);
+  size_t nblocks = internals.NumberOfBlocks;
+
     // add up the autocorrellations
   internals.Master->foreach<Autocorrelation>([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp, void*)
                                      {

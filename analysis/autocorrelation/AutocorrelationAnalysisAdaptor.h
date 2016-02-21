@@ -13,7 +13,7 @@ public:
 
   void Initialize(MPI_Comm world,
     size_t window, int association, const char* arrayname);
-  void PrintResults(size_t k_max, size_t nblocks);
+  void PrintResults(size_t k_max);
 
   virtual bool Execute(vtkInsituDataAdaptor* data);
 protected:
