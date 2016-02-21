@@ -9,7 +9,9 @@
 /// vtkADIOSAnalysisAdaptor is an subclass of vtkInsituAnalysisAdaptor. Despite
 /// being called an analysis adaptor, this adaptor doesn't do any analysis. It's
 /// main purpose is to serialize data provided via vtkInsituDataAdaptor using
-/// ADIOS.
+/// ADIOS. In theory, this class should be able to handle all types of
+/// vtkDataObject subclasses. Current implementation only supports vtkImageData
+/// and vtkMultiBlockDataSet of vtkImageData.
 ///
 /// \sa vtkADIOSDataAdaptor, ADIOSAnalysisEndPoint
 class vtkADIOSAnalysisAdaptor : public vtkInsituAnalysisAdaptor
@@ -52,6 +54,7 @@ private:
   void operator=(const vtkADIOSAnalysisAdaptor&); // Not implemented.
 
   bool Initialized;
+  int64_t FixedLengthVarSize;
 
 //ETX
 };

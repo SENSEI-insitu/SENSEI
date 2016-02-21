@@ -35,11 +35,11 @@ protected:
   ADIOS_FILE* File;
   MPI_Comm Comm;
 
-  typedef std::map<std::string, vtkSmartPointer<vtkDataArray> > ArraysType;
+  typedef std::map<std::string, bool > ArraysType;
   typedef std::map<int, ArraysType> AssociatedArraysType;
   AssociatedArraysType AssociatedArrays;
 
-  vtkSmartPointer<vtkImageData>  Mesh;
+  vtkSmartPointer<vtkDataObject>  Mesh;
 
 private:
   vtkADIOSDataAdaptor(const vtkADIOSDataAdaptor&); // Not implemented.

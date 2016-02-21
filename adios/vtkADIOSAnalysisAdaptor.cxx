@@ -1,18 +1,171 @@
 #include "vtkADIOSAnalysisAdaptor.h"
 
+#include <vtkCellData.h>
+#include <vtkCompositeDataIterator.h>
+#include <vtkCompositeDataSet.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDoubleArray.h>
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkInsituDataAdaptor.h>
 #include <vtkObjectFactory.h>
+#include <vtkPointData.h>
+#include <vtkSmartPointer.h>
 
 #include <mpi.h>
 #include <adios.h>
 
+#include <vector>
+namespace internals
+{
+  int64_t CountBlocks(vtkCompositeDataSet* cd, bool skip_null)
+    {
+    vtkSmartPointer<vtkCompositeDataIterator> iter;
+    iter.TakeReference(cd->NewIterator());
+    iter->SetSkipEmptyNodes(skip_null? 1 : 0);
+    int64_t count = 0;
+    for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+      {
+      count++;
+      }
+    return count;
+    }
+
+  int64_t CountTotalBlocks(vtkDataObject* dobj)
+    {
+    vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj);
+    return cd? CountBlocks(cd, false) : 1;
+    }
+
+  int64_t CountLocalBlocks(vtkDataObject* dobj)
+    {
+    vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj);
+    return cd? CountBlocks(cd, true) : 1;
+    }
+
+  void define_attribute_data_vars(vtkInsituDataAdaptor* data, int blockno, int association,
+    int64_t g_handle, const char* c_prefix, const char* ldims, const char* gdims, const char* offsets,
+    int64_t& databytes)
+    {
+    std::string prefix(c_prefix);
+    for (unsigned int cc=0, max=data->GetNumberOfArrays(association); cc<max;++cc)
+      {
+      const char* aname = data->GetArrayName(association, cc);
+      adios_define_var(g_handle, (prefix + aname).c_str(), "",
+        adios_double, // FIXME: need to determine correct type.
+        ldims, gdims, offsets);
+      }
+    }
+
+  void write_attribute_data_vars(vtkDataSet* ds, int association, int64_t io_handle, const char* c_prefix)
+    {
+    std::string prefix(c_prefix);
+    vtkDataSetAttributes* dsa = ds->GetAttributes(association);
+    for (unsigned int cc=0, max=dsa->GetNumberOfArrays(); cc<max; ++cc)
+      {
+      vtkDoubleArray* da = vtkDoubleArray::SafeDownCast(dsa->GetArray(cc));
+      assert(da);
+
+      const char* aname = da->GetName();
+      adios_write(io_handle, (prefix + aname).c_str(), da->GetPointer(0));
+      }
+    }
+
+  int64_t ComputeVariableLengthVarSize(vtkDataSet* data)
+    {
+    if (data)
+      {
+      return data->GetNumberOfCells()*data->GetCellData()->GetNumberOfArrays()*sizeof(double) +
+        data->GetNumberOfPoints()*data->GetPointData()->GetNumberOfArrays()*sizeof(double);
+      }
+    return 0;
+    }
+
+  int64_t ComputeVariableLengthVarSize(vtkDataObject* data)
+    {
+    if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(data))
+      {
+      vtkSmartPointer<vtkCompositeDataIterator> iter;
+      iter.TakeReference(cd->NewIterator());
+      int64_t dsize = 0;
+      for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+        {
+        dsize += ComputeVariableLengthVarSize(vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()));
+        }
+      return dsize;
+      }
+    else
+      {
+      return ComputeVariableLengthVarSize(vtkDataSet::SafeDownCast(data));
+      }
+    }
+
+  void CountLocalElements(vtkDataSet* ds, int64_t* num_points, int64_t* num_cells)
+    {
+    *num_points += ds? ds->GetNumberOfPoints() : 0;
+    *num_cells += ds? ds->GetNumberOfCells() : 0;
+    }
+
+  void CountLocalElements(vtkDataObject* dobj, int64_t* num_points, int64_t* num_cells)
+    {
+    if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
+      {
+      vtkSmartPointer<vtkCompositeDataIterator> iter;
+      iter.TakeReference(cd->NewIterator());
+      for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+        {
+        CountLocalElements(vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()), num_points, num_cells);
+        }
+      }
+    else
+      {
+      CountLocalElements(vtkDataSet::SafeDownCast(dobj), num_points, num_cells);
+      }
+    }
+
+  vtkDataSet* GetRepresentativeBlock(vtkDataObject* dobj)
+    {
+    if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
+      {
+      vtkSmartPointer<vtkCompositeDataIterator> iter;
+      iter.TakeReference(cd->NewIterator());
+      for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+        {
+        return vtkDataSet::SafeDownCast(iter->GetCurrentDataObject());
+        }
+      }
+    else
+      {
+      return vtkDataSet::SafeDownCast(dobj);
+      }
+    }
+
+  void GetBlocks(vtkDataObject* dobj, std::vector<vtkDataSet*> &blocks)
+    {
+    if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
+      {
+      vtkSmartPointer<vtkCompositeDataIterator> iter;
+      iter.TakeReference(cd->NewIterator());
+      for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+        {
+        if (vtkDataSet* ds = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
+          {
+          blocks.push_back(ds);
+          }
+        }
+      }
+    else if (vtkDataSet* ds = vtkDataSet::SafeDownCast(dobj))
+      {
+      blocks.push_back(ds);
+      }
+    }
+}
+
 vtkStandardNewMacro(vtkADIOSAnalysisAdaptor);
 //----------------------------------------------------------------------------
-vtkADIOSAnalysisAdaptor::vtkADIOSAnalysisAdaptor() : Initialized(false)
+vtkADIOSAnalysisAdaptor::vtkADIOSAnalysisAdaptor() :
+  Initialized(false),
+  FixedLengthVarSize(0)
 {
   this->SetMethod("MPI");
   this->SetFileName("sensei.bp");
@@ -46,60 +199,57 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
   // using a schema that we can call VTK_ADIOS_SCHEMA. VTK and consequently
   // ParaView, Catalyst, VisIt, Libsim all can then develop readers/writers that
   // read/write this schema. Should this simply be the ADIOS Vis Schema? Maybe.
-  // As an example, I modifying Matt's code from the histogram miniapp campaign
-  // to write out 3D grids.
   if (this->Initialized)
     {
     return;
     }
 
-  int64_t g_handle;
   adios_init_noxml(MPI_COMM_WORLD);
   adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, 500);
+
+  vtkDataObject* structure = data->GetMesh(/*structure_only*/ true);
+  int64_t local_blocks = internals::CountLocalBlocks(structure);
+  int64_t total_blocks = internals::CountTotalBlocks(structure);
+
+
+  int64_t databytes = 0;
+  int64_t g_handle;
   adios_declare_group(&g_handle, "sensei", "", adios_flag_yes);
   adios_select_method(g_handle, this->Method.c_str(), "", "");
-  adios_define_var(g_handle, "rank", "", adios_integer, "", "", "");
-  adios_define_var(g_handle, "mpi_size", "", adios_integer, "", "", "");
 
-  // save global extents (same value on all ranks).
+  // API Help:
   // adios_define_var(group_id, name, path, type, dimensions, global_dimensions, local_offsets)
-  adios_define_var(g_handle, "whole_extents", "", adios_integer, "6", "", "");
-  // save local extents per rank.
-  adios_define_var(g_handle, "local_extents", "", adios_integer, "1,6", "mpi_size,6", "rank,0");
 
-  adios_define_var(g_handle, "origin", "", adios_double, "3", "", "");
-  adios_define_var(g_handle, "spacing", "", adios_double, "3", "", "");
+  // global data.
+  adios_define_var(g_handle, "rank", "", adios_integer, "", "", ""); databytes+= sizeof(int);
+  adios_define_var(g_handle, "mpi_size", "", adios_integer, "", "", ""); databytes += sizeof(int);
+  adios_define_var(g_handle, "data_type", "", adios_integer, "", "", ""); databytes += sizeof(int);
+  adios_define_var(g_handle, "version", "", adios_integer, "", "", ""); databytes += sizeof(int);
+  adios_define_var(g_handle, "extents", "", adios_integer, "6", "", ""); databytes += 6*sizeof(int);
+  adios_define_var(g_handle, "num_blocks", "", adios_unsigned_long, "", "", ""); databytes += sizeof(int64_t);
+  adios_define_var(g_handle, "num_points", "", adios_unsigned_long, "", "", ""); databytes += sizeof(int64_t);
+  adios_define_var(g_handle, "num_cells", "", adios_unsigned_long, "", "", ""); databytes += sizeof(int64_t);
+  adios_define_var (g_handle, "ntimestep", "", adios_unsigned_long, "", "", ""); databytes += sizeof(int64_t);
+  adios_define_var (g_handle, "time", "", adios_double, "", "", ""); databytes += sizeof(double);
 
-  // save array sizes.
-  adios_define_var(g_handle, "local_point_array_size", "", adios_unsigned_long, "", "", "");
-  adios_define_var(g_handle, "total_point_array_size", "", adios_unsigned_long, "", "", "");
-  adios_define_var(g_handle, "local_point_array_offset", "", adios_unsigned_long, "", "", "");
-
-  adios_define_var(g_handle, "local_cell_array_size", "", adios_unsigned_long, "", "", "");
-  adios_define_var(g_handle, "total_cell_array_size", "", adios_unsigned_long, "", "", "");
-  adios_define_var(g_handle, "local_cell_array_offset", "", adios_unsigned_long, "", "", "");
-
-  for (unsigned int cc=0, max=data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_POINTS); cc < max; ++cc)
+  // per block data.
+  for (int64_t block=0; block < local_blocks; ++block)
     {
-		std::string prefix("pointcentered/");
-    adios_define_var(g_handle,
-			(prefix + data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_POINTS, cc)).c_str(), "",
-      adios_double /*FIXME, assume double for now*/,
-      "local_point_array_size", "total_point_array_size", "local_point_array_offset");
-    }
-  for (unsigned int cc=0, max=data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_CELLS); cc < max; ++cc)
-    {
-		std::string prefix("cellcentered/");
-    adios_define_var(g_handle,
-			(prefix + data->GetArrayName(vtkDataObject::FIELD_ASSOCIATION_CELLS, cc)).c_str(), "",
-      adios_double /*FIXME, assume double for now*/,
-      "local_cell_array_size", "total_cell_array_size", "local_cell_array_offset");
+    adios_define_var(g_handle, "block/origin", "", adios_double, "3", "", ""); databytes += 3*sizeof(double);
+    adios_define_var(g_handle, "block/spacing", "", adios_double, "3", "", ""); databytes += 3*sizeof(double);
+    adios_define_var(g_handle, "block/extents", "", adios_integer, "6", "", ""); databytes += 6*sizeof(double);
+    adios_define_var(g_handle, "block/num_points", "", adios_unsigned_long, "", "", ""); databytes += 6*sizeof(int64_t);
+    adios_define_var(g_handle, "block/num_cells", "", adios_unsigned_long, "", "", ""); databytes += 6*sizeof(int64_t);
+    adios_define_var(g_handle, "block/offset_points", "", adios_unsigned_long, "", "", ""); databytes += 6*sizeof(int64_t);
+    adios_define_var(g_handle, "block/offset_cells", "", adios_unsigned_long, "", "", ""); databytes += 6*sizeof(int64_t);
+
+    internals::define_attribute_data_vars(data, block, vtkDataObject::POINT, g_handle,
+      "block/pointdata/", "block/num_points", "num_points", "block/offset_points", databytes);
+    internals::define_attribute_data_vars(data, block, vtkDataObject::CELL, g_handle,
+      "block/celldata/", "block/num_cells", "num_cells", "block/offset_cells", databytes);
     }
 
-  // define the timestep.
-  adios_define_var (g_handle, "ntimestep", "", adios_unsigned_long, "", "", "");
-  adios_define_var (g_handle, "time", "", adios_double, "", "", "");
-
+  this->FixedLengthVarSize = databytes;
   this->Initialized=true;
 }
 
@@ -107,66 +257,96 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
 void vtkADIOSAnalysisAdaptor::WriteTimestep(vtkInsituDataAdaptor* data)
 {
   vtkDataObject* mesh = data->GetCompleteMesh();
-  vtkImageData* image = vtkImageData::SafeDownCast(mesh);
-  assert(image);
 
   int nprocs = 1, rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  int64_t metadata_bytes = 2*sizeof(int)  + 6*sizeof(int) + 6*sizeof(int)
-    + 2*3*sizeof(double) + 6*sizeof(unsigned long) +
-		+ sizeof(unsigned long) + sizeof(double);
-  int64_t array_bytes =
-    sizeof(double)*image->GetNumberOfPoints() * data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_POINTS);
-  array_bytes +=
-    sizeof(double)*image->GetNumberOfCells() * data->GetNumberOfArrays(vtkDataObject::FIELD_ASSOCIATION_CELLS);
-  uint64_t total_size;
   int64_t io_handle;
-  adios_open(&io_handle, "sensei", this->FileName.c_str(), "a", MPI_COMM_WORLD);
+  adios_open(&io_handle, "sensei", this->FileName.c_str(),
+    data->GetDataTimeStep() == 0? "w" : "a", MPI_COMM_WORLD);
 
-  adios_group_size (io_handle, metadata_bytes + array_bytes, &total_size);
-  adios_write (io_handle, "rank", &rank);
-  adios_write (io_handle, "mpi_size", &nprocs);
+  uint64_t total_size;
+  adios_group_size(io_handle,
+    internals::ComputeVariableLengthVarSize(mesh) + this->FixedLengthVarSize,
+    &total_size);
 
-  adios_write(io_handle, "whole_extents", data->GetInformation()->Get(vtkDataObject::DATA_EXTENT()));
-  adios_write(io_handle, "local_extents", image->GetExtent());
-  adios_write(io_handle, "origin", image->GetOrigin());
-  adios_write(io_handle, "spacing", image->GetSpacing());
+  int64_t local_blocks = internals::CountLocalBlocks(mesh);
+  int64_t total_blocks = internals::CountTotalBlocks(mesh);
+  vtkDataSet* ds = internals::GetRepresentativeBlock(mesh);
 
-  uint64_t local_point_array_size = static_cast<uint64_t>(image->GetNumberOfPoints());
-  uint64_t local_point_array_offset = rank * local_point_array_size;
-  uint64_t total_point_array_size = nprocs * local_point_array_size;
+  // write global data.
+  adios_write(io_handle, "rank", &rank);
+  adios_write(io_handle, "mpi_size", &nprocs);
+  adios_write(io_handle, "num_blocks", &total_blocks);
+  int data_type = ds->GetDataObjectType();
+  adios_write(io_handle, "data_type", &data_type);
+  int version = 1;
+  adios_write(io_handle, "version", &version);
 
-  adios_write(io_handle, "local_point_array_size", &local_point_array_size);
-  adios_write(io_handle, "total_point_array_size", &total_point_array_size);
-  adios_write(io_handle, "local_point_array_offset", &local_point_array_offset);
+  int extents[6] = {0, -1, 0, -1, 0, -1};
+  data->GetInformation()->Get(vtkDataObject::DATA_EXTENT(), extents);
+  adios_write(io_handle, "extents", extents);
 
-  uint64_t local_cell_array_size = static_cast<uint64_t>(image->GetNumberOfCells());
-  uint64_t local_cell_array_offset = rank * local_cell_array_size;
-  uint64_t total_cell_array_size = nprocs * local_cell_array_size;
+  int64_t local_num_points=0, local_num_cells=0;
+  internals::CountLocalElements(mesh, &local_num_points, &local_num_cells);
 
-  adios_write(io_handle, "local_cell_array_size", &local_cell_array_size);
-  adios_write(io_handle, "total_cell_array_size", &total_cell_array_size);
-  adios_write(io_handle, "local_cell_array_offset", &local_cell_array_offset);
+  // compute inclusive scan to determine process offsets.
+  int64_t global_offset_points=0, global_offset_cells=0, num_points=0, num_cells=0;
+    {
+    int64_t local_counts[] = { local_num_points, local_num_cells };
+    int64_t global_offsets[2];
+    MPI_Scan(&local_counts, &global_offsets, 2, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+    int64_t totals[2] = {global_offsets[0], global_offsets[1]};
+    MPI_Bcast(totals, 2, MPI_UNSIGNED_LONG_LONG, (nprocs-1), MPI_COMM_WORLD);
+
+    global_offset_points = global_offsets[0] - local_counts[0];
+    global_offset_cells = global_offsets[1] - local_counts[1];
+    num_points = totals[0];
+    num_cells = totals[1];
+    }
+
+  adios_write(io_handle, "num_points", &num_points);
+  adios_write(io_handle, "num_cells", &num_cells);
 
   int timestep = data->GetDataTimeStep();
   adios_write(io_handle, "ntimestep", &timestep);
 	double time = data->GetDataTime();
 	adios_write(io_handle, "time", &time);
-  for (int attr=vtkDataObject::FIELD_ASSOCIATION_POINTS; attr <= vtkDataObject::FIELD_ASSOCIATION_CELLS; ++attr)
-    {
-		std::string prefix(attr == vtkDataObject::FIELD_ASSOCIATION_POINTS?
-			"pointcentered/" : "cellcentered/");
 
-    vtkDataSetAttributes* dsa = image->GetAttributes(attr);
-    for (int cc=0, max=dsa->GetNumberOfArrays(); cc<max; ++cc)
+  // write blocks.
+  std::vector<vtkDataSet*> blocks;
+  internals::GetBlocks(mesh, blocks);
+  assert(blocks.size() == local_blocks);
+  for (int64_t cc=0; cc < local_blocks; ++cc)
+    {
+    vtkDataSet* block = blocks[cc];
+    double origin[3] = {0, 0, 0};
+    double spacing[3] = {1, 1, 1};
+    int lextents[6] = {0, -1, 0, -1, 0, -1};
+    if (vtkImageData* img = vtkImageData::SafeDownCast(blocks[cc]))
       {
-      if (vtkDoubleArray* da = vtkDoubleArray::SafeDownCast(dsa->GetArray(cc)))
-        {
-        adios_write(io_handle, (prefix + da->GetName()).c_str(), da->GetPointer(0));
-        }
+      img->GetOrigin(origin);
+      img->GetSpacing(spacing);
+      img->GetExtent(lextents);
       }
+    int64_t bnum_points = block->GetNumberOfPoints();
+    int64_t bnum_cells = block->GetNumberOfCells();
+
+    adios_write(io_handle, "block/origin", origin);
+    adios_write(io_handle, "block/spacing", spacing);
+    adios_write(io_handle, "block/extents", lextents);
+    adios_write(io_handle, "block/num_points", &bnum_points);
+    adios_write(io_handle, "block/num_cells", &bnum_cells);
+    adios_write(io_handle, "block/offset_points", &global_offset_points);
+    adios_write(io_handle, "block/offset_cells", &global_offset_cells);
+
+    internals::write_attribute_data_vars(block, vtkDataObject::POINT, io_handle, "block/pointdata/");
+    internals::write_attribute_data_vars(block, vtkDataObject::CELL, io_handle, "block/celldata/");
+
+    global_offset_cells += bnum_cells;
+    global_offset_points += bnum_points;
     }
   adios_close (io_handle);
 }
