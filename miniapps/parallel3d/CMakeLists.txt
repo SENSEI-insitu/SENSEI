@@ -1,6 +1,7 @@
 #------------------------------------------------------------------------------
 set(sources
-  parallel_3D.c)
+  parallel_3D.c
+  histogram.cpp)
 
 if(ENABLE_SENSEI)
   list(APPEND sources
@@ -16,14 +17,5 @@ target_compile_definitions(3D_Grid PRIVATE _FILE_OFFSET_BITS=64 _LARGEFILE64_SOU
 target_link_libraries(3D_Grid PRIVATE m mpi)
 
 if(ENABLE_SENSEI)
-  target_link_libraries(3D_Grid PRIVATE core)
-endif()
-if(ENABLE_HISTOGRAM)
-  target_link_libraries(3D_Grid PRIVATE histogram)
-endif()
-if(ENABLE_ADIOS)
-  target_link_libraries(3D_Grid PRIVATE adios)
-endif()
-if(ENABLE_CATALYST)
-  target_link_libraries(3D_Grid PRIVATE catalyst)
+  target_link_libraries(3D_Grid PRIVATE core configurable)
 endif()

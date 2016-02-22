@@ -12,22 +12,9 @@
 #include <adios.h>
 #include <adios_read.h>
 #include <vtkADIOSDataAdaptor.h>
-#include <vtkInsituAnalysisAdaptor.h>
+#include <vtkConfigurableAnalysisAdaptor.h>
 #include <vtkNew.h>
 #include <vtkDataSet.h>
-
-#ifdef ENABLE_HISTOGRAM
-#include "HistogramAnalysisAdaptor.h"
-#endif
-#ifdef ENABLE_CATALYST
-#include <vtkCatalystAnalysisAdaptor.h>
-# ifdef ENABLE_CATALYST_SLICE
-#include <vtkCatalystSlicePipeline.h>
-# endif
-#endif
-#ifdef ENABLE_AUTOCORRELATION
-#include <AutocorrelationAnalysisAdaptor.h>
-#endif
 
 using std::cout;
 using std::cerr;
@@ -43,29 +30,15 @@ int main(int argc, char** argv)
 
   std::string input;
   std::string readmethod("bp");
+  std::string config_file;
 
   opts::Options ops(argc, argv);
-  ops >> opts::Option('r', "readmethod", readmethod, "specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath ");
-#ifdef ENABLE_HISTOGRAM
-  std::string histogram;
-  ops >> opts::Option('H', "histogram", histogram, "cell array to histogram with");
-  int bins=10;
-  ops >> opts::Option('b', "bins", bins, "number of bins");
-#endif
-#ifdef ENABLE_CATALYST_SLICE
-  std::string colorarray;
-  ops >> opts::Option('c', "color", colorarray, "cell array to color the slice with");
-#endif
-#ifdef ENABLE_AUTOCORRELATION
-  std::string acarrary;
-  int window = 10;
-  int k_max = 3;
-  ops >> opts::Option('a', "autocorrelation", acarrary, "cell array to use for computing autocorrelation");
-  ops >> opts::Option('w', "window", window, "autocorrelation window size");
-  ops >> opts::Option('k', "k-max",  k_max, "number of strongest autocorrelations to report");
-#endif
+  ops >> opts::Option('r', "readmethod", readmethod, "specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath ")
+      >> opts::Option('f', "config", config_file, "Sensei analysis configuration xml (required)");
+
   if (ops >> opts::Present('h', "help", "show help") ||
-    !(ops >> opts::PosOption(input)))
+    !(ops >> opts::PosOption(input)) ||
+    config_file.empty())
     {
     if (rank == 0)
       {
@@ -82,39 +55,8 @@ int main(int argc, char** argv)
   readmethods["dimes"] = ADIOS_READ_METHOD_DIMES;
   readmethods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
 
-  std::vector<vtkSmartPointer<vtkInsituAnalysisAdaptor> > analyses;
-#ifdef ENABLE_HISTOGRAM
-  if (!histogram.empty())
-    {
-    vtkNew<HistogramAnalysisAdaptor> histAA;
-    histAA->Initialize(comm, bins, vtkDataObject::FIELD_ASSOCIATION_CELLS, histogram);
-    analyses.push_back(histAA.GetPointer());
-    }
-#endif
-#ifdef ENABLE_CATALYST
-  vtkNew<vtkCatalystAnalysisAdaptor> catalyst;
-  analyses.push_back(catalyst.GetPointer());
-# ifdef ENABLE_CATALYST_SLICE
-  vtkNew<vtkCatalystSlicePipeline> slicePipeline;
-  slicePipeline->SetSliceNormal(0, 0, 1);
-  if (!colorarray.empty())
-    {
-    slicePipeline->ColorBy(vtkDataObject::FIELD_ASSOCIATION_CELLS, colorarray.c_str());
-    }
-  catalyst->AddPipeline(slicePipeline.GetPointer());
-# endif
-#endif
-
-#ifdef ENABLE_AUTOCORRELATION
-  vtkSmartPointer<AutocorrelationAnalysisAdaptor> autocorrelation;
-  if (!acarrary.empty())
-    {
-    autocorrelation = vtkSmartPointer<AutocorrelationAnalysisAdaptor>::New();
-    autocorrelation->Initialize(comm, window,
-      vtkDataObject::FIELD_ASSOCIATION_CELLS, acarrary.c_str());
-    analyses.push_back(autocorrelation.GetPointer());
-    }
-#endif
+  vtkNew<vtkConfigurableAnalysisAdaptor> analysis;
+  analysis->Initialize(comm, config_file);
 
   vtkNew<vtkADIOSDataAdaptor> dataAdaptor;
   dataAdaptor->Open(comm, readmethods[readmethod], input);
@@ -122,42 +64,9 @@ int main(int argc, char** argv)
     {
     // request reading of meta-data for this step.
     dataAdaptor->ReadStep();
-    if (rank == 0)
-      {
-      cout << "TimeStep: " << dataAdaptor->GetDataTimeStep()
-        << " Time: " << dataAdaptor->GetDataTime() << endl;
-      }
-    if (analyses.size() == 0)
-      {
-      dataAdaptor->GetCompleteMesh()->Print(cout);
-      }
-    else
-      {
-#ifdef ENABLE_CATALYST_SLICE
-      // set slice origin.
-      if (vtkDataSet* ds = vtkDataSet::SafeDownCast(dataAdaptor->GetMesh(true)))
-        {
-        double bounds[6];
-        ds->GetBounds(bounds);
-        slicePipeline->SetSliceOrigin(
-          (bounds[0] + bounds[1]) / 2.0,
-          (bounds[2] + bounds[3]) / 2.0,
-          (bounds[4] + bounds[5]) / 2.0);
-        }
-#endif
-      for (size_t cc=0, max=analyses.size(); cc < max; ++cc)
-        {
-        analyses[cc]->Execute(dataAdaptor.GetPointer());
-        }
-      }
+    analysis->Execute(dataAdaptor.GetPointer());
     dataAdaptor->ReleaseData();
     }
   while (dataAdaptor->Advance());
-#ifdef ENABLE_AUTOCORRELATION
-  if (autocorrelation)
-    {
-    autocorrelation->PrintResults(k_max);
-    }
-#endif
   return 0;
 }

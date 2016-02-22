@@ -88,20 +88,29 @@ int main(int argc, char** argv)
     float                       dt        = .01;
     size_t                      window    = 10;
     size_t                      k_max     = 3;
+    std::string                 config_file;
     Options ops(argc, argv);
     ops
         >> Option('b', "blocks", nblocks,   "number of blocks to use")
         >> Option('s', "shape",  shape,     "domain shape")
         >> Option('t', "dt",     dt,        "time step")
+#ifdef ENABLE_SENSEI
+        >> Option('f', "config", config_file, "Sensei analysis configuration xml (required)")
+#else
         >> Option('w', "window", window,    "analysis window")
         >> Option('k', "k-max",  k_max,     "number of strongest autocorrelations to report")
+#endif
         >> Option(     "t-end",  t_end,     "end time")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
 
     std::string infn;
     if (  ops >> Present('h', "help", "show help") ||
-        !(ops >> PosOption(infn)))
+        !(ops >> PosOption(infn))
+#ifdef ENABLE_SENSEI
+        || config_file.empty()
+#endif
+        )
     {
         if (world.rank() == 0)
             fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
@@ -150,7 +159,8 @@ int main(int argc, char** argv)
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
                        &gids[0],
                        &from_x[0], &from_y[0], &from_z[0],
-                       &to_x[0],   &to_y[0],   &to_z[0]);
+                       &to_x[0],   &to_y[0],   &to_z[0],
+                       config_file);
 #else
     init_analysis(world, window, gids.size(),
                   domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,

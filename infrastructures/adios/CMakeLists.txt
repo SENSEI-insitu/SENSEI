@@ -18,19 +18,8 @@ endif()
 
 #------------------------------------------------------------------------------
 add_executable(ADIOSAnalysisEndPoint ADIOSAnalysisEndPoint.cxx)
-target_link_libraries(ADIOSAnalysisEndPoint PRIVATE adios opts mpi ${ADIOS_LIBRARIES})
+target_link_libraries(ADIOSAnalysisEndPoint PRIVATE adios opts mpi ${ADIOS_LIBRARIES} configurable)
 target_include_directories(ADIOSAnalysisEndPoint SYSTEM PRIVATE ${ADIOS_INCLUDE_DIRS})
 if(ADIOS_DEFINITIONS)
   target_compile_definitions(ADIOSAnalysisEndPoint PRIVATE ${ADIOS_DEFINITIONS})
-endif()
-
-
-if(ENABLE_HISTOGRAM)
-  target_link_libraries(ADIOSAnalysisEndPoint PRIVATE histogram)
-endif()
-if(ENABLE_CATALYST)
-  target_link_libraries(ADIOSAnalysisEndPoint PRIVATE catalyst)
-endif()
-if(ENABLE_AUTOCORRELATION)
-  target_link_libraries(ADIOSAnalysisEndPoint PRIVATE autocorrelation)
 endif()

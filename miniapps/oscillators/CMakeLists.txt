@@ -1,6 +1,7 @@
 #------------------------------------------------------------------------------
 set(sources
-  oscillator.cpp)
+  oscillator.cpp
+  analysis.cpp)
 
 if(ENABLE_SENSEI)
   list(APPEND sources
@@ -25,19 +26,5 @@ find_package(Threads)
 target_link_libraries(oscillator PRIVATE util ${CMAKE_THREAD_LIBS_INIT})
 
 if(ENABLE_SENSEI)
-  target_link_libraries(oscillator PRIVATE core)
-endif()
-
-if(ENABLE_HISTOGRAM)
-  target_link_libraries(oscillator PRIVATE histogram)
-endif()
-
-if(ENABLE_AUTOCORRELATION)
-  target_link_libraries(oscillator PRIVATE autocorrelation)
-endif()
-if(ENABLE_CATALYST)
-  target_link_libraries(oscillator PRIVATE catalyst)
-endif()
-if(ENABLE_ADIOS)
-  target_link_libraries(oscillator PRIVATE adios)
+  target_link_libraries(oscillator PRIVATE core configurable)
 endif()

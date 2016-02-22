@@ -25,18 +25,15 @@ option(ENABLE_SENSEI "Enable Sensei infrastucture" ON)
 option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 
-# Options to enable various analysis.
-option(ENABLE_HISTOGRAM "Enable histogram analysis" ON)
-option(ENABLE_AUTOCORRELATION "Enable autocorrelation analysis" ON)
-
-# Options to enable various frameworks.
+#------------------------------------------------------------------------------
+# Since Generic arrays are not yet VTK master, we enable it explicitly.
+cmake_dependent_option(VTK_HAS_GENERIC_ARRAYS "VTK build has Generic arrays" OFF
+  "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
 # Enable Catalyst and analysis using Catalyst.
 cmake_dependent_option(
   ENABLE_CATALYST "Enable analysis methods that use Catalyst" ON "ENABLE_SENSEI" OFF)
-cmake_dependent_option(
-  ENABLE_CATALYST_SLICE "Enable Catalyst Slice analysis" ON "ENABLE_CATALYST" OFF)
 
 #------------------------------------------------------------------------------
 # Enable ADIOS and analysis using Adios
@@ -56,18 +53,13 @@ else()
   message(STATUS "Disabled: Sensei infrastructure.")
 endif()
 
-if(ENABLE_HISTOGRAM)
-  message(STATUS "Enabled: Histogram analysis.")
-  add_subdirectory(analysis/histogram)
-else()
-  message(STATUS "Disabled: Histogram analysis.")
-endif()
 
-if(ENABLE_AUTOCORRELATION)
-  message(STATUS "Enabled: Autocorrelation analysis.")
+if(ENABLE_SENSEI)
+  if(VTK_HAS_GENERIC_ARRAYS)
+    add_subdirectory(analysis/histogram)
+  endif()
+  add_subdirectory(analysis/configurable)
   add_subdirectory(analysis/autocorrelation)
-else()
-  message(STATUS "Disabled: Autocorrelation analysis.")
 endif()
 
 if(ENABLE_PARALLEL3D)

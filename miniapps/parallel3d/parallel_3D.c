@@ -45,6 +45,9 @@ static void gen_data (double* volume,
 static void gen_data_sparse (double* volume,
                      long long my_off_z, long long my_off_y, long long my_off_x);
 
+#ifdef ENABLE_SENSEI
+char* config_file = 0;
+#endif
 
 int main(int argc, char **argv)
 {
@@ -143,7 +146,7 @@ int main(int argc, char **argv)
     start_extents_x, start_extents_y, start_extents_z,
     tot_blocks_x, tot_blocks_y, tot_blocks_z,
     block_id_x, block_id_y, block_id_z,
-    bins);
+    config_file);
 #endif
 
   //////////////////////////////////
@@ -221,15 +224,10 @@ int main(int argc, char **argv)
     }
 
 #else
-# ifdef ENABLE_HISTOGRAM
   // "Analysis" routine
   histogram(MPI_COMM_WORLD, pressure, l_z*l_y*l_x, bins);
   histogram(MPI_COMM_WORLD, temperature, l_z*l_y*l_x, bins);
   histogram(MPI_COMM_WORLD, density, l_z*l_y*l_x, bins);
-# endif
-  if (rank == 0) {
-    printf("No analysis has been enabled.\n");
-  }
 #endif
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -242,6 +240,10 @@ int main(int argc, char **argv)
 
   bridge_finalize();
 
+  if (config_file) {
+    free(config_file);
+    config_file = 0;
+  }
 #endif
 
   if (pressure){
@@ -275,8 +277,13 @@ int main(int argc, char **argv)
  */
 static int parse_args(int argc, char **argv)
 {
+#ifdef ENABLE_SENSEI
+    char flags[] = "g:l:f:";
+#else
     char flags[] = "g:l:b:";
+#endif
     int one_opt = 0;
+
 
   while((one_opt = getopt(argc, argv, flags)) != EOF){
   // postpone error checking for after while loop */
@@ -287,9 +294,16 @@ static int parse_args(int argc, char **argv)
         case('l'):
             sscanf(optarg, "%dx%dx%d", &l_z, &l_y, &l_x);
             break;
+#ifdef ENABLE_SENSEI
+        case('f'):
+            config_file = (char*)malloc(strlen(optarg) + 1);
+            strncpy(config_file, optarg, strlen(optarg) + 1);
+            break;
+#else
         case('b'):
             sscanf(optarg, "%d", &bins);
             break;
+#endif
         case('?'):
             return(-1);
     }
@@ -310,6 +324,12 @@ static int parse_args(int argc, char **argv)
       printf("Error: global dimensions and local dimensions aren't evenly divisible\n");
       return(-1);
   }
+#ifdef ENABLE_SENSEI
+  if (config_file == NULL) {
+    printf("Error: please specify a sensei config xml\n");
+    return(-1);
+  }
+#endif
 
   return 0;
 }
@@ -322,7 +342,11 @@ static void usage(void)
   printf("Usage: <exec> -g 4x4x4 -l 2x2x2 -b 10 \n");
   printf("  -g global dimensions\n");
   printf("  -l local (per-process) dimensions\n");
+#ifdef ENABLE_SENSEI
+  printf("  -f Sensei xml configuration file for analysis\n");
+#else
   printf("  -b histogram bins\n");
+#endif
   printf("\n");
   printf("  test-one-side generates a 3D volume in parallel\n");
 

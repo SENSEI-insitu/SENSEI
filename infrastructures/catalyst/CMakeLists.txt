@@ -1,8 +1,6 @@
 set(sources
-  vtkCatalystAnalysisAdaptor.cxx)
-if(ENABLE_CATALYST_SLICE)
-  list(APPEND sources vtkCatalystSlicePipeline.cxx)
-endif()
+  vtkCatalystAnalysisAdaptor.cxx
+  vtkCatalystSlicePipeline.cxx)
 
 #------------------------------------------------------------------------------
 find_package(ParaView QUIET COMPONENTS vtkPVCatalyst)
@@ -18,9 +16,6 @@ target_include_directories(catalyst
 target_compile_definitions(catalyst
                             PUBLIC ${VTK_DEFINITIONS}
                             INTERFACE ENABLE_CATALYST)
-if(ENABLE_CATALYST_SLICE)
-  target_compile_definitions(catalyst INTERFACE ENABLE_CATALYST_SLICE)
-endif()
 target_link_libraries(catalyst
                         PUBLIC ${VTK_LIBRARIES}
                         PUBLIC core)

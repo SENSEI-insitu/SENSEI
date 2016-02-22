@@ -11,6 +11,7 @@ Directory Structure
     - analysis/
         - autocorrelation/
         - histogram/
+        - configurable/
     - infrastuctures/
         - adios/
         - catalyst/
@@ -20,12 +21,28 @@ Directory Structure
     - utils/
         - diy/
         - grid/
+        - opts/
+        - pugixml/
+     - configs/
 
 Build instructions
 ---------------------
 
 The project uses CMake 3.0 or later. The options provided allow you to choose
-which of the miniapps to build as well as which analysis to enable. Miniapps have
+which of the miniapps to build as well as which frameworks to enable.
+
+When **ENABLE_SENSEI** is off, none of the insitu frameworks are useable.
+However, miniapps are trypically instrumented with a prototype analysis code
+e.g. **3D_Grid** is set up to compute histograms while **oscillators** is set up to
+do an autocorrelation analysis.
+
+When **ENABLE_SENSEI**, the miniapps take in an configuration xml that is used
+to configure analysis via Sensei framework. Looks at the
+[3dgrid.xml](configs/3dgrid.xml), [oscillator.xml](configs/oscillator.xml) and
+[adiosendpoint.xml](configs/adiosendpoint.xml) for examples of these config
+files.
+
+Miniapps have
 been instrumented to support certain analyses that have been enabled as decribed
 later. Let's look at the various CMake flags and how they affect the generated build.
 
@@ -91,7 +108,7 @@ Legend:
 * (B) : basic i.e. used when ENABLE_SENSEI is OFF
 * (S) : requires ENABLE_SENSEI to be ON
 * (C) : requires ENABLE_SENSEI and ENABLE_CATALYST to be ON
-* (A) : requires ENABLE_SENSE and ENABLE_ADIOS to be ON
+* (A) : requires ENABLE_SENSEI and ENABLE_ADIOS to be ON
 
 
 
