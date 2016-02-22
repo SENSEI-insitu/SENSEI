@@ -88,11 +88,61 @@ Typical build usage:
     
 All executables will be generated under `bin`.
 
-Miniapps
----------
+Miniapps/Executables
+---------------------
 Details on each of the miniapps are as follows:
 
-* [Parallel3D](miniapps/parallel3d/README.md)
+* Parallel3D
+
+        Usage (ENABLE_SENSEI=ON):
+        ./bin/3D_Grid -g 4x4x4 -l 2x2x2 -f config.xml
+            -g global dimensions
+            -l local (per-process) dimensions
+            -f Sensei xml configuration file for analysis
+
+        Usage (ENABLE_SENSEI=OFF):
+        ./bin/3D_Grid -g 4x4x4 -l 2x2x2 -b 10
+            -g global dimensions
+            -l local (per-process) dimensions
+            -b histogram bins
+
+
+
 * [Oscillators](miniapps/oscillators/README.md)
+
+        Usage (ENABLE_SENSEI=ON):
+        ./bin/oscillator [OPTIONS] OSCILLATORS.txt
+        Options:
+            -b, --blocks INT      number of blocks to use [default: 1]
+            -s, --shape POINT     domain shape [default: 64 64 64]
+            -t, --dt FLOAT        time step [default: 0.01]
+            -f, --config STRING   Sensei analysis configuration xml (required)
+            --t-end FLOAT         end time [default: 10]
+            --sync                synchronize after each time step
+           -h, --help             show help
+
+        Usage (ENABLE_SENSEI=OFF):
+        ./bin/oscillator [OPTIONS] OSCILLATORS.txt
+        Options:
+            -b, --blocks INT             number of blocks to use [default: 1]
+            -s, --shape POINT            domain shape [default: 64 64 64]
+            -t, --dt FLOAT               time step [default: 0.01]
+            -w, --window UNSIGNED LONG   analysis window [default: 10]
+            -k, --k-max UNSIGNED LONG    number of strongest autocorrelations to report [default: 3]
+            --t-end FLOAT                end time [default: 10]
+            --sync                       synchronize after each time step
+            -h, --help                   show help
+
+* ADIOSAnalysisEndPoint
+
+        Usage (ENABLE_SENSEI=ON):
+        ./bin/ADIOSAnalysisEndPoint[OPTIONS] input-stream-name
+        Options:
+           -r, --readmethod STRING   specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath  [default: bp]
+           -f, --config STRING       Sensei analysis configuration xml (required)
+           -h, --help                show help
+
+        Usage (ENABLE_SENSEI=OFF):
+        <NOT AVAILABLE>
 
 
