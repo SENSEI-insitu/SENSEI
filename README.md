@@ -37,7 +37,7 @@ e.g. `3D_Grid` is set up to compute histograms while `oscillators` is set up to
 do an autocorrelation analysis.
 
 When **ENABLE_SENSEI**, the miniapps take in an configuration xml that is used
-to configure analysis via Sensei framework. Looks at the
+to configure analysis via Sensei infrastructure. Looks at the
 [3dgrid.xml](configs/3dgrid.xml), [oscillator.xml](configs/oscillator.xml) and
 [adiosendpoint.xml](configs/adiosendpoint.xml) for examples of these config
 files.
@@ -55,7 +55,6 @@ you should point this to the VTK build used/included by the two frameworks.
 * **VTK_HAS_GENERIC_ARRAYS**: Set to ON if you have a custom VTK build with Generic Array support. The
 current Sensei Histogram implementation uses generic arrays API and hence is not built unless
 this is set to ON.
-You can choose which analysis routines to compile using the following flags.
 
 You can choose which miniapp to build using the following flags.
 
