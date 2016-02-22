@@ -29,9 +29,7 @@
 # include <vtkCatalystSlicePipeline.h>
 # include <vtkCatalystAnalysisAdaptor.h>
 #endif
-#ifdef ENABLE_AUTOCORRELATION
-# include <AutocorrelationAnalysisAdaptor.h>
-#endif
+#include <AutocorrelationAnalysisAdaptor.h>
 
 #include <vector>
 #include <pugixml.hpp>
@@ -117,7 +115,6 @@ public:
     }
 #endif
 
-#ifdef ENABLE_AUTOCORRELATION
   void AddAutoCorrelation(MPI_Comm comm, pugi::xml_node node)
     {
     vtkNew<AutocorrelationAnalysisAdaptor> adaptor;
@@ -127,7 +124,6 @@ public:
       node.attribute("array").value());
     this->Analyses.push_back(adaptor.GetPointer());
     }
-#endif
 };
 
 vtkStandardNewMacro(vtkConfigurableAnalysisAdaptor);
@@ -180,13 +176,11 @@ bool vtkConfigurableAnalysisAdaptor::Initialize(MPI_Comm world, const std::strin
       continue;
       }
 #endif
-#ifdef ENABLE_AUTOCORRELATION
     if (type == "autocorrelation")
       {
       this->Internals->AddAutoCorrelation(world, analysis);
       continue;
       }
-#endif
     cerr << "Skipping '" << type.c_str() << "'." << endl;
     }
 }

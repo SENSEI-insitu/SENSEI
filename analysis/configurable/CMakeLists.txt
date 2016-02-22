@@ -4,6 +4,7 @@ target_include_directories(configurable INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(VTK_HAS_GENERIC_ARRAYS)
   target_link_libraries(configurable PRIVATE histogram)
+  target_compile_options(configurable PRIVATE ENABLE_HISTOGRAM)
 endif()
 target_link_libraries(configurable PRIVATE autocorrelation)
 

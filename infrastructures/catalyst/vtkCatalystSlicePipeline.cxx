@@ -28,8 +28,9 @@ public:
   bool PipelineCreated;
   int ColorAssociation;
   std::string ColorArrayName;
+  bool AutoCenter;
 
-  vtkInternals() : PipelineCreated(false), ColorAssociation(0)
+  vtkInternals() : PipelineCreated(false), ColorAssociation(0), AutoCenter(true)
   {
   }
 
@@ -64,7 +65,28 @@ public:
       tp->SetOutput(data, time);
       }
 
-    vtkSMPropertyHelper(this->SlicePlane, "Origin").Set(this->Origin, 3);
+    vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
+    if (this->AutoCenter)
+      {
+      this->TrivialProducer->UpdatePipeline(time);
+      double bds[6];
+      this->TrivialProducer->GetDataInformation()->GetBounds(bds);
+      bds[0] *=-1; bds[2] *= -1; bds[4] *= -1;
+
+      double gbds[6];
+      controller->AllReduce(bds, gbds, 6, vtkCommunicator::MAX_OP);
+      gbds[0] *=-1; gbds[2] *= -1; gbds[4] *= -1;
+
+      double center[3] = {
+        (gbds[0] + gbds[1]) / 2.0,
+        (gbds[2] + gbds[3]) / 2.0,
+        (gbds[4] + gbds[5]) / 2.0};
+      vtkSMPropertyHelper(this->SlicePlane, "Origin").Set(center, 3);
+      }
+    else
+      {
+      vtkSMPropertyHelper(this->SlicePlane, "Origin").Set(this->Origin, 3);
+      }
     vtkSMPropertyHelper(this->SlicePlane, "Normal").Set(this->Normal, 3);
     this->SlicePlane->UpdateVTKObjects();
 
@@ -72,7 +94,6 @@ public:
     this->RenderView->UpdateVTKObjects();
 
     this->Slice->UpdatePipeline(time);
-
 
     vtkSMPVRepresentationProxy::SetScalarColoring(
       this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
@@ -82,7 +103,7 @@ public:
       double range[2], grange[2];
       ai->GetComponentRange(-1, range);
       range[0] *= -1; // make range[0] negative to simplify reduce.
-      vtkMultiProcessController::GetGlobalController()->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
+      controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
       grange[0] *= -1;
       vtkSMTransferFunctionProxy::RescaleTransferFunction(
         vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), grange[0], grange[1]);
@@ -113,18 +134,25 @@ vtkCatalystSlicePipeline::~vtkCatalystSlicePipeline()
 void vtkCatalystSlicePipeline::SetSliceOrigin(double x, double y, double z)
 {
   vtkInternals& internals = (*this->Internals);
-  this->Internals->Origin[0] = x;
-  this->Internals->Origin[1] = y;
-  this->Internals->Origin[2] = z;
+  internals.Origin[0] = x;
+  internals.Origin[1] = y;
+  internals.Origin[2] = z;
 }
 
 //----------------------------------------------------------------------------
 void vtkCatalystSlicePipeline::SetSliceNormal(double x, double y, double z)
 {
   vtkInternals& internals = (*this->Internals);
-  this->Internals->Normal[0] = x;
-  this->Internals->Normal[1] = y;
-  this->Internals->Normal[2] = z;
+  internals.Normal[0] = x;
+  internals.Normal[1] = y;
+  internals.Normal[2] = z;
+}
+
+//----------------------------------------------------------------------------
+void vtkCatalystSlicePipeline::SetAutoCenter(bool val)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.AutoCenter = val;
 }
 
 //----------------------------------------------------------------------------

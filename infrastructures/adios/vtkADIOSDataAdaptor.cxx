@@ -144,6 +144,7 @@ bool vtkADIOSDataAdaptor::Open(MPI_Comm comm,
   if (size > num_blocks)
     {
     cerr << "MPI group size cannot be smaller than number of blocks in the dataset!" << endl;
+    abort();
     return false;
     }
 

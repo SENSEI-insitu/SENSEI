@@ -16,6 +16,10 @@ public:
   /// @brief Set slice plane normal.
   void SetSliceNormal(double i, double j, double k);
 
+  /// @brief When set to true, the slice will be repositioned to the center of
+  /// the domain on each iteration. Default: true.
+  void SetAutoCenter(bool val);
+
   /// @brief Set array to color with.
   ///
   /// Set array to color with. If arrayname is NULL, coloring will be disabled.

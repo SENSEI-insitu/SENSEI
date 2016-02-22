@@ -3,5 +3,5 @@
   <analysis type="histogram" array="density" association="cell" bins="10" />
   <analysis type="histogram" array="temperature" association="cell" bins="10" />
   <analysis type="adios" filename="3D_Grid.bp" method="MPI" />
-  <analysis type="catalyst" pipeline="slice" normal="0 0 1" origin="0 0 0" />
+  <analysis type="catalyst" pipeline="slice" />
 </sensei>

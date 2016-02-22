@@ -1,6 +1,6 @@
 <sensei>
   <analysis type="histogram" array="data" association="cell" bins="10" />
   <analysis type="autocorrelation" array="data" association="cell" window="10" k-max="3" />
-  <analysis type="catalyst" pipeline="slice" normal="0 0 1" origin="0 0 0" array="data" association="cell" />
+  <analysis type="catalyst" pipeline="slice" array="data" association="cell" />
   <analysis type="adios" filename="oscillators.bp" method="MPI" />
 </sensei>
