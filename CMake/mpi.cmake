@@ -8,7 +8,7 @@ target_compile_definitions(mpi
   INTERFACE ${MPI_C_COMPILE_FLAGS} ${MPI_CXX_COMPILE_FLAGS})
 target_link_libraries(mpi
   INTERFACE ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
-if(MPI_C_LINK_FLAGS OR MPI_CXX_LINK_FLAGS)
-  set_target_properties(mpi
-    PROPERTIES LINK_FLAGS ${MPI_C_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
-endif()
+#if(MPI_C_LINK_FLAGS OR MPI_CXX_LINK_FLAGS)
+#  set_target_properties(mpi
+#    PROPERTIES LINK_FLAGS ${MPI_C_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
+#endif()
