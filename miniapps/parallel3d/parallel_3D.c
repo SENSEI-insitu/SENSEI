@@ -339,7 +339,11 @@ static int parse_args(int argc, char **argv)
 // prints usage instructions
 static void usage(void)
 {
+#ifdef ENABLE_SENSEI
+  printf("Usage: <exec> -g 4x4x4 -l 2x2x2 -f config.xml \n");
+#else
   printf("Usage: <exec> -g 4x4x4 -l 2x2x2 -b 10 \n");
+#endif
   printf("  -g global dimensions\n");
   printf("  -l local (per-process) dimensions\n");
 #ifdef ENABLE_SENSEI
