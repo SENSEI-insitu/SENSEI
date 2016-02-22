@@ -102,12 +102,19 @@ class AutocorrelationAnalysisAdaptor::AInternals
 {
 public:
   std::unique_ptr<diy::Master> Master;
+  size_t KMax;
   int Association;
   std::string ArrayName;
   size_t Window;
   bool BlocksInitialized;
   size_t NumberOfBlocks;
-  AInternals() : Association(vtkDataObject::POINT), Window(10), BlocksInitialized(false), NumberOfBlocks(0) {}
+  AInternals() :
+    KMax(3),
+    Association(vtkDataObject::POINT),
+    Window(10),
+    BlocksInitialized(false),
+    NumberOfBlocks(0)
+  {}
 
   void InitializeBlocks(vtkDataObject* dobj)
     {
@@ -171,13 +178,14 @@ AutocorrelationAnalysisAdaptor::AutocorrelationAnalysisAdaptor()
 //-----------------------------------------------------------------------------
 AutocorrelationAnalysisAdaptor::~AutocorrelationAnalysisAdaptor()
 {
+  this->PrintResults(this->Internals->KMax);
   delete this->Internals;
 }
 
 //-----------------------------------------------------------------------------
 void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
   size_t window,
-  int association, const char* arrayname)
+  int association, const char* arrayname, size_t kmax)
 {
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
@@ -186,6 +194,7 @@ void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
   internals.Association = association;
   internals.ArrayName = arrayname;
   internals.Window = window;
+  internals.KMax = kmax;
 }
 
 //-----------------------------------------------------------------------------
