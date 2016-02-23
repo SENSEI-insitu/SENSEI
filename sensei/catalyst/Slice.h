@@ -1,13 +1,17 @@
-#ifndef vtkCatalystSlicePipeline_h
-#define vtkCatalystSlicePipeline_h
+#ifndef sensei_catalyst_Slice_h
+#define sensei_catalyst_Slice_h
 
 #include "vtkCPPipeline.h"
 
-class vtkCatalystSlicePipeline : public vtkCPPipeline
+namespace sensei
+{
+namespace catalyst
+{
+class Slice : public vtkCPPipeline
 {
 public:
-  static vtkCatalystSlicePipeline* New();
-  vtkTypeMacro(vtkCatalystSlicePipeline, vtkCPPipeline);
+  static Slice* New();
+  vtkTypeMacro(Slice, vtkCPPipeline);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Set slice plane origin.
@@ -30,16 +34,18 @@ public:
   virtual int Finalize();
 
 protected:
-  vtkCatalystSlicePipeline();
-  ~vtkCatalystSlicePipeline();
+  Slice();
+  ~Slice();
 
 private:
-  vtkCatalystSlicePipeline(const vtkCatalystSlicePipeline&); // Not implemented.
-  void operator=(const vtkCatalystSlicePipeline&); // Not implemented.
+  Slice(const Slice&); // Not implemented.
+  void operator=(const Slice&); // Not implemented.
 
   class vtkInternals;
   vtkInternals* Internals;
 };
 
-#endif
+} // catalyst
+} // sensei
 
+#endif

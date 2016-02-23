@@ -9,10 +9,8 @@
 #include <opts/opts.h>
 #include <mpi.h>
 #include <iostream>
-#include <adios.h>
-#include <adios_read.h>
-#include <vtkADIOSDataAdaptor.h>
-#include <vtkConfigurableAnalysisAdaptor.h>
+#include <sensei/adios/DataAdaptor.h>
+#include <sensei/ConfigurableAnalysis.h>
 #include <vtkNew.h>
 #include <vtkDataSet.h>
 
@@ -55,10 +53,10 @@ int main(int argc, char** argv)
   readmethods["dimes"] = ADIOS_READ_METHOD_DIMES;
   readmethods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
 
-  vtkNew<vtkConfigurableAnalysisAdaptor> analysis;
+  vtkNew<sensei::ConfigurableAnalysis> analysis;
   analysis->Initialize(comm, config_file);
 
-  vtkNew<vtkADIOSDataAdaptor> dataAdaptor;
+  vtkNew<sensei::adios::DataAdaptor> dataAdaptor;
   dataAdaptor->Open(comm, readmethods[readmethod], input);
   do
     {

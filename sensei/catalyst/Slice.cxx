@@ -1,4 +1,5 @@
-#include "vtkCatalystSlicePipeline.h"
+#include "Slice.h"
+#include "Utilities.h"
 
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
@@ -13,9 +14,12 @@
 #include <vtkMultiProcessController.h>
 #include <vtkCommunicator.h>
 
-#include "vtkCatalystUtilities.h"
+namespace sensei
+{
+namespace catalyst
+{
 
-class vtkCatalystSlicePipeline::vtkInternals
+class Slice::vtkInternals
 {
 public:
   vtkSmartPointer<vtkSMSourceProxy> TrivialProducer;
@@ -114,15 +118,15 @@ public:
 
 };
 
-vtkStandardNewMacro(vtkCatalystSlicePipeline);
+vtkStandardNewMacro(Slice);
 //----------------------------------------------------------------------------
-vtkCatalystSlicePipeline::vtkCatalystSlicePipeline()
+Slice::Slice()
 {
   this->Internals = new vtkInternals();
 }
 
 //----------------------------------------------------------------------------
-vtkCatalystSlicePipeline::~vtkCatalystSlicePipeline()
+Slice::~Slice()
 {
   vtkInternals& internals = (*this->Internals);
   catalyst::DeletePipelineProxy(internals.Slice);
@@ -131,7 +135,7 @@ vtkCatalystSlicePipeline::~vtkCatalystSlicePipeline()
 }
 
 //----------------------------------------------------------------------------
-void vtkCatalystSlicePipeline::SetSliceOrigin(double x, double y, double z)
+void Slice::SetSliceOrigin(double x, double y, double z)
 {
   vtkInternals& internals = (*this->Internals);
   internals.Origin[0] = x;
@@ -140,7 +144,7 @@ void vtkCatalystSlicePipeline::SetSliceOrigin(double x, double y, double z)
 }
 
 //----------------------------------------------------------------------------
-void vtkCatalystSlicePipeline::SetSliceNormal(double x, double y, double z)
+void Slice::SetSliceNormal(double x, double y, double z)
 {
   vtkInternals& internals = (*this->Internals);
   internals.Normal[0] = x;
@@ -149,14 +153,14 @@ void vtkCatalystSlicePipeline::SetSliceNormal(double x, double y, double z)
 }
 
 //----------------------------------------------------------------------------
-void vtkCatalystSlicePipeline::SetAutoCenter(bool val)
+void Slice::SetAutoCenter(bool val)
 {
   vtkInternals& internals = (*this->Internals);
   internals.AutoCenter = val;
 }
 
 //----------------------------------------------------------------------------
-void vtkCatalystSlicePipeline::ColorBy(int association, const char* arrayname)
+void Slice::ColorBy(int association, const char* arrayname)
 {
   vtkInternals& internals = (*this->Internals);
   internals.ColorArrayName = arrayname? arrayname : "";
@@ -164,7 +168,7 @@ void vtkCatalystSlicePipeline::ColorBy(int association, const char* arrayname)
 }
 
 //----------------------------------------------------------------------------
-int vtkCatalystSlicePipeline::RequestDataDescription(vtkCPDataDescription* dataDesc)
+int Slice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 {
   dataDesc->GetInputDescription(0)->GenerateMeshOn();
   dataDesc->GetInputDescription(0)->AllFieldsOn();
@@ -172,7 +176,7 @@ int vtkCatalystSlicePipeline::RequestDataDescription(vtkCPDataDescription* dataD
 }
 
 //----------------------------------------------------------------------------
-int vtkCatalystSlicePipeline::CoProcess(vtkCPDataDescription* dataDesc)
+int Slice::CoProcess(vtkCPDataDescription* dataDesc)
 {
   vtkInternals& internals = (*this->Internals);
   internals.UpdatePipeline(dataDesc->GetInputDescription(0)->GetGrid(), dataDesc->GetTime());
@@ -180,13 +184,16 @@ int vtkCatalystSlicePipeline::CoProcess(vtkCPDataDescription* dataDesc)
 }
 
 //----------------------------------------------------------------------------
-int vtkCatalystSlicePipeline::Finalize()
+int Slice::Finalize()
 {
   return 1;
 }
 
 //----------------------------------------------------------------------------
-void vtkCatalystSlicePipeline::PrintSelf(ostream& os, vtkIndent indent)
+void Slice::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }
+
+} // catalyst
+} // sensei

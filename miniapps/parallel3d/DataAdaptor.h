@@ -1,7 +1,7 @@
 #ifndef PARALLEL3D_DATAADAPTOR_H
 #define PARALLEL3D_DATAADAPTOR_H
 
-#include "vtkInsituDataAdaptor.h"
+#include <sensei/DataAdaptor.h>
 #include "vtkSmartPointer.h"
 #include <map>
 #include <string>
@@ -14,11 +14,11 @@ namespace parallel3d
 /// DataAdaptor is an adaptor for the parallel_3d simulation (miniapp).
 /// Its purpose is to map the simulation datastructures to VTK
 /// data model.
-class DataAdaptor : public vtkInsituDataAdaptor
+class DataAdaptor : public sensei::DataAdaptor
 {
 public:
   static DataAdaptor* New();
-  vtkTypeMacro(DataAdaptor, vtkInsituDataAdaptor);
+  vtkTypeMacro(DataAdaptor, sensei::DataAdaptor);
 
   /// Initialize the data adaptor.
   void Initialize(

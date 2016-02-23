@@ -1,5 +1,5 @@
-#ifndef vtkCatalystUtilities_h
-#define vtkCatalystUtilities_h
+#ifndef sensei_catalyst_Utilities_h
+#define sensei_catalyst_Utilities_h
 
 #include <vtkNew.h>
 #include <vtkSMParaViewPipelineController.h>
@@ -14,6 +14,8 @@
 #include <vtkSMPVRepresentationProxy.h>
 #include <vtkDataObject.h>
 
+namespace sensei
+{
 namespace catalyst
 {
   vtkSMSourceProxy* CreatePipelineProxy(const char* group, const char* name, vtkSMProxy* input=NULL)
@@ -67,5 +69,6 @@ namespace catalyst
     vtkNew<vtkSMParaViewPipelineControllerWithRendering> controller;
     return controller->Show(producer, 0, view);
     }
+}
 }
 #endif

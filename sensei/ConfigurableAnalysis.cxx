@@ -1,40 +1,28 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkConfigurableAnalysisAdaptor.cxx
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
-#include "vtkConfigurableAnalysisAdaptor.h"
+#include "ConfigurableAnalysis.h"
 
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
 #include <vtkDataObject.h>
 
+#include "Autocorrelation.h"
 #ifdef ENABLE_HISTOGRAM
-# include <HistogramAnalysisAdaptor.h>
+# include "Histogram.h"
 #endif
 #ifdef ENABLE_ADIOS
-# include <vtkADIOSAnalysisAdaptor.h>
+# include "adios/AnalysisAdaptor.h"
 #endif
 #ifdef ENABLE_CATALYST
-# include <vtkCatalystSlicePipeline.h>
-# include <vtkCatalystAnalysisAdaptor.h>
+# include "catalyst/AnalysisAdaptor.h"
+# include "catalyst/Slice.h"
 #endif
-#include <AutocorrelationAnalysisAdaptor.h>
 
 #include <vector>
 #include <pugixml.hpp>
+namespace sensei
+{
 
-class vtkConfigurableAnalysisAdaptor::vtkInternals
+class ConfigurableAnalysis::vtkInternals
 {
   int GetAssociation(pugi::xml_attribute asscNode)
     {
@@ -52,7 +40,7 @@ class vtkConfigurableAnalysisAdaptor::vtkInternals
     }
 
 public:
-  std::vector<vtkSmartPointer<vtkInsituAnalysisAdaptor> > Analyses;
+  std::vector<vtkSmartPointer<AnalysisAdaptor> > Analyses;
 
 #ifdef ENABLE_HISTOGRAM
   void AddHistogram(MPI_Comm comm, pugi::xml_node node)
@@ -63,7 +51,7 @@ public:
       int association = GetAssociation(node.attribute("association"));
       int bins = node.attribute("bins")? node.attribute("bins").as_int() : 10;
 
-      vtkNew<HistogramAnalysisAdaptor> histogram;
+      vtkNew<Histogram> histogram;
       histogram->Initialize(comm, bins, association, array.value());
       this->Analyses.push_back(histogram.GetPointer());
       }
@@ -77,7 +65,7 @@ public:
 #ifdef ENABLE_ADIOS
   void AddAdios(MPI_Comm comm, pugi::xml_node node)
     {
-    vtkNew<vtkADIOSAnalysisAdaptor> adios;
+    vtkNew<adios::AnalysisAdaptor> adios;
     pugi::xml_attribute filename = node.attribute("filename");
     pugi::xml_attribute method = node.attribute("method");
     if (filename)
@@ -93,18 +81,18 @@ public:
 #endif
 
 #ifdef ENABLE_CATALYST
-  vtkSmartPointer<vtkCatalystAnalysisAdaptor> CatalystAnalysisAdaptor;
+  vtkSmartPointer<catalyst::AnalysisAdaptor> CatalystAnalysisAdaptor;
 
   void AddCatalyst(MPI_Comm comm, pugi::xml_node node)
     {
     if (!this->CatalystAnalysisAdaptor)
       {
-      this->CatalystAnalysisAdaptor = vtkSmartPointer<vtkCatalystAnalysisAdaptor>::New();
+      this->CatalystAnalysisAdaptor = vtkSmartPointer<catalyst::AnalysisAdaptor>::New();
       this->Analyses.push_back(this->CatalystAnalysisAdaptor);
       }
     if (strcmp(node.attribute("pipeline").value(), "slice") == 0)
       {
-      vtkNew<vtkCatalystSlicePipeline> slice;
+      vtkNew<catalyst::Slice> slice;
       // TODO: parse origin and normal.
       slice->SetSliceNormal(0, 0, 1);
       slice->SetSliceOrigin(0, 0, 0);
@@ -117,7 +105,7 @@ public:
 
   void AddAutoCorrelation(MPI_Comm comm, pugi::xml_node node)
     {
-    vtkNew<AutocorrelationAnalysisAdaptor> adaptor;
+    vtkNew<Autocorrelation> adaptor;
     adaptor->Initialize(comm,
       node.attribute("window")? node.attribute("window").as_int() : 10,
       this->GetAssociation(node.attribute("association")),
@@ -127,21 +115,21 @@ public:
     }
 };
 
-vtkStandardNewMacro(vtkConfigurableAnalysisAdaptor);
+vtkStandardNewMacro(ConfigurableAnalysis);
 //----------------------------------------------------------------------------
-vtkConfigurableAnalysisAdaptor::vtkConfigurableAnalysisAdaptor()
-  : Internals(new vtkConfigurableAnalysisAdaptor::vtkInternals())
+ConfigurableAnalysis::ConfigurableAnalysis()
+  : Internals(new ConfigurableAnalysis::vtkInternals())
 {
 }
 
 //----------------------------------------------------------------------------
-vtkConfigurableAnalysisAdaptor::~vtkConfigurableAnalysisAdaptor()
+ConfigurableAnalysis::~ConfigurableAnalysis()
 {
   delete this->Internals;
 }
 
 //----------------------------------------------------------------------------
-bool vtkConfigurableAnalysisAdaptor::Initialize(MPI_Comm world, const std::string& filename)
+bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filename)
 {
   pugi::xml_document doc;
   pugi::xml_parse_result result = doc.load_file(filename.c_str());
@@ -187,9 +175,9 @@ bool vtkConfigurableAnalysisAdaptor::Initialize(MPI_Comm world, const std::strin
 }
 
 //----------------------------------------------------------------------------
-bool vtkConfigurableAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
+bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
-  for (std::vector<vtkSmartPointer<vtkInsituAnalysisAdaptor> >::iterator iter
+  for (std::vector<vtkSmartPointer<AnalysisAdaptor> >::iterator iter
     = this->Internals->Analyses.begin();
     iter != this->Internals->Analyses.end(); ++iter)
     {
@@ -199,7 +187,9 @@ bool vtkConfigurableAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 }
 
 //----------------------------------------------------------------------------
-void vtkConfigurableAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void ConfigurableAnalysis::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
+}
+
 }

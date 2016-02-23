@@ -1,4 +1,4 @@
-#include "vtkADIOSDataAdaptor.h"
+#include "DataAdaptor.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
@@ -9,6 +9,12 @@
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
+
+
+namespace sensei
+{
+namespace adios
+{
 
 namespace internals
 {
@@ -96,21 +102,21 @@ namespace internals
     }
 }
 
-vtkStandardNewMacro(vtkADIOSDataAdaptor);
+vtkStandardNewMacro(DataAdaptor);
 //----------------------------------------------------------------------------
-vtkADIOSDataAdaptor::vtkADIOSDataAdaptor()
+DataAdaptor::DataAdaptor()
   : File(NULL),
   Comm(MPI_COMM_WORLD)
 {
 }
 
 //----------------------------------------------------------------------------
-vtkADIOSDataAdaptor::~vtkADIOSDataAdaptor()
+DataAdaptor::~DataAdaptor()
 {
 }
 
 //----------------------------------------------------------------------------
-bool vtkADIOSDataAdaptor::Open(MPI_Comm comm,
+bool DataAdaptor::Open(MPI_Comm comm,
   ADIOS_READ_METHOD method, const std::string& filename)
 {
   this->Comm = comm;
@@ -198,14 +204,14 @@ bool vtkADIOSDataAdaptor::Open(MPI_Comm comm,
 }
 
 //----------------------------------------------------------------------------
-bool vtkADIOSDataAdaptor::Advance()
+bool DataAdaptor::Advance()
 {
   adios_release_step(this->File);
   return adios_advance_step(this->File, 0, /*timeout*/0.5) == 0;
 }
 
 //----------------------------------------------------------------------------
-bool vtkADIOSDataAdaptor::ReadStep()
+bool DataAdaptor::ReadStep()
 {
   int tstep = 0; double time = 0;
   ADIOS_FILE* f = this->File;
@@ -218,13 +224,13 @@ bool vtkADIOSDataAdaptor::ReadStep()
 }
 
 //----------------------------------------------------------------------------
-vtkDataObject* vtkADIOSDataAdaptor::GetMesh(bool /*structure_only*/)
+vtkDataObject* DataAdaptor::GetMesh(bool /*structure_only*/)
 {
   return this->Mesh;
 }
 
 //----------------------------------------------------------------------------
-bool vtkADIOSDataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arrayname)
+bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arrayname)
 {
   ArraysType& arrays = this->AssociatedArrays[association];
   ArraysType::iterator iter = arrays.find(arrayname);
@@ -265,13 +271,13 @@ bool vtkADIOSDataAdaptor::AddArray(vtkDataObject* mesh, int association, const c
 }
 
 //----------------------------------------------------------------------------
-unsigned int vtkADIOSDataAdaptor::GetNumberOfArrays(int association)
+unsigned int DataAdaptor::GetNumberOfArrays(int association)
 {
   return static_cast<unsigned int>(this->AssociatedArrays[association].size());
 }
 
 //----------------------------------------------------------------------------
-const char* vtkADIOSDataAdaptor::GetArrayName(int association, unsigned int index)
+const char* DataAdaptor::GetArrayName(int association, unsigned int index)
 {
   ArraysType& arrays = this->AssociatedArrays[association];
   unsigned int cc=0;
@@ -286,7 +292,7 @@ const char* vtkADIOSDataAdaptor::GetArrayName(int association, unsigned int inde
 }
 
 //----------------------------------------------------------------------------
-void vtkADIOSDataAdaptor::ReleaseData()
+void DataAdaptor::ReleaseData()
 {
   for (AssociatedArraysType::iterator iter1 = this->AssociatedArrays.begin();
     iter1 != this->AssociatedArrays.end(); ++iter1)
@@ -301,7 +307,10 @@ void vtkADIOSDataAdaptor::ReleaseData()
 }
 
 //----------------------------------------------------------------------------
-void vtkADIOSDataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void DataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }
+
+} // adios
+} // sensei

@@ -1,19 +1,26 @@
-#ifndef vtkCatalystAnalysisAdaptor_h
-#define vtkCatalystAnalysisAdaptor_h
+#ifndef sensei_catalyst_AnalysisAdaptor_h
+#define sensei_catalyst_AnalysisAdaptor_h
 
-#include "vtkInsituAnalysisAdaptor.h"
+#include <sensei/AnalysisAdaptor.h>
+
 class vtkCPInputDataDescription;
 class vtkCPPipeline;
 
+namespace sensei
+{
+namespace catalyst
+{
+using sensei::DataAdaptor;
+
 /// @brief Analysis adaptor for Catalyst-based analysis pipelines.
 ///
-/// vtkCatalystAnalysisAdaptor is a subclass of vtkInsituAnalysisAdaptor that is
+/// AnalysisAdaptor is a subclass of AnalysisAdaptor that is
 /// that can be used as the superclass for all analysis that uses Catalyst.
-class vtkCatalystAnalysisAdaptor : public vtkInsituAnalysisAdaptor
+class AnalysisAdaptor : public sensei::AnalysisAdaptor
 {
 public:
-  static vtkCatalystAnalysisAdaptor* New();
-  vtkTypeMacro(vtkCatalystAnalysisAdaptor, vtkInsituAnalysisAdaptor);
+  static AnalysisAdaptor* New();
+  vtkTypeMacro(AnalysisAdaptor, sensei::AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Add a vtkCPPipeline subclass to the global Catalyst Co-Processor.
@@ -21,11 +28,11 @@ public:
   /// Adds a vtkCPPipeline subclass to the global Catalyst Co-Processor.
   virtual void AddPipeline(vtkCPPipeline* pipeline);
 
-  virtual bool Execute(vtkInsituDataAdaptor* data);
+  virtual bool Execute(DataAdaptor* data);
 //BTX
 protected:
-  vtkCatalystAnalysisAdaptor();
-  ~vtkCatalystAnalysisAdaptor();
+  AnalysisAdaptor();
+  ~AnalysisAdaptor();
 
   /// @brief Fill \c desc with meta data from \c dataAdaptor.
   ///
@@ -34,7 +41,7 @@ protected:
   /// \c dataAdaptor.
   /// @return true on success, false to abort execution.
   virtual bool FillDataDescriptionWithMetaData(
-    vtkInsituDataAdaptor* dataAdaptor, vtkCPInputDataDescription* desc);
+    DataAdaptor* dataAdaptor, vtkCPInputDataDescription* desc);
 
   /// @brief Fill \c desc with data from \c dataAdaptor.
   ///
@@ -42,11 +49,13 @@ protected:
   /// simulation data.
   /// @return true on success, false to abort execution.
   virtual bool FillDataDescriptionWithData(
-    vtkInsituDataAdaptor* dataAdaptor, vtkCPInputDataDescription* desc);
+    DataAdaptor* dataAdaptor, vtkCPInputDataDescription* desc);
 private:
-  vtkCatalystAnalysisAdaptor(const vtkCatalystAnalysisAdaptor&); // Not implemented.
-  void operator=(const vtkCatalystAnalysisAdaptor&); // Not implemented.
+  AnalysisAdaptor(const AnalysisAdaptor&); // Not implemented.
+  void operator=(const AnalysisAdaptor&); // Not implemented.
 //ETX
 };
 
+} // catalyst
+} // sensei
 #endif

@@ -1,39 +1,27 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkInsituDataAdaptor.h
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
-// .NAME vtkInsituDataAdaptor
-// .SECTION Description
-// vtkInsituDataAdaptor is an adaptor that is used to get vtkDataObject and
-// vtkAbstractArray. Each simulation code provides an implementation of
-// vtkInsituDataAdaptor which maps simulation data-structures to VTK data model
-// on request.
-
-#ifndef vtkInsituDataAdaptor_h
-#define vtkInsituDataAdaptor_h
+#ifndef sensei_DataAdaptor_h
+#define sensei_DataAdaptor_h
 
 #include "vtkObjectBase.h"
-#include "vtkSetGet.h"
+#include "vtkSetGet.h" // needed for vtkTypeMacro.
 
 class vtkAbstractArray;
 class vtkDataObject;
 class vtkInformation;
 class vtkInformationIntegerKey;
 
-class vtkInsituDataAdaptor : public vtkObjectBase
+namespace sensei
+{
+
+/// @class DataAdaptor
+/// @brief DataAdaptor is an abstract base class that defines the data interface.
+///
+/// DataAdaptor defines the data interface. Any simulation code that interfaces with
+/// Sensei needs to provide an implementation for this interface. Analysis routines
+/// (via AnalysisAdator) use the DataAdaptor implementation to access simulation data.
+class DataAdaptor : public vtkObjectBase
 {
 public:
-  vtkTypeMacro(vtkInsituDataAdaptor, vtkObjectBase);
+  vtkTypeMacro(DataAdaptor, vtkObjectBase);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Return the data object with appropriate structure.
@@ -119,7 +107,6 @@ public:
   /// @brief Convenience methods to set the time information.
   static void SetDataTimeStep(vtkInformation*, int index);
 
-
   /// @brief convenience method to get full mesh will all arrays added to the
   /// mesh.
   vtkDataObject* GetCompleteMesh();
@@ -127,13 +114,14 @@ public:
   /// @brief Key to store the timestep index.
   static vtkInformationIntegerKey* DATA_TIME_STEP_INDEX();
 protected:
-  vtkInsituDataAdaptor();
-  ~vtkInsituDataAdaptor();
+  DataAdaptor();
+  ~DataAdaptor();
 
   vtkInformation* Information;
 private:
-  vtkInsituDataAdaptor(const vtkInsituDataAdaptor&); // Not implemented.
-  void operator=(const vtkInsituDataAdaptor&); // Not implemented.
+  DataAdaptor(const DataAdaptor&); // Not implemented.
+  void operator=(const DataAdaptor&); // Not implemented.
 };
 
+}
 #endif

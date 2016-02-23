@@ -1,18 +1,21 @@
-#ifndef AUTOCORRELATIONANALYSISADAPTOR_H
-#define AUTOCORRELATIONANALYSISADAPTOR_H
+#ifndef sensei_Autocorrelation_h
+#define sensei_Autocorrelation_h
 
-#include "vtkInsituAnalysisAdaptor.h"
+#include "AnalysisAdaptor.h"
 #include <mpi.h>
 
-/// @brief vtkInsituAnalysisAdaptor subclass for autocorrelation.
+namespace sensei
+{
+/// @class autocorrelation::AnalysisAdaptor
+/// @brief AnalysisAdaptor subclass for autocorrelation.
 ///
-/// AutocorrelationAnalysisAdaptor is an analysis adaptor that performs
+/// Autocorrelation is an analysis adaptor that performs
 /// autocorrelation on the dataset.
-class AutocorrelationAnalysisAdaptor : public vtkInsituAnalysisAdaptor
+class Autocorrelation : public AnalysisAdaptor
 {
 public:
-  static AutocorrelationAnalysisAdaptor* New();
-  vtkTypeMacro(AutocorrelationAnalysisAdaptor, vtkInsituAnalysisAdaptor);
+  static Autocorrelation* New();
+  vtkTypeMacro(Autocorrelation, AnalysisAdaptor);
 
   /// @brief Initialize the adaptor.
   ///
@@ -29,17 +32,19 @@ public:
   void Initialize(MPI_Comm world,
     size_t window, int association, const char* arrayname, size_t k_max);
 
-  virtual bool Execute(vtkInsituDataAdaptor* data);
+  virtual bool Execute(DataAdaptor* data);
 protected:
-  AutocorrelationAnalysisAdaptor();
-  ~AutocorrelationAnalysisAdaptor();
+  Autocorrelation();
+  ~Autocorrelation();
 
   void PrintResults(size_t k_max);
 private:
-  AutocorrelationAnalysisAdaptor(const AutocorrelationAnalysisAdaptor&); // not implemented.
-  void operator=(const AutocorrelationAnalysisAdaptor&);
+  Autocorrelation(const Autocorrelation&); // not implemented.
+  void operator=(const Autocorrelation&);
 
   class AInternals;
   AInternals* Internals;
 };
+
+}
 #endif

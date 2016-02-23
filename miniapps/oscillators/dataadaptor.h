@@ -1,15 +1,15 @@
 #ifndef OSCILLATORS_DATAADAPTOR_H
 #define OSCILLATORS_DATAADAPTOR_H
 
-#include <vtkInsituDataAdaptor.h>
+#include <sensei/DataAdaptor.h>
 
 namespace oscillators
 {
-class DataAdaptor : public vtkInsituDataAdaptor
+class DataAdaptor : public sensei::DataAdaptor
 {
 public:
   static DataAdaptor* New();
-  vtkTypeMacro(DataAdaptor, vtkInsituDataAdaptor);
+  vtkTypeMacro(DataAdaptor, sensei::DataAdaptor);
 
   /// @brief Initialize the data adaptor.
   ///

@@ -1,24 +1,30 @@
-#ifndef vtkADIOSAnalysisAdaptor_h
-#define vtkADIOSAnalysisAdaptor_h
+#ifndef sensei_adios_AnalysisAdaptor_h
+#define sensei_adios_AnalysisAdaptor_h
 
-#include <vtkInsituAnalysisAdaptor.h>
+#include <sensei/AnalysisAdaptor.h>
 #include <string>
+
+namespace sensei
+{
+namespace adios
+{
+using sensei::DataAdaptor;
 
 /// @brief Analysis adaptor for ADIOS.
 ///
-/// vtkADIOSAnalysisAdaptor is an subclass of vtkInsituAnalysisAdaptor. Despite
+/// adios::AnalysisAdaptor is an subclass of sensei::AnalysisAdaptor. Despite
 /// being called an analysis adaptor, this adaptor doesn't do any analysis. It's
-/// main purpose is to serialize data provided via vtkInsituDataAdaptor using
+/// main purpose is to serialize data provided via DataAdaptor using
 /// ADIOS. In theory, this class should be able to handle all types of
 /// vtkDataObject subclasses. Current implementation only supports vtkImageData
 /// and vtkMultiBlockDataSet of vtkImageData.
 ///
 /// \sa vtkADIOSDataAdaptor, ADIOSAnalysisEndPoint
-class vtkADIOSAnalysisAdaptor : public vtkInsituAnalysisAdaptor
+class AnalysisAdaptor : public sensei::AnalysisAdaptor
 {
 public:
-  static vtkADIOSAnalysisAdaptor* New();
-  vtkTypeMacro(vtkADIOSAnalysisAdaptor, vtkInsituAnalysisAdaptor);
+  static AnalysisAdaptor* New();
+  vtkTypeMacro(AnalysisAdaptor, sensei::AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Set the ADIOS method e.g. MPI, FLEXPATH etc.
@@ -37,21 +43,21 @@ public:
   std::string GetFileName() const
     { return this->FileName; }
 
-  virtual bool Execute(vtkInsituDataAdaptor* data);
+  virtual bool Execute(DataAdaptor* data);
 
 //BTX
 protected:
-  vtkADIOSAnalysisAdaptor();
-  ~vtkADIOSAnalysisAdaptor();
+  AnalysisAdaptor();
+  ~AnalysisAdaptor();
 
-  void InitializeADIOS(vtkInsituDataAdaptor* data);
-  void WriteTimestep(vtkInsituDataAdaptor* data);
+  void InitializeADIOS(DataAdaptor* data);
+  void WriteTimestep(DataAdaptor* data);
 
   std::string Method;
   std::string FileName;
 private:
-  vtkADIOSAnalysisAdaptor(const vtkADIOSAnalysisAdaptor&); // Not implemented.
-  void operator=(const vtkADIOSAnalysisAdaptor&); // Not implemented.
+  AnalysisAdaptor(const AnalysisAdaptor&); // Not implemented.
+  void operator=(const AnalysisAdaptor&); // Not implemented.
 
   bool Initialized;
   int64_t FixedLengthVarSize;
@@ -59,4 +65,6 @@ private:
 //ETX
 };
 
+} // adios
+} // sensei
 #endif

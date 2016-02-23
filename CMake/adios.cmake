@@ -1,0 +1,7 @@
+find_package(ADIOS 1.9 REQUIRED)
+add_library(adios INTERFACE)
+target_link_libraries(adios INTERFACE ${ADIOS_LIBRARIES})
+target_include_directories(adios SYSTEM INTERFACE ${ADIOS_INCLUDE_DIRS})
+if(ADIOS_DEFINITIONS)
+  target_compile_definitions(adios INTERFACE ${ADIOS_DEFINITIONS})
+endif()

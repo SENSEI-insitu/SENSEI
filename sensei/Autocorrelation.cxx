@@ -1,10 +1,12 @@
-#include "AutocorrelationAnalysisAdaptor.h"
+#include "Autocorrelation.h"
 
+#include "DataAdaptor.h"
+
+// VTK includes
 #include <vtkCompositeDataIterator.h>
 #include <vtkFieldData.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
-#include <vtkInsituDataAdaptor.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
@@ -19,6 +21,7 @@
 #include <diy/io/numpy.hpp>
 #include <grid/grid.h>
 #include <grid/vertices.h>
+
 
 // http://stackoverflow.com/a/12580468
 template<typename T, typename ...Args>
@@ -37,14 +40,17 @@ namespace diy { namespace mpi { namespace detail {
   template<class U> struct mpi_op< add_vectors<U> >         { static MPI_Op  get() { return MPI_SUM; }  };
 } } }
 
+namespace sensei
+{
+
 using GridRef = grid::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
-struct Autocorrelation
+struct AutocorrelationImpl
 {
   using Grid = grid::Grid<float,4>;
-  Autocorrelation(size_t window_, int gid_, Vertex from_, Vertex to_):
+  AutocorrelationImpl(size_t window_, int gid_, Vertex from_, Vertex to_):
     window(window_),
     gid(gid_),
     from(from_), to(to_),
@@ -54,8 +60,8 @@ struct Autocorrelation
     corr(shape.lift(3, window))
   {}
 
-  static void* create()            { return new Autocorrelation; }
-  static void destroy(void* b)    { delete static_cast<Autocorrelation*>(b); }
+  static void* create()            { return new AutocorrelationImpl; }
+  static void destroy(void* b)    { delete static_cast<AutocorrelationImpl*>(b); }
   void process(float* data)
     {
     GridRef g(data, shape);
@@ -94,11 +100,11 @@ struct Autocorrelation
   size_t          count  = 0;
 
 private:
-  Autocorrelation() {}        // here just for create; to let Master manage the blocks (+ if we choose to add OOC later)
+  AutocorrelationImpl() {}        // here just for create; to let Master manage the blocks (+ if we choose to add OOC later)
 };
 
 //-----------------------------------------------------------------------------
-class AutocorrelationAnalysisAdaptor::AInternals
+class Autocorrelation::AInternals
 {
 public:
   std::unique_ptr<diy::Master> Master;
@@ -133,7 +139,7 @@ public:
       Vertex from { ext[0], ext[2], ext[4] };
       Vertex to   { ext[1], ext[3], ext[5] };
       int bid = this->Master->communicator().rank();
-      Autocorrelation* b = new Autocorrelation(this->Window, bid, from, to);
+      AutocorrelationImpl* b = new AutocorrelationImpl(this->Window, bid, from, to);
       this->Master->add(bid, b, new diy::Link);
       this->NumberOfBlocks = this->Master->communicator().size();
       }
@@ -158,7 +164,7 @@ public:
           Vertex from { ext[0], ext[2], ext[4] };
           Vertex to   { ext[1], ext[3], ext[5] };
 
-          Autocorrelation* b = new Autocorrelation(this->Window, bid, from, to);
+          AutocorrelationImpl* b = new AutocorrelationImpl(this->Window, bid, from, to);
           this->Master->add(bid, b, new diy::Link);
           }
         }
@@ -168,29 +174,29 @@ public:
     }
 };
 
-vtkStandardNewMacro(AutocorrelationAnalysisAdaptor);
+vtkStandardNewMacro(Autocorrelation);
 //-----------------------------------------------------------------------------
-AutocorrelationAnalysisAdaptor::AutocorrelationAnalysisAdaptor()
-  : Internals(new AutocorrelationAnalysisAdaptor::AInternals())
+Autocorrelation::Autocorrelation()
+  : Internals(new Autocorrelation::AInternals())
 {
 }
 
 //-----------------------------------------------------------------------------
-AutocorrelationAnalysisAdaptor::~AutocorrelationAnalysisAdaptor()
+Autocorrelation::~Autocorrelation()
 {
   this->PrintResults(this->Internals->KMax);
   delete this->Internals;
 }
 
 //-----------------------------------------------------------------------------
-void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
+void Autocorrelation::Initialize(MPI_Comm world,
   size_t window,
   int association, const char* arrayname, size_t kmax)
 {
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
-                                              &Autocorrelation::create,
-                                              &Autocorrelation::destroy);
+                                              &AutocorrelationImpl::create,
+                                              &AutocorrelationImpl::destroy);
   internals.Association = association;
   internals.ArrayName = arrayname;
   internals.Window = window;
@@ -198,7 +204,7 @@ void AutocorrelationAnalysisAdaptor::Initialize(MPI_Comm world,
 }
 
 //-----------------------------------------------------------------------------
-bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
+bool Autocorrelation::Execute(DataAdaptor* data)
 {
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
@@ -225,7 +231,7 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
       if (vtkDataSet* dataObj = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
         {
         int lid = internals.Master->lid(static_cast<int>(bid));
-        Autocorrelation* corr = internals.Master->block<Autocorrelation>(lid);
+        AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
         vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
           dataObj->GetAttributesAsFieldData(association)->GetArray(arrayname));
         if (fa)
@@ -244,7 +250,7 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
     {
     int bid = internals.Master->communicator().rank();
     int lid = internals.Master->lid(static_cast<int>(bid));
-    Autocorrelation* corr = internals.Master->block<Autocorrelation>(lid);
+    AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
     vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
       ds->GetAttributesAsFieldData(association)->GetArray(arrayname));
     if (fa)
@@ -261,13 +267,13 @@ bool AutocorrelationAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 }
 
 //-----------------------------------------------------------------------------
-void AutocorrelationAnalysisAdaptor::PrintResults(size_t k_max)
+void Autocorrelation::PrintResults(size_t k_max)
 {
   AInternals& internals = (*this->Internals);
   size_t nblocks = internals.NumberOfBlocks;
 
     // add up the autocorrellations
-  internals.Master->foreach<Autocorrelation>([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp, void*)
+  internals.Master->foreach<AutocorrelationImpl>([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp, void*)
                                      {
                                         std::vector<float> sums(b->window, 0);
                                         grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
@@ -289,8 +295,8 @@ void AutocorrelationAnalysisAdaptor::PrintResults(size_t k_max)
     std::cout << std::endl;
     }
 
-  internals.Master->foreach<Autocorrelation>(
-    [](Autocorrelation* b, const diy::Master::ProxyWithLink& cp, void*)
+  internals.Master->foreach<AutocorrelationImpl>(
+    [](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp, void*)
     {
     cp.collectives()->clear();
     });
@@ -301,7 +307,7 @@ void AutocorrelationAnalysisAdaptor::PrintResults(size_t k_max)
     diy::reduce(*internals.Master, assigner, partners,
                 [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners& partners)
                 {
-                    Autocorrelation*  b        = static_cast<Autocorrelation*>(b_);
+                    AutocorrelationImpl*  b        = static_cast<AutocorrelationImpl*>(b_);
                     unsigned          round    = rp.round();               // current round number
 
                     using MaxHeapVector = std::vector<std::vector<std::tuple<float,Vertex>>>;
@@ -364,4 +370,6 @@ void AutocorrelationAnalysisAdaptor::PrintResults(size_t k_max)
                         }
                     }
                 });
+}
+
 }

@@ -1,4 +1,6 @@
-#include "vtkADIOSAnalysisAdaptor.h"
+#include "AnalysisAdaptor.h"
+
+#include <sensei/DataAdaptor.h>
 
 #include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
@@ -8,15 +10,19 @@
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
 #include <vtkInformation.h>
-#include <vtkInsituDataAdaptor.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
 
 #include <mpi.h>
 #include <adios.h>
-
 #include <vector>
+
+namespace sensei
+{
+namespace adios
+{
+
 namespace internals
 {
   ADIOS_DATATYPES adiosType(vtkDataArray* da)
@@ -178,9 +184,9 @@ namespace internals
     }
 }
 
-vtkStandardNewMacro(vtkADIOSAnalysisAdaptor);
+vtkStandardNewMacro(AnalysisAdaptor);
 //----------------------------------------------------------------------------
-vtkADIOSAnalysisAdaptor::vtkADIOSAnalysisAdaptor() :
+AnalysisAdaptor::AnalysisAdaptor() :
   Initialized(false),
   FixedLengthVarSize(0)
 {
@@ -189,12 +195,12 @@ vtkADIOSAnalysisAdaptor::vtkADIOSAnalysisAdaptor() :
 }
 
 //----------------------------------------------------------------------------
-vtkADIOSAnalysisAdaptor::~vtkADIOSAnalysisAdaptor()
+AnalysisAdaptor::~AnalysisAdaptor()
 {
 }
 
 //----------------------------------------------------------------------------
-bool vtkADIOSAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
+bool AnalysisAdaptor::Execute(DataAdaptor* data)
 {
   vtkDataObject* mesh = data->GetCompleteMesh();
   this->InitializeADIOS(data);
@@ -203,7 +209,7 @@ bool vtkADIOSAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 }
 
 //----------------------------------------------------------------------------
-void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
+void AnalysisAdaptor::InitializeADIOS(DataAdaptor* data)
 {
   // Ideally, we'd develop code that can write any VTK data object to ADIOS
   // using a schema that we can call VTK_ADIOS_SCHEMA. VTK and consequently
@@ -265,7 +271,7 @@ void vtkADIOSAnalysisAdaptor::InitializeADIOS(vtkInsituDataAdaptor* data)
 }
 
 //----------------------------------------------------------------------------
-void vtkADIOSAnalysisAdaptor::WriteTimestep(vtkInsituDataAdaptor* data)
+void AnalysisAdaptor::WriteTimestep(DataAdaptor* data)
 {
   vtkDataObject* mesh = data->GetCompleteMesh();
 
@@ -363,7 +369,10 @@ void vtkADIOSAnalysisAdaptor::WriteTimestep(vtkInsituDataAdaptor* data)
 }
 
 //----------------------------------------------------------------------------
-void vtkADIOSAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }
+
+} // adios
+} // sensei

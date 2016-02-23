@@ -17,5 +17,5 @@ target_compile_definitions(3D_Grid PRIVATE _FILE_OFFSET_BITS=64 _LARGEFILE64_SOU
 target_link_libraries(3D_Grid PRIVATE m mpi)
 
 if(ENABLE_SENSEI)
-  target_link_libraries(3D_Grid PRIVATE core configurable)
+  target_link_libraries(3D_Grid PRIVATE sensei)
 endif()

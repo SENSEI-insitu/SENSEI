@@ -3,16 +3,15 @@
 #include "dataadaptor.h"
 
 #include <vector>
-#include <vtkConfigurableAnalysisAdaptor.h>
+#include <sensei/ConfigurableAnalysis.h>
 #include <vtkDataObject.h>
-#include <vtkInsituAnalysisAdaptor.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 
 namespace bridge
 {
 static vtkSmartPointer<oscillators::DataAdaptor> GlobalDataAdaptor;
-static vtkSmartPointer<vtkConfigurableAnalysisAdaptor> GlobalAnalysisAdaptor;
+static vtkSmartPointer<sensei::ConfigurableAnalysis> GlobalAnalysisAdaptor;
 
 //-----------------------------------------------------------------------------
 void initialize(MPI_Comm world,
@@ -36,7 +35,7 @@ void initialize(MPI_Comm world,
       from_z[cc], to_z[cc]);
     }
 
-  GlobalAnalysisAdaptor = vtkSmartPointer<vtkConfigurableAnalysisAdaptor>::New();
+  GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   GlobalAnalysisAdaptor->Initialize(world, config_file);
 }
 

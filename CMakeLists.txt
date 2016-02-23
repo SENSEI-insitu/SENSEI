@@ -42,50 +42,19 @@ cmake_dependent_option(
 
 #------------------------------------------------------------------------------
 include(mpi)
+if(ENABLE_ADIOS)
+  include(adios)
+endif()
 
 add_subdirectory(utils)
 
-# Process subdirectories.
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 if(ENABLE_SENSEI)
   message(STATUS "Enabled: Sensei infrastructure.")
-  add_subdirectory(core)
+  add_subdirectory(sensei)
 else()
   message(STATUS "Disabled: Sensei infrastructure.")
 endif()
 
-
-if(ENABLE_SENSEI)
-  if(VTK_HAS_GENERIC_ARRAYS)
-    add_subdirectory(analysis/histogram)
-  endif()
-  add_subdirectory(analysis/configurable)
-  add_subdirectory(analysis/autocorrelation)
-endif()
-
-if(ENABLE_PARALLEL3D)
-  message(STATUS "Enabled: Parallel3D miniapp.")
-  add_subdirectory(miniapps/parallel3d)
-else()
-  message(STATUS "Disabled: Parallel3D miniapp.")
-endif()
-
-if(ENABLE_OSCILLATORS)
-  message(STATUS "Enabled: Oscillators miniapp.")
-  add_subdirectory(miniapps/oscillators)
-else()
-  message(STATUS "Disabled: Histogram miniapp.")
-endif()
-
-if(ENABLE_CATALYST)
-  message(STATUS "Enabled: Catalyst")
-  add_subdirectory(infrastructures/catalyst)
-else()
-  message(STATUS "Disabled: Catalyst")
-endif()
-
-if(ENABLE_ADIOS)
-  message(STATUS "Enabled: ADIOS")
-  add_subdirectory(infrastructures/adios)
-else()
-  message(STATUS "Disabled: ADIOS")
-endif()
+add_subdirectory(miniapps)
+add_subdirectory(endpoints)

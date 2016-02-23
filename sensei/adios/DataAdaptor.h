@@ -1,7 +1,8 @@
-#ifndef vtkADIOSDataAdaptor_h
-#define vtkADIOSDataAdaptor_h
+#ifndef sensei_adios_DataAdaptor_h
+#define sensei_adios_DataAdaptor_h
 
-#include "vtkInsituDataAdaptor.h"
+#include <sensei/DataAdaptor.h>
+
 #include <mpi.h>
 #include <adios.h>
 #include <adios_read.h>
@@ -11,11 +12,17 @@
 
 class vtkDataArray;
 class vtkImageData;
-class vtkADIOSDataAdaptor : public vtkInsituDataAdaptor
+
+namespace sensei
+{
+namespace adios
+{
+
+class DataAdaptor : public sensei::DataAdaptor
 {
 public:
-  static vtkADIOSDataAdaptor* New();
-  vtkTypeMacro(vtkADIOSDataAdaptor, vtkInsituDataAdaptor);
+  static DataAdaptor* New();
+  vtkTypeMacro(DataAdaptor, sensei::DataAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   bool Open(MPI_Comm comm, ADIOS_READ_METHOD method, const std::string& filename);
@@ -30,8 +37,8 @@ public:
 
 //BTX
 protected:
-  vtkADIOSDataAdaptor();
-  ~vtkADIOSDataAdaptor();
+  DataAdaptor();
+  ~DataAdaptor();
   ADIOS_FILE* File;
   MPI_Comm Comm;
 
@@ -42,9 +49,11 @@ protected:
   vtkSmartPointer<vtkDataObject>  Mesh;
 
 private:
-  vtkADIOSDataAdaptor(const vtkADIOSDataAdaptor&); // Not implemented.
-  void operator=(const vtkADIOSDataAdaptor&); // Not implemented.
+  DataAdaptor(const DataAdaptor&); // Not implemented.
+  void operator=(const DataAdaptor&); // Not implemented.
 //ETX
 };
 
+} // adios
+} // sensei
 #endif

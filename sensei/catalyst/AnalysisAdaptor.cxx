@@ -1,6 +1,6 @@
-#include "vtkCatalystAnalysisAdaptor.h"
+#include "AnalysisAdaptor.h"
 
-#include <vtkInsituDataAdaptor.h>
+#include <sensei/DataAdaptor.h>
 
 #include <vtkCPAdaptorAPI.h>
 #include <vtkCPDataDescription.h>
@@ -9,14 +9,16 @@
 #include <vtkDataObject.h>
 #include <vtkObjectFactory.h>
 
-namespace
+namespace sensei
 {
-  static size_t vtkCPAdaptorAPIInitializationCounter = 0;
-}
+namespace catalyst
+{
 
-vtkStandardNewMacro(vtkCatalystAnalysisAdaptor);
+static size_t vtkCPAdaptorAPIInitializationCounter = 0;
+
+vtkStandardNewMacro(AnalysisAdaptor);
 //-----------------------------------------------------------------------------
-vtkCatalystAnalysisAdaptor::vtkCatalystAnalysisAdaptor()
+AnalysisAdaptor::AnalysisAdaptor()
 {
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
@@ -26,7 +28,7 @@ vtkCatalystAnalysisAdaptor::vtkCatalystAnalysisAdaptor()
 }
 
 //-----------------------------------------------------------------------------
-vtkCatalystAnalysisAdaptor::~vtkCatalystAnalysisAdaptor()
+AnalysisAdaptor::~AnalysisAdaptor()
 {
   vtkCPAdaptorAPIInitializationCounter--;
   if (vtkCPAdaptorAPIInitializationCounter == 0)
@@ -36,7 +38,7 @@ vtkCatalystAnalysisAdaptor::~vtkCatalystAnalysisAdaptor()
 }
 
 //-----------------------------------------------------------------------------
-void vtkCatalystAnalysisAdaptor::AddPipeline(vtkCPPipeline* pipeline)
+void AnalysisAdaptor::AddPipeline(vtkCPPipeline* pipeline)
 {
   if (pipeline)
     {
@@ -45,7 +47,7 @@ void vtkCatalystAnalysisAdaptor::AddPipeline(vtkCPPipeline* pipeline)
 }
 
 //-----------------------------------------------------------------------------
-bool vtkCatalystAnalysisAdaptor::Execute(vtkInsituDataAdaptor* dataAdaptor)
+bool AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   double time = dataAdaptor->GetDataTime();
   int timeStep = dataAdaptor->GetDataTimeStep();
@@ -71,8 +73,8 @@ bool vtkCatalystAnalysisAdaptor::Execute(vtkInsituDataAdaptor* dataAdaptor)
 }
 
 //-----------------------------------------------------------------------------
-bool vtkCatalystAnalysisAdaptor::FillDataDescriptionWithMetaData(
-  vtkInsituDataAdaptor* dA, vtkCPInputDataDescription* desc)
+bool AnalysisAdaptor::FillDataDescriptionWithMetaData(
+  DataAdaptor* dA, vtkCPInputDataDescription* desc)
 {
   desc->Reset();
   for (unsigned int cc=0, max=dA->GetNumberOfArrays(vtkDataObject::POINT); cc<max;++cc)
@@ -89,8 +91,8 @@ bool vtkCatalystAnalysisAdaptor::FillDataDescriptionWithMetaData(
 }
 
 //-----------------------------------------------------------------------------
-bool vtkCatalystAnalysisAdaptor::FillDataDescriptionWithData(
-  vtkInsituDataAdaptor* dA, vtkCPInputDataDescription* desc)
+bool AnalysisAdaptor::FillDataDescriptionWithData(
+  DataAdaptor* dA, vtkCPInputDataDescription* desc)
 {
   bool structure_only = desc->GetGenerateMesh()? false : true;
   vtkDataObject* mesh = dA->GetMesh(structure_only);
@@ -111,7 +113,10 @@ bool vtkCatalystAnalysisAdaptor::FillDataDescriptionWithData(
 }
 
 //-----------------------------------------------------------------------------
-void vtkCatalystAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }
+
+} // catalyst
+} // sensei

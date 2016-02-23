@@ -1,16 +1,15 @@
 #include "Bridge.h"
-
 #include "DataAdaptor.h"
-#include "vtkInsituAnalysisAdaptor.h"
-#include "vtkNew.h"
-#include "vtkDataObject.h"
-#include "vtkConfigurableAnalysisAdaptor.h"
 
+#include <sensei/ConfigurableAnalysis.h>
+#include <vtkNew.h>
+#include <vtkDataObject.h>
 #include <vector>
+
 namespace BridgeInternals
 {
   static vtkSmartPointer<parallel3d::DataAdaptor> GlobalDataAdaptor;
-  static vtkSmartPointer<vtkConfigurableAnalysisAdaptor> GlobalAnalysisAdaptor;
+  static vtkSmartPointer<sensei::ConfigurableAnalysis> GlobalAnalysisAdaptor;
 }
 
 //-----------------------------------------------------------------------------
@@ -33,7 +32,7 @@ void bridge_initialize(MPI_Comm comm,
     tot_blocks_x, tot_blocks_y, tot_blocks_z,
     block_id_x, block_id_y, block_id_z);
 
-  BridgeInternals::GlobalAnalysisAdaptor = vtkSmartPointer<vtkConfigurableAnalysisAdaptor>::New();
+  BridgeInternals::GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   BridgeInternals::GlobalAnalysisAdaptor->Initialize(comm, config_file);
 }
 

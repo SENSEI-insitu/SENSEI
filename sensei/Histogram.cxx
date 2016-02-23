@@ -1,4 +1,4 @@
-#include "HistogramAnalysisAdaptor.h"
+#include "Histogram.h"
 
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkArrayDispatch.h>
@@ -7,9 +7,10 @@
 #include <vtkDataArray.h>
 #include <vtkDataObject.h>
 #include <vtkFieldData.h>
-#include <vtkInsituDataAdaptor.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
+
+#include "DataAdaptor.h"
 
 #include <algorithm>
 #include <vector>
@@ -125,9 +126,12 @@ public:
 
 }
 
-vtkStandardNewMacro(HistogramAnalysisAdaptor);
+namespace sensei
+{
+
+vtkStandardNewMacro(Histogram);
 //-----------------------------------------------------------------------------
-HistogramAnalysisAdaptor::HistogramAnalysisAdaptor() :
+Histogram::Histogram() :
   Communicator(MPI_COMM_WORLD),
   Bins(0),
   Association(vtkDataObject::FIELD_ASSOCIATION_POINTS)
@@ -135,12 +139,12 @@ HistogramAnalysisAdaptor::HistogramAnalysisAdaptor() :
 }
 
 //-----------------------------------------------------------------------------
-HistogramAnalysisAdaptor::~HistogramAnalysisAdaptor()
+Histogram::~Histogram()
 {
 }
 
 //-----------------------------------------------------------------------------
-void HistogramAnalysisAdaptor::Initialize(
+void Histogram::Initialize(
   MPI_Comm comm, int bins, int association, const std::string& arrayname)
 {
   this->Communicator = comm;
@@ -150,7 +154,7 @@ void HistogramAnalysisAdaptor::Initialize(
 }
 
 //-----------------------------------------------------------------------------
-bool HistogramAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
+bool Histogram::Execute(sensei::DataAdaptor* data)
 {
   vtkHistogram histogram;
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
@@ -190,7 +194,7 @@ bool HistogramAnalysisAdaptor::Execute(vtkInsituDataAdaptor* data)
 }
 
 //-----------------------------------------------------------------------------
-vtkDataArray* HistogramAnalysisAdaptor::GetArray(vtkDataObject* dobj)
+vtkDataArray* Histogram::GetArray(vtkDataObject* dobj)
 {
   assert(dobj != NULL && vtkCompositeDataSet::SafeDownCast(dobj) == NULL);
   if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(this->Association))
@@ -199,3 +203,5 @@ vtkDataArray* HistogramAnalysisAdaptor::GetArray(vtkDataObject* dobj)
     }
   return NULL;
 }
+
+} // end of namespace sensei
