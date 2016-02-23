@@ -7,17 +7,13 @@ routines.
 Directory Structure
 -------------------
     - CMake/
-    - core/
-    - analysis/
-        - autocorrelation/
-        - histogram/
-        - configurable/
-    - infrastuctures/
+    - sensei/
         - adios/
         - catalyst/
     - miniapps/
         - oscillators/
         - parallel3d/
+    - endpoints/
     - utils/
         - diy/
         - grid/
