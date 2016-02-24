@@ -73,5 +73,8 @@ target_link_libraries(sensei
           pugixml
   )
 
+#------------------------------------------------------------------------------
 # Needed by Autocorrelation.cxx
+find_package(Threads)
+target_link_libraries(sensei PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 target_compile_features(sensei PUBLIC cxx_auto_type)
