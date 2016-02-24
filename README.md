@@ -4,8 +4,8 @@ SENSEI
 This is the `Sensei` repository for the code for all the miniapps and analysis
 routines.
 
-Directory Structure
--------------------
+Repository Organization
+----------------------
     - CMake/
     
       This contains CMake files e.g. mpi.cmake, FindADIOS.cmake, etc.
