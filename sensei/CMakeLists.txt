@@ -74,4 +74,4 @@ target_link_libraries(sensei
   )
 
 # Needed by Autocorrelation.cxx
-target_compile_options(sensei PRIVATE "-std=c++11")
+target_compile_features(sensei PUBLIC cxx_auto_type)
