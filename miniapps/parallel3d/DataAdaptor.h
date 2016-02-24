@@ -5,6 +5,7 @@
 #include "vtkSmartPointer.h"
 #include <map>
 #include <string>
+#include <cstdint>
 
 class vtkDoubleArray;
 class vtkImageData;
