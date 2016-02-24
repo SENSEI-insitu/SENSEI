@@ -33,12 +33,12 @@ cmake_dependent_option(VTK_HAS_GENERIC_ARRAYS "VTK build has Generic arrays" OFF
 #------------------------------------------------------------------------------
 # Enable Catalyst and analysis using Catalyst.
 cmake_dependent_option(
-  ENABLE_CATALYST "Enable analysis methods that use Catalyst" ON "ENABLE_SENSEI" OFF)
+  ENABLE_CATALYST "Enable analysis methods that use Catalyst" OFF "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
 # Enable ADIOS and analysis using Adios
 cmake_dependent_option(
-  ENABLE_ADIOS "Enable analysis methods that use ADIOS" ON "ENABLE_SENSEI" OFF)
+  ENABLE_ADIOS "Enable analysis methods that use ADIOS" OFF "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
 include(mpi)
