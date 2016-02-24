@@ -7,19 +7,71 @@ routines.
 Directory Structure
 -------------------
     - CMake/
+    
+      This contains CMake files e.g. mpi.cmake, FindADIOS.cmake, etc.
+      
     - sensei/
-        - adios/
-        - catalyst/
+      
+      This contains the source code for the all files under the 'sensei' namespace
+      including the core components, DataAdaptor.[h,cxx], AnalysisAdaptor.[h,cxx],
+      as well as example analysis adaptor implementations such as Histogram.[h,cxx],
+      Autocorrelation.[h,cxx].
+      
+      All classes within this directory are under the 'sensei' namespace and application
+      code can include these header using fully qualified paths e.g.
+      
+        #include <sensei/DataAdaptor.h> // for sensei::DataAdaptor declaration.
+        #include <sensei/AnalysisAdaptor.h> // for sensei::AnalysisAdaptor declaration.
+      
+      Adaptor implementations that depend on insitu frameworks are contained within
+      directories specific for that framework under this directory.
+      
+    - sensei/adios/
+      
+      Contains source code for all files under the 'sensei::adios' namespace.
+      This houses sensei::DataAdaptor and sensei::AnalysisAdaptor implementations that read and write
+      data using ADIOS APIs, namely, 'sensei::adios::DataAdaptor' and
+      'sensei::adios::AnalysisAdaptor'.
+        
+    - sensei/catalyst/
+    
+      Contains source code for all files under the 'sensei::catalyst' namespace.
+      This houses sensei::catalyst::AnalysisAdaptor which implements 'sensei::AnalysisAdaptor'
+      interface to use Catalyst for the analysis. Since in Catalyst, analysis is performed
+      via pipelines, this directory contains instances of pipelines (e.g. sensei::catalyst::Slice).
+      
     - miniapps/
-        - oscillators/
-        - parallel3d/
+    
+      All miniapps generated for various bechmarks and testing is included in this directory.
+      Each miniapp includes both the expository implementation
+      independent of Sensei infrastructure as well as a version that uses Sensei.
+    
+    - miniapps/parallel3d/
+    
+      Code for miniapp from year I. 
+      
+    - miniapps/oscillators/
+    
+      Core for miniapp from year II.
+    
     - endpoints/
+    
+      Code for executables that act as analysis endpoints for frameworks like ADIOS (ADIOSAnalysisEndPoint.cxx)
+      and GLEAN. These executables (will) use the sensei::adios::DataAdaptor and sensei::glean::DataAdaptor
+      to ingest data from these frameworks back to Sensei for further analysis.
+      
     - utils/
         - diy/
         - grid/
         - opts/
         - pugixml/
-     - configs/
+    
+      Various utility code used by the various analysis implementations.
+      
+    - configs/
+     
+      Sample configuration XML files demonstrating how a configurable analysis pipeline
+      can be setup.
 
 Build instructions
 ---------------------
