@@ -138,7 +138,7 @@ int main(int argc, char** argv)
 
     // decompose the domain
     diy::decompose(3, world.rank(), domain, assigner,
-                   [&](int gid, const Bounds& core, const Bounds& bounds, const Bounds& domain, const Link& link)
+                   [&](int gid, const Bounds&, const Bounds& bounds, const Bounds& domain, const Link& link)
                    {
                       auto b = new Block(gid, bounds, { domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1 }, oscillators);
                       master.add(gid, b, new Link(link));

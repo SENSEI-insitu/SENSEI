@@ -8,7 +8,9 @@ set (sources
   ConfigurableAnalysis.h
   DataAdaptor.cxx
   DataAdaptor.h
-)
+  PosthocIO.cxx
+  PosthocIO.h
+  )
 
 if(VTK_HAS_GENERIC_ARRAYS)
   list(APPEND sources
@@ -67,11 +69,12 @@ if(ENABLE_ADIOS)
 endif()
 
 target_link_libraries(sensei
-  PUBLIC  ${VTK_LIBRARIES}
+  PUBLIC ${VTK_LIBRARIES}
           mpi
   PRIVATE diy
           grid
           pugixml
+          ArrayIO
   )
 
 #------------------------------------------------------------------------------

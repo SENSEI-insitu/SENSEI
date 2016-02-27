@@ -6,6 +6,7 @@
 #include <vtkDataObject.h>
 
 #include "Autocorrelation.h"
+#include "PosthocIO.h"
 #ifdef ENABLE_HISTOGRAM
 # include "Histogram.h"
 #endif
@@ -19,6 +20,11 @@
 
 #include <vector>
 #include <pugixml.hpp>
+
+#define sensei_error(_arg) \
+  cerr << "ERROR: " << __FILE__ " : "  << __LINE__ << std::endl \
+    << "" _arg << std::endl;
+
 namespace sensei
 {
 
@@ -35,7 +41,7 @@ class ConfigurableAnalysis::vtkInternals
       {
       return vtkDataObject::FIELD_ASSOCIATION_CELLS;
       }
-    cout << "Invalid association type '" << association.c_str() << "'. Assuming 'point'" << endl;
+    sensei_error(<< "Invalid association type '" << association.c_str() << "'. Assuming 'point'");
     return vtkDataObject::FIELD_ASSOCIATION_POINTS;
     }
 
@@ -57,7 +63,7 @@ public:
       }
     else
       {
-      cerr << "'histogram' missing required attribute 'array'. Skipping." << endl;
+      sensei_error(<< "'histogram' missing required attribute 'array'. Skipping.");
       }
     }
 #endif
@@ -113,9 +119,65 @@ public:
       node.attribute("k-max")? node.attribute("k-max").as_int() : 3);
     this->Analyses.push_back(adaptor.GetPointer());
     }
+
+  void AddPosthocIO(MPI_Comm comm, pugi::xml_node node)
+    {
+    if (!node.attribute("enabled") || !node.attribute("enabled").as_int())
+      {
+      cerr << "Skipping 'PosthocIO'." << endl;
+      return;
+      }
+
+    if (!node.attribute("array"))
+      {
+      sensei_error(<< "need at least one array");
+      return;
+      }
+    std::string arrayName = node.attribute("array").value();
+
+    std::vector<std::string> cellArrays;
+    std::vector<std::string> pointArrays;
+    pugi::xml_attribute assoc_att = node.attribute("association");
+    if (assoc_att && (std::string(assoc_att.value()) == "cell"))
+      cellArrays.push_back(arrayName); 
+    else
+      pointArrays.push_back(arrayName);
+
+    std::string outputDir = "./";
+    if (node.attribute("output_dir"))
+      outputDir = node.attribute("output_dir").value();
+        
+    std::string fileBase = "PosthocIO";
+    if (node.attribute("file_base"))
+      fileBase = node.attribute("file_base").value();
+
+    std::string blockExt = "block";
+    if (node.attribute("block_ext"))
+        blockExt = node.attribute("block_ext").value();
+
+    int mode = PosthocIO::MpiIO;
+    if (node.attribute("mode"))
+        mode = node.attribute("mode").as_int();
+
+    int period = 1;
+    if (node.attribute("period"))
+        period = node.attribute("period").as_int();
+
+
+    PosthocIO *adapter = PosthocIO::New();
+
+    adapter->Initialize(comm, outputDir, fileBase,
+        blockExt, cellArrays, pointArrays, mode,
+        period);
+
+    this->Analyses.push_back(adapter);
+    adapter->Delete();
+    }
 };
 
+//----------------------------------------------------------------------------
 vtkStandardNewMacro(ConfigurableAnalysis);
+
 //----------------------------------------------------------------------------
 ConfigurableAnalysis::ConfigurableAnalysis()
   : Internals(new ConfigurableAnalysis::vtkInternals())
@@ -170,8 +232,16 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filenam
       this->Internals->AddAutoCorrelation(world, analysis);
       continue;
       }
-    cerr << "Skipping '" << type.c_str() << "'." << endl;
+
+    if (type == "PosthocIO")
+      {
+      this->Internals->AddPosthocIO(world, analysis);
+      continue;
+      }
+
+    std::cerr << "Skipping '" << type.c_str() << "'." << std::endl;
     }
+  return true;
 }
 
 //----------------------------------------------------------------------------

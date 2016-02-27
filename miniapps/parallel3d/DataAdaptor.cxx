@@ -28,6 +28,12 @@ void DataAdaptor::Initialize(
   int tot_blocks_x, int tot_blocks_y, int tot_blocks_z,
   int block_id_x, int block_id_y, int block_id_z)
 {
+  (void)tot_blocks_x;
+  (void)tot_blocks_y;
+  (void)tot_blocks_z;
+  (void)block_id_x;
+  (void)block_id_y;
+  (void)block_id_z;
   // we only really need to save the local extents for our current example. So
   // we'll just save that.
   this->CellExtent[0] = start_extents_x;

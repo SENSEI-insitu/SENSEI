@@ -1,5 +1,6 @@
 #include "dataadaptor.h"
 
+#include <vtkInformation.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
 #include <vtkMultiBlockDataSet.h>
@@ -12,13 +13,13 @@
 namespace oscillators
 {
 
-class DataAdaptor::DInternals
+struct DataAdaptor::DInternals
 {
-public:
   std::vector<diy::DiscreteBounds> CellExtents;
   std::vector<float*> Data;
   vtkSmartPointer<vtkMultiBlockDataSet> Mesh;
   std::vector<vtkSmartPointer<vtkImageData> > BlockMesh;
+  std::vector<int> DataExtent;
 };
 
 inline bool areBoundsValid(const diy::DiscreteBounds& bds)
@@ -75,6 +76,15 @@ void DataAdaptor::SetBlockExtent(int gid,
 }
 
 //-----------------------------------------------------------------------------
+void DataAdaptor::SetDataExtent(int ext[6])
+{
+  // TODO -- this key holds a int**, it should copy the data
+  this->Internals->DataExtent.assign(ext, ext+6);
+  this->GetInformation()->Set(vtkDataObject::DATA_EXTENT(),
+      this->Internals->DataExtent.data(), 6);
+}
+
+//-----------------------------------------------------------------------------
 void DataAdaptor::SetBlockData(int gid, float* data)
 {
   DInternals& internals = (*this->Internals);
@@ -94,6 +104,8 @@ vtkDataObject* DataAdaptor::GetMesh(bool vtkNotUsed(structure_only))
       internals.Mesh->SetBlock(static_cast<unsigned int>(cc), this->GetBlockMesh(cc));
       }
     }
+  this->AddArray(internals.Mesh,
+      vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   return internals.Mesh;
 }
 
@@ -117,13 +129,11 @@ vtkDataObject* DataAdaptor::GetBlockMesh(int gid)
 //-----------------------------------------------------------------------------
 bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arrayname)
 {
+#ifndef NDEBUG
   if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS ||
-      arrayname == NULL ||
-      strcmp(arrayname, "data") != 0)
-    {
+      arrayname == NULL || strcmp(arrayname, "data") != 0)
     return false;
-    }
-
+#endif
   bool retVal = false;
   DInternals& internals = (*this->Internals);
   vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
