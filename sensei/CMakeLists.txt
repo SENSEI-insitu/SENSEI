@@ -63,6 +63,7 @@ endif()
 
 if(ENABLE_ADIOS)
   target_link_libraries(sensei PRIVATE adios)
+  target_compile_definitions(sensei PUBLIC ENABLE_ADIOS)
 endif()
 
 target_link_libraries(sensei
