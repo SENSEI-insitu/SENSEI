@@ -1,6 +1,7 @@
 #include "AnalysisAdaptor.h"
 
 #include <sensei/DataAdaptor.h>
+#include <timer/Timer.h>
 
 #include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
@@ -220,6 +221,8 @@ void AnalysisAdaptor::InitializeADIOS(DataAdaptor* data)
     return;
     }
 
+  timer::MarkEvent mark("adios::intialize");
+
   adios_init_noxml(MPI_COMM_WORLD);
   adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, 500);
 
@@ -273,6 +276,7 @@ void AnalysisAdaptor::InitializeADIOS(DataAdaptor* data)
 //----------------------------------------------------------------------------
 void AnalysisAdaptor::WriteTimestep(DataAdaptor* data)
 {
+  timer::MarkEvent mark("adios::execute");
   vtkDataObject* mesh = data->GetCompleteMesh();
 
   int nprocs = 1, rank = 0;

@@ -24,7 +24,7 @@ target_link_libraries(oscillator PRIVATE mpi diy grid opts)
 # Threads
 find_package(Threads)
 target_link_libraries(oscillator PRIVATE util ${CMAKE_THREAD_LIBS_INIT})
-
+target_link_libraries(oscillator PRIVATE timer)
 if(ENABLE_SENSEI)
   target_link_libraries(oscillator PRIVATE sensei)
 endif()

@@ -18,6 +18,8 @@
 #include "analysis.h"
 #endif
 
+#include <timer/Timer.h>
+
 
 using Grid   = grid::Grid<float,3>;
 using Vertex = Grid::Vertex;
@@ -52,13 +54,16 @@ struct Block
             for (auto& o : oscillators)
                 gv += o.evaluate(v_global, t);
         });
-#ifdef ENABLE_SENSEI
-        bridge::set_data(gid, grid.data());
-#else
-        analyze(gid, grid.data());
-#endif
-
     }
+
+    void    analyze_block()
+      {
+#ifdef ENABLE_SENSEI
+      bridge::set_data(gid, grid.data());
+#else
+      analyze(gid, grid.data());
+#endif
+      }
 
     static void* create()                   { return new Block; }
     static void  destroy(void* b)           { delete static_cast<Block*>(b); }
@@ -117,6 +122,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    timer::MarkStartEvent("oscillators::initialize");
+
     auto oscillators = read_oscillators(infn);
     //for (auto& o : oscillators)
     //    fmt::print("center = {}, radius = {}, omega0 = {}, zeta = {}\n", o.center, o.radius, o.omega0, o.zeta);
@@ -136,6 +143,7 @@ int main(int argc, char** argv)
                      from_x, from_y, from_z,
                      to_x,   to_y,   to_z;
 
+
     // decompose the domain
     diy::decompose(3, world.rank(), domain, assigner,
                    [&](int gid, const Bounds& core, const Bounds& bounds, const Bounds& domain, const Link& link)
@@ -154,6 +162,9 @@ int main(int argc, char** argv)
                       to_z.push_back(bounds.max[2]);
                    });
 
+    timer::MarkEndEvent("oscillators::initialize");
+
+    timer::MarkStartEvent("oscillators::analysis::initialize");
 #ifdef ENABLE_SENSEI
     bridge::initialize(world, window, nblocks, gids.size(),
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
@@ -168,6 +179,8 @@ int main(int argc, char** argv)
                   &from_x[0], &from_y[0], &from_z[0],
                   &to_x[0],   &to_y[0],   &to_z[0]);
 #endif
+    timer::MarkEndEvent("oscillators::analysis::initialize");
+
     if (world.rank() == 0)
         fmt::print("Started\n");
 
@@ -175,32 +188,50 @@ int main(int argc, char** argv)
     using ms   = std::chrono::milliseconds;
     auto start = Time::now();
 
+    int t_count = 0;
     float t = 0.;
     while (t < t_end)
     {
+        timer::MarkStartTimeStep(t_count, t);
+        timer::MarkStartEvent("oscillators::advance");
         master.foreach<Block>([=](Block* b, const Proxy&, void*)
                               {
                                 b->advance(t);
+                              });
+        timer::MarkEndEvent("oscillators::advance");
+
+        timer::MarkStartEvent("oscillators::analysis");
+        master.foreach<Block>([=](Block* b, const Proxy&, void*)
+                              {
+                                b->analyze_block();
                               });
 #ifdef ENABLE_SENSEI
         bridge::analyze(t);
 #else
         analysis_round();   // let analysis do any kind of global operations it would like
 #endif
-
+        timer::MarkEndEvent("oscillators::analysis");
         if (sync)
             world.barrier();
+        timer::MarkEndTimeStep();
+
         t += dt;
+        t_count++;
     }
     world.barrier();
 
+    timer::MarkStartEvent("oscillators::finalize");
 #ifdef ENABLE_SENSEI
     bridge::finalize(k_max, nblocks);
 #else
     analysis_final(k_max, nblocks);
 #endif
+    timer::MarkEndEvent("oscillators::finalize");
 
     auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
     if (world.rank() == 0)
-        fmt::print("Total run time: {}.{} s\n", duration.count() / 1000, duration.count() % 1000);
+      {
+      fmt::print("Total run time: {}.{} s\n", duration.count() / 1000, duration.count() % 1000);
+      timer::PrintLog(std::cout);
+      }
 }

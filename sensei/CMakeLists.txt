@@ -72,6 +72,7 @@ target_link_libraries(sensei
   PRIVATE diy
           grid
           pugixml
+          timer
   )
 
 #------------------------------------------------------------------------------

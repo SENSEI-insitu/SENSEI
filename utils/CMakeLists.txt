@@ -16,3 +16,10 @@ add_library(pugixml STATIC
   pugixml/src/pugiconfig.hpp)
 target_include_directories(pugixml
   SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/pugixml/src)
+
+add_library(timer STATIC
+  timer/Timer.cxx
+  timer/Timer.h
+  timer/TimerC.h)
+target_include_directories(timer
+  SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
