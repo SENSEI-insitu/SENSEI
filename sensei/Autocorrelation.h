@@ -3,6 +3,7 @@
 
 #include "AnalysisAdaptor.h"
 #include <mpi.h>
+#include <string>
 
 namespace sensei
 {
@@ -29,8 +30,9 @@ public:
   /// @param arrayname together with \c association, identifies the array to
   ///         compute autocorrelation for.
   /// @param k_max number of strongest autocorrelations to report
-  void Initialize(MPI_Comm world,
-    size_t window, int association, const char* arrayname, size_t k_max);
+  void Initialize(
+    MPI_Comm world, size_t window, int association,
+    std::string& arrayname, size_t k_max);
 
   virtual bool Execute(DataAdaptor* data);
 protected:

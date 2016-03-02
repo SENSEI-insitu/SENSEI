@@ -28,10 +28,10 @@ public:
   void SetBlockData(int gid, float* data);
 
   virtual vtkDataObject* GetMesh(bool structure_only=false);
-  virtual bool AddArray(vtkDataObject* mesh, int association, const char* arrayname);
+  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname);
   virtual unsigned int GetNumberOfArrays(int) { return 1; }
-  virtual const char* GetArrayName(int, unsigned int index)
-    { return index==0? "data" : NULL; }
+  virtual std::string GetArrayName(int association, unsigned int index)
+  { return index==0? "data" : std::string(); }
   virtual void ReleaseData();
 
 protected:

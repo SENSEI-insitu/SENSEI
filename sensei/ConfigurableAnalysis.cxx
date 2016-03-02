@@ -194,10 +194,11 @@ public:
       return -1;
 
     vtkNew<Autocorrelation> adaptor;
+    std::string arrayname = node.attribute("array").value();
     adaptor->Initialize(comm,
       node.attribute("window")? node.attribute("window").as_int() : 10,
       this->GetAssociation(node.attribute("association")),
-      node.attribute("array").value(),
+      arrayname,
       node.attribute("k-max")? node.attribute("k-max").as_int() : 3);
     this->Analyses.push_back(adaptor.GetPointer());
 

@@ -127,12 +127,15 @@ vtkDataObject* DataAdaptor::GetBlockMesh(int gid)
 }
 
 //-----------------------------------------------------------------------------
-bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arrayname)
+bool DataAdaptor::AddArray(vtkDataObject* mesh, int association,
+                           const std::string& arrayname)
 {
 #ifndef NDEBUG
   if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS ||
-      arrayname == NULL || strcmp(arrayname, "data") != 0)
+      arrayname != "data")
+    {
     return false;
+    }
 #endif
   bool retVal = false;
   DInternals& internals = (*this->Internals);
@@ -146,10 +149,10 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arr
     vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
     if (vtkCellData* cd = (blockMesh? blockMesh->GetCellData(): NULL))
       {
-      if (cd->GetArray(arrayname) == NULL)
+      if (cd->GetArray(arrayname.c_str()) == NULL)
         {
         vtkFloatArray* fa = vtkFloatArray::New();
-        fa->SetName(arrayname);
+        fa->SetName(arrayname.c_str());
         fa->SetArray(internals.Data[cc], blockMesh->GetNumberOfCells(), 1);
         cd->SetScalars(fa);
         cd->SetActiveScalars("data");

@@ -4,6 +4,8 @@
 #include "vtkObjectBase.h"
 #include "vtkSetGet.h" // needed for vtkTypeMacro.
 
+#include <string>
+
 class vtkAbstractArray;
 class vtkDataObject;
 class vtkInformation;
@@ -47,7 +49,7 @@ public:
   /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
   /// @return true if array was added (or already added), false is request array
   /// is not available.
-  virtual bool AddArray(vtkDataObject* mesh, int association, const char* arrayname) = 0;
+  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname) = 0;
 
   /// @brief Return the number of field arrays available.
   ///
@@ -69,7 +71,7 @@ public:
   /// @param index index for the array. Must be less than value returned
   /// GetNumberOfArrays().
   /// @return name of the array.
-  virtual const char* GetArrayName(int association, unsigned int index) = 0;
+  virtual std::string GetArrayName(int association, unsigned int index) = 0;
 
   /// @brief Release data allocated for the current timestep.
   ///
