@@ -41,6 +41,9 @@ cmake_dependent_option(
   ENABLE_ADIOS "Enable analysis methods that use ADIOS" OFF "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
+option(ENABLE_VTK_XMLP "Enable use of vtk parallel I/O" OFF)
+
+#------------------------------------------------------------------------------
 include(mpi)
 if(ENABLE_ADIOS)
   include(adios)

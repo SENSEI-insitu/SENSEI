@@ -23,7 +23,7 @@ public:
   vtkTypeMacro(PosthocIO, AnalysisAdaptor);
 
   // modes.
-  enum {MpiIO=1, FilePerProc=2};
+  enum {mpiIO=1, vtkXmlP=2};
 
   void Initialize(MPI_Comm comm, const std::string &outputDir,
     const std::string &headerFile, const std::string &blockExt,
@@ -52,6 +52,7 @@ private:
 private:
   MPI_Comm Comm;
   int CommRank;
+  int CommSize;
   std::string OutputDir;
   std::string HeaderFile;
   std::string BlockExt;

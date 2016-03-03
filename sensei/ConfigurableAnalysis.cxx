@@ -21,7 +21,7 @@
 #include <vector>
 #include <pugixml.hpp>
 
-#define sensei_error(_arg) \
+#define ConfigurableAnalysisError(_arg) \
   cerr << "ERROR: " << __FILE__ " : "  << __LINE__ << std::endl \
     << "" _arg << std::endl;
 
@@ -41,7 +41,7 @@ class ConfigurableAnalysis::vtkInternals
       {
       return vtkDataObject::FIELD_ASSOCIATION_CELLS;
       }
-    sensei_error(<< "Invalid association type '" << association.c_str() << "'. Assuming 'point'");
+    ConfigurableAnalysisError(<< "Invalid association type '" << association.c_str() << "'. Assuming 'point'");
     return vtkDataObject::FIELD_ASSOCIATION_POINTS;
     }
 
@@ -63,7 +63,7 @@ public:
       }
     else
       {
-      sensei_error(<< "'histogram' missing required attribute 'array'. Skipping.");
+      ConfigurableAnalysisError(<< "'histogram' missing required attribute 'array'. Skipping.");
       }
     }
 #endif
@@ -120,18 +120,15 @@ public:
     this->Analyses.push_back(adaptor.GetPointer());
     }
 
-  void AddPosthocIO(MPI_Comm comm, pugi::xml_node node)
+  int AddPosthocIO(MPI_Comm comm, pugi::xml_node node)
     {
     if (!node.attribute("enabled") || !node.attribute("enabled").as_int())
-      {
-      cerr << "Skipping 'PosthocIO'." << endl;
-      return;
-      }
+      return -1;
 
     if (!node.attribute("array"))
       {
-      sensei_error(<< "need at least one array");
-      return;
+      ConfigurableAnalysisError(<< "need at least one array");
+      return -1;
       }
     std::string arrayName = node.attribute("array").value();
 
@@ -153,11 +150,20 @@ public:
 
     std::string blockExt = "block";
     if (node.attribute("block_ext"))
-        blockExt = node.attribute("block_ext").value();
+      blockExt = node.attribute("block_ext").value();
 
-    int mode = PosthocIO::MpiIO;
+    int mode = PosthocIO::mpiIO;
     if (node.attribute("mode"))
-        mode = node.attribute("mode").as_int();
+      {
+      std::string val = node.attribute("mode").value();
+      if (val == "vtkXmlP")
+        mode = PosthocIO::vtkXmlP;
+      else
+      if (val == "mpiIO")
+        mode = PosthocIO::mpiIO;
+      else
+        ConfigurableAnalysisError(<< "invalid mode \"" << val << "\"");
+      }
 
     int period = 1;
     if (node.attribute("period"))
@@ -172,6 +178,7 @@ public:
 
     this->Analyses.push_back(adapter);
     adapter->Delete();
+    return 0;
     }
 };
 
@@ -193,17 +200,23 @@ ConfigurableAnalysis::~ConfigurableAnalysis()
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filename)
 {
+  int rank;
+  MPI_Comm_rank(world, &rank);
+
   pugi::xml_document doc;
   pugi::xml_parse_result result = doc.load_file(filename.c_str());
   if (!result)
     {
-    cout << "XML [" << filename << "] parsed with errors, attr value: [" << doc.child("node").attribute("attr").value() << "]\n";
-    cout << "Error description: " << result.description() << "\n";
-    cout << "Error offset: " << result.offset << endl;
+    ConfigurableAnalysisError(
+      "XML [" << filename << "] parsed with errors, attr value: ["
+      << doc.child("node").attribute("attr").value() << "]" << endl
+      << "Error description: " << result.description() << endl
+      << "Error offset: " << result.offset << endl)
     return false;
     }
   pugi::xml_node sensei = doc.child("sensei");
-  for (pugi::xml_node analysis = sensei.child("analysis"); analysis; analysis = analysis.next_sibling("analysis"))
+  for (pugi::xml_node analysis = sensei.child("analysis");
+    analysis; analysis = analysis.next_sibling("analysis"))
     {
     std::string type = analysis.attribute("type").value();
 #ifdef ENABLE_HISTOGRAM
@@ -233,13 +246,12 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filenam
       continue;
       }
 
-    if (type == "PosthocIO")
-      {
-      this->Internals->AddPosthocIO(world, analysis);
+    if ((type == "PosthocIO") &&
+      !this->Internals->AddPosthocIO(world, analysis))
       continue;
-      }
 
-    std::cerr << "Skipping '" << type.c_str() << "'." << std::endl;
+    if (rank == 0)
+      std::cerr << "Skipping '" << type.c_str() << "'." << std::endl;
     }
   return true;
 }
