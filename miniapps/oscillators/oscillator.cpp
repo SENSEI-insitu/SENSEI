@@ -126,7 +126,19 @@ int main(int argc, char** argv)
 
     timer::MarkStartEvent("oscillators::initialize");
 
-    auto oscillators = read_oscillators(infn);
+    Oscillators oscillators;
+    if (world.rank() == 0)
+    {
+        oscillators = read_oscillators(infn);
+        diy::MemoryBuffer bb;
+        diy::save(bb, oscillators);
+        diy::mpi::broadcast(world, bb.buffer, 0);
+    } else
+    {
+        diy::MemoryBuffer bb;
+        diy::mpi::broadcast(world, bb.buffer, 0);
+        diy::load(bb, oscillators);
+    }
     //for (auto& o : oscillators)
     //    fmt::print("center = {}, radius = {}, omega0 = {}, zeta = {}\n", o.center, o.radius, o.omega0, o.zeta);
 
