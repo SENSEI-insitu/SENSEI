@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <sensei/ConfigurableAnalysis.h>
+#include <timer/Timer.h>
 #include <vtkDataObject.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -24,6 +25,7 @@ void initialize(MPI_Comm world,
                 int* to_x,   int* to_y,   int* to_z,
                 const std::string& config_file)
 {
+  timer::MarkEvent mark("oscillators::bridge::initialize");
   GlobalDataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
   GlobalDataAdaptor->Initialize(nblocks);
   GlobalDataAdaptor->SetDataTimeStep(-1);
@@ -50,15 +52,29 @@ void analyze(float time)
 {
   GlobalDataAdaptor->SetDataTime(time);
   GlobalDataAdaptor->SetDataTimeStep(GlobalDataAdaptor->GetDataTimeStep() + 1);
+
+  timer::MarkStartTimeStep(GlobalDataAdaptor->GetDataTimeStep(), time);
+
+  timer::MarkStartEvent("oscillators::bridge::analyze");
   GlobalAnalysisAdaptor->Execute(GlobalDataAdaptor.GetPointer());
+  timer::MarkEndEvent("oscillators::bridge::analyze");
+
+  timer::MarkStartEvent("oscillators::bridge::release-data");
   GlobalDataAdaptor->ReleaseData();
+  timer::MarkEndEvent("oscillators::bridge::release-data");
+
+  timer::MarkEndTimeStep();
 }
 
 //-----------------------------------------------------------------------------
 void finalize(size_t k_max, size_t nblocks)
 {
+  timer::MarkStartEvent("oscillators::bridge::finalize");
   GlobalAnalysisAdaptor = NULL;
   GlobalDataAdaptor = NULL;
+  timer::MarkEndEvent("oscillators::bridge::finalize");
+
+  timer::PrintLog(cout);
 }
 
 }

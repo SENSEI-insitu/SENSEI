@@ -22,6 +22,7 @@
 #include <grid/grid.h>
 #include <grid/vertices.h>
 
+#include <timer/Timer.h>
 
 // http://stackoverflow.com/a/12580468
 template<typename T, typename ...Args>
@@ -193,6 +194,7 @@ void Autocorrelation::Initialize(MPI_Comm world,
   size_t window,
   int association, const char* arrayname, size_t kmax)
 {
+  timer::MarkEvent mark("autocorrelation::initialize");
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
                                               &AutocorrelationImpl::create,
@@ -206,6 +208,7 @@ void Autocorrelation::Initialize(MPI_Comm world,
 //-----------------------------------------------------------------------------
 bool Autocorrelation::Execute(DataAdaptor* data)
 {
+  timer::MarkEvent mark("autocorrelation::execute");
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
   const char* arrayname = internals.ArrayName.c_str();
@@ -269,6 +272,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
 //-----------------------------------------------------------------------------
 void Autocorrelation::PrintResults(size_t k_max)
 {
+  timer::MarkEvent mark("autocorrelation::collect results");
   AInternals& internals = (*this->Internals);
   size_t nblocks = internals.NumberOfBlocks;
 

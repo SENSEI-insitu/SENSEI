@@ -1,6 +1,7 @@
 #include "AnalysisAdaptor.h"
 
 #include <sensei/DataAdaptor.h>
+#include <timer/Timer.h>
 
 #include <vtkCPAdaptorAPI.h>
 #include <vtkCPDataDescription.h>
@@ -22,6 +23,7 @@ AnalysisAdaptor::AnalysisAdaptor()
 {
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
+    timer::MarkEvent mark("catalyst::initialize");
     vtkCPAdaptorAPI::CoProcessorInitialize();
     }
   vtkCPAdaptorAPIInitializationCounter++;
@@ -33,6 +35,7 @@ AnalysisAdaptor::~AnalysisAdaptor()
   vtkCPAdaptorAPIInitializationCounter--;
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
+    timer::MarkEvent mark("catalyst::finalize");
     vtkCPAdaptorAPI::CoProcessorFinalize();
     }
 }
@@ -49,6 +52,7 @@ void AnalysisAdaptor::AddPipeline(vtkCPPipeline* pipeline)
 //-----------------------------------------------------------------------------
 bool AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
+  timer::MarkEvent mark("catalyst::execute");
   double time = dataAdaptor->GetDataTime();
   int timeStep = dataAdaptor->GetDataTimeStep();
   int coprocessThisTimeStep;

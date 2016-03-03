@@ -12,6 +12,8 @@
 
 #include "DataAdaptor.h"
 
+#include <timer/Timer.h>
+
 #include <algorithm>
 #include <vector>
 namespace
@@ -156,6 +158,8 @@ void Histogram::Initialize(
 //-----------------------------------------------------------------------------
 bool Histogram::Execute(sensei::DataAdaptor* data)
 {
+  timer::MarkEvent mark("histogram::execute");
+
   vtkHistogram histogram;
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
   if (mesh == NULL || !data->AddArray(mesh, this->Association, this->ArrayName.c_str()))

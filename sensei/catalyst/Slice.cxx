@@ -1,6 +1,8 @@
 #include "Slice.h"
 #include "Utilities.h"
 
+#include <timer/Timer.h>
+
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
 #include <vtkObjectFactory.h>
@@ -178,6 +180,7 @@ int Slice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int Slice::CoProcess(vtkCPDataDescription* dataDesc)
 {
+  timer::MarkEvent mark("catalyst::slice");
   vtkInternals& internals = (*this->Internals);
   internals.UpdatePipeline(dataDesc->GetInputDescription(0)->GetGrid(), dataDesc->GetTime());
   return 1;
