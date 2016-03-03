@@ -25,10 +25,12 @@ void initialize(MPI_Comm world,
                 int* to_x,   int* to_y,   int* to_z,
                 const std::string& config_file)
 {
+  (void)window;
   timer::MarkEvent mark("oscillators::bridge::initialize");
   GlobalDataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
   GlobalDataAdaptor->Initialize(nblocks);
   GlobalDataAdaptor->SetDataTimeStep(-1);
+
   for (size_t cc=0; cc < n_local_blocks; ++cc)
     {
     GlobalDataAdaptor->SetBlockExtent(gid[cc],
@@ -36,6 +38,9 @@ void initialize(MPI_Comm world,
       from_y[cc], to_y[cc],
       from_z[cc], to_z[cc]);
     }
+
+  int dext[6] = {0, domain_shape_x, 0, domain_shape_y, 0, domain_shape_z};
+  GlobalDataAdaptor->SetDataExtent(dext);
 
   GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   GlobalAnalysisAdaptor->Initialize(world, config_file);
@@ -69,6 +74,8 @@ void analyze(float time)
 //-----------------------------------------------------------------------------
 void finalize(size_t k_max, size_t nblocks)
 {
+  (void)k_max;
+  (void)nblocks;
   timer::MarkStartEvent("oscillators::bridge::finalize");
   GlobalAnalysisAdaptor = NULL;
   GlobalDataAdaptor = NULL;

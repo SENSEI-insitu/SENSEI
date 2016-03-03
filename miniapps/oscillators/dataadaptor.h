@@ -21,13 +21,16 @@ public:
   void SetBlockExtent(int gid,
     int xmin, int xmax, int ymin, int ymax, int zmin, int zmax);
 
+  /// @brief Set the extent of the dataset.
+  void SetDataExtent(int ext[6]);
+
   /// Set data for a specific block.
   void SetBlockData(int gid, float* data);
 
   virtual vtkDataObject* GetMesh(bool structure_only=false);
   virtual bool AddArray(vtkDataObject* mesh, int association, const char* arrayname);
-  virtual unsigned int GetNumberOfArrays(int association) { return 1; }
-  virtual const char* GetArrayName(int association, unsigned int index)
+  virtual unsigned int GetNumberOfArrays(int) { return 1; }
+  virtual const char* GetArrayName(int, unsigned int index)
     { return index==0? "data" : NULL; }
   virtual void ReleaseData();
 

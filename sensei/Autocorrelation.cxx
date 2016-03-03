@@ -300,7 +300,7 @@ void Autocorrelation::PrintResults(size_t k_max)
     }
 
   internals.Master->foreach<AutocorrelationImpl>(
-    [](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp, void*)
+    [](AutocorrelationImpl*, const diy::Master::ProxyWithLink& cp, void*)
     {
     cp.collectives()->clear();
     });
@@ -309,10 +309,10 @@ void Autocorrelation::PrintResults(size_t k_max)
     diy::ContiguousAssigner     assigner(internals.Master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
     diy::RegularMergePartners   partners(3, nblocks, 2, true);
     diy::reduce(*internals.Master, assigner, partners,
-                [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners& partners)
+                [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
                 {
-                    AutocorrelationImpl*  b        = static_cast<AutocorrelationImpl*>(b_);
-                    unsigned          round    = rp.round();               // current round number
+                    AutocorrelationImpl* b = static_cast<AutocorrelationImpl*>(b_);
+                    //unsigned round = rp.round(); // current round number
 
                     using MaxHeapVector = std::vector<std::vector<std::tuple<float,Vertex>>>;
                     using Compare       = std::greater<std::tuple<float,Vertex>>;
@@ -337,7 +337,7 @@ void Autocorrelation::PrintResults(size_t k_max)
                         });
                     } else
                     {
-                        for (size_t i = 0; i < rp.in_link().size(); ++i)
+                        for (long i = 0; i < rp.in_link().size(); ++i)
                         {
                             MaxHeapVector in_heaps;
                             rp.dequeue(rp.in_link().target(i).gid, in_heaps);
