@@ -93,6 +93,7 @@ int main(int argc, char** argv)
     float                       dt        = .01;
     size_t                      window    = 10;
     size_t                      k_max     = 3;
+    int                         threads   = 1;
     std::string                 config_file;
     Options ops(argc, argv);
     ops
@@ -106,6 +107,7 @@ int main(int argc, char** argv)
         >> Option('k', "k-max",  k_max,     "number of strongest autocorrelations to report")
 #endif
         >> Option(     "t-end",  t_end,     "end time")
+        >> Option('j', "jobs",   threads,   "number of threads to use")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
 
@@ -128,7 +130,7 @@ int main(int argc, char** argv)
     //for (auto& o : oscillators)
     //    fmt::print("center = {}, radius = {}, omega0 = {}, zeta = {}\n", o.center, o.radius, o.omega0, o.zeta);
 
-    diy::Master               master(world, -1, -1,
+    diy::Master               master(world, threads, -1,
                                      &Block::create,
                                      &Block::destroy);
     diy::ContiguousAssigner   assigner(world.size(), nblocks);
