@@ -20,18 +20,24 @@
 
 #include <ArrayIO.h>
 
+#if defined(ENABLE_VTK_XMLP)
+#include <vtkAlgorithm.h>
+#include <vtkCompositeDataPipeline.h>
+#include <vtkMultiProcessController.h>
+#include <vtkMPI.h>
+#include <vtkMPIController.h>
+#include <vtkXMLPMultiBlockDataWriter.h>
+#endif
+
 //#define PosthocIO_DEBUG
 
-#define posthocIO_error(_arg) \
+#define PosthocIOError(_arg) \
   cerr << "ERROR: " << __FILE__ " : "  << __LINE__ << std::endl \
     << "" _arg << std::endl;
 
 #define posthocIO_status(_cond, _arg) \
   if (_cond) \
-    { \
-    cerr << "STATUS: " << __FILE__ " : "  << __LINE__ << std::endl \
-      << "" _arg << std::endl; \
-    }
+    cerr << "" _arg << std::endl;
 
 namespace {
 // **************************************************************************
@@ -100,12 +106,12 @@ int write(MPI_File file, MPI_Info hints,
             arrayIO::write(file, hints, domain, decomp,
             valid, ta->GetPointer(0)))
         {
-        posthocIO_error("write failed");
+        PosthocIOError("write failed");
         return -1;
         }
         );
     default:
-      posthocIO_error("Unhandled data type");
+      PosthocIOError("Unhandled data type");
       return -1;
     }
   return 0;
@@ -118,13 +124,23 @@ namespace sensei
 vtkStandardNewMacro(PosthocIO);
 
 //-----------------------------------------------------------------------------
-PosthocIO::PosthocIO() : Comm(MPI_COMM_WORLD), CommRank(0),
+PosthocIO::PosthocIO() : Comm(MPI_COMM_WORLD), CommRank(0), CommSize(1),
    OutputDir("./"), HeaderFile("ImageHeader"), BlockExt(".sensei"),
-   HaveHeader(true), Mode(MpiIO), Period(1) {}
+   HaveHeader(true), Mode(mpiIO), Period(1) {}
 
 //-----------------------------------------------------------------------------
 PosthocIO::~PosthocIO()
-{}
+{
+#if defined(ENABLE_VTK_XMLP)
+  // teardown for parallel vtk I/O
+  vtkMultiProcessController *mpc =
+    vtkMultiProcessController::GetGlobalController();
+  mpc->Finalize(1);
+  mpc->Delete();
+  vtkMultiProcessController::SetGlobalController(nullptr);
+  vtkAlgorithm::SetDefaultExecutivePrototype(nullptr);
+#endif
+}
 
 //-----------------------------------------------------------------------------
 void PosthocIO::Initialize(MPI_Comm comm,
@@ -136,8 +152,8 @@ void PosthocIO::Initialize(MPI_Comm comm,
   posthocIO_status((this->CommRank==0), "PosthocIO::Initialize");
 #endif
   this->Comm = comm;
-  this->CommRank = 0;
   MPI_Comm_rank(this->Comm, &this->CommRank);
+  MPI_Comm_size(this->Comm, &this->CommSize);
   this->OutputDir = outputDir;
   this->HeaderFile = headerFile;
   this->BlockExt = blockExt;
@@ -146,39 +162,106 @@ void PosthocIO::Initialize(MPI_Comm comm,
   this->HaveHeader = (this->CommRank==0 ? false : true);
   this->Mode = mode;
   this->Period = period;
+#if defined(ENABLE_VTK_XMLP)
+  // setup for parallel vtk i/o
+  vtkMPICommunicator* vtkComm = vtkMPICommunicator::New();
+  vtkMPICommunicatorOpaqueComm h(&comm);
+  vtkComm->InitializeExternal(&h);
+
+  vtkMPIController *con = vtkMPIController::New();
+  con->SetCommunicator(vtkComm);
+  vtkComm->Delete();
+
+  vtkMultiProcessController::SetGlobalController(con);
+
+  vtkCompositeDataPipeline* cexec = vtkCompositeDataPipeline::New();
+  vtkAlgorithm::SetDefaultExecutivePrototype(cexec);
+  cexec->Delete();
+#endif
 }
 
 //-----------------------------------------------------------------------------
-int PosthocIO::WriteBOVHeader(const std::string &fileName,
-    const std::vector<std::string> &arrays, const int *wholeExtent)
+bool PosthocIO::Execute(sensei::DataAdaptor* data)
 {
-  std::ofstream ff(fileName, std::ofstream::out);
-  if (!ff.good())
+#ifdef PosthocIO_DEBUG
+  posthocIO_status((this->CommRank==0), "PosthocIO::Execute");
+#endif
+  // validate the input dataset.
+  // TODO:for now we need composite data, to support non-composite
+  // data we will wrap it in a composite dataset.
+  vtkCompositeDataSet* cd =
+    dynamic_cast<vtkCompositeDataSet*>(data->GetMesh(false));
+
+  if (!cd)
     {
-    posthocIO_error("Failed to write the header file \"" << fileName << "\"")
-    return -1;
+    PosthocIOError("unsupported dataset type")
+    return false;
     }
 
-  int dims[3] = {wholeExtent[1] - wholeExtent[0] + 1,
-      wholeExtent[3] - wholeExtent[2] + 1,
-      wholeExtent[5] - wholeExtent[4] + 1};
+  // we need whole extents
+  vtkInformation *info = data->GetInformation();
+  if (!info->Has(vtkDataObject::DATA_EXTENT()))
+    {
+    PosthocIOError("missing vtkDataObject::DATA_EXTENT");
+    return false;
+    }
 
-  ff << "# SciberQuest MPI-IO BOV Reader" << std::endl
-    << "nx=" << dims[0] << ", ny=" << dims[1] << ", nz=" << dims[2] << std::endl
-    << "ext=" << this->BlockExt << std::endl
-    << "dtype=f32" << std::endl
-    << std::endl;
+  // grab the current time step
+  int timeStep = data->GetDataTimeStep();
 
-  size_t n = arrays.size();
-  for (size_t i = 0; i < n; ++i)
-    ff << "scalar:" << arrays[i] << std::endl;
+  // option to reduce the amount of data written
+  if (timeStep%this->Period)
+      return true;
 
-  ff << std::endl;
-  ff.close();
+  // dispatch the write
+  switch (this->Mode)
+    {
+    case mpiIO:
+      this->WriteBOVHeader(info);
+      this->WriteBOV(cd, info, timeStep);
+      break;
+    case vtkXmlP:
+      this->WriteXMLP(cd, info, timeStep);
+      break;
+    default:
+      PosthocIOError("invalid mode \"" << this->Mode << "\"")
+      return false;
+    }
 
-#ifdef posthocIO_DEBUG
+  return true;
+}
+
+//-----------------------------------------------------------------------------
+int PosthocIO::WriteXMLP(vtkCompositeDataSet *cd,
+    vtkInformation *info, int timeStep)
+{
+#if defined(ENABLE_VTK_XMLP)
+  (void)info;
+
+  std::ostringstream oss;
+  oss << this->OutputDir << "/" << this->HeaderFile
+      << "_" << timeStep << ".vtmb";
+
+  vtkXMLPMultiBlockDataWriter *writer = vtkXMLPMultiBlockDataWriter::New();
+  writer->SetInputData(cd);
+  writer->SetDataModeToAppended();
+  writer->EncodeAppendedDataOff();
+  writer->SetCompressorTypeToNone();
+  writer->SetFileName(oss.str().c_str());
+  writer->Write();
+  writer->Delete();
+
+#ifdef PosthocIO_DEBUG
   posthocIO_status((this->CommRank==0),
-    "wrote BOV header \"" << fileName << "\"");
+    "PosthocIO::WriteXMLP \"" << oss.str() << "\"");
+#endif
+
+#else
+  (void)cd;
+  (void)info;
+  (void)timeStep;
+  PosthocIOError("built without vtk xmlp writer")
+  return -1;
 #endif
   return 0;
 }
@@ -220,11 +303,36 @@ int PosthocIO::WriteBOVHeader(vtkInformation *info)
 }
 
 //-----------------------------------------------------------------------------
-int PosthocIO::WriteXMLP(vtkCompositeDataSet *cd,
-    vtkInformation *info, int timeStep)
+int PosthocIO::WriteBOVHeader(const std::string &fileName,
+    const std::vector<std::string> &arrays, const int *wholeExtent)
 {
-#ifdef PosthocIO_DEBUG
-  posthocIO_status((this->CommRank==0), "PosthocIO::WriteXMLP");
+  std::ofstream ff(fileName, std::ofstream::out);
+  if (!ff.good())
+    {
+    PosthocIOError("Failed to write the header file \"" << fileName << "\"")
+    return -1;
+    }
+
+  int dims[3] = {wholeExtent[1] - wholeExtent[0] + 1,
+      wholeExtent[3] - wholeExtent[2] + 1,
+      wholeExtent[5] - wholeExtent[4] + 1};
+
+  ff << "# SciberQuest MPI-IO BOV Reader" << std::endl
+    << "nx=" << dims[0] << ", ny=" << dims[1] << ", nz=" << dims[2] << std::endl
+    << "ext=" << this->BlockExt << std::endl
+    << "dtype=f32" << std::endl
+    << std::endl;
+
+  size_t n = arrays.size();
+  for (size_t i = 0; i < n; ++i)
+    ff << "scalar:" << arrays[i] << std::endl;
+
+  ff << std::endl;
+  ff.close();
+
+#ifdef posthocIO_DEBUG
+  posthocIO_status((this->CommRank==0),
+    "wrote BOV header \"" << fileName << "\"");
 #endif
   return 0;
 }
@@ -258,7 +366,7 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
       MPI_File fh;
       if (arrayIO::open(this->Comm, fileName.c_str(), MPI_INFO_NULL, fh))
         {
-        posthocIO_error("Open failed \"" << fileName);
+        PosthocIOError("Open failed \"" << fileName);
         return -1;
         }
 
@@ -320,7 +428,7 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
 
         if (!id)
           {
-          posthocIO_error("input not an image.");
+          PosthocIOError("input not an image.");
           continue;
           }
 
@@ -346,7 +454,7 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
         vtkDataArray *da = atts->GetArray(arrayName.c_str());
         if (!da)
           {
-          posthocIO_error("no array named \"" << arrayName << "\"");
+          PosthocIOError("no array named \"" << arrayName << "\"");
           atts->Print(cerr);
           continue;
           }
@@ -355,7 +463,7 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
         if (::write(fh, MPI_INFO_NULL, wholeExt, localExt,
               validExt, da, useCollectives))
           {
-          posthocIO_error("write failed \"" << fileName)
+          PosthocIOError("write failed \"" << fileName)
           return -1;
           }
         }
@@ -366,55 +474,5 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
   return 0;
 }
 
-//-----------------------------------------------------------------------------
-bool PosthocIO::Execute(sensei::DataAdaptor* data)
-{
-#ifdef PosthocIO_DEBUG
-  posthocIO_status((this->CommRank==0), "PosthocIO::Execute");
-#endif
-  // validate the input dataset.
-  // TODO:for now we need composite data, to support non-composite
-  // data we will wrap it in a composite dataset.
-  vtkCompositeDataSet* cd =
-    dynamic_cast<vtkCompositeDataSet*>(data->GetMesh(false));
-
-  if (!cd)
-    {
-    posthocIO_error("unsupported dataset type")
-    return false;
-    }
-
-  // we need whole extents
-  vtkInformation *info = data->GetInformation();
-  if (!info->Has(vtkDataObject::DATA_EXTENT()))
-    {
-    posthocIO_error("missing vtkDataObject::DATA_EXTENT");
-    return false;
-    }
-
-  // grab the current time step
-  int timeStep = data->GetDataTimeStep();
-
-  // option to reduce the amount of data written
-  if (timeStep%this->Period)
-      return true;
-
-  // dispatch the write
-  switch (this->Mode)
-    {
-    case MpiIO:
-      this->WriteBOVHeader(info);
-      this->WriteBOV(cd, info, timeStep);
-      break;
-    case FilePerProc:
-      this->WriteXMLP(cd, info, timeStep);
-      break;
-    default:
-      posthocIO_error("invalid mode \"" << this->Mode << "\"")
-      return false;
-    }
-
-  return true;
-}
 
 }

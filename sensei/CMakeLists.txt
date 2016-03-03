@@ -49,11 +49,15 @@ if(ENABLE_CATALYST)
   target_link_libraries(sensei PUBLIC ${VTK_LIBRARIES})
   target_compile_definitions(sensei PUBLIC ENABLE_CATALYST)
 else()
-  find_package(VTK QUIET COMPONENTS vtkCommonDataModel)
+  set(SENSEI_VTK_DEPS vtkCommonDataModel)
+  if (ENABLE_VTK_XMLP)
+    list(APPEND SENSEI_VTK_DEPS vtkParallelMPI vtkIOParallelXML)
+  endif()
+  find_package(VTK QUIET COMPONENTS ${SENSEI_VTK_DEPS})
   if(NOT VTK_FOUND)
-    message(FATAL_ERROR "VTK (vtkCommonDataModel) is required for Sensei core "
-      "even when not using any infrastructures. Please set VTK_DIR to point to a "
-      "directory containing `VTKConfig.cmake`.")
+    message(FATAL_ERROR "VTK (${SENSEI_VTK_DEPS}) modules are required for "
+      "Sensei core even when not using any infrastructures. Please set "
+      "VTK_DIR to point to a directory containing `VTKConfig.cmake`.")
   endif()
   target_include_directories(sensei SYSTEM PUBLIC ${VTK_INCLUDE_DIRS})
   target_compile_definitions(sensei PUBLIC ${VTK_DEFINITIONS})
@@ -66,6 +70,10 @@ endif()
 if(ENABLE_ADIOS)
   target_link_libraries(sensei PRIVATE adios)
   target_compile_definitions(sensei PUBLIC ENABLE_ADIOS)
+endif()
+
+if (ENABLE_VTK_XMLP)
+  target_compile_definitions(sensei PUBLIC ENABLE_VTK_XMLP)
 endif()
 
 target_link_libraries(sensei
