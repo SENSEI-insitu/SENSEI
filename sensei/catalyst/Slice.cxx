@@ -162,10 +162,10 @@ void Slice::SetAutoCenter(bool val)
 }
 
 //----------------------------------------------------------------------------
-void Slice::ColorBy(int association, const char* arrayname)
+void Slice::ColorBy(int association, const std::string& arrayname)
 {
   vtkInternals& internals = (*this->Internals);
-  internals.ColorArrayName = arrayname? arrayname : "";
+  internals.ColorArrayName = arrayname;
   internals.ColorAssociation = association;
 }
 

@@ -131,7 +131,7 @@ std::string DataAdaptor::GetArrayName(int association, unsigned int index)
 {
   if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS)
     {
-    return "";
+    return std::string();
     }
   unsigned int count = 0;
   for (VariablesType::iterator iter=this->Variables.begin(), max=this->Variables.end();
@@ -142,7 +142,7 @@ std::string DataAdaptor::GetArrayName(int association, unsigned int index)
       return iter->first;
       }
     }
-  return "";
+  return std::string();
 }
 
 //-----------------------------------------------------------------------------

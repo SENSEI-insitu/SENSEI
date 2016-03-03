@@ -105,8 +105,8 @@ bool AnalysisAdaptor::FillDataDescriptionWithData(
     {
     for (unsigned int cc=0, max=dA->GetNumberOfArrays(attr); cc < max; ++cc)
       {
-      const char* aname = dA->GetArrayName(attr, cc);
-      if (desc->GetAllFields() || desc->IsFieldNeeded(aname))
+      std::string aname = dA->GetArrayName(attr, cc);
+      if (desc->GetAllFields() || desc->IsFieldNeeded(aname.c_str()))
         {
         dA->AddArray(mesh, attr, aname);
         }

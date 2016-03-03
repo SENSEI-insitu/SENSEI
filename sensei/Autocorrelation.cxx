@@ -211,7 +211,6 @@ bool Autocorrelation::Execute(DataAdaptor* data)
   timer::MarkEvent mark("autocorrelation::execute");
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
-  const char* arrayname = internals.ArrayName.c_str();
 
   vtkDataObject* mesh = data->GetMesh(/*structure-only*/ true);
   if (!data->AddArray(mesh, association, internals.ArrayName))
@@ -236,7 +235,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
         int lid = internals.Master->lid(static_cast<int>(bid));
         AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
         vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
-          dataObj->GetAttributesAsFieldData(association)->GetArray(arrayname));
+          dataObj->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
         if (fa)
           {
           corr->process(fa->GetPointer(0));
@@ -255,7 +254,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
     int lid = internals.Master->lid(static_cast<int>(bid));
     AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
     vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
-      ds->GetAttributesAsFieldData(association)->GetArray(arrayname));
+      ds->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
     if (fa)
       {
       corr->process(fa->GetPointer(0));

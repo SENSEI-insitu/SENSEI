@@ -79,7 +79,7 @@ namespace internals
     }
 
 
-  bool AddArray(vtkDataSet* ds, int association, const char* arrayname,
+  bool AddArray(vtkDataSet* ds, int association, const std::string& arrayname,
     unsigned int block, ADIOS_FILE* file)
     {
     std::string path = (association == vtkDataObject::CELL)?
@@ -90,7 +90,7 @@ namespace internals
     vtkDataArray* vtkarray = createVTKArray(varinfo->type);
     adios_free_varinfo(varinfo);
 
-    vtkarray->SetName(arrayname);
+    vtkarray->SetName(arrayname.c_str());
     vtkarray->SetNumberOfTuples(
       association == vtkDataObject::FIELD_ASSOCIATION_POINTS?
       ds->GetNumberOfPoints() : ds->GetNumberOfCells());
@@ -237,7 +237,7 @@ vtkDataObject* DataAdaptor::GetMesh(bool /*structure_only*/)
 }
 
 //----------------------------------------------------------------------------
-bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arrayname)
+  bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const std::string& arrayname)
 {
   ArraysType& arrays = this->AssociatedArrays[association];
   ArraysType::iterator iter = arrays.find(arrayname);
@@ -285,7 +285,7 @@ unsigned int DataAdaptor::GetNumberOfArrays(int association)
 }
 
 //----------------------------------------------------------------------------
-const char* DataAdaptor::GetArrayName(int association, unsigned int index)
+std::string DataAdaptor::GetArrayName(int association, unsigned int index)
 {
   ArraysType& arrays = this->AssociatedArrays[association];
   unsigned int cc=0;
@@ -296,7 +296,7 @@ const char* DataAdaptor::GetArrayName(int association, unsigned int index)
       return iter->first.c_str();
       }
     }
-  return NULL;
+  return std::string();
 }
 
 //----------------------------------------------------------------------------
