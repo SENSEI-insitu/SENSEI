@@ -39,7 +39,10 @@
   if (_cond) \
     cerr << "" _arg << std::endl;
 
-namespace {
+namespace sensei
+{
+namespace impl
+{
 // **************************************************************************
 void getWholePointExtents(vtkInformation *info, int *wholePointExtent)
 {
@@ -116,7 +119,8 @@ int write(MPI_File file, MPI_Info hints,
     }
   return 0;
 }
-}
+} // namespace impl
+} // namespace sensei
 
 namespace sensei
 {
@@ -285,9 +289,9 @@ int PosthocIO::WriteBOVHeader(vtkInformation *info)
     // get the extents
     int wholeExt[6];
     if (dType)
-      ::getWholeCellExtents(info, wholeExt);
+      impl::getWholeCellExtents(info, wholeExt);
     else
-      ::getWholePointExtents(info, wholeExt);
+      impl::getWholePointExtents(info, wholeExt);
 
     const char *dTypeId =
       (dType ? "CellData.bov" : "PointData.bov");
@@ -373,9 +377,9 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
       // get the extents
       int wholeExt[6];
       if (dType)
-        ::getWholeCellExtents(info, wholeExt);
+        impl::getWholeCellExtents(info, wholeExt);
       else
-        ::getWholePointExtents(info, wholeExt);
+        impl::getWholePointExtents(info, wholeExt);
     
       // count the number of local blocks. if there are more than 1
       // block on any process then collective buffering is problematic.
@@ -437,13 +441,13 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
         int validExt[6];
         if (dType)
           {
-          ::getLocalCellExtents(id, localExt);
+          impl::getLocalCellExtents(id, localExt);
           memcpy(validExt, localExt, 6*sizeof(int));
           }
         else
           {
-          ::getLocalPointExtents(id, localExt);
-          ::getValidPointExtents(id, wholeExt, validExt);
+          impl::getLocalPointExtents(id, localExt);
+          impl::getValidPointExtents(id, wholeExt, validExt);
           }
 
         // grab the requested array
@@ -460,7 +464,7 @@ int PosthocIO::WriteBOV(vtkCompositeDataSet *cd,
           }
 
         // dispatch the write
-        if (::write(fh, MPI_INFO_NULL, wholeExt, localExt,
+        if (impl::write(fh, MPI_INFO_NULL, wholeExt, localExt,
               validExt, da, useCollectives))
           {
           PosthocIOError("write failed \"" << fileName)
