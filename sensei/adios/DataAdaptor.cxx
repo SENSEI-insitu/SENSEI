@@ -1,5 +1,7 @@
 #include "DataAdaptor.h"
 
+#include <timer/Timer.h>
+
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDoubleArray.h>
@@ -119,6 +121,8 @@ DataAdaptor::~DataAdaptor()
 bool DataAdaptor::Open(MPI_Comm comm,
   ADIOS_READ_METHOD method, const std::string& filename)
 {
+  timer::MarkEvent mark("adios::dataadaptor::open");
+
   this->Comm = comm;
   adios_read_init_method (method, comm, "verbose=1");
   this->File = adios_read_open(filename.c_str(), method, comm, ADIOS_LOCKMODE_ALL, -1);
@@ -213,6 +217,8 @@ bool DataAdaptor::Advance()
 //----------------------------------------------------------------------------
 bool DataAdaptor::ReadStep()
 {
+  timer::MarkStartEvent("adios::dataadaptor::read-timestep-metadata");
+
   int tstep = 0; double time = 0;
   ADIOS_FILE* f = this->File;
   adios_schedule_read(f, NULL, "ntimestep", 0, 1, &tstep);
@@ -220,6 +226,7 @@ bool DataAdaptor::ReadStep()
   adios_perform_reads(f, 1);
   this->SetDataTimeStep(tstep);
   this->SetDataTime(time);
+  timer::MarkEndEvent("adios::dataadaptor::read-timestep-metadata");
   return true;
 }
 
@@ -241,6 +248,7 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* arr
 
   if (iter->second == false)
     {
+    timer::MarkEvent mark("adios::dataadaptor::read-arrays");
     if (vtkDataSet* image = vtkDataSet::SafeDownCast(mesh))
       {
       int rank;
@@ -294,6 +302,8 @@ const char* DataAdaptor::GetArrayName(int association, unsigned int index)
 //----------------------------------------------------------------------------
 void DataAdaptor::ReleaseData()
 {
+  timer::MarkEvent mark("adios::dataadaptor::release-data");
+
   for (AssociatedArraysType::iterator iter1 = this->AssociatedArrays.begin();
     iter1 != this->AssociatedArrays.end(); ++iter1)
     {

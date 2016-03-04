@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sensei/adios/DataAdaptor.h>
 #include <sensei/ConfigurableAnalysis.h>
+#include <timer/Timer.h>
 #include <vtkNew.h>
 #include <vtkDataSet.h>
 
@@ -53,18 +54,39 @@ int main(int argc, char** argv)
   readmethods["dimes"] = ADIOS_READ_METHOD_DIMES;
   readmethods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
 
-  vtkNew<sensei::ConfigurableAnalysis> analysis;
+  vtkSmartPointer<sensei::ConfigurableAnalysis> analysis =
+    vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   analysis->Initialize(comm, config_file);
 
   vtkNew<sensei::adios::DataAdaptor> dataAdaptor;
   dataAdaptor->Open(comm, readmethods[readmethod], input);
+
+  int t_count = 0;
+  double t = 0.0;
   do
     {
+    timer::MarkStartTimeStep(t_count, t);
+
     // request reading of meta-data for this step.
     dataAdaptor->ReadStep();
+
+    timer::MarkStartEvent("adios::analysis");
     analysis->Execute(dataAdaptor.GetPointer());
+    timer::MarkEndEvent("adios::analysis");
+
     dataAdaptor->ReleaseData();
+
+    timer::MarkEndTimeStep();
     }
   while (dataAdaptor->Advance());
+
+  timer::MarkStartEvent("adios::finalize");
+  analysis = NULL;
+  timer::MarkEndEvent("adios::finalize");
+
+  if (rank == 0)
+    {
+    timer::PrintLog(std::cout);
+    }
   return 0;
 }
