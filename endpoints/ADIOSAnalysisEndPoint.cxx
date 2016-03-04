@@ -35,6 +35,7 @@ int main(int argc, char** argv)
   ops >> opts::Option('r', "readmethod", readmethod, "specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath ")
       >> opts::Option('f', "config", config_file, "Sensei analysis configuration xml (required)");
 
+  bool log = ops >> Present("log", "generate time and memory usage log");
   if (ops >> opts::Present('h', "help", "show help") ||
     !(ops >> opts::PosOption(input)) ||
     config_file.empty())
@@ -46,6 +47,8 @@ int main(int argc, char** argv)
     MPI_Barrier(comm);
     return 1;
     }
+
+  timer::SetLogging(log);
 
   std::map<std::string, ADIOS_READ_METHOD> readmethods;
   readmethods["bp"] = ADIOS_READ_METHOD_BP;
