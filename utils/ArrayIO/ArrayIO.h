@@ -1,6 +1,7 @@
 #ifndef ArrayIO_h
 #define ArrayIO_h
 
+#include <iostream>
 #include <mpi.h>
 
 #define arrayIO_error(_arg) \

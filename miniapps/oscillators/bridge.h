@@ -2,6 +2,7 @@
 #define OSCILLATORS_BRIDGE_H
 
 #include <mpi.h>
+#include <string>
 
 namespace bridge
 {
