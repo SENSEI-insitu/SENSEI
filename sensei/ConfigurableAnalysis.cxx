@@ -20,6 +20,7 @@
 
 #include <vector>
 #include <pugixml.hpp>
+#include <sstream>
 
 #define ConfigurableAnalysisError(_arg) \
   cerr << "ERROR: " << __FILE__ " : "  << __LINE__ << std::endl \
@@ -200,20 +201,52 @@ ConfigurableAnalysis::~ConfigurableAnalysis()
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filename)
 {
-  int rank;
+  int rank = -1;
   MPI_Comm_rank(world, &rank);
 
   pugi::xml_document doc;
-  pugi::xml_parse_result result = doc.load_file(filename.c_str());
-  if (!result)
+  if(rank == 0)
     {
+    pugi::xml_parse_result result = doc.load_file(filename.c_str());
+    if (!result)
+      {
     ConfigurableAnalysisError(
       "XML [" << filename << "] parsed with errors, attr value: ["
       << doc.child("node").attribute("attr").value() << "]" << endl
       << "Error description: " << result.description() << endl
       << "Error offset: " << result.offset << endl)
-    return false;
+
+      int fail = -1;
+      MPI_Bcast(&fail, 1, MPI_INT, 0, world);
+      return false;
+      }
+
+    int size = -1;
+    MPI_Comm_size(world, &size);
+    if(size > 1)
+      {
+      std::ostringstream buffer;
+      doc.save(buffer);
+      std::string stringBuffer = buffer.str();
+
+      int dataSize = stringBuffer.size();
+      MPI_Bcast(&dataSize, 1, MPI_INT, 0, world);
+      MPI_Bcast(&stringBuffer[0], dataSize, MPI_CHAR, 0, world);
+      }
     }
+  else // processes that didn't read the XML file (i.e. not proc 0)
+    {
+    int dataSize = 0;
+    MPI_Bcast(&dataSize, 1, MPI_INT, 0, world);
+    if(dataSize == -1)
+      {
+      return false;
+      }
+    std::string stringBuffer(dataSize, '0');
+    MPI_Bcast(&stringBuffer[0], dataSize, MPI_CHAR, 0, world);
+    doc.load_string(stringBuffer.c_str());
+    }
+
   pugi::xml_node sensei = doc.child("sensei");
   for (pugi::xml_node analysis = sensei.child("analysis");
     analysis; analysis = analysis.next_sibling("analysis"))
