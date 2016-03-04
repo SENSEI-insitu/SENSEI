@@ -28,6 +28,69 @@
 
 namespace sensei
 {
+// --------------------------------------------------------------------------
+int parse(MPI_Comm comm, int rank,
+     const std::string &filename, pugi::xml_document &doc)
+{
+  unsigned long nbytes = 0;
+  char *buffer = nullptr;
+  if(rank == 0)
+    {
+    FILE *f = fopen(filename.c_str(), "rb");
+    if (f)
+      {
+      setvbuf(f, nullptr, _IONBF, 0);
+      fseek(f, 0, SEEK_END);
+      nbytes = ftell(f);
+      fseek(f, 0, SEEK_SET);
+      buffer = static_cast<char*>(
+          pugi::get_memory_allocation_function()(nbytes));
+      unsigned long nread = fread(buffer, 1, nbytes, f);
+      fclose(f);
+      if (nread == nbytes)
+        {
+        MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
+        MPI_Bcast(buffer, nbytes, MPI_CHAR, 0, comm);
+        }
+      else
+        {
+        ConfigurableAnalysisError(
+          << "read error on \""  << filename << "\"" << endl
+          << strerror(errno))
+        nbytes = 0;
+        MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
+        return -1;
+        }
+      }
+    else
+      {
+      ConfigurableAnalysisError(
+        << "failed to open \""  << filename << "\"" << endl
+        << strerror(errno))
+      MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
+      return -1;
+      }
+    }
+  else
+    {
+    MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
+    if (!nbytes)
+        return -1;
+    buffer = static_cast<char*>(pugi::get_memory_allocation_function()(nbytes));
+    MPI_Bcast(buffer, nbytes, MPI_CHAR, 0, comm);
+    }
+  pugi::xml_parse_result result = doc.load_buffer_inplace_own(buffer, nbytes);
+  if (!result)
+    {
+    ConfigurableAnalysisError(
+      "XML [" << filename << "] parsed with errors, attr value: ["
+      << doc.child("node").attribute("attr").value() << "]" << endl
+      << "Error description: " << result.description() << endl
+      << "Error offset: " << result.offset << endl)
+    return -1;
+    }
+  return 0;
+}
 
 class ConfigurableAnalysis::vtkInternals
 {
@@ -52,6 +115,9 @@ public:
 #ifdef ENABLE_HISTOGRAM
   void AddHistogram(MPI_Comm comm, pugi::xml_node node)
     {
+    if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+      return -1;
+
     pugi::xml_attribute array = node.attribute("array");
     if (array)
       {
@@ -66,12 +132,17 @@ public:
       {
       ConfigurableAnalysisError(<< "'histogram' missing required attribute 'array'. Skipping.");
       }
+
+    return 0;
     }
 #endif
 
 #ifdef ENABLE_ADIOS
-  void AddAdios(MPI_Comm comm, pugi::xml_node node)
+  int AddAdios(MPI_Comm comm, pugi::xml_node node)
     {
+    if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+      return -1;
+
     vtkNew<adios::AnalysisAdaptor> adios;
     pugi::xml_attribute filename = node.attribute("filename");
     pugi::xml_attribute method = node.attribute("method");
@@ -84,14 +155,19 @@ public:
       adios->SetMethod(method.value());
       }
     this->Analyses.push_back(adios.GetPointer());
+
+    return 0;
     }
 #endif
 
 #ifdef ENABLE_CATALYST
   vtkSmartPointer<catalyst::AnalysisAdaptor> CatalystAnalysisAdaptor;
 
-  void AddCatalyst(MPI_Comm comm, pugi::xml_node node)
+  int AddCatalyst(MPI_Comm comm, pugi::xml_node node)
     {
+    if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+      return -1;
+
     if (!this->CatalystAnalysisAdaptor)
       {
       this->CatalystAnalysisAdaptor = vtkSmartPointer<catalyst::AnalysisAdaptor>::New();
@@ -107,11 +183,16 @@ public:
         this->GetAssociation(node.attribute("association")), node.attribute("array").value());
       this->CatalystAnalysisAdaptor->AddPipeline(slice.GetPointer());
       }
+
+    return 0;
     }
 #endif
 
-  void AddAutoCorrelation(MPI_Comm comm, pugi::xml_node node)
+  int AddAutoCorrelation(MPI_Comm comm, pugi::xml_node node)
     {
+    if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+      return -1;
+
     vtkNew<Autocorrelation> adaptor;
     adaptor->Initialize(comm,
       node.attribute("window")? node.attribute("window").as_int() : 10,
@@ -119,6 +200,8 @@ public:
       node.attribute("array").value(),
       node.attribute("k-max")? node.attribute("k-max").as_int() : 3);
     this->Analyses.push_back(adaptor.GetPointer());
+
+    return 0;
     }
 
   int AddPosthocIO(MPI_Comm comm, pugi::xml_node node)
@@ -137,14 +220,14 @@ public:
     std::vector<std::string> pointArrays;
     pugi::xml_attribute assoc_att = node.attribute("association");
     if (assoc_att && (std::string(assoc_att.value()) == "cell"))
-      cellArrays.push_back(arrayName); 
+      cellArrays.push_back(arrayName);
     else
       pointArrays.push_back(arrayName);
 
     std::string outputDir = "./";
     if (node.attribute("output_dir"))
       outputDir = node.attribute("output_dir").value();
-        
+
     std::string fileBase = "PosthocIO";
     if (node.attribute("file_base"))
       fileBase = node.attribute("file_base").value();
@@ -179,6 +262,7 @@ public:
 
     this->Analyses.push_back(adapter);
     adapter->Delete();
+
     return 0;
     }
 };
@@ -198,53 +282,17 @@ ConfigurableAnalysis::~ConfigurableAnalysis()
   delete this->Internals;
 }
 
+
 //----------------------------------------------------------------------------
-bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filename)
+bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename)
 {
-  int rank = -1;
-  MPI_Comm_rank(world, &rank);
-
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
   pugi::xml_document doc;
-  if(rank == 0)
+  if (parse(comm, rank, filename, doc))
     {
-    pugi::xml_parse_result result = doc.load_file(filename.c_str());
-    if (!result)
-      {
-    ConfigurableAnalysisError(
-      "XML [" << filename << "] parsed with errors, attr value: ["
-      << doc.child("node").attribute("attr").value() << "]" << endl
-      << "Error description: " << result.description() << endl
-      << "Error offset: " << result.offset << endl)
-
-      int fail = -1;
-      MPI_Bcast(&fail, 1, MPI_INT, 0, world);
-      return false;
-      }
-
-    int size = -1;
-    MPI_Comm_size(world, &size);
-    if(size > 1)
-      {
-      std::ostringstream buffer;
-      doc.save(buffer);
-      std::string stringBuffer = buffer.str();
-
-      int dataSize = stringBuffer.size();
-      MPI_Bcast(&dataSize, 1, MPI_INT, 0, world);
-      MPI_Bcast(&stringBuffer[0], dataSize, MPI_CHAR, 0, world);
-      }
-    }
-  else // processes that didn't read the XML file (i.e. not proc 0)
-    {
-    int dataSize = 0;
-    MPI_Bcast(&dataSize, 1, MPI_INT, 0, world);
-    if(dataSize == -1)
-      {
-      return false;
-      }
-    std::string stringBuffer(dataSize, '0');
-    MPI_Bcast(&stringBuffer[0], dataSize, MPI_CHAR, 0, world);
-    doc.load_string(stringBuffer.c_str());
+    ConfigurableAnalysisError("failed to parse configuration")
+    return false;
     }
 
   pugi::xml_node sensei = doc.child("sensei");
@@ -253,34 +301,26 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm world, const std::string& filenam
     {
     std::string type = analysis.attribute("type").value();
 #ifdef ENABLE_HISTOGRAM
-    if (type == "histogram")
-      {
-      this->Internals->AddHistogram(world, analysis);
+    if ((type == "histogram") &&
+      !this->Internals->AddHistogram(comm, analysis))
       continue;
-      }
 #endif
 #ifdef ENABLE_ADIOS
-    if (type == "adios")
-      {
-      this->Internals->AddAdios(world, analysis);
+    if ((type == "adios") &&
+      !this->Internals->AddAdios(comm, analysis))
       continue;
-      }
 #endif
 #ifdef ENABLE_CATALYST
-    if (type == "catalyst")
-      {
-      this->Internals->AddCatalyst(world, analysis);
+    if ((type == "catalyst") &&
+      !this->Internals->AddCatalyst(comm, analysis))
       continue;
-      }
 #endif
-    if (type == "autocorrelation")
-      {
-      this->Internals->AddAutoCorrelation(world, analysis);
+    if ((type == "autocorrelation") &&
+      !this->Internals->AddAutoCorrelation(comm, analysis))
       continue;
-      }
 
     if ((type == "PosthocIO") &&
-      !this->Internals->AddPosthocIO(world, analysis))
+      !this->Internals->AddPosthocIO(comm, analysis))
       continue;
 
     if (rank == 0)
