@@ -80,8 +80,6 @@ void finalize(size_t k_max, size_t nblocks)
   GlobalAnalysisAdaptor = NULL;
   GlobalDataAdaptor = NULL;
   timer::MarkEndEvent("oscillators::bridge::finalize");
-
-  timer::PrintLog(cout);
 }
 
 }
