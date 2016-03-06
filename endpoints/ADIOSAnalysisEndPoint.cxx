@@ -35,7 +35,7 @@ int main(int argc, char** argv)
   ops >> opts::Option('r', "readmethod", readmethod, "specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath ")
       >> opts::Option('f', "config", config_file, "Sensei analysis configuration xml (required)");
 
-  bool log = ops >> Present("log", "generate time and memory usage log");
+  bool log = ops >> opts::Present("log", "generate time and memory usage log");
   if (ops >> opts::Present('h', "help", "show help") ||
     !(ops >> opts::PosOption(input)) ||
     config_file.empty())
