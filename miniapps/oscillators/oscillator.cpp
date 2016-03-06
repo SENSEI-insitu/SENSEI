@@ -110,7 +110,8 @@ int main(int argc, char** argv)
         >> Option('j', "jobs",   threads,   "number of threads to use")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
-    bool log = ops >> Present("log", "generate time and memory usage log");
+    bool log = ops >> Present("log", "generate full time and memory usage log");
+    bool shortlog = ops >> Present("shortlog", "generate a summary time and memory usage log");
 
     std::string infn;
     if (  ops >> Present('h', "help", "show help") ||
@@ -125,7 +126,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    timer::SetLogging(log);
+    timer::SetLogging(log || shortlog);
+    timer::SetTrackSummariesOverTime(shortlog);
     timer::MarkStartEvent("oscillators::initialize");
 
     Oscillators oscillators;

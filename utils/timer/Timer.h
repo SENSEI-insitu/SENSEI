@@ -5,11 +5,24 @@
 
 namespace timer
 {
-  /// @brief Enable/Disable logging (default is enabled).
+  /// @brief Enable/Disable logging (default is `true`).
   void SetLogging(bool val);
 
   /// @brief Get whether logging is enabled.
   bool GetLogging();
+
+  /// @brief Enable/Disable tracking temporal summaries (default is `false`).
+  ///
+  /// For runs where the event markers are consistent across timesteps
+  /// i.e. they occur in same order and exactly as many across different
+  /// timesteps, one can use this to track a summary instead of full values
+  /// for duration and memory used. This not only keeps the memory overhead
+  /// for long runs low, but also make it easier to process the generated
+  /// output.
+  void SetTrackSummariesOverTime(bool val);
+
+  /// @brief Return whether summaries are tracked over time.
+  bool GetTrackSummariesOverTime();
 
   /// @brief Log start of a log-able event.
   ///
