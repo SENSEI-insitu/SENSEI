@@ -2,6 +2,7 @@
 #define timer_Timer_h
 
 #include <iostream>
+#include <mpi.h>
 
 namespace timer
 {
@@ -51,7 +52,10 @@ namespace timer
   void MarkEndTimeStep();
 
   /// @brief Print log to the output stream.
-  void PrintLog(std::ostream& stream);
+  ///
+  /// Note this triggers collective operations and hence must be called on all
+  /// ranks.
+  void PrintLog(std::ostream& stream, MPI_Comm world);
 
   class MarkEvent
     {

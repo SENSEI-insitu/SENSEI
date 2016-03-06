@@ -23,5 +23,6 @@ add_library(timer STATIC
   timer/TimerC.h)
 target_include_directories(timer
   SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(timer PUBLIC mpi)
 
 add_subdirectory(ArrayIO)

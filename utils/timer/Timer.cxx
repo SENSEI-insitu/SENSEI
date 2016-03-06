@@ -11,6 +11,7 @@
 
 #include <map>
 #include <list>
+#include <vector>
 
 using std::endl;
 using std::cerr;
@@ -271,20 +272,61 @@ void MarkEndTimeStep()
 }
 
 //-----------------------------------------------------------------------------
-void PrintLog(std::ostream& stream)
+void PrintLog(std::ostream& stream, MPI_Comm world)
 {
-  if (impl::LoggingEnabled)
+  if (!impl::LoggingEnabled)
     {
-    stream
-      << "=================================================================\n"
-      << "  Time/Memory log :\n"
-      << "  -----------------\n"
-      << "  Prints duration and VmHWM at the end of each step.\n"
-      << "-----------------------------------------------------------------\n";
-    impl::PrintLog(stream, impl::Indent());
-    stream
-      << "=================================================================\n";
+    return;
     }
+
+  int nprocs, rank;
+  MPI_Comm_size(world, &nprocs);
+  MPI_Comm_rank(world, &rank);
+
+  std::ostringstream tmp;
+
+  std::ostream &output = (rank == 0)? stream : tmp;
+  output << "\n"
+    << "=================================================================\n"
+    << "  Time/Memory log (rank: " << rank << ") \n"
+    << "  -------------------------------------------------------------\n";
+  impl::PrintLog(output, impl::Indent());
+  output
+    << "=================================================================\n";
+
+  if (nprocs == 1)
+    {
+    return;
+    }
+
+  std::string data = tmp.str();
+  int mylength = static_cast<int>(data.size()) + 1;
+  std::vector<int> all_lengths(nprocs);
+  MPI_Gather(&mylength, 1, MPI_INT, &all_lengths[0], 1, MPI_INT, 0, world);
+  if (rank == 0)
+    {
+    std::vector<int> recv_offsets(nprocs);
+    for (int cc=1; cc < nprocs; cc++)
+      {
+      recv_offsets[cc] = recv_offsets[cc-1] + all_lengths[cc-1];
+      }
+    char* recv_buffer = new char[recv_offsets[nprocs-1] + all_lengths[nprocs-1]];
+    MPI_Gatherv(const_cast<char*>(data.c_str()), mylength, MPI_CHAR,
+      recv_buffer, &all_lengths[0], &recv_offsets[0], MPI_CHAR, 0, world);
+
+    for (int cc=1; cc < nprocs; cc++)
+      {
+      output << (recv_buffer + recv_offsets[cc]);
+      }
+
+    delete []recv_buffer;
+    }
+  else
+    {
+    MPI_Gatherv(const_cast<char*>(data.c_str()), mylength, MPI_CHAR,
+      NULL, NULL, NULL, MPI_CHAR, 0, world);
+    }
+
 }
 
 }
@@ -315,6 +357,7 @@ void TIMER_MarkEndTimeStep()
 }
 void TIMER_Print()
 {
-  timer::PrintLog(std::cout);
+  // FIXME:
+  timer::PrintLog(std::cout, MPI_COMM_WORLD);
 }
 

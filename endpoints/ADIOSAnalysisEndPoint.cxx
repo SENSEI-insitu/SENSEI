@@ -87,9 +87,6 @@ int main(int argc, char** argv)
   analysis = NULL;
   timer::MarkEndEvent("adios::finalize");
 
-  if (rank == 0)
-    {
-    timer::PrintLog(std::cout);
-    }
+  timer::PrintLog(std::cout, comm);
   return 0;
 }

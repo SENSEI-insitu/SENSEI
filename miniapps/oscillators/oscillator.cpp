@@ -250,6 +250,6 @@ int main(int argc, char** argv)
     if (world.rank() == 0)
       {
       fmt::print("Total run time: {}.{} s\n", duration.count() / 1000, duration.count() % 1000);
-      timer::PrintLog(std::cout);
       }
+    timer::PrintLog(std::cout, world);
 }
