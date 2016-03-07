@@ -36,9 +36,9 @@ public:
   void ClearArrays();
 
   virtual vtkDataObject* GetMesh(bool structure_only=false);
-  virtual bool AddArray(vtkDataObject* mesh, int association, const char* arrayname);
+  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname);
   virtual unsigned int GetNumberOfArrays(int association);
-  virtual const char* GetArrayName(int association, unsigned int index);
+  virtual std::string GetArrayName(int association, unsigned int index);
   virtual void ReleaseData();
 
 protected:

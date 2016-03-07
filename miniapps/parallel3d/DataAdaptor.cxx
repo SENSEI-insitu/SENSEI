@@ -86,9 +86,9 @@ vtkDataObject* DataAdaptor::GetMesh(bool vtkNotUsed(structure_only))
 }
 
 //-----------------------------------------------------------------------------
-bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* name)
+bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const std::string& name)
 {
-  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS || name == NULL)
+  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS || name.empty())
     {
     return false;
     }
@@ -107,7 +107,7 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const char* nam
     {
     vtkSmartPointer<vtkDoubleArray>& vtkarray = this->Arrays[iterV->first];
     vtkarray = vtkSmartPointer<vtkDoubleArray>::New();
-    vtkarray->SetName(name);
+    vtkarray->SetName(name.c_str());
     const vtkIdType size = (this->CellExtent[1] - this->CellExtent[0] + 1) *
       (this->CellExtent[3] - this->CellExtent[2] + 1) *
       (this->CellExtent[5] - this->CellExtent[4] + 1);
@@ -127,11 +127,11 @@ unsigned int DataAdaptor::GetNumberOfArrays(int association)
 }
 
 //-----------------------------------------------------------------------------
-const char* DataAdaptor::GetArrayName(int association, unsigned int index)
+std::string DataAdaptor::GetArrayName(int association, unsigned int index)
 {
   if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS)
     {
-    return NULL;
+    return std::string();
     }
   unsigned int count = 0;
   for (VariablesType::iterator iter=this->Variables.begin(), max=this->Variables.end();
@@ -139,10 +139,10 @@ const char* DataAdaptor::GetArrayName(int association, unsigned int index)
     {
     if (count==index)
       {
-      return iter->first.c_str();
+      return iter->first;
       }
     }
-  return NULL;
+  return std::string();
 }
 
 //-----------------------------------------------------------------------------

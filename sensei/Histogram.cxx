@@ -107,7 +107,7 @@ public:
         }
       }
 
-    void PostCompute(MPI_Comm comm, int bins, const char* name)
+    void PostCompute(MPI_Comm comm, int bins, const std::string& name)
       {
       std::vector<unsigned int> gHist(bins, 0);
       MPI_Reduce(&this->Worker->Histogram[0], &gHist[0], bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
@@ -165,7 +165,7 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
   if (mesh == NULL || !data->AddArray(mesh, this->Association, this->ArrayName.c_str()))
     {
     histogram.PreCompute(this->Communicator, this->Bins);
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName.c_str());
+    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     return true;
     }
 
@@ -184,7 +184,7 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
       vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject());
       histogram.Compute(array);
       }
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName.c_str());
+    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     }
   else
     {
@@ -192,7 +192,7 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
     histogram.AddRange(array);
     histogram.PreCompute(this->Communicator, this->Bins);
     histogram.Compute(array);
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName.c_str());
+    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     }
   return true;
 }

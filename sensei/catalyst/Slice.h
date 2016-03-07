@@ -27,7 +27,7 @@ public:
   /// @brief Set array to color with.
   ///
   /// Set array to color with. If arrayname is NULL, coloring will be disabled.
-  void ColorBy(int association, const char* arrayname);
+  void ColorBy(int association, const std::string& arrayname);
 
   virtual int RequestDataDescription(vtkCPDataDescription* dataDesc);
   virtual int CoProcess(vtkCPDataDescription* dataDesc);
