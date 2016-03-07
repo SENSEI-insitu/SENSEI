@@ -7,9 +7,11 @@
 #include <cstring>
 #include <sstream>
 #include <stdint.h>
+#include <strings.h>
 
 #include <map>
 #include <list>
+#include <vector>
 
 using std::endl;
 using std::cerr;
@@ -63,29 +65,88 @@ namespace impl
 
   struct Event
     {
+    enum
+      {
+      MIN=0,
+      MAX=1,
+      SUM=2
+      };
+
     std::string Name;
-    double Duration;
-    uint64_t VmHWM;
-    Event() : Duration(-1.0), VmHWM(0) {}
+    std::list<Event> SubEvents;
+
+    double Duration[3];
+    uint64_t VmHWM[3];
+    int Count;
+
+    Event() : Count(0)
+    {
+    bzero(this->Duration, sizeof(double)*3);
+    bzero(this->VmHWM, sizeof(uint64_t)*3);
+    }
+
+    /// Add other into this.
+    void Add(const Event& other)
+      {
+      this->Count += other.Count;
+      this->Duration[MIN] = std::min(this->Duration[MIN], other.Duration[MIN]);
+      this->Duration[MAX] = std::max(this->Duration[MAX], other.Duration[MAX]);
+      this->Duration[SUM] += other.Duration[SUM];
+
+      this->VmHWM[MIN] = std::min(this->VmHWM[MIN], other.VmHWM[MIN]);
+      this->VmHWM[MAX] = std::max(this->VmHWM[MAX], other.VmHWM[MAX]);
+      this->VmHWM[SUM] += other.VmHWM[SUM];
+
+      if (this->SubEvents.size() == other.SubEvents.size())
+        {
+        std::list<Event>::iterator me_iter = this->SubEvents.begin();
+        std::list<Event>::const_iterator other_iter = other.SubEvents.begin();
+        for (; me_iter != this->SubEvents.end() && other_iter != other.SubEvents.end();
+          ++me_iter, ++other_iter)
+          {
+          me_iter->Add(*other_iter);
+          }
+        }
+      }
+
     bool IsValid() const
-      { return this->Duration > -1.0; }
+      { return this->Count > 0; }
 
     void PrintLog(std::ostream& stream, Indent indent) const
       {
-      stream << indent << this->Name.c_str() << " = "
-             << this->Duration <<  " s,  " << this->VmHWM << " kB" << endl;
+      if (this->Count == 0) { return; }
+
+      if (this->Count == 1)
+        {
+        stream << indent << this->Name.c_str() << " = ("
+               << this->Duration[MIN] <<  "s), (" << this->VmHWM[MIN] << "kB)" << endl;
+        }
+      else
+        {
+        stream << indent << this->Name.c_str() << " = "
+               << "( min: " << this->Duration[MIN]
+               << "s, max: " << this->Duration[MAX]
+               << "s, avg:" << this->Duration[SUM] / this->Count << "s ), "
+               << "( min: " <<  this->VmHWM[MIN]
+               << "kB, max: " << this->VmHWM[MAX]
+               << "kB, avg: " << this->VmHWM[SUM] / this->Count << "kB )" << endl;
+        }
       for (std::list<Event>::const_iterator iter = this->SubEvents.begin();
         iter != this->SubEvents.end(); ++iter)
         {
         iter->PrintLog(stream, indent.GetNextIndent());
         }
       }
-    std::list<Event> SubEvents;
     };
 
   static std::list<Event> GlobalEvents;
+
   static std::list<Event> Mark;
   static bool LoggingEnabled = true;
+  static bool TrackSummariesOverTime = true;
+
+  static int ActiveTimeStep = -1;
+  static double ActiveTime = 0.0;
 
   void PrintLog(std::ostream& stream, Indent indent)
     {
@@ -110,13 +171,26 @@ bool GetLogging()
 }
 
 //-----------------------------------------------------------------------------
+void SetTrackSummariesOverTime(bool val)
+{
+  impl::TrackSummariesOverTime = val;
+}
+
+//-----------------------------------------------------------------------------
+bool GetTrackSummariesOverTime()
+{
+  return impl::TrackSummariesOverTime;
+}
+
+//-----------------------------------------------------------------------------
 void MarkStartEvent(const char* eventname)
 {
   if (impl::LoggingEnabled)
     {
     impl::Event evt;
     evt.Name = eventname? eventname : "(none)";
-    evt.Duration = impl::get_mark();
+    evt.Duration[0] = evt.Duration[1] = evt.Duration[2] = impl::get_mark();
+    evt.Count = 1;
 
     impl::Mark.push_back(evt);
     }
@@ -138,8 +212,8 @@ void MarkEndEvent(const char* eventname)
       abort();
       }
 
-    evt.Duration = impl::get_mark() - evt.Duration;
-    evt.VmHWM = impl::get_vmhwm();
+    evt.Duration[0] = evt.Duration[1] = evt.Duration[2] = impl::get_mark() - evt.Duration[0];
+    evt.VmHWM[0] = evt.VmHWM[1] = evt.VmHWM[2] = impl::get_vmhwm();
     impl::Mark.pop_back();
 
     if (impl::Mark.empty())
@@ -154,27 +228,105 @@ void MarkEndEvent(const char* eventname)
 }
 
 //-----------------------------------------------------------------------------
-void MarkStartTimeStep(int timestep, double Duration)
+void MarkStartTimeStep(int timestep, double time)
 {
+  impl::ActiveTimeStep = timestep;
+  impl::ActiveTime = time;
+
+  std::ostringstream mk;
+  mk << "timestep: " << impl::ActiveTimeStep << " time: " << impl::ActiveTime;
+  MarkStartEvent(mk.str().c_str());
 }
 
 //-----------------------------------------------------------------------------
 void MarkEndTimeStep()
 {
+  std::ostringstream mk;
+  mk << "timestep: " << impl::ActiveTimeStep << " time: " << impl::ActiveTime;
+  MarkEndEvent(mk.str().c_str());
+
+  // Try to merge with previous timestep.
+  std::list<impl::Event> &activeEventList =
+    impl::Mark.empty()? impl::GlobalEvents :
+    impl::Mark.back().SubEvents;
+  if (activeEventList.size() >= 2 && impl::TrackSummariesOverTime)
+    {
+    std::list<impl::Event>::reverse_iterator iter = activeEventList.rbegin();
+    impl::Event& cur = *iter;
+    iter++;
+
+    impl::Event& prev = *iter;
+    if (strncmp(prev.Name.c_str(), "timestep:", 9) == 0)
+      {
+      prev.Add(cur);
+
+      std::ostringstream summary_label;
+      summary_label << "timestep: (summary over " << prev.Count << " timesteps)";
+      prev.Name = summary_label.str();
+      activeEventList.pop_back();
+      }
+    }
+
+  impl::ActiveTimeStep = -1;
+  impl::ActiveTime = 0.0;
 }
 
 //-----------------------------------------------------------------------------
-void PrintLog(std::ostream& stream)
+void PrintLog(std::ostream& stream, MPI_Comm world)
 {
-  stream
+  if (!impl::LoggingEnabled)
+    {
+    return;
+    }
+
+  int nprocs, rank;
+  MPI_Comm_size(world, &nprocs);
+  MPI_Comm_rank(world, &rank);
+
+  std::ostringstream tmp;
+
+  std::ostream &output = (rank == 0)? stream : tmp;
+  output << "\n"
     << "=================================================================\n"
-    << "  Time/Memory log :\n"
-    << "  -----------------\n"
-    << "  Prints duration and VmHWM at the end of each step.\n"
-    << "-----------------------------------------------------------------\n";
-  impl::PrintLog(stream, impl::Indent());
-  stream
+    << "  Time/Memory log (rank: " << rank << ") \n"
+    << "  -------------------------------------------------------------\n";
+  impl::PrintLog(output, impl::Indent());
+  output
     << "=================================================================\n";
+
+  if (nprocs == 1)
+    {
+    return;
+    }
+
+  std::string data = tmp.str();
+  int mylength = static_cast<int>(data.size()) + 1;
+  std::vector<int> all_lengths(nprocs);
+  MPI_Gather(&mylength, 1, MPI_INT, &all_lengths[0], 1, MPI_INT, 0, world);
+  if (rank == 0)
+    {
+    std::vector<int> recv_offsets(nprocs);
+    for (int cc=1; cc < nprocs; cc++)
+      {
+      recv_offsets[cc] = recv_offsets[cc-1] + all_lengths[cc-1];
+      }
+    char* recv_buffer = new char[recv_offsets[nprocs-1] + all_lengths[nprocs-1]];
+    MPI_Gatherv(const_cast<char*>(data.c_str()), mylength, MPI_CHAR,
+      recv_buffer, &all_lengths[0], &recv_offsets[0], MPI_CHAR, 0, world);
+
+    for (int cc=1; cc < nprocs; cc++)
+      {
+      output << (recv_buffer + recv_offsets[cc]);
+      }
+
+    delete []recv_buffer;
+    }
+  else
+    {
+    MPI_Gatherv(const_cast<char*>(data.c_str()), mylength, MPI_CHAR,
+      NULL, NULL, NULL, MPI_CHAR, 0, world);
+    }
+
 }
 
 }
@@ -205,6 +357,7 @@ void TIMER_MarkEndTimeStep()
 }
 void TIMER_Print()
 {
-  timer::PrintLog(std::cout);
+  // FIXME:
+  timer::PrintLog(std::cout, MPI_COMM_WORLD);
 }
 

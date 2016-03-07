@@ -58,8 +58,6 @@ void analyze(float time)
   GlobalDataAdaptor->SetDataTime(time);
   GlobalDataAdaptor->SetDataTimeStep(GlobalDataAdaptor->GetDataTimeStep() + 1);
 
-  timer::MarkStartTimeStep(GlobalDataAdaptor->GetDataTimeStep(), time);
-
   timer::MarkStartEvent("oscillators::bridge::analyze");
   GlobalAnalysisAdaptor->Execute(GlobalDataAdaptor.GetPointer());
   timer::MarkEndEvent("oscillators::bridge::analyze");
@@ -67,8 +65,6 @@ void analyze(float time)
   timer::MarkStartEvent("oscillators::bridge::release-data");
   GlobalDataAdaptor->ReleaseData();
   timer::MarkEndEvent("oscillators::bridge::release-data");
-
-  timer::MarkEndTimeStep();
 }
 
 //-----------------------------------------------------------------------------
