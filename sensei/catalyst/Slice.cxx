@@ -118,11 +118,15 @@ public:
       this->RenderView->UpdateVTKObjects();
       vtkSMPVRepresentationProxy::SetScalarColoring(
         this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
-      if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
-          this->SliceRepresentation))
+      if (vtkSMPVRepresentationProxy::GetUsingScalarColoring(this->SliceRepresentation))
         {
-        double range[2], grange[2];
-        ai->GetComponentRange(-1, range);
+        double range[2] = {VTK_DOUBLE_MAX, VTK_DOUBLE_MIN}, grange[2];
+        if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
+            this->SliceRepresentation))
+          {
+          ai->GetComponentRange(-1, range);
+          }
+
         range[0] *= -1; // make range[0] negative to simplify reduce.
         controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
         grange[0] *= -1;
