@@ -181,6 +181,13 @@ public:
       slice->SetSliceOrigin(0, 0, 0);
       slice->ColorBy(
         this->GetAssociation(node.attribute("association")), node.attribute("array").value());
+      if (node.attribute("image-filename") && node.attribute("image-width") && node.attribute("image-height"))
+        {
+        slice->SetImageParameters(
+          node.attribute("image-filename").value(),
+          node.attribute("image-width").as_int(),
+          node.attribute("image-height").as_int());
+        }
       this->CatalystAnalysisAdaptor->AddPipeline(slice.GetPointer());
       }
 
