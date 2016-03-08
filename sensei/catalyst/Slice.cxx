@@ -16,11 +16,12 @@
 #include <vtkMultiProcessController.h>
 #include <vtkCommunicator.h>
 
+#include <sstream>
+
 namespace sensei
 {
 namespace catalyst
 {
-
 class Slice::vtkInternals
 {
 public:
@@ -36,11 +37,20 @@ public:
   std::string ColorArrayName;
   bool AutoCenter;
 
+  std::string ImageFileName;
+  int ImageSize[2];
+
   vtkInternals() : PipelineCreated(false), ColorAssociation(0), AutoCenter(true)
   {
+  this->ImageSize[0] = this->ImageSize[1] = 800;
   }
 
-  void UpdatePipeline(vtkDataObject* data, double time)
+  bool EnableRendering() const
+    {
+    return !this->ImageFileName.empty();
+    }
+
+  void UpdatePipeline(vtkDataObject* data, int timestep, double time)
     {
     if (!this->PipelineCreated)
       {
@@ -56,12 +66,17 @@ public:
       vtkSMPropertyHelper(this->Slice, "CutFunction").Set(this->SlicePlane);
       this->Slice->UpdateVTKObjects();
 
-      this->RenderView = catalyst::CreateViewProxy("views", "RenderView");
-      vtkSMPropertyHelper(this->RenderView, "ShowAnnotation", true).Set(1);
-      vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
-      this->RenderView->UpdateVTKObjects();
+      if (this->EnableRendering())
+        {
+        this->RenderView = catalyst::CreateViewProxy("views", "RenderView");
+        vtkSMPropertyHelper(this->RenderView, "ShowAnnotation", true).Set(1);
+        vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
+        vtkSMPropertyHelper(this->RenderView, "ViewSize").Set(this->ImageSize, 2);
+        this->RenderView->UpdateVTKObjects();
 
-      this->SliceRepresentation = catalyst::Show(this->Slice, this->RenderView);
+        this->SliceRepresentation = catalyst::Show(this->Slice, this->RenderView);
+        }
+
       this->PipelineCreated = true;
       }
     else
@@ -95,27 +110,49 @@ public:
       }
     vtkSMPropertyHelper(this->SlicePlane, "Normal").Set(this->Normal, 3);
     this->SlicePlane->UpdateVTKObjects();
-
-    vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
-    this->RenderView->UpdateVTKObjects();
-
     this->Slice->UpdatePipeline(time);
 
-    vtkSMPVRepresentationProxy::SetScalarColoring(
-      this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
-    if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
-      this->SliceRepresentation))
+    if (this->EnableRendering())
       {
-      double range[2], grange[2];
-      ai->GetComponentRange(-1, range);
-      range[0] *= -1; // make range[0] negative to simplify reduce.
-      controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
-      grange[0] *= -1;
-      vtkSMTransferFunctionProxy::RescaleTransferFunction(
-        vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), grange[0], grange[1]);
+      vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
+      this->RenderView->UpdateVTKObjects();
+      vtkSMPVRepresentationProxy::SetScalarColoring(
+        this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
+      if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
+          this->SliceRepresentation))
+        {
+        double range[2], grange[2];
+        ai->GetComponentRange(-1, range);
+        range[0] *= -1; // make range[0] negative to simplify reduce.
+        controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
+        grange[0] *= -1;
+        vtkSMTransferFunctionProxy::RescaleTransferFunction(
+          vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), grange[0], grange[1]);
+        }
+      vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
+      // this->RenderView->StillRender();
+      std::string filename = this->ImageFileName;
+
+      // replace "%ts" with timestep in filename
+      std::ostringstream ts_stream;
+      ts_stream << timestep;
+      std::string::size_type pos = filename.find("%ts");
+      while (pos != std::string::npos)
+        {
+        filename.replace(pos, 3, ts_stream.str());
+        pos = filename.find("%ts");
+        }
+      // replace "%t" with time in filename
+      std::ostringstream t_stream;
+      t_stream << time;
+      pos = filename.find("%t");
+      while (pos != std::string::npos)
+        {
+        filename.replace(pos, 2, t_stream.str());
+        pos = filename.find("%t");
+        }
+      this->RenderView->WriteImage(filename.c_str(), "vtkPNGWriter", 1);
       }
-    vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
-    this->RenderView->StillRender();
     }
 
 };
@@ -170,6 +207,15 @@ void Slice::ColorBy(int association, const std::string& arrayname)
 }
 
 //----------------------------------------------------------------------------
+void Slice::SetImageParameters(const std::string& filename, int width, int height)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.ImageFileName = filename;
+  internals.ImageSize[0] = width;
+  internals.ImageSize[1] = height;
+}
+
+//----------------------------------------------------------------------------
 int Slice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 {
   dataDesc->GetInputDescription(0)->GenerateMeshOn();
@@ -182,7 +228,8 @@ int Slice::CoProcess(vtkCPDataDescription* dataDesc)
 {
   timer::MarkEvent mark("catalyst::slice");
   vtkInternals& internals = (*this->Internals);
-  internals.UpdatePipeline(dataDesc->GetInputDescription(0)->GetGrid(), dataDesc->GetTime());
+  internals.UpdatePipeline(dataDesc->GetInputDescription(0)->GetGrid(),
+    dataDesc->GetTimeStep(), dataDesc->GetTime());
   return 1;
 }
 

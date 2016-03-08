@@ -24,6 +24,11 @@ public:
   /// the domain on each iteration. Default: true.
   void SetAutoCenter(bool val);
 
+  /// @brief Set parameters for saving rendering result.
+  ///
+  /// If not specified, the pipeline will not do any rendering.
+  void SetImageParameters(const std::string& filename, int width, int height);
+
   /// @brief Set array to color with.
   ///
   /// Set array to color with. If arrayname is NULL, coloring will be disabled.
