@@ -1,0 +1,18 @@
+#!/bin/bash -l
+
+#SBATCH -p debug
+#SBATCH -N 26
+#SBATCH -t 00:30:00
+
+cd $SLURM_SUBMIT_DIR
+
+sensei_root=/usr/common/graphics/sensei/builds/sensei
+sensei_bin=/usr/common/graphics/sensei/builds/sc16
+
+sensei_ranks=812
+sensei_grid=812x812x812
+
+srun -n ${sensei_ranks} \
+  ${sensei_bin}/bin/oscillator -f ${sensei_root}/configs/oscillator.xml \
+  ${sensei_root}/miniapps/oscillators/inputs/periodic-1024.osc\
+  -s ${sensei_grid} -t 0.1 -k 8 -w 50 --shortlog
