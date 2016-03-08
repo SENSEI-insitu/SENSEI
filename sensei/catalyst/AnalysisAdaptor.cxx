@@ -83,11 +83,11 @@ bool AnalysisAdaptor::FillDataDescriptionWithMetaData(
   desc->Reset();
   for (unsigned int cc=0, max=dA->GetNumberOfArrays(vtkDataObject::POINT); cc<max;++cc)
     {
-    desc->AddPointField(dA->GetArrayName(vtkDataObject::POINT, cc));
+    desc->AddPointField(dA->GetArrayName(vtkDataObject::POINT, cc).c_str());
     }
   for (unsigned int cc=0, max=dA->GetNumberOfArrays(vtkDataObject::CELL); cc<max;++cc)
     {
-    desc->AddCellField(dA->GetArrayName(vtkDataObject::CELL, cc));
+    desc->AddCellField(dA->GetArrayName(vtkDataObject::CELL, cc).c_str());
     }
 
   // XXX(todo): Add whole extent, if available.
