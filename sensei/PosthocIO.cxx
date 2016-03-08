@@ -1,16 +1,17 @@
 #include "PosthocIO.h"
 
+#include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
 #include <vtkDataArray.h>
+#include <vtkDataArrayTemplate.h>
 #include <vtkDataObject.h>
 #include <vtkDataSetAttributes.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
 #include <vtkImageData.h>
-#include <vtkDataArrayTemplate.txx>
-#include <vtkCellData.h>
+#include <vtkInformation.h>
+#include <vtkObjectFactory.h>
 #include <vtkPointData.h>
+#include <vtkSmartPointer.h>
 
 #include "DataAdaptor.h"
 
