@@ -8,15 +8,11 @@ set (sources
   ConfigurableAnalysis.h
   DataAdaptor.cxx
   DataAdaptor.h
+  Histogram.cxx
+  Histogram.h
   PosthocIO.cxx
   PosthocIO.h
   )
-
-if(VTK_HAS_GENERIC_ARRAYS)
-  list(APPEND sources
-    Histogram.cxx
-    Histogram.h)
-endif()
 
 if(ENABLE_CATALYST)
   list(APPEND sources
@@ -64,7 +60,7 @@ else()
 endif()
 
 if(VTK_HAS_GENERIC_ARRAYS)
-  target_compile_definitions(sensei PRIVATE ENABLE_HISTOGRAM)
+  target_compile_definitions(sensei PRIVATE VTK_HAS_GENERIC_ARRAYS)
 endif()
 
 if(ENABLE_ADIOS)

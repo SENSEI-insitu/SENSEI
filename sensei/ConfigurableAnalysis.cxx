@@ -7,9 +7,7 @@
 
 #include "Autocorrelation.h"
 #include "PosthocIO.h"
-#ifdef ENABLE_HISTOGRAM
-# include "Histogram.h"
-#endif
+#include "Histogram.h"
 #ifdef ENABLE_ADIOS
 # include "adios/AnalysisAdaptor.h"
 #endif
@@ -112,30 +110,25 @@ class ConfigurableAnalysis::vtkInternals
 public:
   std::vector<vtkSmartPointer<AnalysisAdaptor> > Analyses;
 
-#ifdef ENABLE_HISTOGRAM
-  void AddHistogram(MPI_Comm comm, pugi::xml_node node)
+  int AddHistogram(MPI_Comm comm, pugi::xml_node node)
     {
     if (node.attribute("enabled") && !node.attribute("enabled").as_int())
       return -1;
 
     pugi::xml_attribute array = node.attribute("array");
-    if (array)
-      {
-      int association = GetAssociation(node.attribute("association"));
-      int bins = node.attribute("bins")? node.attribute("bins").as_int() : 10;
-
-      vtkNew<Histogram> histogram;
-      histogram->Initialize(comm, bins, association, array.value());
-      this->Analyses.push_back(histogram.GetPointer());
-      }
-    else
+    if (!array)
       {
       ConfigurableAnalysisError(<< "'histogram' missing required attribute 'array'. Skipping.");
+      return -1;
       }
+    int association = GetAssociation(node.attribute("association"));
+    int bins = node.attribute("bins")? node.attribute("bins").as_int() : 10;
 
+    vtkNew<Histogram> histogram;
+    histogram->Initialize(comm, bins, association, array.value());
+    this->Analyses.push_back(histogram.GetPointer());
     return 0;
     }
-#endif
 
 #ifdef ENABLE_ADIOS
   int AddAdios(MPI_Comm comm, pugi::xml_node node)
@@ -308,11 +301,9 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
     analysis; analysis = analysis.next_sibling("analysis"))
     {
     std::string type = analysis.attribute("type").value();
-#ifdef ENABLE_HISTOGRAM
     if ((type == "histogram") &&
       !this->Internals->AddHistogram(comm, analysis))
       continue;
-#endif
 #ifdef ENABLE_ADIOS
     if ((type == "adios") &&
       !this->Internals->AddAdios(comm, analysis))
