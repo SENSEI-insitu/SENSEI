@@ -59,7 +59,7 @@ struct AutocorrelationImpl
     // init grid with (to - from + 1) in 3D, and window in the 4-th dimension
     values(shape.lift(3, window)),
     corr(shape.lift(3, window))
-  {}
+  { corr = 0; }
 
   static void* create()            { return new AutocorrelationImpl; }
   static void destroy(void* b)    { delete static_cast<AutocorrelationImpl*>(b); }
