@@ -3,6 +3,15 @@ project(sensei)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 include(CMakeDependentOption)
 
+option(SENSEI_STATIC OFF "Tell cmake to find static libraries")
+if (SENSEI_STATIC)
+    set(BUILD_SHARED_LIBS OFF)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
+    set(LINK_SEARCH_START_STATIC TRUE)
+    set(LINK_SEARCH_END_STATIC TRUE)
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-static -static-libgcc -static-libstdc++ -pthread -Wl,-Bstatic")
+endif()
+
 # Default to release.
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release"
