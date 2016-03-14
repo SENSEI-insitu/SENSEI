@@ -1,5 +1,7 @@
 <sensei>
-  <analysis type="PosthocIO" array="data" association="cell" enabled="0" period="1" mode="vtkXmlP" />
+  <analysis type="PosthocIO" array="data" association="cell"
+    enabled="0" period="1" mode="vtkXmlP" output_dir="./" />
+
   <analysis type="histogram" array="data" association="cell" bins="10" />
   <analysis type="autocorrelation" array="data" association="cell" window="10" k-max="3" />
   <analysis type="catalyst"
