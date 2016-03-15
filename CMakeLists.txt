@@ -70,3 +70,7 @@ endif()
 
 add_subdirectory(miniapps)
 add_subdirectory(endpoints)
+
+#------------------------------------------------------------------------------
+# Initial pass of making a SENSEIConfig.cmake file
+configure_file(CMake/SENSEIConfig.cmake.in SENSEIConfig.cmake @ONLY)
