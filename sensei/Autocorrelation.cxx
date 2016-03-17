@@ -135,7 +135,11 @@ public:
       img->GetExtent(ext);
       if (this->Association == vtkDataObject::CELL)
         {
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+        vtkStructuredData::GetCellExtentFromNodeExtent(ext, ext);
+#else
         vtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
+#endif
         }
       Vertex from { ext[0], ext[2], ext[4] };
       Vertex to   { ext[1], ext[3], ext[5] };
@@ -160,7 +164,11 @@ public:
           id->GetExtent(ext);
           if (this->Association == vtkDataObject::CELL)
             {
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+            vtkStructuredData::GetCellExtentFromNodeExtent(ext, ext);
+#else
             vtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
+#endif
             }
           Vertex from { ext[0], ext[2], ext[4] };
           Vertex to   { ext[1], ext[3], ext[5] };
@@ -175,7 +183,11 @@ public:
     }
 };
 
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+Autocorrelation *Autocorrelation::New() { return new Autocorrelation; }
+#else
 vtkStandardNewMacro(Autocorrelation);
+#endif
 //-----------------------------------------------------------------------------
 Autocorrelation::Autocorrelation()
   : Internals(new Autocorrelation::AInternals())

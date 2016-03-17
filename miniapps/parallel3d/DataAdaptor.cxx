@@ -9,7 +9,11 @@
 
 namespace parallel3d
 {
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+DataAdaptor *DataAdaptor::New() { return new DataAdaptor; }
+#else
 vtkStandardNewMacro(DataAdaptor);
+#endif
 //-----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor()
 {

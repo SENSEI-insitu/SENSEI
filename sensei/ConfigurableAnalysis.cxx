@@ -15,6 +15,9 @@
 # include "catalyst/AnalysisAdaptor.h"
 # include "catalyst/Slice.h"
 #endif
+#ifdef ENABLE_LIBSIM
+# include "libsim/AnalysisAdaptor.h"
+#endif
 
 #include <vector>
 #include <pugixml.hpp>
@@ -188,6 +191,34 @@ public:
     }
 #endif
 
+#ifdef ENABLE_LIBSIM
+  vtkSmartPointer<libsim::AnalysisAdaptor> LibsimAnalysisAdaptor;
+  
+  int AddLibsim(MPI_Comm comm, pugi::xml_node node)
+    {
+    if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+      return -1;
+
+    // We keep around a single instance of the libsim adaptor and then tell it to
+    // do different things.
+    if (!this->LibsimAnalysisAdaptor)
+      {
+      this->LibsimAnalysisAdaptor = vtkSmartPointer<libsim::AnalysisAdaptor>::New();
+      this->LibsimAnalysisAdaptor->SetComm(comm);
+      if(node.attribute("trace"))
+          this->LibsimAnalysisAdaptor->SetTraceFile(node.attribute("trace").value());
+      if(node.attribute("options"))
+          this->LibsimAnalysisAdaptor->SetOptions(node.attribute("options").value());
+      this->LibsimAnalysisAdaptor->Initialize();
+      this->Analyses.push_back(this->LibsimAnalysisAdaptor);
+      }
+
+    // Add slice stuff ...
+
+    return 0;
+    }
+#endif
+
   int AddAutoCorrelation(MPI_Comm comm, pugi::xml_node node)
     {
     if (node.attribute("enabled") && !node.attribute("enabled").as_int())
@@ -269,7 +300,11 @@ public:
 };
 
 //----------------------------------------------------------------------------
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+ConfigurableAnalysis *ConfigurableAnalysis::New() { return new ConfigurableAnalysis; }
+#else
 vtkStandardNewMacro(ConfigurableAnalysis);
+#endif
 
 //----------------------------------------------------------------------------
 ConfigurableAnalysis::ConfigurableAnalysis()
@@ -312,6 +347,11 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
 #ifdef ENABLE_CATALYST
     if ((type == "catalyst") &&
       !this->Internals->AddCatalyst(comm, analysis))
+      continue;
+#endif
+#ifdef ENABLE_LIBSIM
+    if ((type == "libsim") &&
+      !this->Internals->AddLibsim(comm, analysis))
       continue;
 #endif
     if ((type == "autocorrelation") &&

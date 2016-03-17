@@ -24,7 +24,12 @@
 namespace sensei
 {
 
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+Histogram *Histogram::New() { return new Histogram; }
+#else
 vtkStandardNewMacro(Histogram);
+#endif
+
 //-----------------------------------------------------------------------------
 Histogram::Histogram() :
   Communicator(MPI_COMM_WORLD),

@@ -126,7 +126,11 @@ int write(MPI_File file, MPI_Info hints,
 namespace sensei
 {
 //-----------------------------------------------------------------------------
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+PosthocIO *PosthocIO::New() { return new PosthocIO; }
+#else
 vtkStandardNewMacro(PosthocIO);
+#endif
 
 //-----------------------------------------------------------------------------
 PosthocIO::PosthocIO() : Comm(MPI_COMM_WORLD), CommRank(0), CommSize(1),

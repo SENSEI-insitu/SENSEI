@@ -50,12 +50,20 @@ cmake_dependent_option(
   ENABLE_ADIOS "Enable analysis methods that use ADIOS" OFF "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
+# Enable Libsim and analysis using Libsim
+cmake_dependent_option(
+  ENABLE_LIBSIM "Enable analysis methods that use Libsim" OFF "ENABLE_SENSEI" OFF)
+
+#------------------------------------------------------------------------------
 option(ENABLE_VTK_XMLP "Enable use of vtk parallel I/O" OFF)
 
 #------------------------------------------------------------------------------
 include(mpi)
 if(ENABLE_ADIOS)
   include(adios)
+endif()
+if(ENABLE_LIBSIM)
+  include(libsim)
 endif()
 
 add_subdirectory(utils)

@@ -4,4 +4,5 @@
   <analysis type="histogram" array="temperature" association="cell" bins="10" />
   <analysis type="adios" filename="3D_Grid.bp" method="MPI" />
   <analysis type="catalyst" pipeline="slice" />
+  <analysis type="libsim" trace="libsim_trace" options="-debug 5" plot="Pseudocolor" plotvar="pressure" />
 </sensei>
