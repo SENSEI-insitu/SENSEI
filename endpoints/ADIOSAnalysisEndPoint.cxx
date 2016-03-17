@@ -36,6 +36,7 @@ int main(int argc, char** argv)
       >> opts::Option('f', "config", config_file, "Sensei analysis configuration xml (required)");
 
   bool log = ops >> opts::Present("log", "generate time and memory usage log");
+  bool shortlog = ops >> opts::Present("shortlog", "generate a summary time and memory usage log");
   if (ops >> opts::Present('h', "help", "show help") ||
     !(ops >> opts::PosOption(input)) ||
     config_file.empty())
@@ -48,7 +49,8 @@ int main(int argc, char** argv)
     return 1;
     }
 
-  timer::SetLogging(log);
+  timer::SetLogging(log || shortlog);
+  timer::SetTrackSummariesOverTime(shortlog);
 
   std::map<std::string, ADIOS_READ_METHOD> readmethods;
   readmethods["bp"] = ADIOS_READ_METHOD_BP;
@@ -61,8 +63,10 @@ int main(int argc, char** argv)
     vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   analysis->Initialize(comm, config_file);
 
+  cout << "Opening: '" << input.c_str() << "' using '" << readmethod.c_str() << "'" << endl;
   vtkNew<sensei::adios::DataAdaptor> dataAdaptor;
   dataAdaptor->Open(comm, readmethods[readmethod], input);
+  cout << "Done opening  '" << input.c_str() << "'" << endl;
 
   int t_count = 0;
   double t = 0.0;
@@ -70,8 +74,10 @@ int main(int argc, char** argv)
     {
     timer::MarkStartTimeStep(t_count, t);
 
+    timer::MarkStartEvent("adios::advance");
     // request reading of meta-data for this step.
     dataAdaptor->ReadStep();
+    timer::MarkEndEvent("adios::advance");
 
     timer::MarkStartEvent("adios::analysis");
     analysis->Execute(dataAdaptor.GetPointer());
