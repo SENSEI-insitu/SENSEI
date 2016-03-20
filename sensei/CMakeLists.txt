@@ -74,8 +74,9 @@ if(ENABLE_ADIOS)
 endif()
 
 if(ENABLE_LIBSIM)
-  target_include_directories(sensei SYSTEM PUBLIC ${LIBSIM_INCLUDE_DIRS})
+  target_include_directories(sensei SYSTEM PUBLIC ${LIBSIM_INCLUDE_DIR})
   target_link_libraries(sensei PRIVATE libsim)
+  target_compile_definitions(sensei PUBLIC ENABLE_LIBSIM)
 endif()
 
 if (ENABLE_VTK_XMLP)

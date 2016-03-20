@@ -39,7 +39,12 @@ Repository Organization
       This houses sensei::catalyst::AnalysisAdaptor which implements 'sensei::AnalysisAdaptor'
       interface to use Catalyst for the analysis. Since in Catalyst, analysis is performed
       via pipelines, this directory contains instances of pipelines (e.g. sensei::catalyst::Slice).
-      
+
+    - sensei/libsim
+
+      Contains source code for all files under the 'sensei::libsim' namespace.
+      This houses the Libsim analysis adaptor for making slice images, etc.
+   
     - miniapps/
     
       All miniapps generated for various bechmarks and testing is included in this directory.
@@ -126,6 +131,10 @@ this generates a **ADIOSAnalysisEndPoint** that can be used as an endpoint compo
 that reads data being serialized by the ADIOS analysis adaptor and pass it back
 into a `Sensei` bridge for further analysis. **ADIOSAnalysisEndPoint** itself can be given
 configuration XML for select analysis routines to run via Sensei infrastructure.
+
+* **ENABLE_LIBSIM**: (ON/OFF) Set to ON to enable Libsim components. In addition, you must set LIBSIM_DIR so it points
+to the location of the installed LIBSIMConfig.cmake file to locate Libsim and set up its dependencies. When these
+settings are enabled/set, the Libsim analysis adaptor will be built.
 
 Typical build usage:
 
