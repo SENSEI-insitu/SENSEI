@@ -21,6 +21,7 @@
 #include <VisItDataInterface_V2.h>
 
 #include <sstream>
+#include <algorithm>
 
 #define DEBUG_PRINT
 
@@ -598,6 +599,7 @@ AnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
         // Add variables.
         int assoc = vtkDataObject::FIELD_ASSOCIATION_POINTS;
+        std::vector<std::string> nodal_vars;
         for(i = 0; i < da->GetNumberOfArrays(assoc); ++i)
         {
             if(VisIt_VariableMetaData_alloc(&vmd) == VISIT_OKAY)
@@ -607,14 +609,23 @@ AnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 VisIt_VariableMetaData_setType(vmd, VISIT_VARTYPE_SCALAR);
                 VisIt_VariableMetaData_setCentering(vmd, VISIT_VARCENTERING_NODE);
                 VisIt_SimulationMetaData_addVariable(md, vmd);
+
+                nodal_vars.push_back(da->GetArrayName(assoc, i).c_str());
             }
         }
         assoc = vtkDataObject::FIELD_ASSOCIATION_CELLS;
         for(i = 0; i < da->GetNumberOfArrays(assoc); ++i)
         {
+            // See if the variable is already in the nodal vars. If so,
+            // we prepend "cell_" to the name.
+            std::string var(da->GetArrayName(assoc, i));
+            bool alreadyDefined = std::find(nodal_vars.begin(), nodal_vars.end(), var) != nodal_vars.end();
+            if(alreadyDefined)
+                var = std::string("cell_") + var;
+
             if(VisIt_VariableMetaData_alloc(&vmd) == VISIT_OKAY)
             {
-                VisIt_VariableMetaData_setName(vmd, da->GetArrayName(assoc, i).c_str());
+                VisIt_VariableMetaData_setName(vmd, var.c_str());
                 VisIt_VariableMetaData_setMeshName(vmd, "mesh");
                 VisIt_VariableMetaData_setType(vmd, VISIT_VARTYPE_SCALAR);
                 VisIt_VariableMetaData_setCentering(vmd, VISIT_VARCENTERING_ZONE);
@@ -665,25 +676,56 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
             sprintf(tmp, "\textents={%d,%d,%d,%d,%d,%d}\n", x0, x1, y0, y1, z0, z1);
             VisItDebug5(tmp);
 #endif
-            float *x = (float *)malloc(sizeof(float) * dims[std::max(dims[0], 1)]);
-            float *y = (float *)malloc(sizeof(float) * dims[std::max(dims[1], 1)]);
-            float *z = (float *)malloc(sizeof(float) * dims[std::max(dims[2], 1)]);
-            for(int i = 0; i < dims[0]; ++i)
-                x[i] = x0 + i;
-            for(int i = 0; i < dims[1]; ++i)
-                y[i] = y0 + i;
-            for(int i = 0; i < dims[2]; ++i)
-                z[i] = z0 + i;
-
-            visit_handle xc, yc, zc;
-            VisIt_RectilinearMesh_alloc(&mesh);
-            VisIt_VariableData_alloc(&xc);
-            VisIt_VariableData_alloc(&yc);
-            VisIt_VariableData_alloc(&zc);
-            VisIt_VariableData_setDataF(xc, VISIT_OWNER_VISIT, 1, dims[0], x);
-            VisIt_VariableData_setDataF(yc, VISIT_OWNER_VISIT, 1, dims[1], y);
-            VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, dims[2], z);
-            VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+            if(VisIt_RectilinearMesh_alloc(&mesh) == VISIT_OKAY)
+            {
+                int nx = std::max(dims[0], 1);
+                int ny = std::max(dims[1], 1);
+                int nz = std::max(dims[2], 1);
+                float *x = (float *)malloc(sizeof(float) * nx);
+                float *y = (float *)malloc(sizeof(float) * ny);
+                float *z = (float *)malloc(sizeof(float) * nz);
+                if(x != NULL && y != NULL && z != NULL)
+                {
+                    visit_handle xc, yc, zc;
+                    if(VisIt_VariableData_alloc(&xc) == VISIT_OKAY &&
+                       VisIt_VariableData_alloc(&yc) == VISIT_OKAY &&
+                       VisIt_VariableData_alloc(&zc) == VISIT_OKAY)
+                    {
+                        for(int i = 0; i < nx; ++i)
+                            x[i] = x0 + i;
+                        for(int i = 0; i < ny; ++i)
+                            y[i] = y0 + i;
+                        for(int i = 0; i < nz; ++i)
+                            z[i] = z0 + i;
+                        VisIt_VariableData_setDataF(xc, VISIT_OWNER_VISIT, 1, nx, x);
+                        VisIt_VariableData_setDataF(yc, VISIT_OWNER_VISIT, 1, ny, y);
+                        VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
+                        VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+                    }
+                    else
+                    {
+                        VisIt_RectilinearMesh_free(mesh);
+                        mesh = VISIT_INVALID_HANDLE;
+                        if(xc != VISIT_INVALID_HANDLE)
+                            VisIt_VariableData_free(xc);
+                        if(yc != VISIT_INVALID_HANDLE)
+                            VisIt_VariableData_free(yc);
+                        if(zc != VISIT_INVALID_HANDLE)
+                            VisIt_VariableData_free(zc);
+                        if(x != NULL) free(x);
+                        if(y != NULL) free(y);
+                        if(z != NULL) free(z);
+                    }
+                }
+                else
+                {
+                    VisIt_RectilinearMesh_free(mesh);
+                    mesh = VISIT_INVALID_HANDLE;
+                    if(x != NULL) free(x);
+                    if(y != NULL) free(y);
+                    if(z != NULL) free(z);
+                }
+            }
         }
         // TODO: expand to other mesh types.
         else
@@ -709,26 +751,40 @@ AnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdat
         // Get the right data array from the VTK dataset.
         vtkDataSet *ds = This->domains[localdomain];
         vtkDataArray *arr = NULL;
-        for(int i = 0; i < ds->GetCellData()->GetNumberOfArrays(); ++i)
+        // First check the point data.
+        for(int i = 0; i < ds->GetPointData()->GetNumberOfArrays(); ++i)
         {
-            if(strcmp(name, ds->GetCellData()->GetArray(i)->GetName()) == 0)
+            if(strcmp(name, ds->GetPointData()->GetArray(i)->GetName()) == 0)
             {
-                arr = ds->GetCellData()->GetArray(i);
+                arr = ds->GetPointData()->GetArray(i);
+                VisItDebug5("==== Found point data ====\n");
                 break;
             }
         }
-        for(int i = 0; arr == NULL && i < ds->GetCellData()->GetNumberOfArrays(); ++i)
+        // Next, check the cell data. Note that we also check a variable 
+        // called "cell_"+name in case we had to rename if there were
+        // duplicate names.
+        if(arr == NULL)
         {
-            if(strcmp(name, ds->GetCellData()->GetArray(i)->GetName()) == 0)
+            std::string namestr(name);
+            for(int i = 0; i < ds->GetCellData()->GetNumberOfArrays(); ++i)
             {
-                arr = ds->GetCellData()->GetArray(i);
-                break;
+                std::string arrname(ds->GetCellData()->GetArray(i)->GetName());
+                std::string cellarrname(std::string("cell_") + arrname);
+                if(namestr == arrname || namestr == cellarrname)
+                {
+                    arr = ds->GetCellData()->GetArray(i);
+                    VisItDebug5("==== Found cell data ====\n");
+                    break;
+                }
             }
         }
 
         if(arr != NULL)
         {
-            // If we have a standard memory layout in a supported type, zero-copy expose the data to libsim.
+            char tmp[100];
+            // If we have a standard memory layout in a supported type, 
+            // zero-copy expose the data to libsim.
             VisIt_VariableData_alloc(&h);
             bool copy = false;
             int nc = arr->GetNumberOfComponents();
@@ -747,6 +803,12 @@ AnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdat
                     VisIt_VariableData_setDataD(h, VISIT_OWNER_SIM, nc, nt, (double *)arr->GetVoidPointer(0));
                 else
                     copy = true;
+
+                if(!copy)
+                {
+                    sprintf(tmp, "==== Standard memory layout: nc=%d, nt=%d ====\n", nc, nt);
+                    VisItDebug5(tmp);
+                }
             }
             else
             {
@@ -758,6 +820,9 @@ AnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdat
             // Expose the data as a copy, converting to double.
             if(copy)
             {
+                sprintf(tmp, "==== Copying required: nc=%d, nt=%d ====\n", nc, nt);
+                VisItDebug5(tmp);
+
                 double *v = (double *)malloc(sizeof(double) * nc * nt);
                 double *tuple = v;
                 for(int i = 0; i < nt; ++i)

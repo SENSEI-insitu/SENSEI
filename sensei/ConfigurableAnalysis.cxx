@@ -210,6 +210,8 @@ public:
           this->LibsimAnalysisAdaptor->SetTraceFile(node.attribute("trace").value());
       if(node.attribute("options"))
           this->LibsimAnalysisAdaptor->SetOptions(node.attribute("options").value());
+      if(node.attribute("visitdir"))
+          this->LibsimAnalysisAdaptor->SetVisItDirectory(node.attribute("visitdir").value());
       this->LibsimAnalysisAdaptor->Initialize();
       this->Analyses.push_back(this->LibsimAnalysisAdaptor);
       }
