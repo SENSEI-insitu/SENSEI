@@ -213,9 +213,7 @@ public:
       this->LibsimAnalysisAdaptor->Initialize();
       this->Analyses.push_back(this->LibsimAnalysisAdaptor);
       }
-    else
-       cout << "NOT creating Libsim Analysis Adaptor" << endl;
-       
+  
     libsim::ImageProperties imageProps;
     if(node.attribute("image-filename") != NULL)
         imageProps.SetFilename(node.attribute("image-filename").value());
