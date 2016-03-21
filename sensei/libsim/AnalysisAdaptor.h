@@ -11,6 +11,8 @@ namespace libsim
 {
 using sensei::DataAdaptor;
 
+class ImageProperties;
+
 /// @brief Analysis adaptor for libsim-based analysis pipelines.
 ///
 /// AnalysisAdaptor is a subclass of AnalysisAdaptor that is
@@ -33,8 +35,13 @@ public:
 
   virtual bool Execute(DataAdaptor* data);
   
-  // NOTE: we might need to provide a method to accept some kind of pipeline description.
-  
+  // Simple method to add some VisIt plots. The limit is how complex
+  // we want to make this.
+  bool AddPlots(const std::string &plots,
+                const std::string &plotVars,
+	        bool slice, bool project2d,
+	        const double origin[3], const double normal[3],
+	        const ImageProperties &imgProps);
 //BTX
 protected:
   AnalysisAdaptor();

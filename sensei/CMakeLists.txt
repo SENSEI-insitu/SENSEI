@@ -31,7 +31,9 @@ endif()
 if(ENABLE_LIBSIM)
   list(APPEND sources
     libsim/AnalysisAdaptor.cxx
-    libsim/AnalysisAdaptor.h)
+    libsim/AnalysisAdaptor.h
+    libsim/ImageProperties.cxx
+    libsim/ImageProperties.h)
 endif()
 
 #-----------------------------------------------------------------------

@@ -17,6 +17,7 @@
 #endif
 #ifdef ENABLE_LIBSIM
 # include "libsim/AnalysisAdaptor.h"
+# include "libsim/ImageProperties.h"
 #endif
 
 #include <vector>
@@ -215,7 +216,57 @@ public:
     else
        cout << "NOT creating Libsim Analysis Adaptor" << endl;
        
-    // Add slice stuff ...
+    libsim::ImageProperties imageProps;
+    if(node.attribute("image-filename") != NULL)
+        imageProps.SetFilename(node.attribute("image-filename").value());
+    if(node.attribute("image-width") != NULL)
+        imageProps.SetWidth(node.attribute("image-width").as_int());
+    if(node.attribute("image-height") != NULL)
+        imageProps.SetHeight(node.attribute("image-height").as_int());
+    if(node.attribute("image-height") != NULL)
+        imageProps.SetHeight(node.attribute("image-height").as_int());
+
+    std::string plots, plotVars;
+    double origin[3] = {0.,0.,0.};
+    double normal[3] = {1.,0.,0.};
+    bool slice = false, project = false;
+    if(node.attribute("plots") != NULL)
+        plots = node.attribute("plots").value();
+    if(node.attribute("plotvars") != NULL)
+        plotVars = node.attribute("plotvars").value();
+    if(node.attribute("slice-origin") != NULL)
+    {
+        double tmp[3];
+	if(sscanf(node.attribute("slice-origin").value(), 
+	   "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3)
+	{
+	    slice = true;
+	    origin[0] = tmp[0];
+	    origin[1] = tmp[1];
+	    origin[2] = tmp[2];
+        }
+    }
+    if(node.attribute("slice-normal") != NULL)
+    {
+        double tmp[3];
+	if(sscanf(node.attribute("slice-normal").value(), 
+	   "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3)
+	{
+	    slice = true;
+	    normal[0] = tmp[0];
+	    normal[1] = tmp[1];
+	    normal[2] = tmp[2];
+        }
+    }
+    if(node.attribute("slice-project") != NULL)
+        project = node.attribute("slice-project").as_int() != 0;
+
+    // Add the image that we want to make.
+    if(!this->LibsimAnalysisAdaptor->AddPlots(plots, plotVars, 
+        slice, project, origin, normal, imageProps))
+    {
+        return -2;
+    }
 
     return 0;
     }

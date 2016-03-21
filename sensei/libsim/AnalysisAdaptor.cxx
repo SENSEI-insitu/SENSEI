@@ -1,4 +1,5 @@
 #include "AnalysisAdaptor.h"
+#include "ImageProperties.h"
 
 #include <sensei/DataAdaptor.h>
 #include <timer/Timer.h>
@@ -30,6 +31,40 @@ namespace libsim
 
 ///////////////////////////////////////////////////////////////////////////////
 
+class PlotRecord
+{
+public:
+    PlotRecord() : imageProps(), plots(), plotVars(), slice(false), project2d(false)
+    {
+        origin[0] = origin[1] = origin[2] = 0.;
+        normal[0] = 1.; normal[1] = normal[2] = 0.;
+    }
+    ~PlotRecord()
+    {
+    }
+
+    static std::vector<std::string> SplitAtCommas(const std::string &s)
+    {   
+        std::stringstream ss(s);
+        std::vector<std::string> result;
+        while(ss.good())
+        {
+           std::string substr;
+           getline(ss, substr, ',' );
+           result.push_back(substr);
+        }
+        return result;
+    }
+
+    ImageProperties imageProps;
+    std::vector<std::string> plots;
+    std::vector<std::string> plotVars;
+    bool slice;
+    bool project2d;
+    double origin[3];
+    double normal[3];
+};
+
 class AnalysisAdaptor::PrivateData
 {
 public:
@@ -44,6 +79,12 @@ public:
     void PrintSelf(ostream& os, vtkIndent indent);
     bool Initialize();
     bool Execute(DataAdaptor *dataAdaptor);
+
+    bool AddPlots(const std::string &plots,
+                  const std::string &plotVars,
+                  bool slice, bool project2d,
+                  const double origin[3], const double normal[3],
+	          const ImageProperties &imgProps);
 private:
     static int broadcast_int(int *value, int sender, void *cbdata);
     static int broadcast_string(char *str, int len, int sender, void *cbdata);
@@ -63,6 +104,7 @@ private:
     int                      *doms_per_rank;
     std::vector<vtkDataSet *> domains;
     std::string               traceFile, options, visitdir;
+    std::vector<PlotRecord>   plots;
     MPI_Comm                  comm;
     static bool               runtimeLoaded;
     static int                instances;
@@ -137,6 +179,28 @@ AnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent indent)
         cout << "}" << endl;
 #endif
     }
+}
+
+bool
+AnalysisAdaptor::PrivateData::AddPlots(const std::string &plts,
+    const std::string &plotVars,
+    bool slice, bool project2d,
+    const double origin[3], const double normal[3],
+    const ImageProperties &imgProps)
+{
+    PlotRecord p;
+    p.imageProps = imgProps;
+    p.plots = PlotRecord::SplitAtCommas(plts);
+    p.plotVars = PlotRecord::SplitAtCommas(plotVars);
+    p.slice = slice;
+    p.project2d = project2d;
+    memcpy(p.origin, origin, 3 * sizeof(double));
+    memcpy(p.normal, normal, 3 * sizeof(double));
+
+    bool retval = !p.plots.empty() && (p.plots.size() == p.plotVars.size());
+    if(retval)
+        plots.push_back(p);
+    return retval;
 }
 
 bool
@@ -252,16 +316,68 @@ AnalysisAdaptor::PrivateData::Execute(DataAdaptor *dataAdaptor)
     VisItTimeStepChanged();
 
     // Now that the runtime stuff is loaded, we can execute some plots.
-    if(VisItAddPlot("Pseudocolor", "temperature") == VISIT_OKAY)
+    for(size_t i = 0; i < plots.size(); ++i)
     {
+        // Add all the plots in this group.
+        int *ap = new int[plots[i].plots.size()];
+        int np = 0;
+        for(size_t j = 0; j < plots[i].plots.size(); ++j)
+        {
+           if(VisItAddPlot(plots[i].plots[j].c_str(),plots[i].plotVars[j].c_str()) == VISIT_OKAY)
+           {
+              // Use a better color table.
+              const char *ctName = "hot_desaturated";
+              if(plots[i].plots[j] == "Pseudocolor")
+                 VisItSetPlotOptionsS("colorTableName", ctName);
+              else if(plots[i].plots[j] == "Vector")
+              {
+                 VisItSetPlotOptionsS("colorTableName", ctName);
+                 VisItSetPlotOptionsB("colorByMag", true);
+              }
+
+              ap[np] = np++;
+           }
+           else if(rank == 0)
+              printf("ERROR: VisItAddPlot failed.\n");
+        }
+
+        // Select all plots.
+        VisItSetActivePlots(ap, np);
+        delete [] ap;
+
+        // Add a slice operator to all plots.
+        if(plots[i].slice)
+        {
+            VisItAddOperator("Slice", 1);
+            VisItSetOperatorOptionsI("originType", 0); // point intercept
+            VisItSetOperatorOptionsDv("originPoint", plots[i].origin, 3);
+            VisItSetOperatorOptionsDv("normal", plots[i].normal, 3);
+            VisItSetOperatorOptionsB("project2d", plots[i].project2d ? 1 : 0);
+        }
+
         if(VisItDrawPlots() == VISIT_OKAY)
         {
-            int w = 1920/2, h = 1080/2;
+            // Get the image properties.
+            int w = plots[i].imageProps.GetWidth();
+            int h = plots[i].imageProps.GetHeight();
             std::string filename;
-            filename = MakeFileName("libsim%ts.png", 
+            filename = MakeFileName(plots[i].imageProps.GetFilename(),
                                     dataAdaptor->GetDataTimeStep(),
                                     dataAdaptor->GetDataTime());
-            if(VisItSaveWindow(filename.c_str(), w, h, VISIT_IMAGEFORMAT_PNG) == VISIT_OKAY)
+            int format = VISIT_IMAGEFORMAT_PNG;
+            if(plots[i].imageProps.GetFormat() == "bmp")
+                format = VISIT_IMAGEFORMAT_BMP;
+            else if(plots[i].imageProps.GetFormat() == "jpeg")
+                format = VISIT_IMAGEFORMAT_JPEG;
+            else if(plots[i].imageProps.GetFormat() == "png")
+                format = VISIT_IMAGEFORMAT_PNG;
+            else if(plots[i].imageProps.GetFormat() == "ppm")
+                format = VISIT_IMAGEFORMAT_PPM;
+            else if(plots[i].imageProps.GetFormat() == "tiff")
+                format = VISIT_IMAGEFORMAT_TIFF;
+
+            // Save an image.
+            if(VisItSaveWindow(filename.c_str(), w, h, format) == VISIT_OKAY)
             {
                 retval = true;
             }
@@ -271,10 +387,9 @@ AnalysisAdaptor::PrivateData::Execute(DataAdaptor *dataAdaptor)
         else if(rank == 0)
             printf("ERROR: VisItDrawPlots failed.\n");
 
+        // Delete the plots.
         VisItDeleteActivePlots();
     }
-    else if(rank == 0)
-        printf("ERROR: VisItAddPlot failed.\n");
 #endif
 
     return retval;
@@ -426,7 +541,7 @@ AnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
         /* Set the simulation state. */
         VisIt_SimulationMetaData_setMode(md, VISIT_SIMMODE_RUNNING);
-        VisIt_SimulationMetaData_setCycleTime(md, da->GetDataTime(), da->GetDataTimeStep());
+        VisIt_SimulationMetaData_setCycleTime(md, da->GetDataTimeStep(), da->GetDataTime());
 
         /* Add mesh metadata. */
         if(VisIt_MeshMetaData_alloc(&mmd) == VISIT_OKAY)
@@ -736,6 +851,17 @@ void
 AnalysisAdaptor::SetComm(MPI_Comm c)
 {
     d->SetComm(c);
+}
+
+//-----------------------------------------------------------------------------
+bool
+AnalysisAdaptor::AddPlots(const std::string &plots,
+    const std::string &plotVars,
+    bool slice, bool project2d,
+    const double origin[3], const double normal[3],
+    const ImageProperties &imgProps)
+{
+    return d->AddPlots(plots, plotVars, slice, project2d, origin, normal, imgProps);
 }
 
 //-----------------------------------------------------------------------------
