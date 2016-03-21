@@ -197,16 +197,12 @@ public:
   int AddLibsim(MPI_Comm comm, pugi::xml_node node)
     {
     if (node.attribute("enabled") && !node.attribute("enabled").as_int())
-    {
-      cout << "Libsim NOT enabled" << endl;
       return -1;
-    }
     
     // We keep around a single instance of the libsim adaptor and then tell it to
     // do different things.
     if (!this->LibsimAnalysisAdaptor)
       {
-      cout << "Creating Libsim Analysis Adaptor" << endl;
       this->LibsimAnalysisAdaptor = vtkSmartPointer<libsim::AnalysisAdaptor>::New();
       this->LibsimAnalysisAdaptor->SetComm(comm);
       if(node.attribute("trace"))

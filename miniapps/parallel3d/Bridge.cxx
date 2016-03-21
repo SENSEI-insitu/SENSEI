@@ -6,10 +6,13 @@
 #include <vtkDataObject.h>
 #include <vector>
 
+#include <timer/Timer.h>
+
 namespace BridgeInternals
 {
   static vtkSmartPointer<parallel3d::DataAdaptor> GlobalDataAdaptor;
   static vtkSmartPointer<sensei::ConfigurableAnalysis> GlobalAnalysisAdaptor;
+  static MPI_Comm comm;
 }
 
 //-----------------------------------------------------------------------------
@@ -21,6 +24,7 @@ void bridge_initialize(MPI_Comm comm,
   int block_id_x, int block_id_y, int block_id_z,
   const char* config_file)
 {
+  BridgeInternals::comm = comm;
   if (!BridgeInternals::GlobalDataAdaptor)
     {
     BridgeInternals::GlobalDataAdaptor = vtkSmartPointer<parallel3d::DataAdaptor>::New();
@@ -53,4 +57,6 @@ void bridge_finalize()
 {
   BridgeInternals::GlobalAnalysisAdaptor = NULL;
   BridgeInternals::GlobalDataAdaptor = NULL;
+  
+  timer::PrintLog(std::cout, BridgeInternals::comm);
 }

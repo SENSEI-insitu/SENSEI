@@ -15,6 +15,7 @@ endif()
 add_executable(3D_Grid ${sources})
 target_compile_definitions(3D_Grid PRIVATE _FILE_OFFSET_BITS=64 _LARGEFILE64_SOURCE)
 target_link_libraries(3D_Grid PRIVATE m mpi)
+target_link_libraries(3D_Grid PRIVATE timer)
 
 if(ENABLE_SENSEI)
   target_link_libraries(3D_Grid PRIVATE sensei)

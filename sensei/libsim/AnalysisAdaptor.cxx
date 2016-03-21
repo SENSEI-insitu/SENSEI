@@ -21,6 +21,8 @@
 
 #include <sstream>
 
+#define DEBUG_PRINT
+
 namespace sensei
 {
 namespace libsim
@@ -156,6 +158,8 @@ AnalysisAdaptor::PrivateData::Initialize()
             VisItOpenTraceFile((traceFile + suffix).c_str());
         }
 
+        VisItDebug5("==== AnalysisAdaptor::PrivateData::Initialize ====\n");
+
         if(!options.empty())
             VisItSetOptions(const_cast<char*>(options.c_str()));
 
@@ -190,7 +194,7 @@ AnalysisAdaptor::PrivateData::Initialize()
         {
             // Register Libsim callbacks.
             VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
-            VisItSetActivateTimestep(ActivateTimestep, (void*)this);
+            //VisItSetActivateTimestep(ActivateTimestep, (void*)this); // Disable this b/c VisIt wasn't calling it anyway.
             VisItSetGetMetaData(GetMetaData, (void*)this);
             VisItSetGetMesh(GetMesh, (void*)this);
             VisItSetGetVariable(GetVariable, (void*)this);
@@ -208,13 +212,14 @@ AnalysisAdaptor::PrivateData::MakeFileName(const std::string &f, int timestep, d
 {
     std::string filename(f);
 
+    char ts5[20];
+    sprintf(ts5, "%05d", timestep);
+
     // replace "%ts" with timestep in filename
-    std::ostringstream ts_stream;
-    ts_stream << timestep;
     std::string::size_type pos = filename.find("%ts");
     while (pos != std::string::npos)
     {
-        filename.replace(pos, 3, ts_stream.str());
+        filename.replace(pos, 3, ts5);
         pos = filename.find("%ts");
     }
     // replace "%t" with time in filename
@@ -232,26 +237,44 @@ AnalysisAdaptor::PrivateData::MakeFileName(const std::string &f, int timestep, d
 bool
 AnalysisAdaptor::PrivateData::Execute(DataAdaptor *dataAdaptor)
 {
+    VisItDebug5("==== AnalysisAdaptor::PrivateData::Execute ====\n");
+
     // Keep a pointer to the data adaptor so the callbacks can access it.
     da = dataAdaptor;
 
     // If we for some reason have not initialized by now, do it.
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
     bool retval = Initialize();
 
 #if 1
+    // Let's get new metadata.
+    VisItTimeStepChanged();
+
     // Now that the runtime stuff is loaded, we can execute some plots.
-    VisItAddPlot("Pseudocolor", "pressure");
-    VisItDrawPlots();
-    int w = 1920, h = 1080;
-    std::string filename;
-    filename = MakeFileName("libsim%ts.png", 
-                            dataAdaptor->GetDataTimeStep(),
-                            dataAdaptor->GetDataTime());
-    if(VisItSaveWindow(filename.c_str(), w, h, VISIT_IMAGEFORMAT_PNG) == VISIT_OKAY)
+    if(VisItAddPlot("Pseudocolor", "temperature") == VISIT_OKAY)
     {
-        retval = true;
+        if(VisItDrawPlots() == VISIT_OKAY)
+        {
+            int w = 1920/2, h = 1080/2;
+            std::string filename;
+            filename = MakeFileName("libsim%ts.png", 
+                                    dataAdaptor->GetDataTimeStep(),
+                                    dataAdaptor->GetDataTime());
+            if(VisItSaveWindow(filename.c_str(), w, h, VISIT_IMAGEFORMAT_PNG) == VISIT_OKAY)
+            {
+                retval = true;
+            }
+            else if(rank == 0)
+                printf("ERROR: VisItSaveWindow failed.\n");
+        }
+        else if(rank == 0)
+            printf("ERROR: VisItDrawPlots failed.\n");
+
+        VisItDeleteActivePlots();
     }
-    VisItDeleteActivePlots();
+    else if(rank == 0)
+        printf("ERROR: VisItAddPlot failed.\n");
 #endif
 
     return retval;
@@ -283,6 +306,7 @@ AnalysisAdaptor::PrivateData::ActivateTimestep(void *cbdata)
 {
     PrivateData *This = (PrivateData *)cbdata;
     DataAdaptor *da = This->da;
+    VisItDebug5("==== AnalysisAdaptor::PrivateData::ActivateTimestep ====\n");
 
     // Clear the domains list. This is a local list for this rank.
     This->domains.clear();
@@ -320,14 +344,27 @@ AnalysisAdaptor::PrivateData::ActivateTimestep(void *cbdata)
     int rank = 0, size = 1;
     MPI_Comm_rank(This->comm, &rank);
     MPI_Comm_size(This->comm, &size);
-    if(This->doms_per_rank != NULL)
+    if(This->doms_per_rank == NULL)
         This->doms_per_rank = new int[size];
     memset(This->doms_per_rank, 0, sizeof(int) * size);
     int ndoms = (int)This->domains.size();
-    MPI_Allgather(&ndoms, 1, MPI_INT, This->doms_per_rank, size, MPI_INT, This->comm);
+#ifdef DEDBUG_PRINT
+    char tmp[100];
+    sprintf(tmp, "Rank %d has %d domains.\n", rank, ndoms);
+    VisItDebug5(tmp);
+#endif
 
-#if 1
-    This->PrintSelf(cout, vtkIndent());
+    MPI_Allgather(&ndoms, 1, MPI_INT,
+                  This->doms_per_rank, 1, MPI_INT, This->comm);
+
+#ifdef DEDBUG_PRINT
+    VisItDebug5("doms_per_rank = {");
+    for(int i = 0; i < size; ++i)
+    {
+        sprintf(tmp, "%d, ", This->doms_per_rank[i]);
+        VisItDebug5(tmp);
+    }
+    VisItDebug5("}\n");
 #endif
 }
 
@@ -374,6 +411,11 @@ AnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
     PrivateData *This = (PrivateData *)cbdata;
     DataAdaptor *da = This->da;
     visit_handle md = VISIT_INVALID_HANDLE;
+
+    // HACK: VisIt is not calling ActivateTimestep. Do it here.
+    ActivateTimestep(cbdata);
+
+    VisItDebug5("==== AnalysisAdaptor::PrivateData::GetMetaData ====\n");
 
     /* Create metadata. */
     if(VisIt_SimulationMetaData_alloc(&md) == VISIT_OKAY)
@@ -476,6 +518,13 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
     DataAdaptor *da = This->da;
     int localdomain = This->GetLocalDomain(dom);
     visit_handle mesh = VISIT_INVALID_HANDLE;
+    VisItDebug5("==== AnalysisAdaptor::PrivateData::GetMesh ====\n");
+#ifdef DEBUG_PRINT
+    char tmp[200];
+    sprintf(tmp, "\tdom=%d, localdomain = %d, This->domains.size()=%d\n",
+            dom, localdomain, (int)This->domains.size());
+    VisItDebug5(tmp);
+#endif
 
     if(localdomain >= 0 && localdomain < (int)This->domains.size())
     {
@@ -483,6 +532,8 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
         vtkImageData *igrid = vtkImageData::SafeDownCast(ds);
         if(igrid != NULL)
         {
+            VisItDebug5("\tExposing vtkImageData as a rectilinear grid.\n");
+
             // We already have a VTK dataset. Libsim doesn't have a path to just
             // pass it through to SimV2+VisIt so we have to pull some details
             // out to make the right Libsim calls so the SimV2 reader will be
@@ -493,6 +544,12 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
             igrid->GetDimensions(dims);
             int x0, x1, y0, y1, z0, z1;
             igrid->GetExtent(x0, x1, y0, y1, z0, z1);
+#ifdef DEBUG_PRINT
+            sprintf(tmp, "\tdims={%d,%d,%d}\n", dims[0], dims[1], dims[2]);
+            VisItDebug5(tmp);
+            sprintf(tmp, "\textents={%d,%d,%d,%d,%d,%d}\n", x0, x1, y0, y1, z0, z1);
+            VisItDebug5(tmp);
+#endif
             float *x = (float *)malloc(sizeof(float) * dims[std::max(dims[0], 1)]);
             float *y = (float *)malloc(sizeof(float) * dims[std::max(dims[1], 1)]);
             float *z = (float *)malloc(sizeof(float) * dims[std::max(dims[2], 1)]);
@@ -514,6 +571,10 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
             VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
         }
         // TODO: expand to other mesh types.
+        else
+        {
+            VisItDebug5("Unsupported VTK mesh type.\n");
+        }
     }
 
     return mesh;
@@ -526,6 +587,7 @@ AnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdat
     DataAdaptor *da = This->da;
     int localdomain = This->GetLocalDomain(dom);
     visit_handle h = VISIT_INVALID_HANDLE;
+    VisItDebug5("==== AnalysisAdaptor::PrivateData::GetVariable ====\n");
 
     if(localdomain >= 0 && localdomain < (int)This->domains.size())
     {
@@ -601,6 +663,8 @@ AnalysisAdaptor::PrivateData::GetDomainList(const char *name, void *cbdata)
 {
     PrivateData *This = (PrivateData *)cbdata;
     visit_handle h = VISIT_INVALID_HANDLE;
+    VisItDebug5("==== AnalysisAdaptor::PrivateData::GetDomainList ====\n");
+
     if(VisIt_DomainList_alloc(&h) != VISIT_ERROR)
     {
         visit_handle hdl;
