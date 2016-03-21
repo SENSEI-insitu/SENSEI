@@ -106,7 +106,18 @@ int main(int argc, char **argv)
   MPI_Bcast(&l_x, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&tot_blocks, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&bins, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
+#ifdef ENABLE_SENSEI
+  {
+      char buf[2048];
+      memset(buf, 0, 2048 * sizeof(char));
+      if(rank == 0)
+          strcpy(buf, config_file);
+      MPI_Bcast(buf, 2048, MPI_CHAR, 0, MPI_COMM_WORLD);
+      /* Copy the string on other ranks so config_file is not empty! */
+      if(rank != 0)
+          config_file = strdup(buf);
+  }
+#endif
 
   // figure out some kind of block distribution
   tot_blocks_z = (g_z/l_z);
