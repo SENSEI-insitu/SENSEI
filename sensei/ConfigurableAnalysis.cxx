@@ -23,6 +23,7 @@
 #include <vector>
 #include <pugixml.hpp>
 #include <sstream>
+#include <cstdio>
 
 #define ConfigurableAnalysisError(_arg) \
   cerr << "ERROR: " << __FILE__ " : "  << __LINE__ << std::endl \
@@ -173,21 +174,43 @@ public:
     if (strcmp(node.attribute("pipeline").value(), "slice") == 0)
       {
       vtkNew<catalyst::Slice> slice;
-      // TODO: parse origin and normal.
-      slice->SetSliceNormal(0, 0, 1);
-      slice->SetSliceOrigin(0, 0, 0);
+      double tmp[3];
+      if (node.attribute("slice-normal") &&
+        (std::sscanf(node.attribute("slice-normal").value(), "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
+        {
+        slice->SetSliceNormal(tmp[0], tmp[1], tmp[2]);
+        }
+      if (node.attribute("slice-origin") &&
+        (std::sscanf(node.attribute("slice-origin").value(), "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
+        {
+        slice->SetSliceOrigin(tmp[0], tmp[1], tmp[2]);
+        slice->SetAutoCenter(false);
+        }
+      else
+        {
+        slice->SetAutoCenter(true);
+        }
       slice->ColorBy(
         this->GetAssociation(node.attribute("association")), node.attribute("array").value());
-      if (node.attribute("image-filename") && node.attribute("image-width") && node.attribute("image-height"))
+      if (node.attribute("color-range") &&
+        (std::sscanf(node.attribute("color-range").value(), "%lg,%lg", &tmp[0], &tmp[1]) == 2))
+        {
+        slice->SetAutoColorRange(false);
+        slice->SetColorRange(tmp[0], tmp[1]);
+        }
+      else
+        {
+        slice->SetAutoColorRange(true);
+        }
+      if (node.attribute("image-filename"))
         {
         slice->SetImageParameters(
           node.attribute("image-filename").value(),
-          node.attribute("image-width").as_int(),
-          node.attribute("image-height").as_int());
+          node.attribute("image-width").as_int(800),
+          node.attribute("image-height").as_int(800));
         }
       this->CatalystAnalysisAdaptor->AddPipeline(slice.GetPointer());
       }
-
     return 0;
     }
 #endif

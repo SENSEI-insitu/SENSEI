@@ -17,6 +17,7 @@
 #include <vtkCommunicator.h>
 
 #include <sstream>
+#include <cassert>
 
 namespace sensei
 {
@@ -37,11 +38,17 @@ public:
   std::string ColorArrayName;
   bool AutoCenter;
 
+  double ColorRange[2];
+  bool AutoColorRange;
+
   std::string ImageFileName;
   int ImageSize[2];
 
-  vtkInternals() : PipelineCreated(false), ColorAssociation(0), AutoCenter(true)
+  vtkInternals() : PipelineCreated(false), ColorAssociation(0), AutoCenter(true), AutoColorRange(true)
   {
+  this->Origin[0] = this->Origin[1] = this->Origin[2] = 0.0;
+  this->Normal[0] = this->Normal[1] = 0.0; this->Normal[2] = 1.0;
+  this->ColorRange[0] = 0; this->ColorRange[1] = 1.0;
   this->ImageSize[0] = this->ImageSize[1] = 800;
   }
 
@@ -120,21 +127,29 @@ public:
         this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
       if (vtkSMPVRepresentationProxy::GetUsingScalarColoring(this->SliceRepresentation))
         {
-        double range[2] = {VTK_DOUBLE_MAX, VTK_DOUBLE_MIN}, grange[2];
-        if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
-            this->SliceRepresentation))
+        double range[2] = {VTK_DOUBLE_MAX, VTK_DOUBLE_MIN};
+        if (this->AutoColorRange)
           {
-          ai->GetComponentRange(-1, range);
-          }
+          double grange[2];
+          if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
+              this->SliceRepresentation))
+            {
+            ai->GetComponentRange(-1, range);
+            }
+          range[0] *= -1; // make range[0] negative to simplify reduce.
+          controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
+          grange[0] *= -1;
 
-        range[0] *= -1; // make range[0] negative to simplify reduce.
-        controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
-        grange[0] *= -1;
+          std::copy(grange, grange+2, range);
+          }
+        else
+          {
+          std::copy(this->ColorRange, this->ColorRange+2, range);
+          }
         vtkSMTransferFunctionProxy::RescaleTransferFunction(
-          vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), grange[0], grange[1]);
+          vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), range[0], range[1]);
         }
       vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
-      // this->RenderView->StillRender();
       std::string filename = this->ImageFileName;
 
       // replace "%ts" with timestep in filename
@@ -241,6 +256,36 @@ int Slice::CoProcess(vtkCPDataDescription* dataDesc)
 int Slice::Finalize()
 {
   return 1;
+}
+
+//----------------------------------------------------------------------------
+void Slice::SetAutoColorRange(bool val)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.AutoColorRange = val;
+}
+
+//----------------------------------------------------------------------------
+void Slice::SetColorRange(double min, double max)
+{
+  assert(min <= max);
+  vtkInternals& internals = (*this->Internals);
+  internals.ColorRange[0] = min;
+  internals.ColorRange[1] = max;
+}
+
+//----------------------------------------------------------------------------
+bool Slice::GetAutoColorRange() const
+{
+  vtkInternals& internals = (*this->Internals);
+  return internals.AutoColorRange;
+}
+
+//----------------------------------------------------------------------------
+const double* Slice::GetColorRange() const
+{
+  vtkInternals& internals = (*this->Internals);
+  return internals.ColorRange;
 }
 
 //----------------------------------------------------------------------------

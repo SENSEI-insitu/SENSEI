@@ -6,6 +6,8 @@
   <analysis type="autocorrelation" array="data" association="cell" window="10" k-max="3" />
   <analysis type="catalyst"
             pipeline="slice" array="data" association="cell"
-            image-filename="slice-%ts.png" image-width="1920" image-height="1080" />
+            image-filename="slice-%ts.png" image-width="1920" image-height="1080"
+            slice-normal="0,0,1"
+            color-range="-0,1.5"/>
   <analysis type="adios" filename="oscillators.bp" method="MPI" />
 </sensei>

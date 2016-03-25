@@ -34,10 +34,22 @@ public:
   /// Set array to color with. If arrayname is NULL, coloring will be disabled.
   void ColorBy(int association, const std::string& arrayname);
 
+  /// @brief Set whether to automatically determine color range per time iteration.
+  ///
+  /// When set to true, this analysis adaptor will compute and set the color range per
+  /// timestep. Otherwise, it will use the value specified using SetColorRange().
+  void SetAutoColorRange(bool val);
+  bool GetAutoColorRange() const;
+
+  /// @brief Set the color range to use when AutoColorRange is false.
+  ///
+  /// Set the color range to use when AutoColorRange is false.
+  void SetColorRange(double min, double max);
+  const double* GetColorRange() const;
+
   virtual int RequestDataDescription(vtkCPDataDescription* dataDesc);
   virtual int CoProcess(vtkCPDataDescription* dataDesc);
   virtual int Finalize();
-
 protected:
   Slice();
   ~Slice();
