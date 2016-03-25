@@ -127,6 +127,9 @@ public:
         this->SliceRepresentation, this->ColorArrayName.c_str(), this->ColorAssociation);
       if (vtkSMPVRepresentationProxy::GetUsingScalarColoring(this->SliceRepresentation))
         {
+        // Request an explicit update to ensure representation gives us valid data information.
+        this->RenderView->Update();
+
         double range[2] = {VTK_DOUBLE_MAX, VTK_DOUBLE_MIN};
         if (this->AutoColorRange)
           {
