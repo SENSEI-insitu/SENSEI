@@ -64,10 +64,11 @@ namespace catalyst
     return vtkSMViewProxy::SafeDownCast(proxy);
     }
 
-  vtkSMProxy* Show(vtkSMSourceProxy* producer, vtkSMViewProxy* view)
+  vtkSMRepresentationProxy* Show(vtkSMSourceProxy* producer, vtkSMViewProxy* view)
     {
     vtkNew<vtkSMParaViewPipelineControllerWithRendering> controller;
-    return controller->Show(producer, 0, view);
+    return vtkSMRepresentationProxy::SafeDownCast(
+      controller->Show(producer, 0, view));
     }
 }
 }

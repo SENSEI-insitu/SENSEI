@@ -30,7 +30,7 @@ public:
   vtkSmartPointer<vtkSMSourceProxy> Slice;
   vtkSmartPointer<vtkSMProxy> SlicePlane;
   vtkSmartPointer<vtkSMViewProxy> RenderView;
-  vtkSmartPointer<vtkSMProxy> SliceRepresentation;
+  vtkSmartPointer<vtkSMRepresentationProxy> SliceRepresentation;
   double Origin[3];
   double Normal[3];
   bool PipelineCreated;
@@ -130,16 +130,18 @@ public:
         double range[2] = {VTK_DOUBLE_MAX, VTK_DOUBLE_MIN};
         if (this->AutoColorRange)
           {
-          double grange[2];
-          if (vtkPVArrayInformation* ai = vtkSMPVRepresentationProxy::GetArrayInformationForColorArray(
-              this->SliceRepresentation))
+          // Here, we use RepresentedDataInformation so that we get the range
+          // for the geometry after ghost elements have been pruned.
+          if (vtkPVArrayInformation* ai =
+              this->SliceRepresentation->GetRepresentedDataInformation()->
+              GetArrayInformation(this->ColorArrayName.c_str(), this->ColorAssociation))
             {
             ai->GetComponentRange(-1, range);
             }
           range[0] *= -1; // make range[0] negative to simplify reduce.
+          double grange[2];
           controller->AllReduce(range, grange, 2, vtkCommunicator::MAX_OP);
           grange[0] *= -1;
-
           std::copy(grange, grange+2, range);
           }
         else
