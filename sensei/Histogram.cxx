@@ -2,11 +2,11 @@
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
-#include <vtkDataArray.h>
 #include <vtkDataObject.h>
-#include <vtkFieldData.h>
+#include <vtkDataSetAttributes.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
+#include <vtkUnsignedCharArray.h>
 
 #ifdef VTK_HAS_GENERIC_ARRAYS
 # include "HistogramInternals-GenericArrays.h"
@@ -73,35 +73,41 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
     iter.TakeReference(cd->NewIterator());
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
       {
-      vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject());
-      histogram.AddRange(array);
+      vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject(), this->ArrayName);
+      vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
+        this->GetArray(iter->GetCurrentDataObject(), vtkDataSetAttributes::GhostArrayName()));
+      histogram.AddRange(array, ghostArray);
       }
     histogram.PreCompute(this->Communicator, this->Bins);
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
       {
-      vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject());
-      histogram.Compute(array);
+      vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject(), this->ArrayName);
+      vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
+        this->GetArray(iter->GetCurrentDataObject(), vtkDataSetAttributes::GhostArrayName()));
+      histogram.Compute(array, ghostArray);
       }
     histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     }
   else
     {
-    vtkDataArray* array = this->GetArray(mesh);
-    histogram.AddRange(array);
+    vtkDataArray* array = this->GetArray(mesh, this->ArrayName);
+    vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
+      this->GetArray(mesh, vtkDataSetAttributes::GhostArrayName()));
+    histogram.AddRange(array, ghostArray);
     histogram.PreCompute(this->Communicator, this->Bins);
-    histogram.Compute(array);
+    histogram.Compute(array, ghostArray);
     histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     }
   return true;
 }
 
 //-----------------------------------------------------------------------------
-vtkDataArray* Histogram::GetArray(vtkDataObject* dobj)
+vtkDataArray* Histogram::GetArray(vtkDataObject* dobj, const std::string& arrayname)
 {
   assert(dobj != NULL && vtkCompositeDataSet::SafeDownCast(dobj) == NULL);
   if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(this->Association))
     {
-    return fd->GetArray(this->ArrayName.c_str());
+    return fd->GetArray(arrayname.c_str());
     }
   return NULL;
 }

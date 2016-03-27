@@ -23,10 +23,11 @@ namespace
 // Histogram: The histogram of the local data.
 struct HistogramWorker
 {
+  vtkUnsignedCharArray* GhostArray;
   const double *Range;
   int Bins;
   std::vector<unsigned int> Histogram;
-  HistogramWorker(const double *range, int bins) : Range(range), Bins(bins) {}
+  HistogramWorker(const double *range, int bins) : GhostArray(NULL), Range(range), Bins(bins) {}
 
   template <typename T>
   void operator()(const vtkDataArrayDispatcherPointer<T>& array)
@@ -41,16 +42,64 @@ struct HistogramWorker
     // + 1 to store val == max. These will be moved to this last bin before
     // returning (Avoids having to branch in the loop below);
     this->Histogram.resize(this->Bins + 1, 0);
-    for (vtkIdType tIdx = 0; tIdx < numTuples; ++tIdx)
+    if (this->GhostArray)
       {
-      int bin = static_cast<int>((array.RawPointer[tIdx] - min) / width);
-      ++this->Histogram[bin];
+      for (vtkIdType tIdx = 0; tIdx < numTuples; ++tIdx)
+        {
+        if (this->GhostArray->GetValue(tIdx) == 0)
+          {
+          int bin = static_cast<int>((array.RawPointer[tIdx] - min) / width);
+          ++this->Histogram[bin];
+          }
+        }
+      }
+    else
+      {
+      for (vtkIdType tIdx = 0; tIdx < numTuples; ++tIdx)
+        {
+        int bin = static_cast<int>((array.RawPointer[tIdx] - min) / width);
+        ++this->Histogram[bin];
+        }
       }
 
     // Merge the last two bins (the last is only when val == max)
     this->Histogram[this->Bins-1] += this->Histogram[this->Bins];
     this->Histogram.resize(this->Bins);
   }
+};
+
+// Compute array range by skipping ghost elements.
+class ComponentRangeWorker
+{
+  double Range[2];
+  vtkUnsignedCharArray* GhostArray;
+public:
+  ComponentRangeWorker(vtkUnsignedCharArray* ghostArray) : GhostArray(ghostArray)
+    {
+    this->Range[0] = vtkTypeTraits<double>::Max();
+    this->Range[1] = vtkTypeTraits<double>::Min();
+    }
+
+  template <typename T>
+  void operator()(const vtkDataArrayDispatcherPointer<T>& array)
+    {
+    assert(array.NumberOfComponents == 1);
+    typedef T ValueType;
+    vtkIdType numTuples = array.NumberOfTuples;
+    for (vtkIdType cc=0; cc < numTuples; cc++)
+      {
+      if (this->GhostArray->GetValue(cc) == 0)
+        {
+        this->Range[0] = std::min(this->Range[0], static_cast<double>(array.RawPointer[cc]));
+        this->Range[1] = std::max(this->Range[1], static_cast<double>(array.RawPointer[cc]));
+        }
+      }
+    }
+
+  void GetRange(double r[2])
+    {
+    std::copy(this->Range, this->Range+2, r);
+    }
 };
 
 class vtkHistogram
@@ -60,8 +109,8 @@ class vtkHistogram
 public:
     vtkHistogram()
       {
-      this->Range[0] = VTK_DOUBLE_MAX;
-      this->Range[1] = VTK_DOUBLE_MIN;
+      this->Range[0] = vtkTypeTraits<double>::Max();
+      this->Range[1] = vtkTypeTraits<double>::Min();
       this->Worker = NULL;
       }
     ~vtkHistogram()
@@ -69,15 +118,22 @@ public:
       delete this->Worker;
       }
 
-    void AddRange(vtkDataArray* da)
+    void AddRange(vtkDataArray* da, vtkUnsignedCharArray* ghostArray)
       {
-      if (da)
+      double crange[2] = { vtkTypeTraits<double>::Max(), vtkTypeTraits<double>::Min() };
+      if (da && ghostArray)
         {
-        double crange[2];
-        da->GetRange(crange);
-        this->Range[0] = std::min(this->Range[0], crange[0]);
-        this->Range[1] = std::max(this->Range[1], crange[1]);
+        ComponentRangeWorker worker(ghostArray);
+        vtkDataArrayDispatcher<ComponentRangeWorker> dispatcher(worker);
+        dispatcher.Go(da);
+        worker.GetRange(crange);
         }
+      else if (da)
+        {
+        da->GetRange(crange);
+        }
+      this->Range[0] = std::min(this->Range[0], crange[0]);
+      this->Range[1] = std::max(this->Range[1], crange[1]);
       }
     void PreCompute(MPI_Comm comm, int bins)
       {
@@ -90,12 +146,14 @@ public:
       this->Worker = new HistogramWorker(this->Range, bins);
       }
 
-    void Compute(vtkDataArray* da)
+    void Compute(vtkDataArray* da, vtkUnsignedCharArray* ghostArray)
       {
       if (da)
         {
+        this->Worker->GhostArray = ghostArray;
         vtkDataArrayDispatcher<HistogramWorker> dispatcher(*this->Worker);
         dispatcher.Go(da);
+        this->Worker->GhostArray = NULL;
         }
       }
 

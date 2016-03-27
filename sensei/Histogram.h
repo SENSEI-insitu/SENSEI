@@ -30,7 +30,7 @@ protected:
   Histogram();
   virtual ~Histogram();
 
-  vtkDataArray* GetArray(vtkDataObject* dobj);
+  vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
 
   MPI_Comm Communicator;
   int Bins;
