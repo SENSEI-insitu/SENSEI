@@ -13,6 +13,12 @@ set (sources
   PosthocIO.cxx
   PosthocIO.h
   )
+if(ENABLE_VTK_XMLP)
+  list(APPEND sources
+    vtk/DataAdaptor.cxx
+    vtk/DataAdaptor.h
+    )
+endif()
 
 if(ENABLE_CATALYST)
   list(APPEND sources
