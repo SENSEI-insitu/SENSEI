@@ -111,7 +111,7 @@ public:
 
   /// @brief convenience method to get full mesh will all arrays added to the
   /// mesh.
-  vtkDataObject* GetCompleteMesh();
+  virtual vtkDataObject* GetCompleteMesh();
 
   /// @brief Key to store the timestep index.
   static vtkInformationIntegerKey* DATA_TIME_STEP_INDEX();

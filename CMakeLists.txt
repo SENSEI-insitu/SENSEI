@@ -55,7 +55,9 @@ cmake_dependent_option(
   ENABLE_LIBSIM "Enable analysis methods that use Libsim" OFF "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
-option(ENABLE_VTK_XMLP "Enable use of vtk parallel I/O" OFF)
+# Enable reader/writers that use VTK XML file formats.
+cmake_dependent_option(
+  ENABLE_VTK_XMLP "Enable use of vtk parallel I/O" OFF "ENABLE_SENSEI" OFF)
 
 #------------------------------------------------------------------------------
 include(mpi)
