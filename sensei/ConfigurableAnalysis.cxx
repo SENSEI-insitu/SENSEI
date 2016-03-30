@@ -202,6 +202,7 @@ public:
         {
         slice->SetAutoColorRange(true);
         }
+      slice->SetUseLogScale(node.attribute("color-log").as_int(0) == 1);
       if (node.attribute("image-filename"))
         {
         slice->SetImageParameters(

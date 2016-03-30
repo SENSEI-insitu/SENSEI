@@ -37,6 +37,7 @@ public:
   int ColorAssociation;
   std::string ColorArrayName;
   bool AutoCenter;
+  bool UseLogScale;
 
   double ColorRange[2];
   bool AutoColorRange;
@@ -44,7 +45,11 @@ public:
   std::string ImageFileName;
   int ImageSize[2];
 
-  vtkInternals() : PipelineCreated(false), ColorAssociation(0), AutoCenter(true), AutoColorRange(true)
+  vtkInternals() : PipelineCreated(false),
+  ColorAssociation(0),
+  AutoCenter(true),
+  UseLogScale(false),
+  AutoColorRange(true)
   {
   this->Origin[0] = this->Origin[1] = this->Origin[2] = 0.0;
   this->Normal[0] = this->Normal[1] = 0.0; this->Normal[2] = 1.0;
@@ -136,8 +141,8 @@ public:
           // Here, we use RepresentedDataInformation so that we get the range
           // for the geometry after ghost elements have been pruned.
           if (vtkPVArrayInformation* ai =
-              this->SliceRepresentation->GetRepresentedDataInformation()->
-              GetArrayInformation(this->ColorArrayName.c_str(), this->ColorAssociation))
+            this->SliceRepresentation->GetRepresentedDataInformation()->
+            GetArrayInformation(this->ColorArrayName.c_str(), this->ColorAssociation))
             {
             ai->GetComponentRange(-1, range);
             }
@@ -151,8 +156,17 @@ public:
           {
           std::copy(this->ColorRange, this->ColorRange+2, range);
           }
-        vtkSMTransferFunctionProxy::RescaleTransferFunction(
-          vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy(), range[0], range[1]);
+        vtkSMTransferFunctionProxy* lut = vtkSMTransferFunctionProxy::SafeDownCast(
+          vtkSMPropertyHelper(this->SliceRepresentation, "LookupTable").GetAsProxy());
+        lut->RescaleTransferFunction(range[0], range[1]);
+
+        bool use_log_scale = this->UseLogScale && (range[0] > 0.0);
+        vtkSMPropertyHelper ulsHelper(lut, "UseLogScale");
+        if (ulsHelper.GetAsInt() != (use_log_scale? 1: 0))
+          {
+          lut->MapControlPointsToLogSpace(/*inverse=*/!use_log_scale);
+          ulsHelper.Set(use_log_scale? 1 : 0);
+          }
         }
       vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
       std::string filename = this->ImageFileName;
@@ -291,6 +305,20 @@ const double* Slice::GetColorRange() const
 {
   vtkInternals& internals = (*this->Internals);
   return internals.ColorRange;
+}
+
+//----------------------------------------------------------------------------
+void Slice::SetUseLogScale(bool val)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.UseLogScale = val;
+}
+
+//----------------------------------------------------------------------------
+const bool Slice::GetUseLogScale() const
+{
+  vtkInternals& internals = (*this->Internals);
+  return internals.UseLogScale;
 }
 
 //----------------------------------------------------------------------------

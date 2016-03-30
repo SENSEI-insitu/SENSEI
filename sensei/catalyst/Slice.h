@@ -47,6 +47,10 @@ public:
   void SetColorRange(double min, double max);
   const double* GetColorRange() const;
 
+  /// @brief Set whether to use log scale for coloring.
+  void SetUseLogScale(bool val);
+  const bool GetUseLogScale() const;
+
   virtual int RequestDataDescription(vtkCPDataDescription* dataDesc);
   virtual int CoProcess(vtkCPDataDescription* dataDesc);
   virtual int Finalize();
