@@ -6,6 +6,7 @@
 
 #include <diy/master.hpp>
 #include <diy/decomposition.hpp>
+#include <diy/io/bov.hpp>
 
 #include <grid/grid.h>
 #include <grid/vertices.h>
@@ -95,6 +96,7 @@ int main(int argc, char** argv)
     size_t                      k_max     = 3;
     int                         threads   = 1;
     std::string                 config_file;
+    std::string                 out_prefix = "";
     Options ops(argc, argv);
     ops
         >> Option('b', "blocks", nblocks,   "number of blocks to use")
@@ -108,6 +110,7 @@ int main(int argc, char** argv)
 #endif
         >> Option(     "t-end",  t_end,     "end time")
         >> Option('j', "jobs",   threads,   "number of threads to use")
+        >> Option('o', "output", out_prefix, "prefix to save output")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
     bool log = ops >> Present("log", "generate full time and memory usage log");
@@ -229,6 +232,26 @@ int main(int argc, char** argv)
         analysis_round();   // let analysis do any kind of global operations it would like
 #endif
         timer::MarkEndEvent("oscillators::analysis");
+
+        if (!out_prefix.empty())
+        {
+            auto out_start = Time::now();
+            // Save the corr buffer for debugging
+            std::string outfn = fmt::format("{}-{}.bin", out_prefix, t);
+            diy::mpi::io::file out(world, outfn, diy::mpi::io::file::wronly | diy::mpi::io::file::create);
+            diy::io::BOV writer(out, shape);
+            master.foreach<Block>([&writer](Block* b, const diy::Master::ProxyWithLink& cp, void*)
+                                           {
+                                             auto link = static_cast<Link*>(cp.link());
+                                             writer.write(link->bounds(), b->grid.data(), true);
+                                           });
+            if (world.rank() == 0)
+            {
+                auto out_duration = std::chrono::duration_cast<ms>(Time::now() - out_start);
+                fmt::print("Output time for {}: {}.{} s\n", outfn, out_duration.count() / 1000, out_duration.count() % 1000);
+            }
+        }
+
         if (sync)
             world.barrier();
         timer::MarkEndTimeStep();
