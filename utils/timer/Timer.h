@@ -54,8 +54,10 @@ namespace timer
   /// @brief Print log to the output stream.
   ///
   /// Note this triggers collective operations and hence must be called on all
-  /// ranks.
-  void PrintLog(std::ostream& stream, MPI_Comm world);
+  /// ranks. The amount of processes outputting can be reduced by using
+  /// the moduloOuput which only outputs for (rank % moduloOutput) == 0.
+  /// The default value for this is 1.
+  void PrintLog(std::ostream& stream, MPI_Comm world, int moduloOutput = 1);
 
   class MarkEvent
     {
