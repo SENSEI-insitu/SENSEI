@@ -24,6 +24,7 @@
 #include <pugixml.hpp>
 #include <sstream>
 #include <cstdio>
+#include <errno.h>
 
 #define ConfigurableAnalysisError(_arg) \
   cerr << "ERROR: " << __FILE__ " : "  << __LINE__ << std::endl \
