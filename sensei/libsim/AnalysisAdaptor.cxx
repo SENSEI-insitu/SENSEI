@@ -637,6 +637,69 @@ AnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
     return md;
 }
 
+static visit_handle
+vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
+{
+    visit_handle h = VISIT_INVALID_HANDLE;
+    if(arr != NULL)
+    {
+        char tmp[100];
+        // If we have a standard memory layout in a supported type, 
+        // zero-copy expose the data to libsim.
+        if(VisIt_VariableData_alloc(&h) != VISIT_ERROR)
+        {
+            bool copy = false;
+            int nc = arr->GetNumberOfComponents();
+            int nt = arr->GetNumberOfTuples();
+            if(arr->HasStandardMemoryLayout())
+            {
+                if(arr->GetDataType() == VTK_CHAR)
+                    VisIt_VariableData_setDataC(h, VISIT_OWNER_SIM, nc, nt, (char *)arr->GetVoidPointer(0));
+                else if(arr->GetDataType() == VTK_INT)
+                    VisIt_VariableData_setDataI(h, VISIT_OWNER_SIM, nc, nt, (int *)arr->GetVoidPointer(0));
+                else if(arr->GetDataType() == VTK_LONG)
+                    VisIt_VariableData_setDataL(h, VISIT_OWNER_SIM, nc, nt, (long *)arr->GetVoidPointer(0));
+                else if(arr->GetDataType() == VTK_FLOAT)
+                    VisIt_VariableData_setDataF(h, VISIT_OWNER_SIM, nc, nt, (float *)arr->GetVoidPointer(0));
+                else if(arr->GetDataType() == VTK_DOUBLE)
+                    VisIt_VariableData_setDataD(h, VISIT_OWNER_SIM, nc, nt, (double *)arr->GetVoidPointer(0));
+                else
+                    copy = true;
+
+                if(!copy)
+                {
+                    sprintf(tmp, "==== Standard memory layout: nc=%d, nt=%d ====\n", nc, nt);
+                    VisItDebug5(tmp);
+                }
+            }
+            else
+            {
+                // NOTE: we could detect some non-contiguous memory layouts here and
+                //       expose to Libsim that way. Just copy for now...
+                copy = true;
+            }
+
+            // Expose the data as a copy, converting to double.
+            if(copy)
+            {
+                sprintf(tmp, "==== Copying required: nc=%d, nt=%d ====\n", nc, nt);
+                VisItDebug5(tmp);
+    
+                double *v = (double *)malloc(sizeof(double) * nc * nt);
+                double *tuple = v;
+                for(int i = 0; i < nt; ++i)
+                {
+                    arr->GetTuple(i, tuple);
+                    tuple += nc;
+                }
+                VisIt_VariableData_setDataD(h, VISIT_OWNER_VISIT, nc, nt, v);
+            }
+        }
+    }
+
+    return h;
+}
+
 visit_handle
 AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
 {
@@ -656,6 +719,8 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
     {
         vtkDataSet *ds = This->domains[localdomain];
         vtkImageData *igrid = vtkImageData::SafeDownCast(ds);
+        vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds);
+        vtkStructuredGrid  *sgrid = vtkStructuredGrid::SafeDownCast(ds);
         if(igrid != NULL)
         {
             VisItDebug5("\tExposing vtkImageData as a rectilinear grid.\n");
@@ -727,6 +792,48 @@ AnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
                 }
             }
         }
+        else if(rgrid != NULL)
+        {
+            if(VisIt_RectilinearMesh_alloc(&mesh) != VISIT_ERROR)
+            {
+                visit_handle hx, hy, hz;
+                hx = vtkDataArray_To_VisIt_VariableData(rgrid->GetXCoordinates());
+                hy = vtkDataArray_To_VisIt_VariableData(rgrid->GetYCoordinates());
+                if(hx != VISIT_INVALID_HANDLE && hy != VISIT_INVALID_HANDLE)
+                {
+                   hz = vtkDataArray_To_VisIt_VariableData(rgrid->GetZCoordinates());
+                   if(hz != VISIT_INVALID_HANDLE)
+                        VisIt_RectilinearMesh_setCoordsXYZ(mesh, hx, hy, hz);
+                    else
+                        VisIt_RectilinearMesh_setCoordsXY(mesh, hx, hy);
+                }
+                else
+                {
+                    if(hx != VISIT_INVALID_HANDLE)
+                        VisIt_VariableData_free(hx);
+                    if(hy != VISIT_INVALID_HANDLE)
+                        VisIt_VariableData_free(hy);
+                    VisIt_RectilinearMesh_free(mesh);
+                    mesh = VISIT_INVALID_HANDLE;
+                }
+            }
+        }
+        else if(sgrid != NULL)
+        {
+            if(VisIt_CurvilinearMesh_alloc(&mesh) != VISIT_ERROR)
+            {
+                int dims[3];
+                sgrid->GetDimensions(dims);
+                visit_handle pts = vtkDataArray_To_VisIt_VariableData(sgrid->GetPoints()->GetData());
+                if(pts != VISIT_INVALID_HANDLE)
+                    VisIt_CurvilinearMesh_setCoords3(mesh, dims, pts);
+                else
+                {
+                    VisIt_CurvilinearMesh_free(mesh);
+                    mesh = VISIT_INVALID_HANDLE;
+                }
+            }
+        }
         // TODO: expand to other mesh types.
         else
         {
@@ -780,59 +887,8 @@ AnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdat
             }
         }
 
-        if(arr != NULL)
-        {
-            char tmp[100];
-            // If we have a standard memory layout in a supported type, 
-            // zero-copy expose the data to libsim.
-            VisIt_VariableData_alloc(&h);
-            bool copy = false;
-            int nc = arr->GetNumberOfComponents();
-            int nt = arr->GetNumberOfTuples();
-            if(arr->HasStandardMemoryLayout())
-            {
-                if(arr->GetDataType() == VTK_CHAR)
-                    VisIt_VariableData_setDataC(h, VISIT_OWNER_SIM, nc, nt, (char *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_INT)
-                    VisIt_VariableData_setDataI(h, VISIT_OWNER_SIM, nc, nt, (int *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_LONG)
-                    VisIt_VariableData_setDataL(h, VISIT_OWNER_SIM, nc, nt, (long *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_FLOAT)
-                    VisIt_VariableData_setDataF(h, VISIT_OWNER_SIM, nc, nt, (float *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_DOUBLE)
-                    VisIt_VariableData_setDataD(h, VISIT_OWNER_SIM, nc, nt, (double *)arr->GetVoidPointer(0));
-                else
-                    copy = true;
-
-                if(!copy)
-                {
-                    sprintf(tmp, "==== Standard memory layout: nc=%d, nt=%d ====\n", nc, nt);
-                    VisItDebug5(tmp);
-                }
-            }
-            else
-            {
-                // NOTE: we could detect some non-contiguous memory layouts here and
-                //       expose to Libsim that way. Just copy for now...
-                copy = true;
-            }
-
-            // Expose the data as a copy, converting to double.
-            if(copy)
-            {
-                sprintf(tmp, "==== Copying required: nc=%d, nt=%d ====\n", nc, nt);
-                VisItDebug5(tmp);
-
-                double *v = (double *)malloc(sizeof(double) * nc * nt);
-                double *tuple = v;
-                for(int i = 0; i < nt; ++i)
-                {
-                    arr->GetTuple(i, tuple);
-                    tuple += nc;
-                }
-                VisIt_VariableData_setDataD(h, VISIT_OWNER_VISIT, nc, nt, v);
-            }
-        }
+        // Wrap the VTK data array's data as a VisIt_VariableData.
+        h = vtkDataArray_To_VisIt_VariableData(arr);
     }
 
     return h;
