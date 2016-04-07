@@ -272,7 +272,7 @@ void MarkEndTimeStep()
 }
 
 //-----------------------------------------------------------------------------
-void PrintLog(std::ostream& stream, MPI_Comm world)
+void PrintLog(std::ostream& stream, MPI_Comm world, int moduloOutput)
 {
   if (!impl::LoggingEnabled)
     {
@@ -283,16 +283,29 @@ void PrintLog(std::ostream& stream, MPI_Comm world)
   MPI_Comm_size(world, &nprocs);
   MPI_Comm_rank(world, &rank);
 
+  if(moduloOutput < 1)
+    {
+    moduloOutput = 1;
+    }
+
   std::ostringstream tmp;
 
   std::ostream &output = (rank == 0)? stream : tmp;
-  output << "\n"
-    << "=================================================================\n"
-    << "  Time/Memory log (rank: " << rank << ") \n"
-    << "  -------------------------------------------------------------\n";
-  impl::PrintLog(output, impl::Indent());
-  output
-    << "=================================================================\n";
+  if(rank == 0)
+    {
+    output << "\n"
+           << "=================================================================\n"
+           << "  Time/Memory log (rank: 0) \n"
+           << "  -------------------------------------------------------------\n";
+    }
+  if(rank % moduloOutput == 0)
+    {
+    impl::PrintLog(output, impl::Indent());
+    }
+  if(rank == 0)
+    {
+    output << "=================================================================\n";
+    }
 
   if (nprocs == 1)
     {
@@ -316,7 +329,15 @@ void PrintLog(std::ostream& stream, MPI_Comm world)
 
     for (int cc=1; cc < nprocs; cc++)
       {
-      output << (recv_buffer + recv_offsets[cc]);
+      if(cc % moduloOutput == 0)
+        {
+        output << "\n"
+               << "=================================================================\n"
+               << "  Time/Memory log (rank: " << cc << ") \n"
+               << "  -------------------------------------------------------------\n";
+        output << (recv_buffer + recv_offsets[cc]);
+        output << "=================================================================\n";
+        }
       }
 
     delete []recv_buffer;
