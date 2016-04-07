@@ -315,7 +315,7 @@ int PosthocIO::WriteBOVHeader(vtkInformation *info)
 int PosthocIO::WriteBOVHeader(const std::string &fileName,
     const std::vector<std::string> &arrays, const int *wholeExtent)
 {
-  std::ofstream ff(fileName, std::ofstream::out);
+  std::ofstream ff(fileName.c_str(), std::ofstream::out);
   if (!ff.good())
     {
     PosthocIOError("Failed to write the header file \"" << fileName << "\"")
