@@ -29,7 +29,7 @@ public:
 protected:
   Histogram();
   virtual ~Histogram();
-
+  static const char *GhostArrayName();
   vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
 
   MPI_Comm Communicator;

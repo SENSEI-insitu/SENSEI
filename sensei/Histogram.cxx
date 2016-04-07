@@ -53,6 +53,16 @@ void Histogram::Initialize(
   this->Association = association;
 }
 
+const char *
+Histogram::GhostArrayName()
+{
+#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
+    return "vtkGhostType";
+#else
+    return vtkDataSetAttributes::GhostArrayName();
+#endif
+}
+
 //-----------------------------------------------------------------------------
 bool Histogram::Execute(sensei::DataAdaptor* data)
 {
@@ -75,7 +85,7 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
       {
       vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject(), this->ArrayName);
       vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
-        this->GetArray(iter->GetCurrentDataObject(), vtkDataSetAttributes::GhostArrayName()));
+        this->GetArray(iter->GetCurrentDataObject(), GhostArrayName()));
       histogram.AddRange(array, ghostArray);
       }
     histogram.PreCompute(this->Communicator, this->Bins);
@@ -83,7 +93,7 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
       {
       vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject(), this->ArrayName);
       vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
-        this->GetArray(iter->GetCurrentDataObject(), vtkDataSetAttributes::GhostArrayName()));
+        this->GetArray(iter->GetCurrentDataObject(), GhostArrayName()));
       histogram.Compute(array, ghostArray);
       }
     histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
@@ -92,7 +102,7 @@ bool Histogram::Execute(sensei::DataAdaptor* data)
     {
     vtkDataArray* array = this->GetArray(mesh, this->ArrayName);
     vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
-      this->GetArray(mesh, vtkDataSetAttributes::GhostArrayName()));
+      this->GetArray(mesh, GhostArrayName()));
     histogram.AddRange(array, ghostArray);
     histogram.PreCompute(this->Communicator, this->Bins);
     histogram.Compute(array, ghostArray);
