@@ -2,7 +2,7 @@
 
 #include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
+#include <vtkMultiBlockDataSet.h>
 #include <vtkDataArray.h>
 #include <vtkDataArrayTemplate.h>
 #include <vtkDataObject.h>
@@ -12,7 +12,10 @@
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
+#include <vtkNew.h>
 
+
+#include <cassert>
 #include "DataAdaptor.h"
 
 #include <algorithm>
@@ -247,18 +250,43 @@ int PosthocIO::WriteXMLP(vtkCompositeDataSet *cd,
 #if defined(ENABLE_VTK_XMLP)
   (void)info;
 
+  std::ostringstream fprefix;
+  fprefix << this->HeaderFile << "_" << timeStep;
   std::ostringstream oss;
-  oss << this->OutputDir << "/" << this->HeaderFile
-      << "_" << timeStep << ".vtmb";
-
-  vtkXMLPMultiBlockDataWriter *writer = vtkXMLPMultiBlockDataWriter::New();
+  oss << this->OutputDir << "/" << fprefix.str().c_str() << ".vtmb";
+  vtkNew<vtkXMLMultiBlockDataWriter> writer;
   writer->SetInputData(cd);
   writer->SetDataModeToAppended();
   writer->EncodeAppendedDataOff();
   writer->SetCompressorTypeToNone();
   writer->SetFileName(oss.str().c_str());
+  writer->SetWriteMetaFile(0);
   writer->Write();
-  writer->Delete();
+
+  // Write meta-file on root node.
+  if (this->CommRank == 0)
+    {
+    vtkMultiBlockDataSet* mb = vtkMultiBlockDataSet::SafeDownCast(cd);
+    assert(mb && mb->GetNumberOfBlocks() == this->CommSize);
+    ofstream ofp(oss.str().c_str());
+    if (ofp)
+      {
+      // This is hard-coded to only work with a multiblock of image dataset with
+      // non-null leaf node only on 1 rank and block index corresponding to the process rank.
+      ofp << "<VTKFile type=\"vtkMultiBlockDataSet\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt32\">\n";
+      ofp << "  <vtkMultiBlockDataSet>\n";
+
+      for (int cc=0; cc < this->CommSize; ++cc)
+        {
+        ofp << "    <DataSet index=\"" << cc << "\" file=\""
+            << fprefix.str().c_str() << "/" << fprefix.str().c_str() << "_" << cc << ".vti\">\n";
+        ofp << "    </DataSet>\n";
+        }
+      ofp << "  </vtkMultiBlockDataSet>\n";
+      ofp << "</VTKFile>\n";
+      }
+    ofp.close();
+    }
 
 #ifdef PosthocIO_DEBUG
   posthocIO_status((this->CommRank==0),
