@@ -17,7 +17,7 @@ class DataAdaptor;
 class AnalysisAdaptor : public vtkObjectBase
 {
 public:
-  vtkTypeMacro(AnalysisAdaptor, vtkObjectBase);
+  vtkBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Execute the analysis routine.

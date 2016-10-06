@@ -2,7 +2,7 @@
 #define sensei_DataAdaptor_h
 
 #include "vtkObjectBase.h"
-#include "vtkSetGet.h" // needed for vtkTypeMacro.
+#include "vtkSetGet.h" // needed for vtkBaseTypeMacro.
 
 #include <string>
 
@@ -23,7 +23,7 @@ namespace sensei
 class DataAdaptor : public vtkObjectBase
 {
 public:
-  vtkTypeMacro(DataAdaptor, vtkObjectBase);
+  vtkBaseTypeMacro(DataAdaptor, vtkObjectBase);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   /// @brief Return the data object with appropriate structure.
