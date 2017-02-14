@@ -3,12 +3,17 @@
 #include <sensei/DataAdaptor.h>
 #include <timer/Timer.h>
 
+#include <vtkCommunicator.h>
 #include <vtkCPAdaptorAPI.h>
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
 #include <vtkCPProcessor.h>
 #include <vtkDataObject.h>
+#include <vtkImageData.h>
+#include <vtkMultiProcessController.h>
 #include <vtkObjectFactory.h>
+#include <vtkRectilinearGrid.h>
+#include <vtkStructuredGrid.h>
 
 namespace sensei
 {
@@ -90,7 +95,6 @@ bool AnalysisAdaptor::FillDataDescriptionWithMetaData(
     desc->AddCellField(dA->GetArrayName(vtkDataObject::CELL, cc).c_str());
     }
 
-  // XXX(todo): Add whole extent, if available.
   return true;
 }
 
@@ -112,7 +116,37 @@ bool AnalysisAdaptor::FillDataDescriptionWithData(
         }
       }
     }
+
   desc->SetGrid(mesh);
+
+  if (mesh->IsA("vtkImageData") || mesh->IsA("vtkRectilinearGrid") ||
+      mesh->IsA("vtkStructuredGrid") )
+    {
+    int wholeExtent[6], localExtent[6];
+    if (vtkImageData* id = vtkImageData::SafeDownCast(mesh))
+      {
+      id->GetExtent(localExtent);
+      }
+    else if(vtkRectilinearGrid* rg = vtkRectilinearGrid::SafeDownCast(mesh))
+      {
+      rg->GetExtent(localExtent);
+      }
+    else if(vtkStructuredGrid* sg = vtkStructuredGrid::SafeDownCast(mesh))
+      {
+      sg->GetExtent(localExtent);
+      }
+    vtkMultiProcessController* c =
+      vtkMultiProcessController::GetGlobalController();
+    localExtent[0] = -localExtent[0];
+    localExtent[2] = -localExtent[2];
+    localExtent[4] = -localExtent[4];
+    c->AllReduce(localExtent, wholeExtent, 6, vtkCommunicator::MAX_OP);
+    wholeExtent[0] = -wholeExtent[0];
+    wholeExtent[2] = -wholeExtent[2];
+    wholeExtent[4] = -wholeExtent[4];
+    desc->SetWholeExtent(wholeExtent);
+    }
+
   return true;
 }
 

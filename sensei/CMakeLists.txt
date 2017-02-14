@@ -52,7 +52,8 @@ if(ENABLE_CATALYST)
     set(CATALYST_PYTHON_MODULE "vtkPVPythonCatalyst")
   endif()
 
-  find_package(ParaView QUIET COMPONENTS vtkPVCatalyst vtkCommonDataModel vtkPVServerManagerRendering ${CATALYST_PYTHON_MODULE})
+  find_package(ParaView QUIET COMPONENTS vtkPVCatalyst vtkCommonDataModel
+    vtkPVServerManagerRendering ${CATALYST_PYTHON_MODULE})
   if(NOT ParaView_FOUND)
     message(FATAL_ERROR "Catalyst analysis components require Catalyst build (or "
                         "install directory. Please set ParaView_DIR to point to "
