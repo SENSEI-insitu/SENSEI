@@ -47,7 +47,13 @@ add_library(sensei STATIC ${sources})
 target_compile_definitions(sensei INTERFACE ENABLE_SENSEI)
 
 if(ENABLE_CATALYST)
-  find_package(ParaView QUIET COMPONENTS vtkPVCatalyst vtkCommonDataModel vtkPVServerManagerRendering)
+  set(CATALYST_PYTHON_MODULE)
+  if(ENABLE_CATALYST_PYTHON)
+    set(CATALYST_PYTHON_MODULE "vtkPVPythonCatalyst")
+  endif()
+
+  find_package(ParaView QUIET COMPONENTS vtkPVCatalyst vtkCommonDataModel
+    vtkPVServerManagerRendering ${CATALYST_PYTHON_MODULE})
   if(NOT ParaView_FOUND)
     message(FATAL_ERROR "Catalyst analysis components require Catalyst build (or "
                         "install directory. Please set ParaView_DIR to point to "
@@ -57,6 +63,9 @@ if(ENABLE_CATALYST)
   target_compile_definitions(sensei PUBLIC ${VTK_DEFINITIONS})
   target_link_libraries(sensei PUBLIC ${VTK_LIBRARIES})
   target_compile_definitions(sensei PUBLIC ENABLE_CATALYST)
+  if(ENABLE_CATALYST_PYTHON)
+    target_compile_definitions(sensei PUBLIC ENABLE_CATALYST_PYTHON)
+  endif()
 else()
   set(SENSEI_VTK_DEPS vtkCommonDataModel)
   if (ENABLE_VTK_XMLP)

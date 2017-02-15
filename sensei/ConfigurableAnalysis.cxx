@@ -14,6 +14,9 @@
 #ifdef ENABLE_CATALYST
 # include "catalyst/AnalysisAdaptor.h"
 # include "catalyst/Slice.h"
+#ifdef ENABLE_CATALYST_PYTHON
+#   include <vtkCPPythonScriptPipeline.h>
+#endif
 #endif
 #ifdef ENABLE_LIBSIM
 # include "libsim/AnalysisAdaptor.h"
@@ -212,6 +215,21 @@ public:
           node.attribute("image-height").as_int(800));
         }
       this->CatalystAnalysisAdaptor->AddPipeline(slice.GetPointer());
+      }
+    if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
+      {
+#ifdef ENABLE_CATALYST_PYTHON
+        if (node.attribute("filename"))
+        {
+          vtkNew<vtkCPPythonScriptPipeline> pythonPipeline;
+          std::string fileName = node.attribute("filename").value();
+          pythonPipeline->Initialize(fileName.c_str());
+          this->CatalystAnalysisAdaptor->AddPipeline(pythonPipeline.GetPointer());
+        }
+#else
+        ConfigurableAnalysisError(
+          << "Must configure SENSEI with ENABLE_CATALYST_PYTHON enabled in order to use Catalyst Python scripts");
+#endif
       }
     return 0;
     }
