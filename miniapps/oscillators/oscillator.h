@@ -1,4 +1,5 @@
-#pragma once
+#ifndef oscillator_h
+#define oscillator_h
 
 #include <fstream>
 #include <string>
@@ -81,7 +82,7 @@ Oscillators read_oscillators(std::string fn)
         int x,y,z;
         iss >> x >> y >> z;
 
-        float r, omega0, zeta;
+        float r, omega0, zeta=0.0f;
         iss >> r >> omega0;
 
         if (type == Oscillator::damped)
@@ -90,3 +91,5 @@ Oscillators read_oscillators(std::string fn)
     }
     return res;
 }
+
+#endif

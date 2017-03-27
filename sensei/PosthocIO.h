@@ -20,7 +20,7 @@ class PosthocIO : public AnalysisAdaptor
 public:
   static PosthocIO* New();
 
-  vtkTypeMacro(PosthocIO, AnalysisAdaptor);
+  senseiTypeMacro(PosthocIO, AnalysisAdaptor);
 
   // modes.
   enum {mpiIO=1, vtkXmlP=2};
@@ -31,7 +31,7 @@ public:
     const std::vector<std::string> &pointArrays, int mode,
     int period);
 
-  bool Execute(sensei::DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data) override;
 
   int WriteBOVHeader(vtkInformation *info);
 

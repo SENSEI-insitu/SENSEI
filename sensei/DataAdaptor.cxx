@@ -8,7 +8,9 @@
 namespace sensei
 {
 
+//----------------------------------------------------------------------------
 vtkInformationKeyMacro(DataAdaptor, DATA_TIME_STEP_INDEX, Integer);
+
 //----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor()
 {
@@ -68,4 +70,4 @@ void DataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 }
 
-} // end of namespace sensei
+}

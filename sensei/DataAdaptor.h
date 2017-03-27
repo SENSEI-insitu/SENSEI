@@ -1,6 +1,7 @@
 #ifndef sensei_DataAdaptor_h
 #define sensei_DataAdaptor_h
 
+#include "senseiConfig.h"
 #include "vtkObjectBase.h"
 #include "vtkSetGet.h" // needed for vtkBaseTypeMacro.
 
@@ -23,8 +24,8 @@ namespace sensei
 class DataAdaptor : public vtkObjectBase
 {
 public:
-  vtkBaseTypeMacro(DataAdaptor, vtkObjectBase);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  senseiBaseTypeMacro(DataAdaptor, vtkObjectBase);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /// @brief Return the data object with appropriate structure.
   ///

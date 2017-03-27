@@ -4,9 +4,9 @@
 #include <opts/opts.h>
 #include <mpi.h>
 #include <iostream>
-#include <sensei/vtk/DataAdaptor.h>
-#include <sensei/ConfigurableAnalysis.h>
-#include <timer/Timer.h>
+#include <VTKDataAdaptor.h>
+#include <ConfigurableAnalysis.h>
+#include <Timer.h>
 #include <vtkDataSet.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 
   size_t fname_length = input_pattern.size() + 128;
   char *fname = new char[fname_length];
-  vtkNew<sensei::vtk::DataAdaptor> dataAdaptor;
+  vtkNew<sensei::VTKDataAdaptor> dataAdaptor;
   for (int cc=0; cc < count; cc++)
     {
     int t_step = begin + cc * step;

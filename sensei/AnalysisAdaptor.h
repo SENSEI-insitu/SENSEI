@@ -1,8 +1,9 @@
 #ifndef sensei_AnalysisAdaptor_h
 #define sensei_AnalysisAdaptor_h
 
-#include "vtkObjectBase.h"
-#include "vtkSetGet.h"
+#include "senseiConfig.h"
+#include <vtkObjectBase.h>
+#include <vtkSetGet.h>
 
 namespace sensei
 {
@@ -17,8 +18,8 @@ class DataAdaptor;
 class AnalysisAdaptor : public vtkObjectBase
 {
 public:
-  vtkBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  senseiBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /// @brief Execute the analysis routine.
   ///

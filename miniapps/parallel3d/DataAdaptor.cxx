@@ -9,11 +9,9 @@
 
 namespace parallel3d
 {
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-DataAdaptor *DataAdaptor::New() { return new DataAdaptor; }
-#else
-vtkStandardNewMacro(DataAdaptor);
-#endif
+//-----------------------------------------------------------------------------
+senseiNewMacro(DataAdaptor);
+
 //-----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor()
 {
@@ -102,8 +100,9 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association, const std::stri
     {
     return false;
     }
-
+#ifndef NDEBUG
   vtkImageData* image = vtkImageData::SafeDownCast(mesh);
+#endif
   assert(image != NULL);
 
   ArraysType::iterator iterA = this->Arrays.find(iterV->first);

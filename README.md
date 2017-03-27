@@ -1,203 +1,165 @@
-SENSEI
-======
+# ![SENSEI](doc/images/sensei_logo_small.png)
+The SENSEI project takes aim at a set of research challenges for enabling
+scientific knowledge discovery within the context of in situ processing at
+extreme-scale concurrency. This work is motivated by a widening gap between
+FLOPs and I/O capacity which will make full-resolution, I/O-intensive post hoc
+analysis prohibitively expensive, if not impossible.
 
-This is the `Sensei` repository for the code for all the miniapps and analysis
-routines.
+We focus on new algorithms for analysis, and visualization - topological,
+geometric, statistical analysis, flow field analysis, pattern detection and
+matching - suitable for use in an in situ context aimed specifically at
+enabling scientific knowledge discovery in several exemplar application areas
+of importance to DOE.  Complementary to the in situ algorithmic work, we focus
+on several leading in situ infrastructures, and tackle research questions
+germane to enabling new algorithms to run at scale across a diversity of
+existing in situ implementations.
 
-Repository Organization
-----------------------
-    - CMake/
+Our intent is to move the field of in situ processing in a direction where it
+may ultimately be possible to write an algorithm once, then have it execute in
+one of several different in situ software implementations. The combination of
+algorithmic and infrastructure work is grounded in direct interactions with
+specific application code teams, all of which are engaged in their own R&D
+aimed at evolving to the exascale.
 
-      This contains CMake files e.g. mpi.cmake, FindADIOS.cmake, etc.
+|Quick links |
+|------------|
+| [Project Organization](#project-organization) |
+| [Build and Install](#build-and-install) |
+| [Using the SENSEI Library](#using-the-sensei-library)
 
-    - sensei/
+## Project Organization
+### SENSEI library
+The SENSEI library contains core base classes that declare the AnalysisAdaptor
+API which is used to interface to in situ infrastructures and implement custom
+analyses; the DataAdaptor API which AnalysisAdaptors use to access simulation
+data in a consistent way; and a number of implementations of both. For more
+information see our [SC16 paper](http://dl.acm.org/citation.cfm?id=3015010).
 
-      This contains the source code for the all files under the 'sensei' namespace
-      including the core components, DataAdaptor.[h,cxx], AnalysisAdaptor.[h,cxx],
-      as well as example analysis adaptor implementations such as Histogram.[h,cxx],
-      Autocorrelation.[h,cxx].
+#### DataAdaptors
+| Class            | Description |
+|------------------|-------------|
+| DataAdaptor      | Base class declaring data adaptor API |
+| VTKDataAdaptor   | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
+| ADIOSDataAdaptor | Implementation that serves up data from ADIOS. For use in an ADIOS End point. |
 
-      All classes within this directory are under the 'sensei' namespace and application
-      code can include these header using fully qualified paths e.g.
+#### AnalysisAdaptors
+| Class                   | Description |
+|-------------------------|-------------|
+| AnalysisAdaptor         | Base class declaring analysis adaptor API |
+| ADIOSAnalysisAdaptor    | Implementation for using ADIOS from your simulation. |
+| LibsimAnalysisAdaptor   | Implementation for using Libsim from your simulation. |
+| CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulaiton. |
+| Autocorrelation         | Implementation that computes [autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation)  |
+| Histogram               | Implementation that computes histograms. |
+| PosthocIO               | Implementation that writes uniform meshes using VTK or MPI I/O. This was used in year II miniapp campaign. |
+| VTKPosthocIO            | Implementation that writes VTK data sets using VTK XML format to the ".visit" format readable by VisIt,  or ".pvd" format readable by ParaView. |
+| ConfigurableAnalysis    | Implementation that reads an XML configuration to select and configure one or more of the other analysis adaptors. This can be used to quickly switch between the analysis adaptors at run time. |
 
-        #include <sensei/DataAdaptor.h> // for sensei::DataAdaptor declaration.
-        #include <sensei/AnalysisAdaptor.h> // for sensei::AnalysisAdaptor declaration.
+### Mini-apps
+SENSEI ships with a number of mini-apps that demonstrate use of the SENSEI
+library with custom analyses and the supported in situ infrastructures. When
+the SENSEI library is enabled the mini-apps will make use of any of the
+supported in situ infrastructures that are enabled. When the SENSEI library is
+disabled mini-apps are restricted to the custom analysis such as histogram and
+autocorrelation.
 
-      Adaptor implementations that depend on insitu frameworks are contained within
-      directories specific for that framework under this directory.
+More information on each mini-app is provided in the coresponding README in the
+mini-app's source directory.
 
-    - sensei/adios/
+* [Parallel3D](miniapps/parallel3d/README.md) The miniapp from year I generates
+  data on a uniform mesh and demonstrates usage with in situ infrasturctures
+  and histogram analysis.
 
-      Contains source code for all files under the 'sensei::adios' namespace.
-      This houses sensei::DataAdaptor and sensei::AnalysisAdaptor implementations that read and write
-      data using ADIOS APIs, namely, 'sensei::adios::DataAdaptor' and
-      'sensei::adios::AnalysisAdaptor'.
+* [Oscillators](miniapps/oscillators/README.md) The miniapp from year II
+  generates time varying data on a uniform mesh and demonstrates usage with in
+  situ infrasturctures, histogram, and autocorrelation analyses.
 
-    - sensei/catalyst/
+* [Newton](miniapps/newton/README.md) This Python n-body miniapp demonstrates
+  usage of in situ infrastructures and custom analyses from Python.
 
-      Contains source code for all files under the 'sensei::catalyst' namespace.
-      This houses sensei::catalyst::AnalysisAdaptor which implements 'sensei::AnalysisAdaptor'
-      interface to use Catalyst for the analysis. Since in Catalyst, analysis is performed
-      via pipelines, this directory contains instances of pipelines (e.g. sensei::catalyst::Slice).
+### End points
+End points are programs that receive and analyze simulation data through ADIOS.
+The end point reads data being serialized by the ADIOS analysis adaptor and
+pass it back into a SENSEI bridge for further analysis.
 
-    - sensei/libsim
+* [ADIOSAnalysisEndPoint](endpoints/README.md)
 
-      Contains source code for all files under the 'sensei::libsim' namespace.
-      This houses the Libsim analysis adaptor for making slice images, etc.
+## Build and Install
+The SENSEI project uses CMake 3.0 or later. The CMake build options allow you
+to choose which of the mini-apps to build as well as which frameworks to enable.
+It is fine to enable multiple infrastructures, however note that Catalyst and
+Libsim are currently mutually exclusive options due to their respective use of
+different versions of VTK.
 
-    - miniapps/
+### Typical build procedure
+```bash
+$ mkdir build
+$ cd build
+$ ccmake .. # set one or more -D options as needed
+$ make
+$ make install
+```
 
-      All miniapps generated for various bechmarks and testing is included in this directory.
-      Each miniapp includes both the expository implementation
-      independent of Sensei infrastructure as well as a version that uses Sensei.
-
-    - miniapps/parallel3d/
-
-      Code for miniapp from year I.
-
-    - miniapps/oscillators/
-
-      Core for miniapp from year II.
-
-    - endpoints/
-
-      Code for executables that act as analysis endpoints for frameworks like ADIOS (ADIOSAnalysisEndPoint.cxx)
-      and GLEAN. These executables (will) use the sensei::adios::DataAdaptor and sensei::glean::DataAdaptor
-      to ingest data from these frameworks back to Sensei for further analysis.
-
-    - utils/
-        - diy/
-        - grid/
-        - opts/
-        - pugixml/
-
-      Various utility code used by the various analysis implementations.
-
-    - configs/
-
-      Sample configuration XML files demonstrating how a configurable analysis pipeline
-      can be setup.
-
-Build instructions
----------------------
-
-The project uses CMake 3.0 or later. The options provided allow you to choose
-which of the miniapps to build as well as which frameworks to enable.
-
-When **ENABLE_SENSEI** is off, none of the insitu frameworks are useable.
-However, miniapps are trypically instrumented with a prototype analysis code
-e.g. `3D_Grid` is set up to compute histograms while `oscillators` is set up to
-do an autocorrelation analysis.
-
-When **ENABLE_SENSEI**, the miniapps take in an configuration xml that is used
-to configure analysis via Sensei infrastructure. Looks at the
-[3dgrid.xml](configs/3dgrid.xml), [oscillator.xml](configs/oscillator.xml) and
-[adiosendpoint.xml](configs/adiosendpoint.xml) for examples of these config
-files.
-
-Let's look at the various CMake flags and how they affect the generated build.
-
-* **ENABLE_SENSEI**: (ON/OFF) Set to ON to enable `Sensei`.  Thus,
-when **ENABLE_SENSEI** is OFF, miniapps will only support the one insitu analysis routine
-they were hardcoded for. If ON, you will need to set the **VTK_DIR** to point to an existing VTK build since
-`Sensei` depends on `vtkCommonDataModel` module for its data model and adaptor classes.
-
-* **VTK_DIR**: Path to `VTKConfig.cmake` file. When building with **libsim** or **Catalyst**,
-you should point this to the VTK build used/included by the two frameworks.
-
-* **VTK_HAS_GENERIC_ARRAYS**: Set to ON if you have a custom VTK build with Generic Array support. The
-current Sensei Histogram implementation uses generic arrays API and hence is not built unless
-this is set to ON.
-
-You can choose which miniapp to build using the following flags.
-
-* **ENABLE_PARALLEL3D**: (ON/OFF) Set to ON to build the `parallel_3d` miniapp from miniapp campaign #1.
-This miniapp can do histogram analysis if **ENABLE_SENSEI** is OFF. If **ENABLE_SENSEI** is ON, this will use the Sensei
-bridge along with data and analysis adaptors to do the analysis specified in the configuration XML.
-
-* **ENABLE_OSCILLATORS**: (ON/OFF) Set to ON to build the `oscillators` miniapp from miniapp campaign #2.
-If **ENABLE_SENSEI** is OFF, this miniapp can do autocorrelation analysis alone. If **ENABLE_SENSEI** is ON, this miniapp supports the histogram,
-autocorrelation, catalyst-slice as specified in a configuration xml.
-
-To use analysis routines from Catalyst, you can use the following flags.
-
-* **ENABLE_CATALYST**: (ON/OFF) Set to ON to enable analysis routines that use Catalyst. This option is
-only available when **ENABLE_SENSEI** is ON. This builds an analysis adaptor for Sensei that invokes Catalyst calls
-to do the data processing and visualization. When set to ON, you will have to point **ParaView_DIR** to a ParaView (or Catalyst) build
-containing ParaViewConfig.cmake file.
-
-* **ENABLE_ADIOS**: (ON/OFF) Set to ON to enable ADIOS components. When enabled,
-this generates a **ADIOSAnalysisEndPoint** that can be used as an endpoint components
-that reads data being serialized by the ADIOS analysis adaptor and pass it back
-into a `Sensei` bridge for further analysis. **ADIOSAnalysisEndPoint** itself can be given
-configuration XML for select analysis routines to run via Sensei infrastructure.
-
-* **ENABLE_LIBSIM**: (ON/OFF) Set to ON to enable Libsim components. In addition, you must set LIBSIM_DIR so it points
-to the location of the installed LIBSIMConfig.cmake file to locate Libsim and set up its dependencies. When these
-settings are enabled/set, the Libsim analysis adaptor will be built.
-
-Typical build usage:
-
-    make build
-    cd build
-    ccmake .. # set cmake options as needed
-    make
-
-All executables will be generated under `bin`.
-
-Miniapps/Executables
----------------------
-Details on each of the miniapps are as follows:
-
-* Parallel3D
-
-        Usage (ENABLE_SENSEI=ON):
-        ./bin/3D_Grid -g 4x4x4 -l 2x2x2 -f config.xml
-            -g global dimensions
-            -l local (per-process) dimensions
-            -f Sensei xml configuration file for analysis
-
-        Usage (ENABLE_SENSEI=OFF):
-        ./bin/3D_Grid -g 4x4x4 -l 2x2x2 -b 10
-            -g global dimensions
-            -l local (per-process) dimensions
-            -b histogram bins
+### Build Options
+| Build Option | Default | Description                     |
+|--------------|---------|---------------------------------|
+| ENABLE_SENSEI | ON | Enables the core SENSEI library. Requires VTK |
+| ENABLE_PYTHON | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
+| ENABLE_VTK_GENERIC_ARRAYS | OFF | Enables use of VTK's generic array feature.  |
+| ENABLE_CATALYST | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set ParaView_DIR. |
+| ENABLE_CATALYST_PYTHON | OFF | Enables Python features of the Catalyst analysis adaptor.  |
+| ENABLE_ADIOS | OFF | Enables ADIOS adaptors and endpoints. Set ADIOS_DIR. |
+| ENABLE_LIBSIM | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set VTK_DIR and LIBSIM_DIR. |
+| ENABLE_VTK_XMLP | OFF | Enables PosthocIO adaptors to write to VTK XML format. |
+| ENABLE_PARALLEL3D | ON | Enables the parallel 3D mini-app. |
+| ENABLE_OSCILLATORS | ON | Enables the oscillators mini-app. |
+| VTK_DIR | | Set to the directory containing VTKConfig.cmake. |
+| ParaView_DIR | | Set to the directory containing ParaViewConfig.cmake. |
+| ADIOS_DIR | | Set to the directory containing ADIOSConfig.cmake |
+| LIBSIM_DIR | | Path to libsim install. |
 
 
+### For use with ADIOS
+```bash
+cmake -DENABLE_SENSEI=ON -DENABLE_ADIOS=ON -DVTK_DIR=[your path] -DADIOS_DIR=[your path] ..
+```
+Can be used with either `ParaView_DIR` when configuring in conjunction with
+Catalyst, or `VTK_DIR` otherwise.
 
-* [Oscillators](miniapps/oscillators/README.md)
+### For use with Libsim
+```bash
+cmake -DENABLE_SENSEI=ON -DENABLE_LIBSIM=ON -DVTK_DIR=[your path] -DLIBSIM_DIR=[your path] ..
+```
+`VTK_DIR` should point to the VTK used by Libsim.
 
-        Usage (ENABLE_SENSEI=ON):
-        ./bin/oscillator [OPTIONS] OSCILLATORS.txt
-        Options:
-            -b, --blocks INT      number of blocks to use [default: 1]
-            -s, --shape POINT     domain shape [default: 64 64 64]
-            -t, --dt FLOAT        time step [default: 0.01]
-            -f, --config STRING   Sensei analysis configuration xml (required)
-            --t-end FLOAT         end time [default: 10]
-            --sync                synchronize after each time step
-           -h, --help             show help
+### For use with Catalyst
+```bash
+cmake -DENABLE_SENSEI=ON -DENABLE_CATALYST=ON \
+  -DParaView_DIR=[your path] -DLIBSIM_DIR=[your path] ..
+```
+Optionally, `-DENABLE_CATALYST_PYTHON=ON` will enable Catalyst Python scripts.
 
-        Usage (ENABLE_SENSEI=OFF):
-        ./bin/oscillator [OPTIONS] OSCILLATORS.txt
-        Options:
-            -b, --blocks INT             number of blocks to use [default: 1]
-            -s, --shape POINT            domain shape [default: 64 64 64]
-            -t, --dt FLOAT               time step [default: 0.01]
-            -w, --window UNSIGNED LONG   analysis window [default: 10]
-            -k, --k-max UNSIGNED LONG    number of strongest autocorrelations to report [default: 3]
-            --t-end FLOAT                end time [default: 10]
-            --sync                       synchronize after each time step
-            -h, --help                   show help
+### Enable writing to Visit ".visit" format or ParaView ".pvd" format
+```bash
+cmake -DENABLE_SENSEI=ON -DENABLE_VTK_XMLP=ON  -DVTK_DIR=[your path] ..
+```
+Can be used with either `ParaView_DIR` or `VTK_DIR`.
 
-* ADIOSAnalysisEndPoint
+### Enabling Python bindings
+In essence this is as simple as adding `-DENABLE_PYTHON=ON`. However, VTK (or
+ParaView when used with Catalyst) needs to be built with Python enabled, and
+NumPy, mpi4py, and SWIG are required. Note that there are some caveats when
+used with Catalyst and Libsim. These are described in more detail in the Newton
+mini app [README](miniapps/newton/README.md).
 
-        Usage (ENABLE_SENSEI=ON):
-        ./bin/ADIOSAnalysisEndPoint[OPTIONS] input-stream-name
-        Options:
-           -r, --readmethod STRING   specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath  [default: bp]
-           -f, --config STRING       Sensei analysis configuration xml (required)
-           -h, --help                show help
+## Using the SENSEI library
+To use SENSEI from your CMake based project include the SENSEI CMake config in
+your CMakeLists.txt.
+```cmake
+find_package(SENSEI REQUIRED)
 
-        Usage (ENABLE_SENSEI=OFF):
-        <NOT AVAILABLE>
+add_executable(myexec ...)
+target_link_libraries(myexec sensei ...)
+```
+Additionally, your source code may need to include `senseiConfig.h` to capture
+compile time configuration.

@@ -1,0 +1,21 @@
+#!/bin/sh
+
+MPI_C_LIBRARIES="-Wl,--start-group /opt/cray/mpt/default/gni/mpich-gnu/5.1/lib/libmpich_gnu_51.a /opt/cray/pmi/default/lib64/libpmi.a /opt/cray/alps/default/lib64/libalpsutil.a /opt/cray/alps/default/lib64/libalpslli.a /opt/cray/alps/default/lib64/libalps.a /opt/cray/wlm_detect/default/lib64/libwlm_detect.a /opt/cray/ugni/default/lib64/libugni.a /opt/cray/udreg/default/lib64/libudreg.a /opt/cray/xpmem/default/lib64/libxpmem.a -lpthread /usr/lib64/librt.a -Wl,--end-group"
+
+cmake -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_C_COMPILER=/opt/gcc/5.2.0/bin/gcc \
+-DCMAKE_CXX_COMPILER=/opt/gcc/5.2.0/bin/g++ \
+-DMPI_C_INCLUDE_PATH=/opt/cray/mpt/7.3.1/gni/mpich-gnu/5.1/include \
+-DMPI_C_LIBRARIES="$MPI_C_LIBRARIES" \
+-DMPI_CXX_INCLUDE_PATH=/opt/cray/mpt/7.3.1/gni/mpich-gnu/5.1/include \
+-DMPI_CXX_LIBRARIES="$MPI_C_LIBRARIES" \
+-DSENSEI_STATIC:BOOL=ON \
+-DENABLE_SENSEI:BOOL=ON \
+-DVTK_DIR:PATH=/global/homes/w/whitlocb/Development/thirdparty_static_server/vtk/6.1.0/linux-x86_64_gcc-5.2/lib/cmake/vtk-6.1 \
+-DENABLE_LIBSIM:BOOL=ON \
+-DLIBSIM_DIR:PATH=/global/homes/w/whitlocb/Development/SC16/install_static/2.11.0/linux-x86_64/libsim/V2/lib \
+../sensei
+
+# when running from a default VisIt install you'll need to set the environment.
+#!/bin/bash
+source <(../visit-install/bin/visit -env engine | sed 's/^/export /')
+mpiexec -np 2 ./bin/3D_Grid -g 8x4x4 -l 4x4x4  -f ./3dgrid.xml

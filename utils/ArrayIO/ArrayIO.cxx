@@ -48,7 +48,7 @@ MPI_Info createHints(
     int stripeCount,
     int stripeSize)
 {
-  MPI_Info hints;
+  MPI_Info hints = MPI_INFO_NULL;
 
   int mpiOk;
   MPI_Initialized(&mpiOk);

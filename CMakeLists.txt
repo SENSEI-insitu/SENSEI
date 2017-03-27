@@ -1,89 +1,23 @@
 cmake_minimum_required(VERSION 3.0)
 project(sensei)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+
 include(CMakeDependentOption)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
 
-option(SENSEI_STATIC OFF "Tell cmake to find static libraries")
-if (SENSEI_STATIC)
-    set(BUILD_SHARED_LIBS OFF)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
-    set(LINK_SEARCH_START_STATIC TRUE)
-    set(LINK_SEARCH_END_STATIC TRUE)
-    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-static -static-libgcc -static-libstdc++ -pthread -Wl,-Bstatic")
-endif()
-
-# Default to release.
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release"
-    CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
-#------------------------------------------------------------------------------
-# Set default output directories.
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-#------------------------------------------------------------------------------
-# Disable this option to build the miniapps without using any of the
-# infrastructures, including the Sensei adaptor/brige.
-option(ENABLE_SENSEI "Enable Sensei infrastucture" ON)
-
-#------------------------------------------------------------------------------
-# Options to enable various miniapps.
-option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
-option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
-
-#------------------------------------------------------------------------------
-# Since Generic arrays are not yet VTK master, we enable it explicitly.
-cmake_dependent_option(VTK_HAS_GENERIC_ARRAYS "VTK build has Generic arrays" OFF
-  "ENABLE_SENSEI" OFF)
-
-#------------------------------------------------------------------------------
-# Enable Catalyst and analysis using Catalyst.
-cmake_dependent_option(
-  ENABLE_CATALYST "Enable analysis methods that use Catalyst" OFF "ENABLE_SENSEI" OFF)
-cmake_dependent_option(
-  ENABLE_CATALYST_PYTHON "Enable analysis methods that use Catalyst Python scripts"
-  OFF "ENABLE_CATALYST" OFF)
-
-#------------------------------------------------------------------------------
-# Enable ADIOS and analysis using Adios
-cmake_dependent_option(
-  ENABLE_ADIOS "Enable analysis methods that use ADIOS" OFF "ENABLE_SENSEI" OFF)
-
-#------------------------------------------------------------------------------
-# Enable Libsim and analysis using Libsim
-cmake_dependent_option(
-  ENABLE_LIBSIM "Enable analysis methods that use Libsim" OFF "ENABLE_SENSEI" OFF)
-
-#------------------------------------------------------------------------------
-# Enable reader/writers that use VTK XML file formats.
-cmake_dependent_option(
-  ENABLE_VTK_XMLP "Enable use of vtk parallel I/O" OFF "ENABLE_SENSEI" OFF)
-
-#------------------------------------------------------------------------------
+include(options)
+include(build)
+include(threads)
 include(mpi)
-if(ENABLE_ADIOS)
-  include(adios)
-endif()
-if(ENABLE_LIBSIM)
-  include(libsim)
-endif()
+include(adios)
+include(vtk)
+include(libsim)
+include(catalyst)
+include(python)
+include(version)
+include(config)
 
 add_subdirectory(utils)
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-if(ENABLE_SENSEI)
-  message(STATUS "Enabled: Sensei infrastructure.")
-  add_subdirectory(sensei)
-else()
-  message(STATUS "Disabled: Sensei infrastructure.")
-endif()
-
+add_subdirectory(sensei)
 add_subdirectory(miniapps)
 add_subdirectory(endpoints)
-
-#------------------------------------------------------------------------------
-# Initial pass of making a SENSEIConfig.cmake file
-configure_file(CMake/SENSEIConfig.cmake.in SENSEIConfig.cmake @ONLY)
+add_subdirectory(python)

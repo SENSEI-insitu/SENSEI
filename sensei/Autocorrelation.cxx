@@ -183,11 +183,9 @@ public:
     }
 };
 
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-Autocorrelation *Autocorrelation::New() { return new Autocorrelation; }
-#else
-vtkStandardNewMacro(Autocorrelation);
-#endif
+//-----------------------------------------------------------------------------
+senseiNewMacro(Autocorrelation);
+
 //-----------------------------------------------------------------------------
 Autocorrelation::Autocorrelation()
   : Internals(new Autocorrelation::AInternals())

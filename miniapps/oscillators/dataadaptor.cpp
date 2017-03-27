@@ -27,11 +27,8 @@ inline bool areBoundsValid(const diy::DiscreteBounds& bds)
   return (bds.min[0] <= bds.max[0] && bds.min[1] <= bds.max[1] && bds.min[2] <= bds.max[2]);
 }
 
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-DataAdaptor *DataAdaptor::New() { return new DataAdaptor; }
-#else
-vtkStandardNewMacro(DataAdaptor);
-#endif
+//-----------------------------------------------------------------------------
+senseiNewMacro(DataAdaptor);
 
 //-----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor() :
@@ -141,6 +138,8 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association,
     {
     return false;
     }
+#else
+  (void)association;
 #endif
   bool retVal = false;
   DInternals& internals = (*this->Internals);

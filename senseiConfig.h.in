@@ -1,0 +1,37 @@
+#ifndef sensei_config_h
+#define sensei_config_h
+
+#define SENSEI_VERSION "@SENSEI_VERSION@"
+#define SENSEI_VERSION_MAJOR @SENSEI_VERSION_MAJOR@
+#define SENSEI_VERSION_MINOR @SENSEI_VERSION_MINOR@
+#define SENSEI_VERSION_PATCH @SENSEI_VERSION_PATCH@
+
+#cmakedefine ENABLE_SENSEI
+#cmakedefine ENABLE_PYTHON
+#cmakedefine ENABLE_CATALYST
+#cmakedefine ENABLE_CATALYST_PYTHON
+#cmakedefine ENABLE_LIBSIM
+#cmakedefine ENABLE_ADIOS
+#cmakedefine ENABLE_VTK_GENERIC_ARRAYS
+#cmakedefine ENABLE_VTK_XMLP
+
+#if defined(ENABLE_LIBSIM)
+#define senseiBaseTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
+#define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
+#define senseiNewMacro(a1) \
+a1 *a1::New() \
+{ \
+ vtkObjectBase* ret = vtkObjectFactory::CreateInstance(#a1); \
+   if(ret) \
+     { \
+     return static_cast<a1*>(ret); \
+     } \
+   return new a1; \
+}
+#else
+#define senseiBaseTypeMacro(a1, a2) vtkBaseTypeMacro(a1, a2)
+#define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
+#define senseiNewMacro(a1) vtkStandardNewMacro(a1)
+#endif
+
+#endif

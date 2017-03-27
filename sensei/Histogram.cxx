@@ -1,4 +1,7 @@
 #include "Histogram.h"
+#include "DataAdaptor.h"
+#include <Timer.h>
+#include "VTKHistogram.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
@@ -8,32 +11,17 @@
 #include <vtkSmartPointer.h>
 #include <vtkUnsignedCharArray.h>
 
-#ifdef VTK_HAS_GENERIC_ARRAYS
-# include "HistogramInternals-GenericArrays.h"
-#else
-# include "HistogramInternals-NoGenericArrays.h"
-#endif
-
-#include "DataAdaptor.h"
-
-#include <timer/Timer.h>
-
 #include <algorithm>
 #include <vector>
 
 namespace sensei
 {
 
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-Histogram *Histogram::New() { return new Histogram; }
-#else
-vtkStandardNewMacro(Histogram);
-#endif
+//-----------------------------------------------------------------------------
+senseiNewMacro(Histogram);
 
 //-----------------------------------------------------------------------------
-Histogram::Histogram() :
-  Communicator(MPI_COMM_WORLD),
-  Bins(0),
+Histogram::Histogram() : Communicator(MPI_COMM_WORLD), Bins(0),
   Association(vtkDataObject::FIELD_ASSOCIATION_POINTS)
 {
 }
@@ -64,11 +52,11 @@ Histogram::GhostArrayName()
 }
 
 //-----------------------------------------------------------------------------
-bool Histogram::Execute(sensei::DataAdaptor* data)
+bool Histogram::Execute(DataAdaptor* data)
 {
   timer::MarkEvent mark("histogram::execute");
 
-  vtkHistogram histogram;
+  VTKHistogram histogram;
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
   if (mesh == NULL || !data->AddArray(mesh, this->Association, this->ArrayName.c_str()))
     {
@@ -122,4 +110,4 @@ vtkDataArray* Histogram::GetArray(vtkDataObject* dobj, const std::string& arrayn
   return NULL;
 }
 
-} // end of namespace sensei
+}

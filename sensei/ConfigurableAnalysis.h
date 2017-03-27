@@ -15,13 +15,13 @@ class ConfigurableAnalysis : public AnalysisAdaptor
 {
 public:
   static ConfigurableAnalysis* New();
-  vtkTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent);
+  senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /// @brief Initialize the adaptor using the configuration specified.
   bool Initialize(MPI_Comm world, const std::string& filename);
 
-  virtual bool Execute(DataAdaptor* data);
+  bool Execute(DataAdaptor* data) override;
 
 protected:
   ConfigurableAnalysis();
@@ -31,9 +31,10 @@ private:
   ConfigurableAnalysis(const ConfigurableAnalysis&); // Not implemented.
   void operator=(const ConfigurableAnalysis&); // Not implemented.
 
-  class vtkInternals;
-  vtkInternals* Internals;
+  class InternalsType;
+  InternalsType* Internals;
 };
 
 }
+
 #endif

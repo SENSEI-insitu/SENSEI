@@ -1,117 +1,48 @@
-#-----------------------------------------------------------------------
-set (sources
-  AnalysisAdaptor.cxx
-  AnalysisAdaptor.h
-  Autocorrelation.cxx
-  Autocorrelation.h
-  ConfigurableAnalysis.cxx
-  ConfigurableAnalysis.h
-  DataAdaptor.cxx
-  DataAdaptor.h
-  Histogram.cxx
-  Histogram.h
-  PosthocIO.cxx
-  PosthocIO.h
-  )
-if(ENABLE_VTK_XMLP)
-  list(APPEND sources
-    vtk/DataAdaptor.cxx
-    vtk/DataAdaptor.h
-    )
-endif()
+if (ENABLE_SENSEI)
+  message(STATUS "Enabled: sensei library")
 
-if(ENABLE_CATALYST)
-  list(APPEND sources
-    catalyst/AnalysisAdaptor.cxx
-    catalyst/AnalysisAdaptor.h
-    catalyst/Slice.cxx
-    catalyst/Slice.h)
-endif()
-if(ENABLE_ADIOS)
-  list(APPEND sources
-    adios/AnalysisAdaptor.cxx
-    adios/AnalysisAdaptor.h
-    adios/DataAdaptor.cxx
-    adios/DataAdaptor.h)
-endif()
-if(ENABLE_LIBSIM)
-  list(APPEND sources
-    libsim/AnalysisAdaptor.cxx
-    libsim/AnalysisAdaptor.h
-    libsim/ImageProperties.cxx
-    libsim/ImageProperties.h)
-endif()
+  set(sensei_sources Error.cxx AnalysisAdaptor.cxx Autocorrelation.cxx
+    ConfigurableAnalysis.cxx DataAdaptor.cxx PosthocIO.cxx Histogram.cxx
+    VTKHistogram.cxx VTKDataAdaptor.cxx)
 
-#-----------------------------------------------------------------------
-add_library(sensei STATIC ${sources})
-target_compile_definitions(sensei INTERFACE ENABLE_SENSEI)
+  set(sensei_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
-if(ENABLE_CATALYST)
-  set(CATALYST_PYTHON_MODULE)
-  if(ENABLE_CATALYST_PYTHON)
-    set(CATALYST_PYTHON_MODULE "vtkPVPythonCatalyst")
+  if(ENABLE_CATALYST)
+    list(APPEND sensei_sources CatalystAnalysisAdaptor.cxx
+      CatalystSlice.cxx CatalystUtilities.cxx)
   endif()
 
-  find_package(ParaView QUIET COMPONENTS vtkPVCatalyst vtkCommonDataModel
-    vtkPVServerManagerRendering ${CATALYST_PYTHON_MODULE})
-  if(NOT ParaView_FOUND)
-    message(FATAL_ERROR "Catalyst analysis components require Catalyst build (or "
-                        "install directory. Please set ParaView_DIR to point to "
-                        "directory containing `ParaViewConfig.cmake`.")
+  if(ENABLE_ADIOS)
+    list(APPEND sensei_sources ADIOSAnalysisAdaptor.cxx
+      ADIOSDataAdaptor.cxx)
+    list(APPEND sensei_libs adios)
   endif()
-  target_include_directories(sensei SYSTEM PUBLIC ${PARAVIEW_INCLUDE_DIRS})
-  target_compile_definitions(sensei PUBLIC ${VTK_DEFINITIONS})
-  target_link_libraries(sensei PUBLIC ${VTK_LIBRARIES})
-  target_compile_definitions(sensei PUBLIC ENABLE_CATALYST)
-  if(ENABLE_CATALYST_PYTHON)
-    target_compile_definitions(sensei PUBLIC ENABLE_CATALYST_PYTHON)
+
+  if(ENABLE_LIBSIM)
+    list(APPEND sensei_sources LibsimAnalysisAdaptor.cxx
+      LibsimImageProperties.cxx)
+    list(APPEND sensei_libs libsim)
   endif()
-else()
-  set(SENSEI_VTK_DEPS vtkCommonDataModel)
-  if (ENABLE_VTK_XMLP)
-    list(APPEND SENSEI_VTK_DEPS vtkParallelMPI vtkIOParallelXML)
+
+  if(ENABLE_VTK_XMLP)
+    list(APPEND sensei_sources VTKPosthocIO.cxx)
   endif()
-  find_package(VTK QUIET COMPONENTS ${SENSEI_VTK_DEPS})
-  if(NOT VTK_FOUND)
-    message(FATAL_ERROR "VTK (${SENSEI_VTK_DEPS}) modules are required for "
-      "Sensei core even when not using any infrastructures. Please set "
-      "VTK_DIR to point to a directory containing `VTKConfig.cmake`.")
-  endif()
-  target_include_directories(sensei SYSTEM PUBLIC ${VTK_INCLUDE_DIRS})
-  target_compile_definitions(sensei PUBLIC ${VTK_DEFINITIONS})
+
+  add_library(sensei ${sensei_sources})
+
+  target_include_directories(sensei PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>)
+
+  target_link_libraries(sensei PUBLIC ${sensei_libs})
+
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
+    DESTINATION include FILES_MATCHING PATTERN "*.h")
+
+  install(TARGETS sensei EXPORT sensei INCLUDES DESTINATION include
+    ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
+
+  install(EXPORT sensei DESTINATION lib/cmake
+    EXPORT_LINK_INTERFACE_LIBRARIES)
+
 endif()
-
-if(VTK_HAS_GENERIC_ARRAYS)
-  target_compile_definitions(sensei PRIVATE VTK_HAS_GENERIC_ARRAYS)
-endif()
-
-if(ENABLE_ADIOS)
-  target_link_libraries(sensei PRIVATE adios)
-  target_compile_definitions(sensei PUBLIC ENABLE_ADIOS)
-endif()
-
-if(ENABLE_LIBSIM)
-  target_include_directories(sensei SYSTEM PUBLIC ${LIBSIM_INCLUDE_DIR})
-  target_link_libraries(sensei PRIVATE libsim)
-  target_compile_definitions(sensei PUBLIC ENABLE_LIBSIM)
-endif()
-
-if (ENABLE_VTK_XMLP)
-  target_compile_definitions(sensei PUBLIC ENABLE_VTK_XMLP)
-endif()
-
-target_link_libraries(sensei
-  PUBLIC ${VTK_LIBRARIES}
-          mpi
-  PRIVATE diy
-          grid
-          pugixml
-          timer
-          ArrayIO
-  )
-
-#------------------------------------------------------------------------------
-# Needed by Autocorrelation.cxx
-find_package(Threads)
-target_link_libraries(sensei PUBLIC ${CMAKE_THREAD_LIBS_INIT})
-target_compile_features(sensei PUBLIC cxx_auto_type)

@@ -5,11 +5,12 @@
 
 namespace oscillators
 {
+
 class DataAdaptor : public sensei::DataAdaptor
 {
 public:
   static DataAdaptor* New();
-  vtkTypeMacro(DataAdaptor, sensei::DataAdaptor);
+  senseiTypeMacro(DataAdaptor, sensei::DataAdaptor);
 
   /// @brief Initialize the data adaptor.
   ///
@@ -27,16 +28,16 @@ public:
   /// Set data for a specific block.
   void SetBlockData(int gid, float* data);
 
-  virtual vtkDataObject* GetMesh(bool structure_only=false);
-  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname);
-  virtual unsigned int GetNumberOfArrays(int) { return 1; }
-  virtual std::string GetArrayName(int association, unsigned int index)
+  vtkDataObject* GetMesh(bool structure_only=false) override;
+  bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname) override;
+  unsigned int GetNumberOfArrays(int) override { return 1; }
+  std::string GetArrayName(int, unsigned int index) override
   { return index==0? "data" : std::string(); }
-  virtual void ReleaseData();
+  void ReleaseData() override;
 
 protected:
   DataAdaptor();
-  virtual ~DataAdaptor();
+  ~DataAdaptor();
 
   vtkDataObject* GetBlockMesh(int gid);
 
@@ -44,7 +45,7 @@ private:
   DataAdaptor(const DataAdaptor&); // not implemented.
   void operator=(const DataAdaptor&); // not implemented.
 
-  class DInternals;
+  struct DInternals;
   DInternals* Internals;
 };
 
