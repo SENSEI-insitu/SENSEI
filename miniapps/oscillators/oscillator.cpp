@@ -13,6 +13,7 @@
 
 #include "oscillator.h"
 
+#include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
 #include "bridge.h"
 #else

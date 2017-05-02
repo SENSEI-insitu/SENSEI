@@ -1,7 +1,5 @@
 #include "AnalysisAdaptor.h"
 
-#include "vtkObjectFactory.h"
-
 namespace sensei
 {
 
@@ -21,4 +19,4 @@ void AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 }
 
-} // end of namespace sensei
+}

@@ -9,9 +9,9 @@
 #include <opts/opts.h>
 #include <mpi.h>
 #include <iostream>
-#include <sensei/adios/DataAdaptor.h>
-#include <sensei/ConfigurableAnalysis.h>
-#include <timer/Timer.h>
+#include <ADIOSDataAdaptor.h>
+#include <ConfigurableAnalysis.h>
+#include <Timer.h>
 #include <vtkNew.h>
 #include <vtkDataSet.h>
 
@@ -64,7 +64,7 @@ int main(int argc, char** argv)
   analysis->Initialize(comm, config_file);
 
   cout << "Opening: '" << input.c_str() << "' using '" << readmethod.c_str() << "'" << endl;
-  vtkNew<sensei::adios::DataAdaptor> dataAdaptor;
+  vtkNew<sensei::ADIOSDataAdaptor> dataAdaptor;
   dataAdaptor->Open(comm, readmethods[readmethod], input);
   cout << "Done opening  '" << input.c_str() << "'" << endl;
 

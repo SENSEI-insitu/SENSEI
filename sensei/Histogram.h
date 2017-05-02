@@ -19,16 +19,17 @@ class Histogram : public AnalysisAdaptor
 {
 public:
   static Histogram* New();
-  vtkTypeMacro(Histogram, AnalysisAdaptor);
+  senseiTypeMacro(Histogram, AnalysisAdaptor);
 
   void Initialize(MPI_Comm comm, int bins,
     int association, const std::string& arrayname);
 
-  virtual bool Execute(sensei::DataAdaptor* data);
+  bool Execute(DataAdaptor* data) override;
 
 protected:
   Histogram();
-  virtual ~Histogram();
+  ~Histogram();
+
   static const char *GhostArrayName();
   vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
 

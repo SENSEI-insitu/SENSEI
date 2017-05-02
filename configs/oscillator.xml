@@ -1,13 +1,24 @@
+ <!-- SENSEI ConfigurableAnalysis Configuration file.
+      set enabled="1" on analyses you wish to enable -->
 <sensei>
+  <!-- Custom Analyses-->
   <analysis type="PosthocIO" array="data" association="cell"
     enabled="0" period="1" mode="vtkXmlP" output_dir="./" />
 
-  <analysis type="histogram" array="data" association="cell" bins="10" />
-  <analysis type="autocorrelation" array="data" association="cell" window="10" k-max="3" />
+  <analysis type="histogram" array="data" association="cell"
+    bins="10" enabled="1" />
+
+  <analysis type="autocorrelation" array="data" association="cell" window="10"
+    k-max="3" enabled="1" />
+
+  <!-- Catalyst Analyses -->
   <analysis type="catalyst"
             pipeline="slice" array="data" association="cell"
             image-filename="slice-%ts.png" image-width="1920" image-height="1080"
             slice-normal="0,0,1"
-            color-range="0.0001,1.5" color-log="1" />
-  <analysis type="adios" filename="oscillators.bp" method="MPI" />
+            color-range="0.0001,1.5" color-log="1"
+            enabled="0" />
+
+  <!-- ADIOS Analyses -->
+  <analysis type="adios" filename="oscillators.bp" method="MPI" enabled="0" />
 </sensei>

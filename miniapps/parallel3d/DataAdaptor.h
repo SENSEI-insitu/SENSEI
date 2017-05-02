@@ -19,7 +19,7 @@ class DataAdaptor : public sensei::DataAdaptor
 {
 public:
   static DataAdaptor* New();
-  vtkTypeMacro(DataAdaptor, sensei::DataAdaptor);
+  senseiTypeMacro(DataAdaptor, sensei::DataAdaptor);
 
   /// Initialize the data adaptor.
   void Initialize(
@@ -35,15 +35,15 @@ public:
   /// Clear all arrays.
   void ClearArrays();
 
-  virtual vtkDataObject* GetMesh(bool structure_only=false);
-  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname);
-  virtual unsigned int GetNumberOfArrays(int association);
-  virtual std::string GetArrayName(int association, unsigned int index);
-  virtual void ReleaseData();
+  vtkDataObject* GetMesh(bool structure_only=false) override;
+  bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname) override;
+  unsigned int GetNumberOfArrays(int association) override;
+  std::string GetArrayName(int association, unsigned int index) override;
+  void ReleaseData() override;
 
 protected:
   DataAdaptor();
-  virtual ~DataAdaptor();
+  ~DataAdaptor();
 
   typedef std::map<std::string, double*> VariablesType;
   VariablesType Variables;

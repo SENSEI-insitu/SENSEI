@@ -7,8 +7,8 @@
 #     [REQUIRED]            # Fail with an error if ADIOS or a required
 #                           #   component is not found
 #     [QUIET]               # ...
-#     [COMPONENTS <...>]    # Compiled in components: fortran, readonly,
-                            # sequential (all are case insentative)
+#     [COMPONENTS <...>]    # Compiled in components: fortran, readonly, 
+                            # sequential (all are case insentative) 
 #   )
 #
 # Module that finds the includes and libraries for a working ADIOS install.
@@ -85,7 +85,6 @@
 ###############################################################################
 # Required cmake version
 ###############################################################################
-
 cmake_minimum_required(VERSION 2.8.5)
 
 
@@ -99,11 +98,11 @@ if(ADIOS_FIND_COMPONENTS)
     foreach(COMP ${ADIOS_FIND_COMPONENTS})
         string(TOLOWER ${COMP} comp)
         if(comp STREQUAL "fortran")
-            set(OPTLIST ${OPTLIST} f)
+            set(OPTLIST "${OPTLIST}f")
         elseif(comp STREQUAL "readonly")
-            set(OPTLIST ${OPTLIST} r)
+            set(OPTLIST "${OPTLIST}r")
         elseif(comp STREQUAL "sequential")
-            set(OPTLIST ${OPTLIST} s)
+            set(OPTLIST "${OPTLIST}s")
         else()
             message("ADIOS component ${COMP} is not supported. Please use fortran, readonly, or sequential")
         endif()
@@ -119,7 +118,8 @@ set(ADIOS_FOUND TRUE)
 #   check the ADIOS_ROOT hint and the normal PATH
 find_file(ADIOS_CONFIG
     NAME adios_config
-    PATHS $ENV{ADIOS_ROOT}/bin $ENV{ADIOS_DIR}/bin $ENV{INSTALL_PREFIX}/bin $ENV{PATH})
+    PATHS ${ADIOS_ROOT}bin ${ADIOS_DIR}/bin $ENV{ADIOS_ROOT}/bin $ENV{ADIOS_DIR}/bin
+        $ENV{INSTALL_PREFIX}/bin $ENV{PATH})
 
 if(ADIOS_CONFIG)
     message(STATUS "Found 'adios_config': ${ADIOS_CONFIG}")
@@ -171,42 +171,19 @@ if(ADIOS_FOUND)
     #         different sources (quite unlikely)
     #         http://www.cmake.org/pipermail/cmake/2008-November/025128.html
     set(ADIOS_LIBRARY_DIRS "")
-    string(REGEX MATCHALL "-L([A-Za-z_0-9/\\.-]+)" _ADIOS_LIBDIRS "${ADIOS_LINKFLAGS}")
+    string(REGEX MATCHALL " -L([A-Za-z_0-9/\\.-]+)" _ADIOS_LIBDIRS " ${ADIOS_LINKFLAGS}")
     foreach(_LIBDIR ${_ADIOS_LIBDIRS})
-        string(REPLACE "-L" "" _LIBDIR ${_LIBDIR})
+        string(REPLACE " -L" "" _LIBDIR ${_LIBDIR})
         list(APPEND ADIOS_LIBRARY_DIRS ${_LIBDIR})
     endforeach()
     # we could append ${CMAKE_PREFIX_PATH} now but that is not really necessary
 
     #message(STATUS "ADIOS DIRS to look for libs: ${ADIOS_LIBRARY_DIRS}")
 
-    # parse all -lname libraries and find an absolute path for them. we can't just
-    # look for "-l" because the following library /usr/lib/x86_64-linux-gnu/libm.a
-    # matches that but isn't what is looked for. First we look for " -l" and later
-    # look for "-l" at the beginning of a line.
-    string(REGEX MATCHALL " -l([A-Za-z_0-9\\.-]+)" _ADIOS_LIBS "${ADIOS_LINKFLAGS}")
+    # parse all -lname libraries and find an absolute path for them
+    string(REGEX MATCHALL " -l([A-Za-z_0-9\\.-]+)" _ADIOS_LIBS " ${ADIOS_LINKFLAGS}")
     foreach(_LIB ${_ADIOS_LIBS})
         string(REPLACE " -l" "" _LIB ${_LIB})
-
-        # find static lib: absolute path in -L then default
-        find_library(_LIB_DIR NAMES ${_LIB} PATHS ${ADIOS_LIBRARY_DIRS})
-
-        # found?
-        if(_LIB_DIR)
-            message(STATUS "Found ${_LIB} in ${_LIB_DIR}")
-            list(APPEND ADIOS_LIBRARIES "${_LIB_DIR}")
-        else(_LIB_DIR)
-            set(ADIOS_FOUND FALSE)
-            message(STATUS "ADIOS: Could NOT find library '${_LIB}'")
-        endif(_LIB_DIR)
-
-        # clean cached var
-        unset(_LIB_DIR CACHE)
-        unset(_LIB_DIR)
-    endforeach()
-    string(REGEX MATCHALL "^-l([A-Za-z_0-9\\.-]+)" _ADIOS_LIBS "${ADIOS_LINKFLAGS}")
-    foreach(_LIB ${_ADIOS_LIBS})
-        string(REPLACE "-l" "" _LIB ${_LIB})
 
         # find static lib: absolute path in -L then default
         find_library(_LIB_DIR NAMES ${_LIB} PATHS ${ADIOS_LIBRARY_DIRS} CMAKE_FIND_ROOT_PATH_BOTH)
@@ -233,7 +210,7 @@ if(ADIOS_FOUND)
     execute_process(COMMAND ${ADIOS_CONFIG} -v
                     OUTPUT_VARIABLE ADIOS_VERSION
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-
+    
 endif(ADIOS_FOUND)
 
 # unset checked variables if not found

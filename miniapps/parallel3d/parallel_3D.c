@@ -14,9 +14,12 @@
 #include <errno.h>
 #include <math.h>
 #include <mpi.h>
+
+#include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
-# include "Bridge.h"
+#include "Bridge.h"
 #endif
+#include "histogram.h"
 
 int dim = 3;
 

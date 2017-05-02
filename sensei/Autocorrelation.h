@@ -16,7 +16,7 @@ class Autocorrelation : public AnalysisAdaptor
 {
 public:
   static Autocorrelation* New();
-  vtkTypeMacro(Autocorrelation, AnalysisAdaptor);
+  senseiTypeMacro(Autocorrelation, AnalysisAdaptor);
 
   /// @brief Initialize the adaptor.
   ///
@@ -34,7 +34,7 @@ public:
     MPI_Comm world, size_t window, int association,
     std::string& arrayname, size_t k_max);
 
-  virtual bool Execute(DataAdaptor* data);
+  bool Execute(DataAdaptor* data) override;
 protected:
   Autocorrelation();
   ~Autocorrelation();
