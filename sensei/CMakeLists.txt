@@ -18,6 +18,12 @@ if (ENABLE_SENSEI)
     list(APPEND sensei_libs adios)
   endif()
 
+  if(ENABLE_VTK_M)
+    list(APPEND sensei_sources
+      VTKmContourAnalysis.cxx
+      VTKmContourAnalysis.h)
+  endif()
+
   if(ENABLE_LIBSIM)
     list(APPEND sensei_sources LibsimAnalysisAdaptor.cxx
       LibsimImageProperties.cxx)
@@ -36,8 +42,13 @@ if (ENABLE_SENSEI)
 
   target_link_libraries(sensei PUBLIC ${sensei_libs})
 
+  if (ENABLE_VTK_M)
+    target_compile_definitions(sensei PUBLIC ENABLE_VTK_M)
+  endif()
+
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
     DESTINATION include FILES_MATCHING PATTERN "*.h")
+
 
   install(TARGETS sensei EXPORT sensei INCLUDES DESTINATION include
     ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)

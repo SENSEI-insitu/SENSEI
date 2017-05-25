@@ -28,6 +28,11 @@ cmake_dependent_option(ENABLE_VTK_XMLP
   "Enable use of vtk parallel I/O" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_VTK_M
+  "Enable analysis methods that use VTK-m" OFF
+  "ENABLE_SENSEI" OFF)
+
+
 option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 

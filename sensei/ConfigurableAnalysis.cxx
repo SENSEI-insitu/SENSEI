@@ -11,6 +11,9 @@
 #include "Autocorrelation.h"
 #include "PosthocIO.h"
 #include "Histogram.h"
+#ifdef ENABLE_VTK_M
+# include "VTKmContourAnalysis.h"
+#endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
 #endif
@@ -99,6 +102,9 @@ public:
   // adds the histogram analysis
   int AddHistogram(MPI_Comm comm, pugi::xml_node node);
 
+  // adds the VTK-m analysis, if VTK-m features are present
+  int AddVTKmContour(MPI_Comm comm, pugi::xml_node node);
+
   // adds the ADIOS analysis, if ADIOS features are present
   int AddAdios(MPI_Comm comm, pugi::xml_node node);
 
@@ -148,6 +154,36 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(MPI_Comm comm,
   this->Analyses.push_back(histogram.GetPointer());
   return 0;
 }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
+  pugi::xml_node node)
+  {
+#ifndef ENABLE_VTK_M
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTK-m was requested but is disabled in this build")
+  return -1;
+#else
+  if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+    return -1;
+
+  pugi::xml_attribute array = node.attribute("array");
+  if (!array)
+    {
+    SENSEI_ERROR("'vtkmcontour' missing required attribute 'array'. Skipping.");
+    return -1;
+    }
+
+  double value = node.attribute("value")? node.attribute("value").as_double() : 0.0;
+  bool writeOutput = node.attribute("write_output")? node.attribute("write_output").as_bool() : 0.0;
+
+  vtkNew<VTKmContourAnalysis> contour;
+  contour->Initialize(comm, array.value(), value, writeOutput);
+  this->Analyses.push_back(contour.GetPointer());
+  return 0;
+#endif
+  }
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios(MPI_Comm comm,
@@ -486,7 +522,8 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
       || ((type == "adios") && !this->Internals->AddAdios(comm, node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(comm, node))
       || ((type == "libsim") && !this->Internals->AddLibsim(comm, node))
-      || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))))
+      || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))
+      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to add '" << type << "' analysis")

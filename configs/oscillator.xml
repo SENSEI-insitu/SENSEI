@@ -11,6 +11,9 @@
   <analysis type="autocorrelation" array="data" association="cell" window="10"
     k-max="3" enabled="1" />
 
+  <!-- VTK-m Analyses -->
+  <analysis type="vtkmcontour" array="data" value="0.3" enabled="0" write_output="0"/>
+
   <!-- Catalyst Analyses -->
   <analysis type="catalyst"
             pipeline="slice" array="data" association="cell"
