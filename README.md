@@ -163,3 +163,21 @@ target_link_libraries(myexec sensei ...)
 ```
 Additionally, your source code may need to include `senseiConfig.h` to capture
 compile time configuration.
+
+Included Software and Software Dependencies
+-------------------------------------------
+The SENSEI framework includes the following software:
+
+* [DIY2](https://github.com/diatomic/diy), Copyright (c) 2015, The Regents of the University of California, through
+Lawrence Berkeley National Laboratory (subject to receipt of any required
+approvals from the U.S. Dept. of Energy).
+* [{fmt}](https://github.com/fmtlib/fmt), Copyright (c) 2012-2016, Victor Zverovich.
+* [pugixml](https://github.com/zeux/pugixml), Copyright (c) 2006-2016 Arseny Kapoulkine.
+
+The SENSEI framework makes use of (links to) the following software:
+* [ADIOS](https://www.olcf.ornl.gov/center-projects/adios/), Copyright (c) 2008 - 2009.  UT-BATTELLE, LLC. Copyright (c) 2008 - 2009.  Georgia Institute of Technology.
+* [ParaView/Catalyst](https://gitlab.kitware.com/paraview/paraview), Copyright (c) 2005-2008 Sandia Corporation, Kitware Inc.
+* [VisIt/libsim](http://visit.llnl.gov), Copyright (c) 2000 - 2016, Lawrence Livermore National Security, LLC.
+* [VTK](https://gitlab.kitware.com/vtk/vtk), Copyright (c) 1993-2015 Ken Martin, Will Schroeder, Bill Lorensen.
+
+For full license information regarding included and used software please refer to the file THIRDPARTY_LICENSES.
