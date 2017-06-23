@@ -180,4 +180,4 @@ The SENSEI framework makes use of (links to) the following software:
 * [VisIt/libsim](http://visit.llnl.gov), Copyright (c) 2000 - 2016, Lawrence Livermore National Security, LLC.
 * [VTK](https://gitlab.kitware.com/vtk/vtk), Copyright (c) 1993-2015 Ken Martin, Will Schroeder, Bill Lorensen.
 
-For full license information regarding included and used software please refer to the file THIRDPARTY_LICENSES.
+For full license information regarding included and used software please refer to the file [THIRDPARTY_SOFTWARE_LICENSES](THIRDPARTY_SOFTWARE_LICENSES).
