@@ -25,6 +25,9 @@
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #endif
+#ifdef ENABLE_CINEMA
+#include "CatalystCinema.h"
+#endif
 
 #include <vector>
 #include <pugixml.hpp>
@@ -274,6 +277,28 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
         node.attribute("image-height").as_int(800));
       }
     this->CatalystAdaptor->AddPipeline(slice.GetPointer());
+    }
+  if (strcmp(node.attribute("pipeline").value(), "cinema") == 0)
+    {
+    vtkNew<CatalystCinema> cinema;
+    if (node.attribute("working-directory"))
+      {
+      cinema->SetImageParameters(
+        node.attribute("working-directory").value(),
+        node.attribute("image-width").as_int(800),
+        node.attribute("image-height").as_int(800));
+      }
+    if (node.attribute("camera"))
+      {
+      cinema->SetCameraConfiguration(
+        node.attribute("camera").value());
+      }
+    if (node.attribute("export-type"))
+      {
+      cinema->SetExportType(
+        node.attribute("export-type").value());
+      }
+    this->CatalystAdaptor->AddPipeline(cinema.GetPointer());
     }
   if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {

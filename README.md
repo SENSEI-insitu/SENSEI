@@ -107,6 +107,7 @@ $ make install
 | ENABLE_PYTHON | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
 | ENABLE_VTK_GENERIC_ARRAYS | OFF | Enables use of VTK's generic array feature.  |
 | ENABLE_CATALYST | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set ParaView_DIR. |
+| ENABLE_CINEMA | ON | Enables the Cinema analysis mini-app. |
 | ENABLE_CATALYST_PYTHON | OFF | Enables Python features of the Catalyst analysis adaptor.  |
 | ENABLE_ADIOS | OFF | Enables ADIOS adaptors and endpoints. Set ADIOS_DIR. |
 | ENABLE_LIBSIM | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set VTK_DIR and LIBSIM_DIR. |

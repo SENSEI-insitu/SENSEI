@@ -18,6 +18,10 @@ if (ENABLE_SENSEI)
     list(APPEND sensei_libs adios)
   endif()
 
+  if(ENABLE_CINEMA)
+    list(APPEND sensei_sources CatalystCinema.cxx CinemaHelper.cxx)
+  endif()
+
   if(ENABLE_VTK_M)
     list(APPEND sensei_sources
       VTKmContourAnalysis.cxx

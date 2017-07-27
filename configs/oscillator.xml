@@ -24,4 +24,23 @@
 
   <!-- ADIOS Analyses -->
   <analysis type="adios" filename="oscillators.bp" method="MPI" enabled="0" />
+
+  <!-- Catalyst/Cinema Analyses
+    camera(type|focalPoint[3]|position[3]|viewUp[3]|phiAngles[n]|thetaAngles[n])
+    // fine: spherical:32,32,32:32,32,246:0,1,0:0,10,20,30,40,50,60,70,80,90:-45,-30,-15,0,15,30,45
+    // coarse: spherical:32,32,32:32,32,246:0,1,0:0,15,30,45,60,75,90:0
+  -->
+  <analysis
+    enabled="0"
+
+    type="catalyst"
+    pipeline="cinema"
+    export-type="sorted-composite"
+
+    working-directory="../output/contours"
+    image-width="512"
+    image-height="512"
+
+    camera="spherical:32,32,32:32,32,246:0,1,0:0,15,30,45,60,75,90:0"
+  />
 </sensei>
