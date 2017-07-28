@@ -21,6 +21,9 @@ public:
   /// @brief Set parameters for camera navigation.
   void SetCameraConfiguration(const std::string& config);
 
+   /// @brief Set parameters for contours to compute.
+  void SetContours(const std::string& values);
+
   /// @brief Configure cinema database type
   void SetExportType(const std::string& exportType);
 

@@ -298,6 +298,11 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
       cinema->SetExportType(
         node.attribute("export-type").value());
       }
+    if (node.attribute("contours"))
+      {
+      cinema->SetContours(
+        node.attribute("contours").value());
+      }
     this->CatalystAdaptor->AddPipeline(cinema.GetPointer());
     }
   if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)

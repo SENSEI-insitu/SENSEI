@@ -28,6 +28,11 @@ public:
     int GetNumberOfCameraPositions();
     void ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionIndex);
 
+    // Contours handling
+    int GetNumberOfContours();
+    double GetContourValue(int idx);
+    void SetContours(const std::string& values);
+
     // Composite dataset handling
     // => FIXME: Assume => intensity + constant coloring
     int RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue);

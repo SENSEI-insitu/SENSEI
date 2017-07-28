@@ -98,17 +98,17 @@ public:
         vtkSMPropertyHelper(this->RenderView, "ViewSize").Set(this->ImageSize, 2);
         this->RenderView->UpdateVTKObjects();
 
-        vtkSmartPointer<vtkSMRepresentationProxy> representation = catalyst::Show(this->TrivialProducer, this->RenderView);
-        this->Representations.push_back(representation);
-        vtkSMPropertyHelper(representation, "Representation").Set("Outline");
-        representation->UpdateVTKObjects();
-
-        this->Helper.RegisterLayer("Outline", representation, -1);
+        // vtkSmartPointer<vtkSMRepresentationProxy> representation = catalyst::Show(this->TrivialProducer, this->RenderView);
+        // this->Representations.push_back(representation);
+        // vtkSMPropertyHelper(representation, "Representation").Set("Outline");
+        // representation->UpdateVTKObjects();
         }
 
       // Add countours
-      for (double value = 0.1; value < 0.99; value += 0.1)
+      int nbContours = this->Helper.GetNumberOfContours();
+      for (int contourIdx = 0; contourIdx < nbContours; contourIdx++)
         {
+        double value = this->Helper.GetContourValue(contourIdx);
         this->AddContour(value);
         this->Helper.RegisterLayer("Contour", this->Representations.back(), value);
         }
@@ -207,6 +207,13 @@ void CatalystCinema::SetCameraConfiguration(const std::string& config)
 {
   vtkInternals& internals = (*this->Internals);
   internals.Helper.SetCameraConfig(config);
+}
+
+//----------------------------------------------------------------------------
+void CatalystCinema::SetContours(const std::string& values)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.Helper.SetContours(values);
 }
 
 //----------------------------------------------------------------------------

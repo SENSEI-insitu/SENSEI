@@ -233,6 +233,8 @@ struct CinemaHelper::Internals
   int CurrentCameraPosition;
   std::vector<vtkSmartPointer<vtkSMRepresentationProxy>> Representations;
   std::string CaptureMethod;
+  // Contours
+  std::vector<double> Contours;
   // JSON metadata handling
   std::string LAYER_CODES;
   std::string JSONTypes;
@@ -290,20 +292,6 @@ struct CinemaHelper::Internals
     resultPath << fileName;
 
     return resultPath.str();
-  }
-
-  void registerImageData(const std::string& filename, bool useFileName = false)
-  {
-    std::ostringstream jsonContent;
-    jsonContent
-      << "{"                                    << endl
-      << "  \"name\": \"" << (useFileName ? filename : "image") << "\","  << endl
-      << "  \"type\": \"blob\","                << endl
-      << "  \"mimeType\": \"image/" << filename.substr(filename.size() - 3, 3) << "\","<< endl
-      << "  \"pattern\": \"{time}/" << this->JSONCameraPattern << "/" << filename << "\"" << endl
-      << "}";
-
-    this->JSONData[filename] = jsonContent.str();
   }
 
   void UpdateSphericalCameraPosition(double* initialFocalPoint, double* initialPosition, double* initialViewUp, int numberOfPhi, double* phiAngles, int numberOfTheta, double* thetaAngles)
@@ -704,6 +692,31 @@ void CinemaHelper::SetExportType(const std::string& exportType)
 }
 
 // --------------------------------------------------------------------------
+void CinemaHelper::SetContours(const std::string& values)
+{
+  this->Data->Contours.empty();
+  std::vector<std::string> valuesAsString;
+  split(values, ",", valuesAsString);
+  std::vector<std::string>::iterator iter;
+  for (iter = valuesAsString.begin(); iter != valuesAsString.end(); iter++)
+    {
+    this->Data->Contours.push_back(std::stod(*iter));
+    }
+}
+
+// --------------------------------------------------------------------------
+int CinemaHelper::GetNumberOfContours()
+{
+  return this->Data->Contours.size();
+}
+
+// --------------------------------------------------------------------------
+double CinemaHelper::GetContourValue(int idx)
+{
+  return this->Data->Contours[idx];
+}
+
+// --------------------------------------------------------------------------
 int CinemaHelper::GetNumberOfCameraPositions()
 {
   return this->Data->NumberOfCameraPositions;
@@ -938,7 +951,6 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
     }
 
   // Write light intensity file
-
   std::string intensityFileName = this->Data->getDataAbsoluteFilePath("intensity.uint8", true);
   std::ofstream fpItensity(intensityFileName.c_str(), ios::out | ios::binary);
 

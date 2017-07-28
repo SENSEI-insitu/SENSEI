@@ -41,6 +41,8 @@
     image-width="512"
     image-height="512"
 
+    contours="0.1,0.3,0.5,0.7,0.9"
+
     camera="spherical:32,32,32:32,32,246:0,1,0:0,15,30,45,60,75,90:0"
   />
 </sensei>
