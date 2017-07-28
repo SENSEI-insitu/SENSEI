@@ -27,6 +27,7 @@
 #endif
 #ifdef ENABLE_CINEMA
 #include "CatalystCinema.h"
+#include "VTKmContourCompositeAnalysis.h"
 #endif
 
 #include <vector>
@@ -108,6 +109,9 @@ public:
   // adds the VTK-m analysis, if VTK-m features are present
   int AddVTKmContour(MPI_Comm comm, pugi::xml_node node);
 
+  // adds the VTK-m/Cinema analysis, if VTK-m features are present
+  int AddVTKmContourCompositeAnalysis(MPI_Comm comm, pugi::xml_node node);
+
   // adds the ADIOS analysis, if ADIOS features are present
   int AddAdios(MPI_Comm comm, pugi::xml_node node);
 
@@ -184,6 +188,34 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
   vtkNew<VTKmContourAnalysis> contour;
   contour->Initialize(comm, array.value(), value, writeOutput);
   this->Analyses.push_back(contour.GetPointer());
+  return 0;
+#endif
+  }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmContourCompositeAnalysis(MPI_Comm comm,
+  pugi::xml_node node)
+  {
+#ifndef ENABLE_CINEMA
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTK-m was requested but is disabled in this build")
+  return -1;
+#else
+  if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+    return -1;
+
+  int imageSize[2];
+  imageSize[0] = node.attribute("image-width").as_int();
+  imageSize[1] = node.attribute("image-height").as_int();
+
+  vtkNew<VTKmContourCompositeAnalysis> contourComposite;
+  contourComposite->Initialize(comm,
+    node.attribute("working-directory").value(),
+    imageSize,
+    node.attribute("contours").value(),
+    node.attribute("camera").value());
+  this->Analyses.push_back(contourComposite.GetPointer());
   return 0;
 #endif
   }
@@ -553,7 +585,8 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
       || ((type == "catalyst") && !this->Internals->AddCatalyst(comm, node))
       || ((type == "libsim") && !this->Internals->AddLibsim(comm, node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))
-      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))))
+      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))
+      || ((type == "vtkmcontour-composite") && !this->Internals->AddVTKmContourCompositeAnalysis(comm, node))))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to add '" << type << "' analysis")

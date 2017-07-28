@@ -7,19 +7,23 @@ if (ENABLE_SENSEI)
 
   set(sensei_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
+  if(ENABLE_CINEMA)
+    list(APPEND sensei_sources CinemaHelper.cxx VTKmContourCompositeAnalysis.cxx)
+  endif()
+
   if(ENABLE_CATALYST)
     list(APPEND sensei_sources CatalystAnalysisAdaptor.cxx
       CatalystSlice.cxx CatalystUtilities.cxx)
+
+    if(ENABLE_CINEMA)
+      list(APPEND sensei_sources CatalystCinema.cxx)
+    endif()
   endif()
 
   if(ENABLE_ADIOS)
     list(APPEND sensei_sources ADIOSAnalysisAdaptor.cxx
       ADIOSDataAdaptor.cxx)
     list(APPEND sensei_libs adios)
-  endif()
-
-  if(ENABLE_CINEMA)
-    list(APPEND sensei_sources CatalystCinema.cxx CinemaHelper.cxx)
   endif()
 
   if(ENABLE_VTK_M)
