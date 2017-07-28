@@ -134,8 +134,7 @@ cmake -DENABLE_SENSEI=ON -DENABLE_LIBSIM=ON -DVTK_DIR=[your path] -DLIBSIM_DIR=[
 
 ### For use with Catalyst
 ```bash
-cmake -DENABLE_SENSEI=ON -DENABLE_CATALYST=ON \
-  -DParaView_DIR=[your path] -DLIBSIM_DIR=[your path] ..
+cmake -DENABLE_SENSEI=ON -DENABLE_CATALYST=ON -DParaView_DIR=[your path] ..
 ```
 Optionally, `-DENABLE_CATALYST_PYTHON=ON` will enable Catalyst Python scripts.
 
