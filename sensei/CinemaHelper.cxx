@@ -12,6 +12,7 @@
 
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
+#include <vtkMultiProcessController.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
 #include <vtkSMPropertyHelper.h>
@@ -228,6 +229,7 @@ struct CinemaHelper::Internals
   double* CameraPositions; // (focalPoint[3], position[3], viewUp[3]) * NumberOfCameraPositions
   int NumberOfCameraArgs;
   double* CameraArgs;
+  bool IsRoot;
   int CurrentCameraPosition;
   std::vector<vtkSmartPointer<vtkSMRepresentationProxy>> Representations;
   std::string CaptureMethod;
@@ -245,6 +247,8 @@ struct CinemaHelper::Internals
   Internals() : NumberOfTimeSteps(0), NumberOfCameraPositions(0), CameraPositions(nullptr), CameraArgs(nullptr), NumberOfCameraArgs(0), CurrentCameraPosition(0), LAYER_CODES("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
   {
     this->ImageSize[0] = this->ImageSize[1] = 512;
+    vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
+    this->IsRoot = (controller->GetLocalProcessId() == 0);
   }
 
   ~Internals()
@@ -468,6 +472,11 @@ void CinemaHelper::AddTimeEntry()
 // --------------------------------------------------------------------------
 void CinemaHelper::WriteMetadata()
 {
+  if (!this->Data->IsRoot)
+    {
+    return;
+    }
+
   std::ostringstream filePath;
   filePath << this->Data->WorkingDirectory << "/index.json";
   std::ofstream fp(filePath.str().c_str(), ios::out);
@@ -851,6 +860,12 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
     }
 
   // Post process arrays to write proper data structure
+  if (!this->Data->IsRoot)
+    {
+    // Skip post processing if not root...
+    return;
+    }
+
   int stackSize = linearSize * compositeSize;
   vtkNew<vtkUnsignedCharArray> orderArray;
   orderArray->SetNumberOfComponents(1);
