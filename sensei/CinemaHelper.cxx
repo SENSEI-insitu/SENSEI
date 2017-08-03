@@ -21,6 +21,17 @@
 #include <vtkSMViewProxy.h>
 #include <vtkUnsignedCharArray.h>
 
+#include <vtkCamera.h>
+#include <vtkActor.h>
+#include <vtkRenderWindow.h>
+#include <vtkIceTCompositePass.h>
+#include <vtkCameraPass.h>
+#include <vtkLightingMapPass.h>
+#include <vtkRenderer.h>
+#include <vtkProperty.h>
+
+#include <vtkWindowToImageFilter.h>
+
 #if !defined(_WIN32) || defined(__CYGWIN__)
 # include <unistd.h> /* unlink */
 #else
@@ -232,6 +243,7 @@ struct CinemaHelper::Internals
   bool IsRoot;
   int CurrentCameraPosition;
   std::vector<vtkSmartPointer<vtkSMRepresentationProxy>> Representations;
+  std::vector<vtkSmartPointer<vtkActor>> Actors;
   std::string CaptureMethod;
   // Contours
   std::vector<double> Contours;
@@ -744,9 +756,65 @@ void CinemaHelper::ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionI
 }
 
 // --------------------------------------------------------------------------
+void CinemaHelper::ApplyCameraPosition(vtkCamera *camera, int cameraPositionIndex)
+{
+  if (cameraPositionIndex < this->Data->NumberOfCameraPositions && this->Data->CameraPositions)
+    {
+    this->Data->CurrentCameraPosition = cameraPositionIndex;
+    double* cameraPosition = &this->Data->CameraPositions[cameraPositionIndex * 9];
+
+    // std::cout << "Apply camera idx: " << cameraPositionIndex
+    //   << "\n fp(" << cameraPosition[0] << ", " << cameraPosition[1] << ", " << cameraPosition[2] << ")"
+    //   << "\n position(" << cameraPosition[3] << ", " << cameraPosition[4] << ", " << cameraPosition[5] << ")"
+    //   << "\n viewUp(" << cameraPosition[6] << ", " << cameraPosition[7] << ", " << cameraPosition[8] << ")"
+    //   << std::endl;
+
+    camera->SetFocalPoint(&cameraPosition[0]);
+    camera->SetPosition(&cameraPosition[3]);
+    camera->SetViewUp(&cameraPosition[6]);
+    }
+}
+
+// --------------------------------------------------------------------------
 int CinemaHelper::RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue)
 {
   this->Data->Representations.push_back(representation);
+
+  std::ostringstream layerName;
+  layerName << name;
+  if (name != "Outline")
+    {
+    layerName << " ";
+    layerName << scalarValue;
+    }
+
+  std::ostringstream jsonContent;
+  jsonContent
+    << "{"                          << endl
+    << "  \"colorBy\": ["           << endl
+    << "    {"                      << endl
+    << "      \"type\": \"const\"," << endl
+    << "      \"name\": \"scalar\"," << endl
+    << "      \"value\": " << scalarValue << endl
+    << "    }"                      << endl
+    << "  ],"                       << endl
+    << "  \"name\": \"" << layerName.str() << "\"" << endl
+    << "}";
+  this->Data->JSONPipeline.push_back(jsonContent.str());
+
+  std::ostringstream jsonContent2;
+  jsonContent2
+    << "{" << endl
+    << "  \"name\": \"" << layerName.str() << "\"," << endl
+    << "  \"ids\": [\"" << this->Data->LAYER_CODES.substr(this->Data->JSONCompositePipeline.size(), 1) << "\"]" << endl
+    << "}";
+  this->Data->JSONCompositePipeline.push_back(jsonContent2.str());
+}
+
+// --------------------------------------------------------------------------
+int CinemaHelper::RegisterLayer(const std::string& name, vtkActor* actor, double scalarValue)
+{
+  this->Data->Actors.push_back(actor);
 
   std::ostringstream layerName;
   layerName << name;
@@ -870,6 +938,241 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
 
     luminances.push_back(specularComponent);
     view->InvokeCommand("StopCaptureLuminance");
+    }
+
+  // Post process arrays to write proper data structure
+  if (!this->Data->IsRoot)
+    {
+    // Skip post processing if not root...
+    return;
+    }
+
+  int stackSize = linearSize * compositeSize;
+  vtkNew<vtkUnsignedCharArray> orderArray;
+  orderArray->SetNumberOfComponents(1);
+  orderArray->SetNumberOfTuples(stackSize);
+  std::vector<Pixel> pixelSorter;
+  while (pixelSorter.size() < compositeSize)
+    {
+    pixelSorter.push_back(Pixel());
+    }
+
+  for (int pixelId = 0; pixelId < linearSize; pixelId++)
+    {
+    // Fill pixelSorter
+    for (int layerIdx = 0; layerIdx < compositeSize; layerIdx++)
+      {
+      float depth = zBuffers[layerIdx]->GetValue(pixelId);
+      if (depth < 1.0)
+        {
+        pixelSorter[layerIdx].Index = (unsigned char)layerIdx;
+        pixelSorter[layerIdx].Depth = depth;
+        }
+      else
+        {
+        pixelSorter[layerIdx].Index = 255;
+        pixelSorter[layerIdx].Depth = 1.0;
+        }
+      }
+
+    // Sort pixels
+    std::sort(pixelSorter.begin(), pixelSorter.end(), pixelComp);
+
+    // Fill sortedOrder array
+    for (int layerIdx = 0; layerIdx < compositeSize; layerIdx++)
+      {
+      orderArray->SetValue(layerIdx * linearSize + pixelId, pixelSorter[layerIdx].Index);
+      }
+    }
+
+  // Write order file
+  std::string orderFileName = this->Data->getDataAbsoluteFilePath("order.uint8", true);
+  std::ofstream fp(orderFileName.c_str(), ios::out | ios::binary);
+
+  if (fp.fail())
+    {
+    std::cout << "Unable to open file: "<< orderFileName.c_str() << std::endl;
+    }
+  else
+    {
+    fp.write((char*)orderArray->GetPointer(0), stackSize);
+    fp.flush();
+    fp.close();
+    }
+
+  // Compute intensity data
+  vtkNew<vtkUnsignedCharArray> intensityArray;
+  intensityArray->SetNumberOfComponents(1);
+  intensityArray->SetNumberOfTuples(stackSize);
+  for (int idx = 0; idx < stackSize; idx++)
+    {
+    int layerIdx = orderArray->GetValue(idx);
+    if (layerIdx < 255)
+      {
+      intensityArray->SetValue(idx, luminances[layerIdx]->GetValue(idx % linearSize));
+      }
+    else
+      {
+      intensityArray->SetValue(idx, 0);
+      }
+
+    }
+
+  // Write light intensity file
+  std::string intensityFileName = this->Data->getDataAbsoluteFilePath("intensity.uint8", true);
+  std::ofstream fpItensity(intensityFileName.c_str(), ios::out | ios::binary);
+
+  if (fpItensity.fail())
+    {
+    std::cout << "Unable to open file: "<< intensityFileName.c_str() << std::endl;
+    }
+  else
+    {
+    fpItensity.write((char*)intensityArray->GetPointer(0), stackSize);
+    fpItensity.flush();
+    fpItensity.close();
+    }
+}
+
+// --------------------------------------------------------------------------
+void CinemaHelper::Render(vtkRenderWindow* renderWindow)
+{
+  renderWindow->SetSize(this->Data->ImageSize[0], this->Data->ImageSize[1]);
+  vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
+  if (controller->GetLocalProcessId() == 0)
+    {
+    renderWindow->Render();
+    controller->TriggerBreakRMIs();
+    controller->Barrier();
+    }
+  else
+    {
+    controller->ProcessRMIs();
+    controller->Barrier();
+    }
+}
+
+vtkImageData* CinemaHelper::CaptureWindow(vtkRenderWindow* renderWindow)
+{
+  int swapBuffers = renderWindow->GetSwapBuffers();
+  renderWindow->SwapBuffersOff();
+
+  this->Render(renderWindow);
+
+  vtkNew<vtkWindowToImageFilter> w2i;
+  w2i->SetInput(renderWindow);
+  w2i->SetScale(1, 1);
+  w2i->ReadFrontBufferOff();
+  w2i->ShouldRerenderOff(); // WindowToImageFilter can re-render as needed too,
+                            // we just don't require the first render.
+
+  // Note how we simply called `Update` here. Since `WindowToImageFilter` calls
+  // this->RenderForImageCapture() we don't have to worry too much even if it
+  // gets called only on the client side (or root node in batch mode).
+  w2i->Update();
+
+  renderWindow->SetSwapBuffers(swapBuffers);
+
+  vtkImageData* capture = vtkImageData::New();
+  capture->ShallowCopy(w2i->GetOutput());
+  return capture;
+}
+
+// --------------------------------------------------------------------------
+void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer,
+  vtkCameraPass* cameraPass,  vtkIceTCompositePass* compositePass, vtkLightingMapPass* lightingMapPass)
+{
+  vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
+  // Show all representations
+  std::vector<vtkSmartPointer<vtkActor>>::iterator actorIter;
+  for (actorIter = this->Data->Actors.begin(); actorIter != this->Data->Actors.end(); ++actorIter)
+    {
+    (*actorIter)->SetVisibility(1);
+    }
+
+  // Fix camera bounds
+  this->Render(renderWindow);
+  double prop_bounds[6];
+  if (this->Data->IsRoot)
+  {
+    renderer->ComputeVisiblePropBounds(prop_bounds);
+  }
+  controller->Broadcast(prop_bounds, 6, 0);
+
+  // Hide all representations
+  for (actorIter = this->Data->Actors.begin(); actorIter != this->Data->Actors.end(); ++actorIter)
+    {
+    (*actorIter)->SetVisibility(0);
+    }
+
+  // Show only active Representation
+  // Extract images for each fields
+  std::vector<vtkSmartPointer<vtkFloatArray>> zBuffers;
+  std::vector<vtkSmartPointer<vtkUnsignedCharArray>> luminances;
+  int compositeSize = this->Data->Actors.size();
+  int linearSize = 0;
+  for (int compositeIdx = 0; compositeIdx < compositeSize; compositeIdx++)
+    {
+    vtkActor* actor = this->Data->Actors[compositeIdx];
+
+    // Hide previous representation
+    if (compositeIdx > 0)
+      {
+      vtkActor* previousActor = this->Data->Actors[compositeIdx - 1];
+      previousActor->SetVisibility(0);
+      }
+
+    // Show current representation
+    actor->SetVisibility(1);
+
+    // capture Z
+    renderer->ResetCameraClippingRange(prop_bounds);
+    this->Render(renderWindow);
+
+    if (this->Data->IsRoot)
+    {
+      vtkSmartPointer<vtkFloatArray> zBuffer = vtkSmartPointer<vtkFloatArray>::New();
+
+      zBuffer->DeepCopy(compositePass->GetLastRenderedDepths());
+      // cout << "PID(" << controller->GetLocalProcessId()
+      //     << "): Size " << zBuffer->GetNumberOfTuples()
+      //     << " Range " << zBuffer->GetRange()[0] << ", " << zBuffer->GetRange()[1] << endl;
+      zBuffers.push_back(zBuffer);
+
+      linearSize = zBuffer->GetNumberOfTuples();
+    }
+
+    // Prevent color interference to handle light (intensity)
+    double white[3] = {1, 1, 1};
+    actor->GetProperty()->SetDiffuseColor(white);
+    actor->GetProperty()->SetAmbientColor(white);
+    actor->GetProperty()->SetSpecularColor(white);
+
+    // ------------------------------------------------------------------------
+    // Capture Luminance
+    // ------------------------------------------------------------------------
+    cameraPass->SetDelegatePass(lightingMapPass); // view->InvokeCommand("StartCaptureLuminance");
+    this->Render(renderWindow);
+
+    vtkImageData* image = this->CaptureWindow(renderWindow);
+    vtkUnsignedCharArray* imagescalars = vtkUnsignedCharArray::SafeDownCast(image->GetPointData()->GetScalars());
+    // image->UnRegister(0); // Memory leak....
+
+    // // Extract specular information
+    int specularOffset = 1; // [diffuse, specular, ?]
+    linearSize = imagescalars->GetNumberOfTuples();
+    vtkSmartPointer<vtkUnsignedCharArray> specularComponent = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    specularComponent->SetNumberOfComponents(1);
+    specularComponent->SetNumberOfTuples(linearSize);
+
+    for (int idx = 0; idx < linearSize; idx++)
+      {
+      specularComponent->SetValue(idx, imagescalars->GetValue(idx * 3 + specularOffset));
+      }
+
+    luminances.push_back(specularComponent);
+    cameraPass->SetDelegatePass(compositePass); // view->InvokeCommand("StopCaptureLuminance");
+    // ------------------------------------------------------------------------
     }
 
   // Post process arrays to write proper data structure

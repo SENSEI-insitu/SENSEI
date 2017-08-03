@@ -4,6 +4,14 @@
 class vtkSMViewProxy;
 class vtkSMRenderViewProxy;
 class vtkSMRepresentationProxy;
+class vtkActor;
+class vtkCamera;
+class vtkRenderer;
+class vtkRenderWindow;
+class vtkIceTCompositePass;
+class vtkCameraPass;
+class vtkLightingMapPass;
+class vtkImageData;
 
 #include <string>
 
@@ -27,6 +35,7 @@ public:
     void SetCameraConfig(const std::string& config);
     int GetNumberOfCameraPositions();
     void ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionIndex);
+    void ApplyCameraPosition(vtkCamera* camera, int cameraPositionIndex);
 
     // Contours handling
     int GetNumberOfContours();
@@ -36,7 +45,12 @@ public:
     // Composite dataset handling
     // => FIXME: Assume => intensity + constant coloring
     int RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue);
+    int RegisterLayer(const std::string& name, vtkActor* actor, double scalarValue);
     void CaptureSortedCompositeData(vtkSMRenderViewProxy* view);
+    void CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer,
+        vtkCameraPass* cameraPass,  vtkIceTCompositePass* compositePass, vtkLightingMapPass* lightingMapPass);
+    void Render(vtkRenderWindow* renderWindow);
+    vtkImageData* CaptureWindow(vtkRenderWindow* renderWindow);
 
     // Image handling
     void CaptureImage(vtkSMViewProxy* view, const std::string fileName, const std::string writerName, double scale = 1, bool createDirectory = true);
