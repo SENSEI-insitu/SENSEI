@@ -1156,7 +1156,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
 
     vtkImageData* image = this->CaptureWindow(renderWindow);
     vtkUnsignedCharArray* imagescalars = vtkUnsignedCharArray::SafeDownCast(image->GetPointData()->GetScalars());
-    // image->UnRegister(0); // Memory leak....
+
 
     // // Extract specular information
     int specularOffset = 1; // [diffuse, specular, ?]
@@ -1172,6 +1172,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
 
     luminances.push_back(specularComponent);
     cameraPass->SetDelegatePass(compositePass); // view->InvokeCommand("StopCaptureLuminance");
+    image->UnRegister(0);
     // ------------------------------------------------------------------------
     }
 
