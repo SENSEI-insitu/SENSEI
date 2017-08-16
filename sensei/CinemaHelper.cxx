@@ -12,6 +12,7 @@
 
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
+#include <vtkCellData.h>
 #include <vtkMultiProcessController.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
@@ -489,7 +490,7 @@ void CinemaHelper::WriteMetadata()
     {
     fp
       << "{"                                << endl
-      << "  \"metadata\": {},"              << endl
+      << "  \"metadata\": {\"backgroundColor\": \"#000000\"},"<< endl
       << "  \"type\": ["                    << endl
       << "       " << this->Data->JSONTypes << endl
       << "   ],"                            << endl
@@ -692,6 +693,11 @@ void CinemaHelper::SetExportType(const std::string& exportType)
     this->Data->JSONData["intensity"] = "{ \"pattern\": \"{time}/";
     this->Data->JSONData["intensity"] += this->Data->JSONCameraPattern;
     this->Data->JSONData["intensity"] += "/intensity.uint8\", \"type\": \"array\", \"name\": \"intensity\" }";
+    }
+  else if (exportType == "vtk-volume")
+    {
+    this->Data->JSONTypes = "\"tonic-query-data-model\", \"vtk-volume\"";
+    this->Data->JSONData["scene"] = "{ \"pattern\": \"{time}/volume.json\", \"rootFile\": true, \"name\": \"scene\", \"type\": \"json\" }";
     }
   else
     {
@@ -1274,6 +1280,79 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
 void CinemaHelper::CaptureImage(vtkSMViewProxy* view, const std::string fileName, const std::string writerName, double scale, bool createDirectory)
 {
   view->WriteImage(this->Data->getDataAbsoluteFilePath(fileName, createDirectory).c_str(), writerName.c_str(), scale);
+}
+
+// --------------------------------------------------------------------------
+void CinemaHelper::WriteVolume(vtkImageData* image)
+{
+  if (image == nullptr)
+  {
+    return;
+  }
+
+  vtkFloatArray* array = vtkFloatArray::SafeDownCast(image->GetCellData()->GetScalars());
+
+  // Write volume.json
+  std::string metaFileName = this->Data->getDataAbsoluteFilePath("volume.json", true);
+  std::ofstream jsonFilePointer(metaFileName.c_str(), ios::out);
+  if (jsonFilePointer.fail())
+    {
+    std::cout << "Unable to open file: "<< metaFileName.c_str() << std::endl;
+    }
+  else
+    {
+    int extent[6];
+    image->GetExtent(extent);
+    jsonFilePointer << "{" << endl;
+    jsonFilePointer << "    \"origin\": [0, 0, 0]," << endl;
+    jsonFilePointer << "    \"spacing\": [1, 1, 1]," << endl;
+    jsonFilePointer << "    \"extent\": ["
+       << extent[0] << ", " << (extent[1] - 1) << ", "
+       << extent[2] << ", " << (extent[3] - 1) << ", "
+       << extent[4] << ", " << (extent[5] - 1) << "]," << endl;
+    jsonFilePointer << "    \"vtkClass\": \"vtkImageData\"," << endl;
+    jsonFilePointer << "    \"pointData\": {" << endl;
+    jsonFilePointer << "        \"vtkClass\": \"vtkDataSetAttributes\"," << endl;
+    jsonFilePointer << "        \"arrays\": [{" << endl;
+    jsonFilePointer << "            \"data\": {" << endl;
+    jsonFilePointer << "                \"numberOfComponents\": 1," << endl;
+    jsonFilePointer << "                \"name\": \"scalars\"," << endl;
+    jsonFilePointer << "                \"vtkClass\": \"vtkDataArray\"," << endl;
+    jsonFilePointer << "                \"dataType\": \"Float32Array\"," << endl;
+    jsonFilePointer << "                \"ref\": {" << endl;
+    jsonFilePointer << "                    \"registration\": \"setScalars\"," << endl;
+    jsonFilePointer << "                    \"encode\": \"LittleEndian\"," << endl;
+    jsonFilePointer << "                    \"basepath\": \"" << this->Data->NumberOfTimeSteps << "\"," << endl;
+    jsonFilePointer << "                    \"id\": \"volume.data\"" << endl;
+    jsonFilePointer << "                }," << endl;
+    jsonFilePointer << "                \"size\": "<< array->GetNumberOfValues() << endl;
+    jsonFilePointer << "            }" << endl;
+    jsonFilePointer << "        }]" << endl;
+    jsonFilePointer << "    }" << endl;
+    jsonFilePointer << "}" << endl;
+    jsonFilePointer.flush();
+    jsonFilePointer.close();
+    }
+
+  // Write volume.data
+  std::string dataFileName = this->Data->getDataAbsoluteFilePath("volume.data", true);
+  std::cout << "write volume: " << dataFileName.c_str() << std::endl;
+  std::ofstream filePointer(dataFileName.c_str(), ios::out | ios::binary);
+
+  if (filePointer.fail())
+    {
+    std::cout << "Unable to open file: "<< dataFileName.c_str() << std::endl;
+    }
+  else
+    {
+
+    std::cout << "array?" << array << std::endl;
+    int stackSize = array->GetNumberOfTuples() * 4;
+    std::cout << "Size to write: " << stackSize << std::endl;
+    filePointer.write((char*)array->GetVoidPointer(0), stackSize);
+    filePointer.flush();
+    filePointer.close();
+    }
 }
 
 }

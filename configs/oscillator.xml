@@ -47,7 +47,7 @@
   />
 
   <analysis
-    enabled="1"
+    enabled="0"
 
     type="vtkmcontour-composite"
 
@@ -57,6 +57,15 @@
 
     contours="0.1,0.3,0.5,0.7,0.9"
 
-    camera="spherical:32,32,32:32,32,246:0,1,0:0,15,30,45,60,75,90:0"
+    camera="spherical:32,32,32:32,32,246:0,1,0:0,10,20,30,40,50,60,70,80,90:-45,-30,-15,0,15,30,45"
+  />
+
+  <analysis
+      enabled="1"
+
+      type="volume-reduction"
+
+      working-directory="../output/volume"
+      reduction="1"
   />
 </sensei>

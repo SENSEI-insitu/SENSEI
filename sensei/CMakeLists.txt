@@ -8,7 +8,7 @@ if (ENABLE_SENSEI)
   set(sensei_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
   if(ENABLE_CINEMA)
-    list(APPEND sensei_sources CinemaHelper.cxx VTKmContourCompositeAnalysis.cxx)
+    list(APPEND sensei_sources CinemaHelper.cxx VTKmContourCompositeAnalysis.cxx VTKmVolumeReductionAnalysis.cxx)
   endif()
 
   if(ENABLE_CATALYST)

@@ -28,6 +28,7 @@
 #ifdef ENABLE_CINEMA
 #include "CatalystCinema.h"
 #include "VTKmContourCompositeAnalysis.h"
+#include "VTKmVolumeReductionAnalysis.h"
 #endif
 
 #include <vector>
@@ -112,6 +113,9 @@ public:
   // adds the VTK-m/Cinema analysis, if VTK-m features are present
   int AddVTKmContourCompositeAnalysis(MPI_Comm comm, pugi::xml_node node);
 
+  // adds the VTK-m/Cinema analysis, if VTK-m features are present
+  int AddVTKmVolumeReductionAnalysis(MPI_Comm comm, pugi::xml_node node);
+
   // adds the ADIOS analysis, if ADIOS features are present
   int AddAdios(MPI_Comm comm, pugi::xml_node node);
 
@@ -188,6 +192,28 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
   vtkNew<VTKmContourAnalysis> contour;
   contour->Initialize(comm, array.value(), value, writeOutput);
   this->Analyses.push_back(contour.GetPointer());
+  return 0;
+#endif
+  }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReductionAnalysis(MPI_Comm comm,
+  pugi::xml_node node)
+  {
+#ifndef ENABLE_CINEMA
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTK-m was requested but is disabled in this build")
+  return -1;
+#else
+  if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+    return -1;
+
+  vtkNew<VTKmVolumeReductionAnalysis> volumeReduction;
+  volumeReduction->Initialize(comm,
+    node.attribute("working-directory").value(),
+    node.attribute("reduction").as_int());
+  this->Analyses.push_back(volumeReduction.GetPointer());
   return 0;
 #endif
   }
@@ -586,7 +612,8 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
       || ((type == "libsim") && !this->Internals->AddLibsim(comm, node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))
-      || ((type == "vtkmcontour-composite") && !this->Internals->AddVTKmContourCompositeAnalysis(comm, node))))
+      || ((type == "vtkmcontour-composite") && !this->Internals->AddVTKmContourCompositeAnalysis(comm, node))
+      || ((type == "volume-reduction") && !this->Internals->AddVTKmVolumeReductionAnalysis(comm, node))))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to add '" << type << "' analysis")

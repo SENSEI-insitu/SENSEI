@@ -58,6 +58,9 @@ public:
     // Generic Methods
     void Capture(vtkSMViewProxy* view);
 
+    // Volume handling
+    void WriteVolume(vtkImageData* image);
+
 private:
     struct Internals;
     Internals *Data;
