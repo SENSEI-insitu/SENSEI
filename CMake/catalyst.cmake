@@ -4,6 +4,10 @@ if (ENABLE_CATALYST)
     list(APPEND SENSEI_PV_COMPONENTS vtkPVPythonCatalyst)
   endif()
 
+  if(ENABLE_CINEMA)
+    list(APPEND SENSEI_PV_COMPONENTS IceTCore IceTMPI IceTGL)
+  endif()
+
   find_package(ParaView COMPONENTS ${SENSEI_VTK_COMPONENTS}
     ${SENSEI_PV_COMPONENTS})
 
