@@ -1,0 +1,9 @@
+<sensei>
+  <analysis
+      enabled="1"
+
+      type="volume-reduction"
+      working-directory="/home/kitware/sjourdain/runs/04_vtkm_volume_export"
+      reduction="1"
+  />
+</sensei>

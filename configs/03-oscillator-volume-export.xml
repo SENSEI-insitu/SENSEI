@@ -1,0 +1,7 @@
+<sensei>
+  <analysis
+      enabled="1"
+      type="volume-export"
+      working-directory="/home/kitware/sjourdain/runs/03_volume_export"
+  />
+</sensei>

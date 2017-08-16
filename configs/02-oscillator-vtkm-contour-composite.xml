@@ -1,0 +1,20 @@
+<sensei>
+  <!-- Catalyst/Cinema Analyses
+    camera(type|focalPoint[3]|position[3]|viewUp[3]|phiAngles[n]|thetaAngles[n])
+    // fine: spherical:32,32,32:32,32,246:0,1,0:0,10,20,30,40,50,60,70,80,90:-45,-30,-15,0,15,30,45
+    // coarse: spherical:32,32,32:32,32,246:0,1,0:0,15,30,45,60,75,90:0
+  -->
+  <analysis
+    enabled="1"
+
+    type="vtkmcontour-composite"
+
+    working-directory="/home/kitware/sjourdain/runs/02_vtkm_contour_composite"
+    image-width="512"
+    image-height="512"
+
+    contours="0.1,0.3,0.5,0.7,0.9"
+
+    camera="spherical:32,32,32:32,32,246:0,1,0:0,10,20,30,40,50,60,70,80,90:-45,-30,-15,0,15,30,45"
+  />
+</sensei>
