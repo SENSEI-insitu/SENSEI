@@ -5,7 +5,7 @@ if (ENABLE_CATALYST)
   endif()
 
   if(ENABLE_CINEMA)
-    list(APPEND SENSEI_PV_COMPONENTS vtkicet)
+    list(APPEND SENSEI_PV_COMPONENTS vtkicet vtkPVVTKExtensionsRendering)
   endif()
 
   find_package(ParaView COMPONENTS ${SENSEI_VTK_COMPONENTS}
