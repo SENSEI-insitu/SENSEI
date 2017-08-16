@@ -12,6 +12,7 @@
 
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
+#include <vtkPointData.h>
 #include <vtkCellData.h>
 #include <vtkMultiProcessController.h>
 #include <vtkPointData.h>
@@ -242,6 +243,7 @@ struct CinemaHelper::Internals
   int NumberOfCameraArgs;
   double* CameraArgs;
   bool IsRoot;
+  int PID;
   int CurrentCameraPosition;
   std::vector<vtkSmartPointer<vtkSMRepresentationProxy>> Representations;
   std::vector<vtkSmartPointer<vtkActor>> Actors;
@@ -264,6 +266,7 @@ struct CinemaHelper::Internals
     this->ImageSize[0] = this->ImageSize[1] = 512;
     vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
     this->IsRoot = (controller->GetLocalProcessId() == 0);
+    this->PID = controller->GetLocalProcessId();
   }
 
   ~Internals()
@@ -501,7 +504,7 @@ void CinemaHelper::WriteMetadata()
       << "  \"arguments\": {"               << endl
       << this->Data->JSONCameraArgs         << endl
       << "     \"time\": {"                 << endl
-      << "        \"loop\": \"modulo\","      << endl
+      << "        \"loop\": \"modulo\","    << endl
       << "        \"ui\": \"slider\","      << endl
       << "        \"values\": ["            << endl;
 
@@ -637,7 +640,7 @@ void CinemaHelper::WriteMetadata()
     fp
       << "\n}" << endl;
     fp.flush();
-    std::cout << "Writting file: "<< filePath.str().c_str() << std::endl;
+    // std::cout << "Writting file: "<< filePath.str().c_str() << std::endl;
     }
 }
 
@@ -1285,15 +1288,29 @@ void CinemaHelper::CaptureImage(vtkSMViewProxy* view, const std::string fileName
 // --------------------------------------------------------------------------
 void CinemaHelper::WriteVolume(vtkImageData* image)
 {
-  if (image == nullptr)
-  {
-    return;
-  }
+  std::string jsonName = "volume.json";
+  std::string dataName = "volume.data";
 
-  vtkFloatArray* array = vtkFloatArray::SafeDownCast(image->GetCellData()->GetScalars());
+  if (!this->Data->IsRoot)
+    {
+      std::ostringstream json;
+      json << "volume_" << this->Data->PID << ".json";
+      jsonName = json.str();
+
+      std::ostringstream data;
+      data << "volume_" << this->Data->PID << ".data";
+      dataName = data.str();
+    }
+
+  if (image == nullptr)
+    {
+    return;
+    }
+
+  vtkFloatArray* array = vtkFloatArray::SafeDownCast(image->GetPointData()->GetScalars());
 
   // Write volume.json
-  std::string metaFileName = this->Data->getDataAbsoluteFilePath("volume.json", true);
+  std::string metaFileName = this->Data->getDataAbsoluteFilePath(jsonName, true);
   std::ofstream jsonFilePointer(metaFileName.c_str(), ios::out);
   if (jsonFilePointer.fail())
     {
@@ -1307,9 +1324,9 @@ void CinemaHelper::WriteVolume(vtkImageData* image)
     jsonFilePointer << "    \"origin\": [0, 0, 0]," << endl;
     jsonFilePointer << "    \"spacing\": [1, 1, 1]," << endl;
     jsonFilePointer << "    \"extent\": ["
-       << extent[0] << ", " << (extent[1] - 1) << ", "
-       << extent[2] << ", " << (extent[3] - 1) << ", "
-       << extent[4] << ", " << (extent[5] - 1) << "]," << endl;
+       << extent[0] << ", " << (extent[1]) << ", "
+       << extent[2] << ", " << (extent[3]) << ", "
+       << extent[4] << ", " << (extent[5]) << "]," << endl;
     jsonFilePointer << "    \"vtkClass\": \"vtkImageData\"," << endl;
     jsonFilePointer << "    \"pointData\": {" << endl;
     jsonFilePointer << "        \"vtkClass\": \"vtkDataSetAttributes\"," << endl;
@@ -1335,8 +1352,8 @@ void CinemaHelper::WriteVolume(vtkImageData* image)
     }
 
   // Write volume.data
-  std::string dataFileName = this->Data->getDataAbsoluteFilePath("volume.data", true);
-  std::cout << "write volume: " << dataFileName.c_str() << std::endl;
+  std::string dataFileName = this->Data->getDataAbsoluteFilePath(dataName, true);
+  // std::cout << "write volume: " << dataFileName.c_str() << std::endl;
   std::ofstream filePointer(dataFileName.c_str(), ios::out | ios::binary);
 
   if (filePointer.fail())
@@ -1345,10 +1362,7 @@ void CinemaHelper::WriteVolume(vtkImageData* image)
     }
   else
     {
-
-    std::cout << "array?" << array << std::endl;
     int stackSize = array->GetNumberOfTuples() * 4;
-    std::cout << "Size to write: " << stackSize << std::endl;
     filePointer.write((char*)array->GetVoidPointer(0), stackSize);
     filePointer.flush();
     filePointer.close();

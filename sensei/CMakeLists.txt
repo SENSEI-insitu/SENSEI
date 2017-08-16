@@ -8,7 +8,7 @@ if (ENABLE_SENSEI)
   set(sensei_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
   if(ENABLE_CINEMA)
-    list(APPEND sensei_sources CinemaHelper.cxx VTKmContourCompositeAnalysis.cxx VTKmVolumeReductionAnalysis.cxx)
+    list(APPEND sensei_sources CinemaHelper.cxx VTKmContourCompositeAnalysis.cxx)
   endif()
 
   if(ENABLE_CATALYST)
@@ -27,9 +27,17 @@ if (ENABLE_SENSEI)
   endif()
 
   if(ENABLE_VTK_M)
+    find_package(VTKm REQUIRED
+      OPTIONAL_COMPONENTS Serial CUDA TBB OpenGL GLUT Interop
+    )
+
     list(APPEND sensei_sources
       VTKmContourAnalysis.cxx
       VTKmContourAnalysis.h)
+
+    if(ENABLE_CINEMA)
+      list(APPEND sensei_sources VTKmVolumeReductionAnalysis.cxx)
+    endif()
   endif()
 
   if(ENABLE_LIBSIM)
@@ -52,6 +60,9 @@ if (ENABLE_SENSEI)
 
   if (ENABLE_VTK_M)
     target_compile_definitions(sensei PUBLIC ENABLE_VTK_M)
+    target_include_directories(sensei PRIVATE ${VTKm_INCLUDE_DIRS})
+    target_link_libraries(sensei PRIVATE ${VTKm_LIBRARIES})
+    target_compile_options(sensei PRIVATE ${VTKm_COMPILE_OPTIONS})
   endif()
 
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"

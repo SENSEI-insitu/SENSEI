@@ -248,6 +248,7 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
   // Create pipeline if needed
   if (!this->Pipeline->Created)
     {
+    timer::MarkStartEvent("Pipeline creation");
     this->Pipeline->Created = true;
 
     int nbContourToCreate = this->Helper->GetNumberOfContours();
@@ -255,20 +256,26 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
         {
         this->AddContour(this->Helper->GetContourValue(idx));
         }
+    timer::MarkEndEvent("Pipeline creation");
     }
 
   // Update pipeline input
+  timer::MarkStartEvent("Update pipeline input");
   std::vector<vtkSmartPointer<vtkCellDataToPointData>>::iterator filterIter;
   for (filterIter = this->Pipeline->Cell2Point.begin(); filterIter != this->Pipeline->Cell2Point.end();++filterIter)
     {
     (*filterIter)->SetInputData(mesh);
     }
-
+  timer::MarkEndEvent("Update pipeline input");
 
   if (!this->Pipeline->RenderingCreated)
     {
+    timer::MarkStartEvent("Create rendering");
     this->Pipeline->CreateRendering(controller);
+    timer::MarkEndEvent("Create rendering");
     }
+
+  timer::MarkStartEvent("Cinema Composite contours export");
   int nbCamera = this->Helper->GetNumberOfCameraPositions();
   for (int i = 0; i < nbCamera; i++)
   {
@@ -277,8 +284,7 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
     this->Helper->CaptureSortedCompositeData(this->Pipeline->RenderWindow, this->Pipeline->Renderer, this->Pipeline->CameraPass, this->Pipeline->IceTCompositePass, this->Pipeline->LightingMapPass);
   }
   this->Helper->WriteMetadata();
-
-  cout << "Done " << controller->GetLocalProcessId() << endl;
+  timer::MarkEndEvent("Cinema Composite contours export");
 
   return true;
 }

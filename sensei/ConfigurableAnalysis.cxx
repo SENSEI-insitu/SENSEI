@@ -13,6 +13,9 @@
 #include "Histogram.h"
 #ifdef ENABLE_VTK_M
 # include "VTKmContourAnalysis.h"
+#ifdef ENABLE_CINEMA
+# include "VTKmVolumeReductionAnalysis.h"
+#endif
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
@@ -28,7 +31,6 @@
 #ifdef ENABLE_CINEMA
 #include "CatalystCinema.h"
 #include "VTKmContourCompositeAnalysis.h"
-#include "VTKmVolumeReductionAnalysis.h"
 #endif
 
 #include <vector>
