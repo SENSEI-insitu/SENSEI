@@ -5,7 +5,7 @@ if (ENABLE_CATALYST)
   endif()
 
   if(ENABLE_CINEMA)
-    list(APPEND SENSEI_PV_COMPONENTS IceTCore IceTMPI IceTGL)
+    list(APPEND SENSEI_PV_COMPONENTS vtkicet)
   endif()
 
   find_package(ParaView COMPONENTS ${SENSEI_VTK_COMPONENTS}
