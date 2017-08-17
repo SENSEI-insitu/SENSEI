@@ -104,7 +104,7 @@ public:
   }
 
   template <typename Policy, typename Device>
-  VTKM_CONT vtkm::filter::ResultDataSet DoExecute(const vtkm::cont::DataSet& input,
+  VTKM_CONT vtkm::filter::Result DoExecute(const vtkm::cont::DataSet& input,
                                                   vtkm::filter::PolicyBase<Policy> policy,
                                                   Device)
 
@@ -149,7 +149,7 @@ public:
 
     // vtkm::cont::printSummary_ArrayHandle(out, std::cout);
 
-    return vtkm::filter::ResultDataSet(output);
+    return vtkm::filter::Result(output);
   }
 };
 
@@ -232,7 +232,7 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
   // - create and execute filter
   ImageReduction filter;
   filter.SetInputDimensions(ijkSize[0], ijkSize[1], ijkSize[2]);
-  vtkm::filter::ResultDataSet rdata = filter.Execute(dataset, ImageReductionPolicy());
+  vtkm::filter::Result rdata = filter.Execute(dataset, ImageReductionPolicy());
 
   // - recover data from vtkm
   vtkm::cont::ArrayHandle<vtkm::Float32> tmp;
