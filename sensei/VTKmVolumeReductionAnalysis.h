@@ -24,6 +24,7 @@ protected:
 
   MPI_Comm Communicator;
   CinemaHelper* Helper;
+  int Reduction;
 private:
   VTKmVolumeReductionAnalysis(const VTKmVolumeReductionAnalysis&);
   void operator=(const VTKmVolumeReductionAnalysis&);

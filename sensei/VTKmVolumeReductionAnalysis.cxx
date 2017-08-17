@@ -174,6 +174,7 @@ void VTKmVolumeReductionAnalysis::Initialize(
   MPI_Comm comm, const std::string& workingDirectory, int reductionFactor)
 {
   this->Communicator = comm;
+  this->Reduction = reductionFactor;
 
   vtkNew<vtkMPICommunicator> vtkComm;
   vtkMPICommunicatorOpaqueComm h(&this->Communicator);
@@ -211,47 +212,65 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
     return true;
   }
 
-  timer::MarkStartEvent("VTKm reduction");
-  // Data preparation
-  vtkFloatArray* dataArray = vtkFloatArray::SafeDownCast(originalImageData->GetCellData()->GetScalars());
-  float* inFloat = dataArray->GetPointer(0);
-  int* ijkSize = originalImageData->GetDimensions();
-  ijkSize[0]--; // cell data to point data
-  ijkSize[1]--; // cell data to point data
-  ijkSize[2]--; // cell data to point data
-  int size = ijkSize[0] * ijkSize[1] * ijkSize[2];
-
-  // --- vtk-m filtering ---
-  // - create vtkm dataset
-  vtkm::cont::ArrayHandle<vtkm::Float32> handle = vtkm::cont::make_ArrayHandle(inFloat, size);
-  vtkm::cont::DataSetBuilderUniform builder;
-  vtkm::cont::DataSet dataset = builder.Create(vtkm::Id3(ijkSize[0], ijkSize[1], ijkSize[2]));
-  vtkm::cont::Field scalarField("scalar", vtkm::cont::Field::ASSOC_POINTS, handle);
-  dataset.AddField(scalarField);
-
-  // - create and execute filter
-  ImageReduction filter;
-  filter.SetInputDimensions(ijkSize[0], ijkSize[1], ijkSize[2]);
-  vtkm::filter::Result rdata = filter.Execute(dataset, ImageReductionPolicy());
-
-  // - recover data from vtkm
-  vtkm::cont::ArrayHandle<vtkm::Float32> tmp;
-  rdata.GetDataSet().GetField("scalar", vtkm::cont::Field::ASSOC_POINTS).GetData().CopyTo(tmp);
-  float* t = tmp.GetStorage().GetArray();
-
-  // - rebuild regular vtkImageData
-  int newDims[3] = { int((ijkSize[0] + 1) / 2), int((ijkSize[1] + 1) / 2), int((ijkSize[2] + 1) / 2) };
-  int reducedSize = newDims[0] * newDims[1] * newDims[2];
-  // std::cout << "New dimensions: "<< newDims[0] << ", " << newDims[1] << ", " << newDims[2] << std::endl;
-
-  vtkNew<vtkFloatArray> scalars;
-  scalars->SetName("scalars");
-  scalars->SetArray(t, reducedSize, 1);
-
   vtkNew<vtkImageData> outputDataSet;
-  outputDataSet->SetDimensions(newDims[0], newDims[1], newDims[2]);
-  outputDataSet->GetPointData()->SetScalars(scalars);
-  timer::MarkEndEvent("VTKm reduction");
+  if (this->Reduction > 0)
+    {
+    timer::MarkStartEvent("VTKm reduction");
+    int dimensions[3];
+    originalImageData->GetDimensions(dimensions);
+    vtkNew<vtkFloatArray> dataArray;
+    dataArray->ShallowCopy(vtkFloatArray::SafeDownCast(originalImageData->GetCellData()->GetScalars()));
+    vtkm::cont::ArrayHandle<vtkm::Float32> vtkmArray;
+    for (int step = 0 ; step < this->Reduction; step++)
+      {
+      // Data preparation
+      float* inFloat = dataArray->GetPointer(0);
+      dimensions[0]--; // cell data to point data
+      dimensions[1]--; // cell data to point data
+      dimensions[2]--; // cell data to point data
+      int size = dimensions[0] * dimensions[1] * dimensions[2];
+
+      // --- vtk-m filtering ---
+      // - create vtkm dataset
+      vtkm::cont::ArrayHandle<vtkm::Float32> handle = vtkm::cont::make_ArrayHandle(inFloat, size);
+      vtkm::cont::DataSetBuilderUniform builder;
+      vtkm::cont::DataSet dataset = builder.Create(vtkm::Id3(dimensions[0], dimensions[1], dimensions[2]));
+      vtkm::cont::Field scalarField("scalar", vtkm::cont::Field::ASSOC_POINTS, handle);
+      dataset.AddField(scalarField);
+
+      // - create and execute filter
+      ImageReduction filter;
+      filter.SetInputDimensions(dimensions[0], dimensions[1], dimensions[2]);
+      vtkm::filter::Result rdata = filter.Execute(dataset, ImageReductionPolicy());
+
+      // - recover data from vtkm
+      rdata.GetDataSet().GetField("scalar", vtkm::cont::Field::ASSOC_POINTS).GetData().CopyTo(vtkmArray);
+      float* t = vtkmArray.GetStorage().GetArray();
+
+      // - rebuild regular vtkImageData
+      int newDims[3] = { int((dimensions[0] + 1) / 2), int((dimensions[1] + 1) / 2), int((dimensions[2] + 1) / 2) };
+      int reducedSize = newDims[0] * newDims[1] * newDims[2];
+
+      // Update dimensions and array
+      dimensions[0] = newDims[0];
+      dimensions[1] = newDims[1];
+      dimensions[2] = newDims[2];
+      dataArray->SetArray(t, reducedSize, 1);
+      }
+    outputDataSet->SetDimensions(dimensions[0], dimensions[1], dimensions[2]);
+    outputDataSet->GetPointData()->SetScalars(dataArray);
+    timer::MarkEndEvent("VTKm reduction");
+    }
+  else
+    {
+    int dim[3];
+    originalImageData->GetDimensions(dim);
+    dim[0]--; // cell data to point data
+    dim[1]--; // cell data to point data
+    dim[2]--; // cell data to point data
+    outputDataSet->SetDimensions(dim[0], dim[1], dim[2]);
+    outputDataSet->GetPointData()->SetScalars(originalImageData->GetCellData()->GetScalars());
+    }
 
   // -----------------------
 

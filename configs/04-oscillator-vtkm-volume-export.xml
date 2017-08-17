@@ -4,6 +4,6 @@
 
       type="volume-reduction"
       working-directory="/home/kitware/sjourdain/runs/04_vtkm_volume_export"
-      reduction="1"
+      reduction="2"
   />
 </sensei>
