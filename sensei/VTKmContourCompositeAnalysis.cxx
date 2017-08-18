@@ -6,9 +6,7 @@
 #include <vtkActor.h>
 #include <vtkCamera.h>
 #include <vtkCameraPass.h>
-#include <vtkCompositePolyDataMapper.h>
-#include <vtkContourFilter.h>
-#include <vtkExtractSurface.h>
+#include <vtkmContourMapper.h>
 #include <vtkIceTCompositePass.h>
 #include <vtkLightsPass.h>
 #include <vtkMPICommunicator.h>
@@ -43,9 +41,7 @@ namespace sensei
 struct PipelineHandler
 {
     std::vector<vtkSmartPointer<vtkCellDataToPointData>> Cell2Point;
-    std::vector<vtkSmartPointer<vtkContourFilter>> Contours;
-    std::vector<vtkSmartPointer<vtkCompositeDataGeometryFilter>> ExtractSurface;
-    std::vector<vtkSmartPointer<vtkCompositePolyDataMapper>> Mappers;
+    std::vector<vtkSmartPointer<vtkmContourMapper>> Mappers;
     std::vector<vtkSmartPointer<vtkActor>> Actors;
 
     vtkSmartPointer<vtkIceTCompositePass> IceTCompositePass;
@@ -201,22 +197,16 @@ void VTKmContourCompositeAnalysis::Initialize(
 void VTKmContourCompositeAnalysis::AddContour(double value)
 {
     vtkNew<vtkCellDataToPointData> cell2Point;
-    vtkNew<vtkContourFilter> contour;
-    vtkNew<vtkCompositeDataGeometryFilter> surface;
-    vtkNew<vtkCompositePolyDataMapper> mapper;
+    vtkNew<vtkmContourMapper> mapper;
     vtkNew<vtkActor> actor;
 
-    contour->SetInputConnection(cell2Point->GetOutputPort());
-    surface->SetInputConnection(contour->GetOutputPort());
-    mapper->SetInputConnection(surface->GetOutputPort());
+    mapper->SetInputConnection(cell2Point->GetOutputPort());
     actor->SetMapper(mapper);
 
-    contour->SetNumberOfContours(1);
-    contour->SetValue(0, value);
+    mapper->SetNumberOfContours(1);
+    mapper->SetValue(0, value);
 
     this->Pipeline->Cell2Point.push_back(cell2Point.GetPointer());
-    this->Pipeline->Contours.push_back(contour.GetPointer());
-    this->Pipeline->ExtractSurface.push_back(surface.GetPointer());
     this->Pipeline->Mappers.push_back(mapper.GetPointer());
     this->Pipeline->Actors.push_back(actor.GetPointer());
 
