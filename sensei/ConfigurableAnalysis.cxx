@@ -31,6 +31,7 @@
 #ifdef ENABLE_CINEMA
 #include "CatalystCinema.h"
 #include "VTKmContourCompositeAnalysis.h"
+#include "VTKOnlyContourCompositeAnalysis.h"
 #endif
 
 #include <vector>
@@ -114,6 +115,9 @@ public:
 
   // adds the VTK-m/Cinema analysis, if VTK-m features are present
   int AddVTKmContourCompositeAnalysis(MPI_Comm comm, pugi::xml_node node);
+
+  // adds the VTK-m/Cinema analysis, if VTK-m features are present
+  int AddVTKOnlyContourCompositeAnalysis(MPI_Comm comm, pugi::xml_node node);
 
   // adds the VTK-m/Cinema analysis, if VTK-m features are present
   int AddVTKmVolumeReductionAnalysis(MPI_Comm comm, pugi::xml_node node);
@@ -238,6 +242,34 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContourCompositeAnalysis(MPI_Com
   imageSize[1] = node.attribute("image-height").as_int();
 
   vtkNew<VTKmContourCompositeAnalysis> contourComposite;
+  contourComposite->Initialize(comm,
+    node.attribute("working-directory").value(),
+    imageSize,
+    node.attribute("contours").value(),
+    node.attribute("camera").value());
+  this->Analyses.push_back(contourComposite.GetPointer());
+  return 0;
+#endif
+  }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKOnlyContourCompositeAnalysis(MPI_Comm comm,
+  pugi::xml_node node)
+  {
+#ifndef ENABLE_CINEMA
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTK-m was requested but is disabled in this build")
+  return -1;
+#else
+  if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+    return -1;
+
+  int imageSize[2];
+  imageSize[0] = node.attribute("image-width").as_int();
+  imageSize[1] = node.attribute("image-height").as_int();
+
+  vtkNew<VTKOnlyContourCompositeAnalysis> contourComposite;
   contourComposite->Initialize(comm,
     node.attribute("working-directory").value(),
     imageSize,
@@ -615,6 +647,7 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))
       || ((type == "vtkmcontour-composite") && !this->Internals->AddVTKmContourCompositeAnalysis(comm, node))
+      || ((type == "vtkcontour-composite") && !this->Internals->AddVTKOnlyContourCompositeAnalysis(comm, node))
       || ((type == "volume-reduction") && !this->Internals->AddVTKmVolumeReductionAnalysis(comm, node))))
       {
       if (rank == 0)
