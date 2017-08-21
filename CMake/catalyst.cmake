@@ -8,7 +8,7 @@ if (ENABLE_CATALYST)
     list(APPEND SENSEI_PV_COMPONENTS
       vtkicet
       vtkPVVTKExtensionsRendering
-      vtkAcceleratorsVtkmRendering
+      vtkAcceleratorsVtkm
     )
   endif()
 
