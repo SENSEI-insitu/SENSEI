@@ -1,3 +1,20 @@
+#include "ADIOSDataAdaptor.h"
+#include "ConfigurableAnalysis.h"
+#include "Timer.h"
+#include "Error.h"
+
+#include <opts/opts.h>
+
+#include <mpi.h>
+#include <iostream>
+#include <vtkNew.h>
+#include <vtkSmartPointer.h>
+#include <vtkDataSet.h>
+
+using DataAdaptorPtr = vtkSmartPointer<sensei::ADIOSDataAdaptor>;
+using AnalysisAdaptorPtr = vtkSmartPointer<sensei::ConfigurableAnalysis>;
+
+
 /*!
  * This program is designed to be an endpoint component in a scientific
  * workflow. It can read a data-stream using ADIOS-FLEXPATH. When enabled, this end point
@@ -6,20 +23,12 @@
  * Usage:
  *  <exec> input-stream-name
  */
-#include <opts/opts.h>
-#include <mpi.h>
-#include <iostream>
-#include <ADIOSDataAdaptor.h>
-#include <ConfigurableAnalysis.h>
-#include <Timer.h>
-#include <vtkNew.h>
-#include <vtkDataSet.h>
 
 using std::cout;
 using std::cerr;
 using std::endl;
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   int rank, size;
   MPI_Comm comm = MPI_COMM_WORLD;
@@ -37,16 +46,23 @@ int main(int argc, char** argv)
 
   bool log = ops >> opts::Present("log", "generate time and memory usage log");
   bool shortlog = ops >> opts::Present("shortlog", "generate a summary time and memory usage log");
-  if (ops >> opts::Present('h', "help", "show help") ||
-    !(ops >> opts::PosOption(input)) ||
-    config_file.empty())
+  bool showHelp = ops >> opts::Present('h', "help", "show help");
+  bool haveInput = ops >> opts::PosOption(input);
+
+  if (!showHelp && !haveInput && (rank == 0))
+    SENSEI_ERROR("Missing ADIOS input stream")
+
+  if (!showHelp && config_file.empty() && (rank == 0))
+    SENSEI_ERROR("Missing XML analysis configuration")
+
+  if (showHelp || !haveInput || config_file.empty())
     {
     if (rank == 0)
       {
-      cout << "Usage: " << argv[0] << "[OPTIONS] input-stream-name\n\n" << ops;
+      cerr << "Usage: " << argv[0] << "[OPTIONS] input-stream-name\n\n" << ops << endl;
       }
-    MPI_Barrier(comm);
-    return 1;
+    MPI_Finalize();
+    return showHelp ? 0 : 1;
     }
 
   timer::SetLogging(log || shortlog);
@@ -59,40 +75,68 @@ int main(int argc, char** argv)
   readmethods["dimes"] = ADIOS_READ_METHOD_DIMES;
   readmethods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
 
-  vtkSmartPointer<sensei::ConfigurableAnalysis> analysis =
-    vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-  analysis->Initialize(comm, config_file);
+  SENSEI_STATUS("Opening: \"" << input.c_str() << "\" using method \""
+    << readmethod.c_str() << "\"")
 
-  cout << "Opening: '" << input.c_str() << "' using '" << readmethod.c_str() << "'" << endl;
-  vtkNew<sensei::ADIOSDataAdaptor> dataAdaptor;
-  dataAdaptor->Open(comm, readmethods[readmethod], input);
-  cout << "Done opening  '" << input.c_str() << "'" << endl;
+  // open the ADIOS stream using the ADIOS adaptor
+  DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
+  if (dataAdaptor->Open(comm, readmethods[readmethod], input))
+    {
+    SENSEI_ERROR("Failed to open \"" << input << "\"")
+    MPI_Abort(comm, 1);
+    }
 
-  int t_count = 0;
-  double t = 0.0;
+  // initlaize the analysis using the XML configurable adaptor
+  SENSEI_STATUS("Loading configurable analysis \"" << config_file << "\"")
+
+  AnalysisAdaptorPtr analysisAdaptor = AnalysisAdaptorPtr::New();
+  analysisAdaptor->Initialize(comm, config_file);
+
+  // read from the ADIOS stream until all steps have been
+  // processed
+  unsigned int nSteps = 0;
   do
     {
-    timer::MarkStartTimeStep(t_count, t);
+    // gte the current simulation time and time step
+    long timeStep = dataAdaptor->GetDataTimeStep();
+    double time = dataAdaptor->GetDataTime();
+    nSteps += 1;
 
-    timer::MarkStartEvent("adios::advance");
-    // request reading of meta-data for this step.
-    dataAdaptor->ReadStep();
-    timer::MarkEndEvent("adios::advance");
+    timer::MarkStartTimeStep(timeStep, time);
 
-    timer::MarkStartEvent("adios::analysis");
-    analysis->Execute(dataAdaptor.GetPointer());
-    timer::MarkEndEvent("adios::analysis");
+    SENSEI_STATUS("Processing time step " << timeStep << " time " << time)
 
+    // execute the analysis
+    timer::MarkStartEvent("AnalysisAdaptor::Execute");
+    if (!analysisAdaptor->Execute(dataAdaptor.Get()))
+      {
+      SENSEI_ERROR("Execute failed")
+      MPI_Abort(comm, 1);
+      }
+    timer::MarkEndEvent("AnalysisAdaptor::Execute");
+
+    // let the data adaptor release the mesh and data from this
+    // time step
     dataAdaptor->ReleaseData();
 
     timer::MarkEndTimeStep();
     }
-  while (dataAdaptor->Advance());
+  while (!dataAdaptor->Advance());
 
-  timer::MarkStartEvent("adios::finalize");
-  analysis = NULL;
-  timer::MarkEndEvent("adios::finalize");
+  SENSEI_STATUS("Finished processing " << nSteps << " time steps")
+
+  // close the ADIOS stream
+  dataAdaptor->Close();
+
+  // we must force these to be destroyed before mpi finalize
+  // some of the adaptors make MPI calls in the destructor
+  // noteabley Catalyst
+  dataAdaptor = nullptr;
+  analysisAdaptor = nullptr;
 
   timer::PrintLog(std::cout, comm);
+
+  MPI_Finalize();
+
   return 0;
 }

@@ -13,8 +13,8 @@ if (ENABLE_SENSEI)
   endif()
 
   if(ENABLE_ADIOS)
-    list(APPEND sensei_sources ADIOSAnalysisAdaptor.cxx
-      ADIOSDataAdaptor.cxx)
+    list(APPEND sensei_sources ADIOSSchema.cxx
+      ADIOSAnalysisAdaptor.cxx ADIOSDataAdaptor.cxx)
     list(APPEND sensei_libs adios)
   endif()
 

@@ -1,313 +1,335 @@
 #include "ADIOSDataAdaptor.h"
 
-#include <Timer.h>
+#include "Error.h"
+#include "Timer.h"
+#include "ADIOSSchema.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
+#include <vtkDataSet.h>
+
+#include <sstream>
+
+using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
+using ArrayMapType = std::map<int,std::vector<std::string>>;
 
 namespace sensei
 {
-namespace internals
+struct ADIOSDataAdaptor::InternalsType
 {
-  vtkDataArray* createVTKArray(ADIOS_DATATYPES type)
-    {
-    switch (type)
-      {
-    case adios_real:
-      return vtkFloatArray::New();
-    case adios_double:
-      return vtkDoubleArray::New();
-    default:
-      abort();
-      }
-    }
+  InternalsType() : Comm(MPI_COMM_WORLD), File(nullptr),
+    Mesh(nullptr), StaticMesh(0), StructureOnly(0) {}
 
-  vtkSmartPointer<vtkDataSet> ReadBlockMetaData(int blockno, ADIOS_FILE* file)
-    {
-    vtkSmartPointer<vtkImageData> img = vtkSmartPointer<vtkImageData>::New();
-
-    ADIOS_SELECTION* selection = adios_selection_writeblock(blockno);
-
-    double origin[3], spacing[3];
-    int extent[6];
-    adios_schedule_read(file, selection, "block/origin", 0, 1, origin);
-    adios_schedule_read(file, selection, "block/spacing", 0, 1, spacing);
-    adios_schedule_read(file, selection, "block/extents", 0, 1, extent);
-    adios_perform_reads(file, 1);
-
-    img->SetOrigin(origin);
-    img->SetSpacing(spacing);
-    img->SetExtent(extent);
-    return img;
-    }
-
-  void ReleaseData(vtkDataSet* ds)
-    {
-    if (ds)
-      {
-      ds->GetAttributes(vtkDataObject::CELL)->Initialize();
-      ds->GetAttributes(vtkDataObject::POINT)->Initialize();
-      }
-    }
-
-  void ReleaseData(vtkDataObject* dobj)
-    {
-    if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
-      {
-      vtkSmartPointer<vtkCompositeDataIterator> iter;
-      iter.TakeReference(cd->NewIterator());
-      for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
-        {
-        ReleaseData(vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()));
-        }
-      }
-    else
-      {
-      ReleaseData(vtkDataSet::SafeDownCast(dobj));
-      }
-    }
+  MPI_Comm Comm;
+  ADIOS_FILE *File;
+  senseiADIOS::DataObjectSchema Schema;
+  vtkDataObjectPtr Mesh;
+  ArrayMapType ArrayNames;
+  int StaticMesh;
+  int StructureOnly;
+};
 
 
-  bool AddArray(vtkDataSet* ds, int association, const std::string& arrayname,
-    unsigned int block, ADIOS_FILE* file)
-    {
-    std::string path = (association == vtkDataObject::CELL)?
-      "block/celldata/" : "block/pointdata";
-    path += arrayname;
-
-    ADIOS_VARINFO* varinfo = adios_inq_var(file, path.c_str());
-    vtkDataArray* vtkarray = createVTKArray(varinfo->type);
-    adios_free_varinfo(varinfo);
-
-    vtkarray->SetName(arrayname.c_str());
-    vtkarray->SetNumberOfTuples(
-      association == vtkDataObject::FIELD_ASSOCIATION_POINTS?
-      ds->GetNumberOfPoints() : ds->GetNumberOfCells());
-
-    ADIOS_SELECTION* selection = adios_selection_writeblock(block);
-    adios_schedule_read(file, selection, path.c_str(), 0, 1, vtkarray->GetVoidPointer(0));
-    ds->GetAttributes(association)->AddArray(vtkarray);
-    vtkarray->FastDelete();
-    vtkarray->Modified();
-    return true;
-    }
-}
-
-senseiNewMacro(ADIOSDataAdaptor);
 //----------------------------------------------------------------------------
-ADIOSDataAdaptor::ADIOSDataAdaptor()
-  : File(NULL), Comm(MPI_COMM_WORLD)
+senseiNewMacro(ADIOSDataAdaptor);
+
+//----------------------------------------------------------------------------
+ADIOSDataAdaptor::ADIOSDataAdaptor() : Internals(nullptr)
 {
+  this->Internals = new InternalsType;
 }
 
 //----------------------------------------------------------------------------
 ADIOSDataAdaptor::~ADIOSDataAdaptor()
 {
+  delete this->Internals;
 }
 
 //----------------------------------------------------------------------------
-bool ADIOSDataAdaptor::Open(MPI_Comm comm,
+void ADIOSDataAdaptor::EnableDynamicMesh(int val)
+{
+  this->Internals->StaticMesh = val ? 0 : 1;
+}
+
+//----------------------------------------------------------------------------
+int ADIOSDataAdaptor::Open(MPI_Comm comm,
   ADIOS_READ_METHOD method, const std::string& filename)
 {
-  timer::MarkEvent mark("adios::dataadaptor::open");
+  timer::MarkEvent mark("ADIOSDataAdaptor::Open");
 
-  this->Comm = comm;
-  adios_read_init_method (method, comm, "verbose=1");
-  this->File = adios_read_open(filename.c_str(), method, comm, ADIOS_LOCKMODE_ALL, -1);
+  // initialize adios
+  adios_read_init_method(method, comm, "verbose=2");
 
-  int mpi_size, version, data_type, extents[6];
-  int64_t num_blocks, num_points, num_cells, ntimestep;
-  double time;
+  // open the file
+  ADIOS_FILE *fp = adios_read_open(filename.c_str(),
+    method, comm, ADIOS_LOCKMODE_ALL, -1);
 
-  adios_schedule_read(this->File, NULL, "mpi_size", 0, 1, &mpi_size);
-  adios_schedule_read(this->File, NULL, "data_type", 0, 1, &data_type);
-  adios_schedule_read(this->File, NULL, "version", 0, 1, &version);
-  adios_schedule_read(this->File, NULL, "extents", 0, 1, extents);
-
-  adios_schedule_read(this->File, NULL, "num_blocks", 0, 1, &num_blocks);
-  adios_schedule_read(this->File, NULL, "num_points", 0, 1, &num_points);
-  adios_schedule_read(this->File, NULL, "num_cells", 0, 1, &num_cells);
-  adios_schedule_read(this->File, NULL, "ntimestep", 0, 1, &ntimestep);
-  adios_schedule_read(this->File, NULL, "time", 0, 1, &time);
-  adios_perform_reads(this->File, 1);
-
-  if (num_blocks == 1)
+  if (!fp)
     {
-    num_blocks = num_blocks * mpi_size;
+    SENSEI_ERROR("failed to open " << filename)
+    return -1;
     }
 
-  int size, rank;
-  MPI_Comm_size(comm, &size);
-  MPI_Comm_rank(this->Comm, &rank);
-  if (size > num_blocks)
+  // verify that it is one of ours
+  if (this->Internals->Schema.CanRead(fp))
     {
-    cerr << "MPI group size cannot be smaller than number of blocks in the dataset!" << endl;
-    abort();
-    return false;
+    adios_read_close(fp);
+    SENSEI_ERROR("Failed to open \"" << filename << "\". Stream "
+      "was not written in the SENSEI ADIOS schema format")
+    return -1;
     }
 
-  if (size == num_blocks)
-    {
-    this->Mesh = internals::ReadBlockMetaData(rank, this->File);
-    }
-  else
-    {
-    vtkMultiBlockDataSet* mb = vtkMultiBlockDataSet::New();
-    mb->SetNumberOfBlocks(num_blocks);
+  //
+  this->Internals->Comm = comm;
+  this->Internals->File = fp;
 
-    int64_t blocks_to_read = num_blocks / size;
-    int64_t remainder = num_blocks % size;
+  // initialize the time step
+  if (this->UpdateTimeStep())
+    return -1;
 
-    int64_t start_block = (rank >= remainder)?
-      ((remainder * ( blocks_to_read + 1)) + (rank - remainder) * blocks_to_read) :
-      rank * (blocks_to_read + 1);
-    blocks_to_read += (rank < remainder)?  1 : 0;
-
-    for (int64_t cc = start_block; cc < start_block + blocks_to_read; ++cc)
-      {
-      mb->SetBlock(static_cast<unsigned int>(cc), internals::ReadBlockMetaData(cc, this->File));
-      }
-    this->Mesh.TakeReference(mb);
-    }
-  this->GetInformation()->Set(vtkDataObject::DATA_EXTENT(), extents, 6);
-
-  this->AssociatedArrays.clear();
-  for (int cc=0; cc < this->File->nvars; ++cc)
-    {
-    int association = vtkDataObject::FIELD_ASSOCIATION_POINTS;
-    const char* name = NULL;
-    if (strncmp(this->File->var_namelist[cc], "block/celldata/", strlen("block/celldata/")) == 0)
-      {
-      association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
-      name = this->File->var_namelist[cc] + strlen("block/celldata/");
-      }
-    else if (strncmp(this->File->var_namelist[cc], "block/point/", strlen("block/point/")) == 0)
-      {
-      association = vtkDataObject::FIELD_ASSOCIATION_POINTS;
-      name = this->File->var_namelist[cc] + strlen("block/point/");
-      }
-    // TODO: handle all other possible assocations.
-    if (!name) { continue; }
-    this->AssociatedArrays[association][name] = false;
-    }
-
-  return adios_errno != err_end_of_stream;
+  return 0;
 }
 
 //----------------------------------------------------------------------------
-bool ADIOSDataAdaptor::Advance()
+int ADIOSDataAdaptor::Close()
 {
-  adios_release_step(this->File);
-  return adios_advance_step(this->File, 0, /*timeout*/0.5) == 0;
+  timer::MarkEvent mark("ADIOSDataAdaptor::Close");
+
+  this->Internals->Mesh = 0;
+  this->Internals->ArrayNames[vtkDataObject::POINT].clear();
+  this->Internals->ArrayNames[vtkDataObject::CELL].clear();
+
+  if (this->Internals->File)
+    adios_read_close(this->Internals->File);
+
+  this->Internals->File = nullptr;
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------
-bool ADIOSDataAdaptor::ReadStep()
+int ADIOSDataAdaptor::Advance()
 {
-  timer::MarkStartEvent("adios::dataadaptor::read-timestep-metadata");
+  timer::MarkEvent mark("ADIOSDataAdaptor::Advance");
 
-  int tstep = 0; double time = 0;
-  ADIOS_FILE* f = this->File;
-  adios_schedule_read(f, NULL, "ntimestep", 0, 1, &tstep);
-  adios_schedule_read(f, NULL, "time", 0, 1, &time);
-  adios_perform_reads(f, 1);
-  this->SetDataTimeStep(tstep);
-  this->SetDataTime(time);
-  timer::MarkEndEvent("adios::dataadaptor::read-timestep-metadata");
-  return true;
-}
+  adios_release_step(this->Internals->File);
 
-//----------------------------------------------------------------------------
-vtkDataObject* ADIOSDataAdaptor::GetMesh(bool /*structure_only*/)
-{
-  return this->Mesh;
-}
-
-//----------------------------------------------------------------------------
-  bool ADIOSDataAdaptor::AddArray(vtkDataObject* mesh, int association, const std::string& arrayname)
-{
-  ArraysType& arrays = this->AssociatedArrays[association];
-  ArraysType::iterator iter = arrays.find(arrayname);
-  if (iter == arrays.end())
+  if (adios_advance_step(this->Internals->File, 0, /*timeout*/0.0))
     {
-    return false;
-    }
-
-  if (iter->second == false)
-    {
-    timer::MarkEvent mark("adios::dataadaptor::read-arrays");
-    if (vtkDataSet* image = vtkDataSet::SafeDownCast(mesh))
+    /* TODO -- according to adios documentation adios_errno should be
+    // err_end_of_stream when we have processed all time steps
+    // however it is err_step_notready.
+    if (adios_errno != err_end_of_stream)
       {
-      int rank;
-      MPI_Comm_rank(this->Comm, &rank);
-      if (internals::AddArray(image, association, arrayname, rank, this->File) == false)
-        {
-        return false;
-        }
+      SENSEI_ERROR("Failed to advance to next time step")
+      return -1;
       }
     else
-      {
-      vtkMultiBlockDataSet* mb = vtkMultiBlockDataSet::SafeDownCast(mesh);
-      for (unsigned int cc=0, max = mb->GetNumberOfBlocks(); cc < max; ++cc)
-        {
-        if (vtkDataSet* ds = vtkDataSet::SafeDownCast(mb->GetBlock(cc)))
-          {
-          if (internals::AddArray(ds, association, arrayname, cc, this->File) == false)
-            {
-            return false;
-            }
-          }
-        }
-      }
-    adios_perform_reads(this->File, 1);
-    iter->second = true;
+      return 1;*/
+    return 1;
     }
+
+  if (this->UpdateTimeStep())
+    return -1;
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int ADIOSDataAdaptor::UpdateTimeStep()
+{
+  timer::MarkEvent mark("ADIOSDataAdaptor::UpdateTimeStep");
+
+  // update data object time and time step
+  unsigned long timeStep = 0;
+  double time = 0.0;
+
+  if (this->Internals->Schema.ReadTimeStep(this->Internals->File,
+    timeStep, time))
+    {
+    SENSEI_ERROR("Failed to update time step")
+    return -1;
+    }
+
+  this->SetDataTimeStep(timeStep);
+  this->SetDataTime(time);
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+vtkDataObject* ADIOSDataAdaptor::GetMesh(bool structure_only)
+{
+  timer::MarkEvent mark("ADIOSDataAdaptor::GetMesh");
+
+  // if the mesh is static, we've already read it in, and it
+  // has the desired structure  then we can return the cached
+  // instance
+  if (this->Internals->StaticMesh && this->Internals->Mesh.Get() &&
+    (structure_only == this->Internals->StructureOnly))
+    return this->Internals->Mesh.Get();
+
+  // get the mesh at the current time step
+  vtkDataObject *mesh = nullptr;
+  if (this->Internals->Schema.ReadMesh(this->Internals->Comm,
+    this->Internals->File, structure_only, mesh))
+    {
+    SENSEI_ERROR("Failed to read mesh")
+    return nullptr;
+    }
+
+  // cache the mesh, making a note of the structure
+  this->Internals->Mesh.TakeReference(mesh);
+  this->Internals->StructureOnly = structure_only;
+
+  // discover the available array names
+  // point data arrays
+  std::set<std::string> point_arrays;
+  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
+    this->Internals->File, mesh, vtkDataObject::POINT, point_arrays))
+    {
+    SENSEI_ERROR("Failed to read point associated array names")
+    return nullptr;
+    }
+  this->Internals->ArrayNames[vtkDataObject::POINT].assign(
+    point_arrays.begin(), point_arrays.end());
+
+  // cell data arrays
+  std::set<std::string> cell_arrays;
+  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
+    this->Internals->File, mesh, vtkDataObject::CELL, cell_arrays))
+    {
+    SENSEI_ERROR("Failed to read cell associated array names")
+    return nullptr;
+    }
+  this->Internals->ArrayNames[vtkDataObject::CELL].assign(
+    cell_arrays.begin(), cell_arrays.end());
+
+  return mesh;
+}
+
+//----------------------------------------------------------------------------
+std::string ADIOSDataAdaptor::GetAvailableArrays(int association)
+{
+
+  // if the mesh has not been initialized then do so now
+  if (!this->Internals->Mesh && !this->GetMesh(false))
+    return "";
+
+  std::ostringstream arrays;
+  int nArrays = this->GetNumberOfArrays(association);
+  if (nArrays)
+    {
+    arrays << "\"" << this->GetArrayName(association, 0) << "\"";
+    for (int i = 1; i < nArrays; ++i)
+      arrays << ", \"" << this->GetArrayName(association, i) << "\"";
+    }
+  else
+    arrays << "{}";
+  return arrays.str();
+}
+
+//----------------------------------------------------------------------------
+bool ADIOSDataAdaptor::AddArray(vtkDataObject* mesh, int association,
+   const std::string& name)
+{
+  timer::MarkEvent mark("ADIOSDataAdaptor::AddArray");
+
+  // the mesh should never be null. there must have been an error
+  // upstream.
+  if (!mesh)
+    {
+    SENSEI_ERROR("Invalid mesh object")
+    return false;
+    }
+
+  if (this->Internals->Schema.ReadArray(this->Internals->Comm,
+    this->Internals->File, mesh, association, name))
+    {
+    SENSEI_ERROR("Failed to read "
+      << (association == vtkDataObject::POINT ? "point" : "cell")
+      << " data array \"" << name << "\". Point data has: "
+      << this->GetAvailableArrays(vtkDataObject::POINT) << ". Cell data has: "
+      << this->GetAvailableArrays(vtkDataObject::CELL) << ".")
+    return false;
+    }
+
   return true;
 }
 
 //----------------------------------------------------------------------------
 unsigned int ADIOSDataAdaptor::GetNumberOfArrays(int association)
 {
-  return static_cast<unsigned int>(this->AssociatedArrays[association].size());
+
+  // if the mesh has not been initialized then do so now
+  if (!this->Internals->Mesh && !this->GetMesh(false))
+    return 0;
+
+  return this->Internals->ArrayNames[association].size();
 }
 
 //----------------------------------------------------------------------------
 std::string ADIOSDataAdaptor::GetArrayName(int association, unsigned int index)
 {
-  ArraysType& arrays = this->AssociatedArrays[association];
-  unsigned int cc=0;
-  for (ArraysType::iterator iter = arrays.begin(); iter != arrays.end(); ++iter, ++cc)
+
+  // if the mesh has not been initialized then do so now
+  if (!this->Internals->Mesh && !this->GetMesh(false))
+    return "";
+
+  // bounds check
+  size_t n_arrays = this->Internals->ArrayNames[association].size();
+  if (index >= n_arrays)
     {
-    if (cc == index)
-      {
-      return iter->first.c_str();
-      }
+    const char *assocStr = (association == vtkDataObject::POINT ?
+      "point" : "cell");
+
+    SENSEI_ERROR(<< assocStr << "array index " << index
+      << " is out of bounds [0 - " << n_arrays << ")")
+    return "";
     }
-  return std::string();
+
+  return this->Internals->ArrayNames[association][index];
 }
 
 //----------------------------------------------------------------------------
 void ADIOSDataAdaptor::ReleaseData()
 {
-  timer::MarkEvent mark("adios::dataadaptor::release-data");
-
-  for (AssociatedArraysType::iterator iter1 = this->AssociatedArrays.begin();
-    iter1 != this->AssociatedArrays.end(); ++iter1)
+  timer::MarkEvent mark("ADIOSDataAdaptor::ReleaseData");
+  if (this->Internals->StaticMesh)
     {
-    for (ArraysType::iterator iter2 = iter1->second.begin();
-      iter2 != iter1->second.end(); ++iter2)
-      {
-      iter2->second = false;
-      }
+    // only release the data arrays, keep the mesh object around
+    this->ReleaseAttributeData(this->Internals->Mesh);
     }
-  internals::ReleaseData(this->Mesh);
+  else
+    {
+    // nuke it all
+    this->Internals->Mesh = 0;
+    this->Internals->ArrayNames[vtkDataObject::POINT].clear();
+    this->Internals->ArrayNames[vtkDataObject::CELL].clear();
+    }
+}
+
+//----------------------------------------------------------------------------
+void ADIOSDataAdaptor::ReleaseAttributeData(vtkDataObject* dobj)
+{
+  if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
+    {
+    vtkCompositeDataIterator *iter = cd->NewIterator();
+    for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+      {
+      this->ReleaseAttributeData(iter->GetCurrentDataObject());
+      }
+    iter->Delete();
+    }
+  else if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+    {
+    ds->GetAttributes(vtkDataObject::CELL)->Initialize();
+    ds->GetAttributes(vtkDataObject::POINT)->Initialize();
+    }
 }
 
 //----------------------------------------------------------------------------

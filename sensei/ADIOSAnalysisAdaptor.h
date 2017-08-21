@@ -3,6 +3,10 @@
 
 #include "AnalysisAdaptor.h"
 #include <string>
+#include <mpi.h>
+
+namespace senseiADIOS { class DataObjectSchema; }
+class vtkDataObject;
 
 namespace sensei
 {
@@ -12,9 +16,7 @@ namespace sensei
 /// ADIOSAnalysisAdaptor is an subclass of sensei::AnalysisAdaptor. Despite
 /// being called an analysis adaptor, this adaptor doesn't do any analysis. It's
 /// main purpose is to serialize data provided via DataAdaptor using
-/// ADIOS. In theory, this class should be able to handle all types of
-/// vtkDataObject subclasses. Current implementation only supports vtkImageData
-/// and vtkMultiBlockDataSet of vtkImageData.
+/// ADIOS.
 ///
 /// \sa vtkADIOSDataAdaptor, ADIOSAnalysisEndPoint
 class ADIOSAnalysisAdaptor : public AnalysisAdaptor
@@ -42,23 +44,28 @@ public:
   std::string GetFileName() const
   { return this->FileName; }
 
+  /// Set the communicator to use for MPI calls
+  void SetCommunicator(MPI_Comm comm)
+  { this->Comm = comm; }
+
   bool Execute(DataAdaptor* data) override;
 
 protected:
   ADIOSAnalysisAdaptor();
   ~ADIOSAnalysisAdaptor();
 
-  void InitializeADIOS(DataAdaptor* data);
-  void WriteTimestep(DataAdaptor* data);
+  void InitializeADIOS(vtkDataObject *dobj);
+  void WriteTimestep(unsigned long timeStep, double time, vtkDataObject *dobj);
+  void FinalizeADIOS();
 
+  MPI_Comm Comm;
+  senseiADIOS::DataObjectSchema *Schema;
   std::string Method;
   std::string FileName;
+
 private:
   ADIOSAnalysisAdaptor(const ADIOSAnalysisAdaptor&); // Not implemented.
   void operator=(const ADIOSAnalysisAdaptor&); // Not implemented.
-
-  bool Initialized;
-  int64_t FixedLengthVarSize;
 };
 
 }
