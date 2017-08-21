@@ -53,8 +53,17 @@ VTK classes defined in your project.
 %{
 #include <derived_t##.h>
 %}
-%feature("ref") derived_t "$this->Register(nullptr);"
-%feature("unref") derived_t "$this->UnRegister(nullptr);"
-%newobject derived_t##::New();
+%feature("ref") sensei::##derived_t "$this->Register(nullptr);"
+%feature("unref") sensei::##derived_t "$this->UnRegister(nullptr);"
+%newobject sensei::##derived_t##::New();
+%delobject sensei::##derived_t##::Delete();
+%typemap(newfree) sensei::##derived_t* "$1->UnRegister(nullptr);"
 %include <derived_t##.h>
+%extend sensei::##derived_t
+{
+    void Register(vtkObjectBase *obj){ $self->vtkObjectBase::Register(obj); }
+    void UnRegister(vtkObjectBase *obj){ $self->vtkObjectBase::UnRegister(obj); }
+    void Delete(){ $self->vtkObjectBase::Delete(); }
+    int GetReferenceCount(){ return $self->vtkObjectBase::GetReferenceCount(); }
+}
 %enddef

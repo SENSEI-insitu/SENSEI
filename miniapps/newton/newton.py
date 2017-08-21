@@ -414,9 +414,3 @@ if __name__ == '__main__':
     # finish up
     adaptor.finalize()
     status('run complete\n')
-    del ic
-    ic = None
-    del adaptor
-    adaptor = None
-    del comm
-    comm = None
