@@ -216,8 +216,13 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
   if (this->Reduction > 0)
     {
     timer::MarkStartEvent("VTKm reduction");
+
     int dimensions[3];
     originalImageData->GetDimensions(dimensions);
+    dimensions[0]--; // cell data to point data
+    dimensions[1]--; // cell data to point data
+    dimensions[2]--; // cell data to point data
+
     vtkNew<vtkFloatArray> dataArray;
     dataArray->ShallowCopy(vtkFloatArray::SafeDownCast(originalImageData->GetCellData()->GetScalars()));
     vtkm::cont::ArrayHandle<vtkm::Float32> vtkmArray;
@@ -225,9 +230,6 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
       {
       // Data preparation
       float* inFloat = dataArray->GetPointer(0);
-      dimensions[0]--; // cell data to point data
-      dimensions[1]--; // cell data to point data
-      dimensions[2]--; // cell data to point data
       int size = dimensions[0] * dimensions[1] * dimensions[2];
 
       // --- vtk-m filtering ---
@@ -248,7 +250,7 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
       float* t = vtkmArray.GetStorage().GetArray();
 
       // - rebuild regular vtkImageData
-      int newDims[3] = { int((dimensions[0] + 1) / 2), int((dimensions[1] + 1) / 2), int((dimensions[2] + 1) / 2) };
+      int newDims[3] = { int(dimensions[0] / 2), int(dimensions[1] / 2), int(dimensions[2] / 2) };
       int reducedSize = newDims[0] * newDims[1] * newDims[2];
 
       // Update dimensions and array
