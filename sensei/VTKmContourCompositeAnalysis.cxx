@@ -280,7 +280,7 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
   for (int i = 0; i < nbCamera; i++)
   {
     this->Helper->ApplyCameraPosition(this->Pipeline->Renderer->GetActiveCamera(), i);
-    // this->Pipeline->Render(controller);
+    // this->Helper->Render(this->Pipeline->RenderWindow);
     this->Helper->CaptureSortedCompositeData(this->Pipeline->RenderWindow, this->Pipeline->Renderer, this->Pipeline->CameraPass, this->Pipeline->IceTCompositePass, this->Pipeline->LightingMapPass);
   }
   this->Helper->WriteMetadata();

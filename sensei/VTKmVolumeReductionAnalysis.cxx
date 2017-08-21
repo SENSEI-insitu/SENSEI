@@ -74,9 +74,9 @@ struct VoxelMean : public vtkm::worklet::WorkletPointNeighborhood3x3x3
                             vtkm::Float32& out) const
   {
     out = in.Get(0, 0, 0) + in.Get(1, 0, 0)
-      + in.Get(0, 1, 0) + in.Get(1, 1, 0)
-      + in.Get(0, 0, 1) + in.Get(1, 0, 1)
-      + in.Get(0, 1, 1) + in.Get(1, 1, 1);
+        + in.Get(0, 1, 0) + in.Get(1, 1, 0)
+        + in.Get(0, 0, 1) + in.Get(1, 0, 1)
+        + in.Get(0, 1, 1) + in.Get(1, 1, 1);
 
     out *= 0.125;
   }
@@ -122,11 +122,14 @@ public:
 
     // Create scatter array
     std::vector<vtkm::Id> ids;
-    for (int k = 0; k < this->InputDimensions[2]; k += 2)
+    int kSize = this->InputDimensions[2] - 1;
+    int jSize = this->InputDimensions[1] - 1;
+    int iSize = this->InputDimensions[0] - 1;
+    for (int k = 0; k < kSize; k += 2)
     {
-      for (int j = 0; j < this->InputDimensions[1]; j += 2)
+      for (int j = 0; j < jSize; j += 2)
       {
-        for (int i = 0; i < this->InputDimensions[0]; i += 2)
+        for (int i = 0; i < iSize; i += 2)
         {
           ids.push_back(i + (j * this->InputDimensions[0]) + (k * this->InputDimensions[0] * this->InputDimensions[1]));
         }
