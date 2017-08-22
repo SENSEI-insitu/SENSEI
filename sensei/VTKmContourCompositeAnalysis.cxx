@@ -203,8 +203,8 @@ void VTKmContourCompositeAnalysis::AddContour(double value)
     mapper->SetInputConnection(cell2Point->GetOutputPort());
     actor->SetMapper(mapper);
 
-    mapper->SetNumberOfContours(1);
-    mapper->SetValue(0, value);
+    mapper->SetNumberOfContourValues(1);
+    mapper->SetContourValue(0, value);
 
     this->Pipeline->Cell2Point.push_back(cell2Point.GetPointer());
     this->Pipeline->Mappers.push_back(mapper.GetPointer());
