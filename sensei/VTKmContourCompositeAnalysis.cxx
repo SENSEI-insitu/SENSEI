@@ -205,6 +205,7 @@ void VTKmContourCompositeAnalysis::AddContour(double value)
 
     mapper->SetNumberOfContourValues(1);
     mapper->SetContourValue(0, value);
+    mapper->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "data");
 
     this->Pipeline->Cell2Point.push_back(cell2Point.GetPointer());
     this->Pipeline->Mappers.push_back(mapper.GetPointer());
@@ -222,6 +223,7 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
   this->Helper->AddTimeEntry();
 
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
+  mesh->Modified();
   bool dataError = !data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   // FIXME: dataError is true on satelites for no reason => BUG!!!
   // if (mesh == NULL || dataError) // FIXME data name
