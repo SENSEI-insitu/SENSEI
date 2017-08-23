@@ -6,7 +6,6 @@
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
-#include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
 #include <vtkMPIController.h>
 #include <vtkMultiBlockDataSet.h>
@@ -179,12 +178,8 @@ void VTKmVolumeReductionAnalysis::Initialize(
   this->Communicator = comm;
   this->Reduction = reductionFactor;
 
-  vtkNew<vtkMPICommunicator> vtkComm;
-  vtkMPICommunicatorOpaqueComm h(&this->Communicator);
-  vtkComm->InitializeExternal(&h);
-
   vtkNew<vtkMPIController> con;
-  con->SetCommunicator(vtkComm.GetPointer());
+  con->Initialize(0, 0, 1); // initialized externally
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
   con->Register(NULL); // Keep ref
 
