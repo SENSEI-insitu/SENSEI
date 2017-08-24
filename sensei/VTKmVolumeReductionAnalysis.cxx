@@ -192,16 +192,14 @@ void VTKmVolumeReductionAnalysis::Initialize(
 bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
 {
   timer::MarkEvent mark("VTKmVolumeReductionAnalysis::execute");
-  vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
-
   this->Helper->AddTimeEntry();
 
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
-  bool dataError = !data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
+  data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
 
   vtkMultiBlockDataSet* blocks = vtkMultiBlockDataSet::SafeDownCast(mesh);
   vtkImageData* originalImageData = nullptr;
-  for(int i = 0; i < blocks->GetNumberOfBlocks(); i++)
+  for(unsigned int i = 0; i < blocks->GetNumberOfBlocks(); i++)
     {
     vtkImageData* block = vtkImageData::SafeDownCast(blocks->GetBlock(i));
     originalImageData = block ? block : originalImageData;

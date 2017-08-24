@@ -30,7 +30,6 @@
 #include <vtkCameraPass.h>
 #include <vtkLightingMapPass.h>
 #include <vtkRenderer.h>
-#include <vtkProperty.h>
 
 #include <vtkWindowToImageFilter.h>
 
@@ -261,7 +260,7 @@ struct CinemaHelper::Internals
   std::vector<std::string> JSONCompositePipeline;
 
 
-  Internals() : NumberOfTimeSteps(0), NumberOfCameraPositions(0), CameraPositions(nullptr), CameraArgs(nullptr), NumberOfCameraArgs(0), CurrentCameraPosition(0), LAYER_CODES("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+  Internals() : NumberOfTimeSteps(0), NumberOfCameraPositions(0), CameraPositions(nullptr), NumberOfCameraArgs(0), CameraArgs(nullptr), CurrentCameraPosition(0), LAYER_CODES("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
   {
     this->ImageSize[0] = this->ImageSize[1] = 512;
     vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
@@ -574,7 +573,7 @@ void CinemaHelper::WriteMetadata()
         << "      \"default_pipeline\": \"";
 
       // > Add default pipeline =======================
-      for (int i = 0; i < this->Data->JSONCompositePipeline.size(); i++)
+      for (size_t i = 0; i < this->Data->JSONCompositePipeline.size(); i++)
         {
         fp << this->Data->LAYER_CODES[i] << "A";
         }
@@ -585,7 +584,7 @@ void CinemaHelper::WriteMetadata()
         << "      \"layers\": [" << endl;
 
       // > Add layers =======================
-      for (int i = 0; i < this->Data->JSONCompositePipeline.size(); i++)
+      for (size_t i = 0; i < this->Data->JSONCompositePipeline.size(); i++)
         {
         if (i > 0)
           {
@@ -617,7 +616,7 @@ void CinemaHelper::WriteMetadata()
         // => Add layer fields
 
       // > Add layers fields =======================
-      for (int i = 0; i < this->Data->JSONCompositePipeline.size(); i++)
+      for (size_t i = 0; i < this->Data->JSONCompositePipeline.size(); i++)
         {
         if (i > 0)
           {
@@ -818,6 +817,7 @@ int CinemaHelper::RegisterLayer(const std::string& name, vtkSMRepresentationProx
     << "  \"ids\": [\"" << this->Data->LAYER_CODES.substr(this->Data->JSONCompositePipeline.size(), 1) << "\"]" << endl
     << "}";
   this->Data->JSONCompositePipeline.push_back(jsonContent2.str());
+  return 1;
 }
 
 // --------------------------------------------------------------------------
@@ -854,6 +854,7 @@ int CinemaHelper::RegisterLayer(const std::string& name, vtkActor* actor, double
     << "  \"ids\": [\"" << this->Data->LAYER_CODES.substr(this->Data->JSONCompositePipeline.size(), 1) << "\"]" << endl
     << "}";
   this->Data->JSONCompositePipeline.push_back(jsonContent2.str());
+  return 1;
 }
 
 // --------------------------------------------------------------------------
@@ -899,9 +900,9 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
   // Extract images for each fields
   std::vector<vtkSmartPointer<vtkFloatArray>> zBuffers;
   std::vector<vtkSmartPointer<vtkUnsignedCharArray>> luminances;
-  int compositeSize = this->Data->Representations.size();
+  size_t compositeSize = this->Data->Representations.size();
   int linearSize = 0;
-  for (int compositeIdx = 0; compositeIdx < compositeSize; compositeIdx++)
+  for (size_t compositeIdx = 0; compositeIdx < compositeSize; compositeIdx++)
     {
     vtkSMRepresentationProxy* rep = this->Data->Representations[compositeIdx];
 
@@ -969,7 +970,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
   for (int pixelId = 0; pixelId < linearSize; pixelId++)
     {
     // Fill pixelSorter
-    for (int layerIdx = 0; layerIdx < compositeSize; layerIdx++)
+    for (size_t layerIdx = 0; layerIdx < compositeSize; layerIdx++)
       {
       float depth = zBuffers[layerIdx]->GetValue(pixelId);
       if (depth < 1.0)
@@ -988,7 +989,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
     std::sort(pixelSorter.begin(), pixelSorter.end(), pixelComp);
 
     // Fill sortedOrder array
-    for (int layerIdx = 0; layerIdx < compositeSize; layerIdx++)
+    for (size_t layerIdx = 0; layerIdx < compositeSize; layerIdx++)
       {
       orderArray->SetValue(layerIdx * linearSize + pixelId, pixelSorter[layerIdx].Index);
       }
@@ -1089,8 +1090,9 @@ vtkImageData* CinemaHelper::CaptureWindow(vtkRenderWindow* renderWindow)
 
 // --------------------------------------------------------------------------
 void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer,
-  vtkCameraPass* cameraPass,  vtkIceTCompositePass* compositePass, vtkLightingMapPass* lightingMapPass)
+  vtkIceTCompositePass* compositePass)
 {
+  vtkSynchronizedRenderers::vtkRawImage image;
   vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
   // Show all representations
   std::vector<vtkSmartPointer<vtkActor>>::iterator actorIter;
@@ -1118,9 +1120,9 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
   // Extract images for each fields
   std::vector<vtkSmartPointer<vtkFloatArray>> zBuffers;
   std::vector<vtkSmartPointer<vtkUnsignedCharArray>> luminances;
-  int compositeSize = this->Data->Actors.size();
-  int linearSize = 0;
-  for (int compositeIdx = 0; compositeIdx < compositeSize; compositeIdx++)
+  size_t compositeSize = this->Data->Actors.size();
+  size_t linearSize = 0;
+  for (size_t compositeIdx = 0; compositeIdx < compositeSize; compositeIdx++)
     {
     vtkActor* actor = this->Data->Actors[compositeIdx];
 
@@ -1139,7 +1141,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
     this->Render(renderWindow);
 
     if (this->Data->IsRoot)
-    {
+      {
       vtkSmartPointer<vtkFloatArray> zBuffer = vtkSmartPointer<vtkFloatArray>::New();
 
       zBuffer->DeepCopy(compositePass->GetLastRenderedDepths());
@@ -1149,40 +1151,23 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
       zBuffers.push_back(zBuffer);
 
       linearSize = zBuffer->GetNumberOfTuples();
-    }
 
-    // Prevent color interference to handle light (intensity)
-    double white[3] = {1, 1, 1};
-    actor->GetProperty()->SetDiffuseColor(white);
-    actor->GetProperty()->SetAmbientColor(white);
-    actor->GetProperty()->SetSpecularColor(white);
+      // ------------------------------------------------------------------------
+      // Capture Luminance
+      // ------------------------------------------------------------------------
+      compositePass->GetLastRenderedTile(image);
+      vtkUnsignedCharArray* imagescalars = image.GetRawPtr();
+      size_t step = imagescalars->GetNumberOfComponents();
+      vtkSmartPointer<vtkUnsignedCharArray> specularComponent = vtkSmartPointer<vtkUnsignedCharArray>::New();
+      specularComponent->SetNumberOfComponents(1);
+      specularComponent->SetNumberOfTuples(linearSize);
+      for (size_t idx = 0; idx < linearSize; idx++)
+        {
+        specularComponent->SetValue(idx, imagescalars->GetValue(idx * step));
+        }
 
-    // ------------------------------------------------------------------------
-    // Capture Luminance
-    // ------------------------------------------------------------------------
-    cameraPass->SetDelegatePass(lightingMapPass); // view->InvokeCommand("StartCaptureLuminance");
-    this->Render(renderWindow);
-
-    vtkImageData* image = this->CaptureWindow(renderWindow);
-    vtkUnsignedCharArray* imagescalars = vtkUnsignedCharArray::SafeDownCast(image->GetPointData()->GetScalars());
-
-
-    // // Extract specular information
-    int specularOffset = 1; // [diffuse, specular, ?]
-    linearSize = imagescalars->GetNumberOfTuples();
-    vtkSmartPointer<vtkUnsignedCharArray> specularComponent = vtkSmartPointer<vtkUnsignedCharArray>::New();
-    specularComponent->SetNumberOfComponents(1);
-    specularComponent->SetNumberOfTuples(linearSize);
-
-    for (int idx = 0; idx < linearSize; idx++)
-      {
-      specularComponent->SetValue(idx, imagescalars->GetValue(idx * 3 + specularOffset));
+      luminances.push_back(specularComponent);
       }
-
-    luminances.push_back(specularComponent);
-    cameraPass->SetDelegatePass(compositePass); // view->InvokeCommand("StopCaptureLuminance");
-    image->UnRegister(0);
-    // ------------------------------------------------------------------------
     }
 
   // Post process arrays to write proper data structure
@@ -1192,7 +1177,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
     return;
     }
 
-  int stackSize = linearSize * compositeSize;
+  size_t stackSize = linearSize * compositeSize;
   vtkNew<vtkUnsignedCharArray> orderArray;
   orderArray->SetNumberOfComponents(1);
   orderArray->SetNumberOfTuples(stackSize);
@@ -1202,10 +1187,10 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
     pixelSorter.push_back(Pixel());
     }
 
-  for (int pixelId = 0; pixelId < linearSize; pixelId++)
+  for (size_t pixelId = 0; pixelId < linearSize; pixelId++)
     {
     // Fill pixelSorter
-    for (int layerIdx = 0; layerIdx < compositeSize; layerIdx++)
+    for (size_t layerIdx = 0; layerIdx < compositeSize; layerIdx++)
       {
       float depth = zBuffers[layerIdx]->GetValue(pixelId);
       if (depth < 1.0)
@@ -1224,7 +1209,7 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
     std::sort(pixelSorter.begin(), pixelSorter.end(), pixelComp);
 
     // Fill sortedOrder array
-    for (int layerIdx = 0; layerIdx < compositeSize; layerIdx++)
+    for (size_t layerIdx = 0; layerIdx < compositeSize; layerIdx++)
       {
       orderArray->SetValue(layerIdx * linearSize + pixelId, pixelSorter[layerIdx].Index);
       }
@@ -1249,9 +1234,9 @@ void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtk
   vtkNew<vtkUnsignedCharArray> intensityArray;
   intensityArray->SetNumberOfComponents(1);
   intensityArray->SetNumberOfTuples(stackSize);
-  for (int idx = 0; idx < stackSize; idx++)
+  for (size_t idx = 0; idx < stackSize; idx++)
     {
-    int layerIdx = orderArray->GetValue(idx);
+    size_t layerIdx = orderArray->GetValue(idx);
     if (layerIdx < 255)
       {
       intensityArray->SetValue(idx, luminances[layerIdx]->GetValue(idx % linearSize));

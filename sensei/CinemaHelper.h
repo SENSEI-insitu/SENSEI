@@ -47,8 +47,7 @@ public:
     int RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue);
     int RegisterLayer(const std::string& name, vtkActor* actor, double scalarValue);
     void CaptureSortedCompositeData(vtkSMRenderViewProxy* view);
-    void CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer,
-        vtkCameraPass* cameraPass,  vtkIceTCompositePass* compositePass, vtkLightingMapPass* lightingMapPass);
+    void CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer, vtkIceTCompositePass* compositePass);
     void Render(vtkRenderWindow* renderWindow);
     vtkImageData* CaptureWindow(vtkRenderWindow* renderWindow);
 

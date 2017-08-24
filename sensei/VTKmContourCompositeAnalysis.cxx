@@ -18,6 +18,7 @@
 #include <vtkOpaquePass.h>
 #include <vtkPieceScalars.h>
 #include <vtkPolyDataMapper.h>
+#include <vtkProperty.h>
 #include <vtkRenderer.h>
 #include <vtkRenderPassCollection.h>
 #include <vtkRenderWindow.h>
@@ -49,7 +50,6 @@ struct PipelineHandler
     std::vector<vtkSmartPointer<vtkActor>> Actors;
 
     vtkSmartPointer<vtkIceTCompositePass> IceTCompositePass;
-    vtkSmartPointer<vtkLightingMapPass> LightingMapPass;
     vtkSmartPointer<vtkCameraPass> CameraPass;
     vtkSmartPointer<vtkRenderer> Renderer;
     vtkSmartPointer<vtkRenderWindow> RenderWindow;
@@ -58,7 +58,7 @@ struct PipelineHandler
     bool RenderingCreated;
     bool Created;
 
-    PipelineHandler() : Created(false), RenderingCreated(false) {}
+    PipelineHandler() : RenderingCreated(false), Created(false) {}
     ~PipelineHandler() {}
 
     void CreateRendering(vtkMultiProcessController* controller)
@@ -104,7 +104,6 @@ struct PipelineHandler
 
       // Keep it to capture zBuffer
       this->IceTCompositePass = iceTPass;
-      this->LightingMapPass = vtkSmartPointer<vtkLightingMapPass>::New();
       this->CameraPass = cameraP;
 
       iceTPass->Delete();
@@ -211,6 +210,13 @@ void VTKmContourCompositeAnalysis::AddContour(double value)
     mapper->SetInputConnection(surface->GetOutputPort());
     actor->SetMapper(mapper);
 
+    // Prevent color interference to handle light (intensity)
+    mapper->ScalarVisibilityOff();
+    double white[3] = {1, 1, 1};
+    actor->GetProperty()->SetDiffuseColor(white);
+    actor->GetProperty()->SetAmbientColor(white);
+    actor->GetProperty()->SetSpecularColor(white);
+
     contour->SetNumberOfContours(1);
     contour->SetValue(0, value);
 
@@ -232,7 +238,7 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
   this->Helper->AddTimeEntry();
 
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
-  bool dataError = !data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
+  data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_CELLS, "data");
   // FIXME: dataError is true on satelites for no reason => BUG!!!
   // if (mesh == NULL || dataError) // FIXME data name
   //   {
@@ -275,8 +281,7 @@ bool VTKmContourCompositeAnalysis::Execute(DataAdaptor* data)
   for (int i = 0; i < nbCamera; i++)
   {
     this->Helper->ApplyCameraPosition(this->Pipeline->Renderer->GetActiveCamera(), i);
-    // this->Helper->Render(this->Pipeline->RenderWindow);
-    this->Helper->CaptureSortedCompositeData(this->Pipeline->RenderWindow, this->Pipeline->Renderer, this->Pipeline->CameraPass, this->Pipeline->IceTCompositePass, this->Pipeline->LightingMapPass);
+    this->Helper->CaptureSortedCompositeData(this->Pipeline->RenderWindow, this->Pipeline->Renderer, this->Pipeline->IceTCompositePass);
   }
   this->Helper->WriteMetadata();
   timer::MarkEndEvent("Cinema Composite contours export");
