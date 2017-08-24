@@ -11,7 +11,6 @@
 #include <vtkExtractSurface.h>
 #include <vtkIceTCompositePass.h>
 #include <vtkLightsPass.h>
-#include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
 #include <vtkMPIController.h>
 #include <vtkNew.h>
@@ -185,12 +184,8 @@ void VTKOnlyContourCompositeAnalysis::Initialize(
 {
   this->Communicator = comm;
 
-  vtkNew<vtkMPICommunicator> vtkComm;
-  vtkMPICommunicatorOpaqueComm h(&this->Communicator);
-  vtkComm->InitializeExternal(&h);
-
   vtkNew<vtkMPIController> con;
-  con->SetCommunicator(vtkComm.GetPointer());
+  con->Initialize(0, 0, 1);
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
   con->Register(NULL); // Keep ref
 
