@@ -205,6 +205,8 @@ void VTKmContourCompositeAnalysis::AddContour(double value)
     mapper->SetNumberOfContourValues(1);
     mapper->SetContourValue(0, value);
     mapper->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "data");
+    mapper->SetTimerStartCallback(timer::MarkStartEvent);
+    mapper->SetTimerFinishCallback(timer::MarkEndEvent);
 
     // Prevent color interference to handle light (intensity)
     mapper->ScalarVisibilityOff();

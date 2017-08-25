@@ -219,6 +219,8 @@ void VTKOnlyContourCompositeAnalysis::AddContour(double value)
 
     contour->SetNumberOfContours(1);
     contour->SetValue(0, value);
+    contour->SetTimerStartCallback(timer::MarkStartEvent);
+    contour->SetTimerFinishCallback(timer::MarkEndEvent);
 
     this->Pipeline->Cell2Point.push_back(cell2Point.GetPointer());
     this->Pipeline->Contours.push_back(contour.GetPointer());
