@@ -8,7 +8,7 @@
 #include <vtkCameraPass.h>
 #include <vtkCompositePolyDataMapper.h>
 #include <vtkProperty.h>
-#include <vtkContourFilter.h>
+#include <vtkMarchingCubes.h>
 #include <vtkExtractSurface.h>
 #include <vtkIceTCompositePass.h>
 #include <vtkLightsPass.h>
@@ -46,7 +46,7 @@ struct PipelineHandler
     std::vector<vtkSmartPointer<vtkCellDataToPointData>> Cell2Point;
     std::vector<vtkSmartPointer<vtkCompositePolyDataMapper>> Mappers;
     std::vector<vtkSmartPointer<vtkCompositeDataGeometryFilter>> ExtractSurface;
-    std::vector<vtkSmartPointer<vtkContourFilter>> Contours;
+    std::vector<vtkSmartPointer<vtkMarchingCubes>> Contours;
     std::vector<vtkSmartPointer<vtkActor>> Actors;
 
     vtkSmartPointer<vtkIceTCompositePass> IceTCompositePass;
@@ -200,7 +200,7 @@ void VTKOnlyContourCompositeAnalysis::Initialize(
 void VTKOnlyContourCompositeAnalysis::AddContour(double value)
 {
     vtkNew<vtkCellDataToPointData> cell2Point;
-    vtkNew<vtkContourFilter> contour;
+    vtkNew<vtkMarchingCubes> contour;
     vtkNew<vtkCompositeDataGeometryFilter> surface;
     vtkNew<vtkCompositePolyDataMapper> mapper;
     vtkNew<vtkActor> actor;
