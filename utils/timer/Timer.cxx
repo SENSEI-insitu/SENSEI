@@ -245,11 +245,12 @@ void MarkEndTimeStep()
   mk << "timestep: " << impl::ActiveTimeStep << " time: " << impl::ActiveTime;
   MarkEndEvent(mk.str().c_str());
 
+#define NUM_TO_SKIP 3
   // Try to merge with previous timestep.
   std::list<impl::Event> &activeEventList =
     impl::Mark.empty()? impl::GlobalEvents :
     impl::Mark.back().SubEvents;
-  if (activeEventList.size() >= 2 && impl::TrackSummariesOverTime)
+  if (activeEventList.size() >= (2 + NUM_TO_SKIP) && impl::TrackSummariesOverTime)
     {
     std::list<impl::Event>::reverse_iterator iter = activeEventList.rbegin();
     impl::Event& cur = *iter;
