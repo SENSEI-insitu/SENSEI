@@ -1,6 +1,7 @@
-#include "VTKHistogram.h"
 #include "senseiConfig.h"
-#include <Timer.h>
+#include "VTKHistogram.h"
+#include "Timer.h"
+#include "Error.h"
 
 #include <algorithm>
 #include <vector>
@@ -237,16 +238,34 @@ void VTKHistogram::PostCompute(MPI_Comm comm, int bins, const std::string& name)
   std::vector<unsigned int> gHist(bins, 0);
   MPI_Reduce(&this->Worker->Histogram[0], &gHist[0], bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
 
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(comm, &rank);
+
   if (rank == 0)
     {
+    // if there was an error range is initialized to [DOUBLE_MAX, DOUBLE_MIN]
+    if (this->Range[0] >= this->Range[1])
+      {
+      SENSEI_ERROR("Invalid histgram range ["
+        << this->Range[0] << " - " << this->Range[1] << "]")
+      return;
+      }
+
+    // print the histogram bins, range of each bin and count.
+    int origPrec = cout.precision();
+    cout.precision(4);
+
     std::cout << "Histogram '" << name << "' (VTK):\n";
     double width = (this->Range[1] - this->Range[0]) / bins;
     for (int i = 0; i < bins; ++i)
       {
-      printf("  %f-%f: %d\n", this->Range[0] + i*width, this->Range[0] + (i+1)*width, gHist[i]);
+      const int wid = 15;
+      cout << std::scientific << std::setw(wid) << std::right << this->Range[0] + i*width
+        << " - " << std::setw(wid) << std::left << this->Range[0] + (i+1)*width
+        << ": " << std::fixed << gHist[i] << endl;
       }
+
+    cout.precision(origPrec);
     }
 }
 
