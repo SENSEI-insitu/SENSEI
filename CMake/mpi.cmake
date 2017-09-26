@@ -4,9 +4,6 @@ add_library(mpi INTERFACE)
 target_include_directories(mpi SYSTEM INTERFACE ${MPI_C_INCLUDE_PATH}
   ${MPI_CXX_INCLUDE_PATH})
 
-target_compile_definitions(mpi INTERFACE ${MPI_C_COMPILE_FLAGS}
-  ${MPI_CXX_COMPILE_FLAGS})
-
 target_link_libraries(mpi INTERFACE ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
 
 install(TARGETS mpi EXPORT mpi)

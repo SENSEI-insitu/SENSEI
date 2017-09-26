@@ -69,7 +69,7 @@ export PYTHONPATH=/work/SENSEI/PV/lib/site-packages/:/work/SENSEI/PV/lib/:/work/
 
 # run the simulation
 mpiexec -np 4 python ../sensei/miniapps/newton/newton.py --analysis=catalyst \
-  --analysis_options=script=../sensei/miniapps/newton/newton_catalyst.py
+  --analysis_opts=script=../sensei/miniapps/newton/newton_catalyst.py
 ```
 
 ## Libsim

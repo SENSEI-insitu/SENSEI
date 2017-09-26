@@ -40,7 +40,7 @@ struct VTKHistogram::Internals
   int Bins;
   std::vector<unsigned int> Histogram;
   Internals(const double *range, int bins) :
-    Range(range), Bins(bins) {}
+    Range(range), Bins(bins), Histogram(bins,0.0) {}
 
   template <typename ArrayT>
   void operator()(ArrayT *array)
@@ -79,7 +79,7 @@ struct VTKHistogram::Internals
   std::vector<unsigned int> Histogram;
 
   Internals(const double *range, int bins) :
-    GhostArray(NULL), Range(range), Bins(bins) {}
+    GhostArray(NULL), Range(range), Bins(bins), Histogram(bins,0.0) {}
 
   template <typename T>
   void operator()(const vtkDataArrayDispatcherPointer<T>& array)
