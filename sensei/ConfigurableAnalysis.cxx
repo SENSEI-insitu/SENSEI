@@ -144,14 +144,15 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(MPI_Comm comm,
     return -1;
     }
 
-  SENSEI_STATUS("configured histogram " << array.value())
-
   int association = GetAssociation(node.attribute("association"));
   int bins = node.attribute("bins")? node.attribute("bins").as_int() : 10;
 
   vtkNew<Histogram> histogram;
   histogram->Initialize(comm, bins, association, array.value());
   this->Analyses.push_back(histogram.GetPointer());
+
+  SENSEI_STATUS("Configured histogram " << array.value())
+
   return 0;
 }
 
@@ -181,6 +182,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
   vtkNew<VTKmContourAnalysis> contour;
   contour->Initialize(comm, array.value(), value, writeOutput);
   this->Analyses.push_back(contour.GetPointer());
+
+  SENSEI_STATUS("Configured VTKmContourAnalysis " << array.value())
+
   return 0;
 #endif
   }
@@ -207,8 +211,8 @@ int ConfigurableAnalysis::InternalsType::AddAdios(MPI_Comm comm,
 
   this->Analyses.push_back(adios.GetPointer());
 
-  SENSEI_STATUS("configured ADIOS " << filename.value()
-    << " " << method.value())
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor \"" << filename.value()
+    << "\" method " << method.value())
 
   return 0;
 #endif
@@ -225,8 +229,6 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
   return -1;
 #else
   (void)comm;
-  SENSEI_STATUS("configured Catalyst")
-
   if (!this->CatalystAdaptor)
     {
     this->CatalystAdaptor = vtkSmartPointer<CatalystAnalysisAdaptor>::New();
@@ -275,12 +277,11 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
       }
     this->CatalystAdaptor->AddPipeline(slice.GetPointer());
     }
-  if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
+  else if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {
 #ifndef ENABLE_CATALYST_PYTHON
     SENSEI_ERROR("Catalyst Python was requested but is disabled in this build")
 #else
-    SENSEI_STATUS("configured Catalyst Python")
     if (node.attribute("filename"))
       {
       std::string fileName = node.attribute("filename").value();
@@ -288,6 +289,9 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
       }
 #endif
     }
+  SENSEI_STATUS("Configured CatalystAnalysisAdaptor "
+    << node.attribute("pipeline").value() << " "
+    << (node.attribute("filename") ? node.attribute("filename").value() : ""))
 #endif
   return 0;
 }
@@ -302,7 +306,6 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   SENSEI_ERROR("Libsim was requested but is disabled in this build")
   return -1;
 #else
-  SENSEI_STATUS("configured libsim")
 
   // We keep around a single instance of the libsim adaptor and then tell it to
   // do different things.
@@ -373,6 +376,8 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   if(!this->LibsimAdaptor->AddPlots(plots, plotVars,
     slice, project, origin, normal, imageProps))
     return -2;
+
+  SENSEI_STATUS("configured LibsimAnalysisAdaptor")
 #endif
   return 0;
 }
@@ -390,7 +395,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(MPI_Comm comm,
     node.attribute("k-max")? node.attribute("k-max").as_int() : 3);
   this->Analyses.push_back(adaptor.GetPointer());
 
-  SENSEI_STATUS("configured autocorrelation " << arrayname)
+  SENSEI_STATUS("Configured Autocorrelation " << arrayname)
 
   return 0;
 }
@@ -405,8 +410,6 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
     return -1;
     }
   std::string arrayName = node.attribute("array").value();
-
-  SENSEI_STATUS("configured PosthocIO " << arrayName)
 
   std::vector<std::string> cellArrays;
   std::vector<std::string> pointArrays;
@@ -455,6 +458,8 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
 
   this->Analyses.push_back(adapter);
   adapter->Delete();
+
+  SENSEI_STATUS("Configured PosthocIO " << arrayName)
 
   return 0;
 }
