@@ -100,7 +100,7 @@ int main(int argc, char** argv)
     std::string                 out_prefix = "";
     Options ops(argc, argv);
     ops
-        >> Option('b', "blocks", nblocks,   "number of blocks to use")
+        >> Option('b', "blocks", nblocks,   "number of blocks to use. must greater or equal to number of MPI ranks.")
         >> Option('s', "shape",  shape,     "domain shape")
         >> Option('t', "dt",     dt,        "time step")
 #ifdef ENABLE_SENSEI
@@ -127,6 +127,16 @@ int main(int argc, char** argv)
     {
         if (world.rank() == 0)
             fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
+        return 1;
+    }
+
+    if (nblocks < world.size())
+    {
+        if (world.rank() == 0)
+        {
+            fmt::print("Error: too few blocks\n");
+            fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
+        }
         return 1;
     }
 
