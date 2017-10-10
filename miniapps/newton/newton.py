@@ -237,7 +237,7 @@ def points_to_polydata(ids,x,y,z,m,vx,vy,vz,fx,fy,fz):
     cells.SetCells(nx, vtknp.numpy_to_vtk(cids, \
         deep=1, array_type=vtk.VTK_ID_TYPE))
     # scalars, id
-    vtkids = vtknp.numpy_to_vtk(ids, deep=1)
+    vtkids = vtknp.numpy_to_vtk(ids, 1, vtk.VTK_LONG)
     vtkids.SetName('ids')
     # mass
     vtkm = vtknp.numpy_to_vtk(m, deep=1)

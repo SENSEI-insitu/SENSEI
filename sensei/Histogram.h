@@ -30,13 +30,14 @@ protected:
   Histogram();
   ~Histogram();
 
-  static const char *GhostArrayName();
+  static const char *GetGhostArrayName();
   vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
 
   MPI_Comm Communicator;
   int Bins;
   std::string ArrayName;
   int Association;
+
 private:
   Histogram(const Histogram&);
   void operator=(const Histogram&);

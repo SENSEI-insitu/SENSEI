@@ -1,7 +1,8 @@
 #include "Histogram.h"
 #include "DataAdaptor.h"
-#include <Timer.h>
+#include "Timer.h"
 #include "VTKHistogram.h"
+#include "Error.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
@@ -42,7 +43,7 @@ void Histogram::Initialize(
 }
 
 const char *
-Histogram::GhostArrayName()
+Histogram::GetGhostArrayName()
 {
 #if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
     return "vtkGhostType";
@@ -58,43 +59,105 @@ bool Histogram::Execute(DataAdaptor* data)
 
   VTKHistogram histogram;
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
-  if (mesh == NULL || !data->AddArray(mesh, this->Association, this->ArrayName.c_str()))
+  if (!mesh)
     {
+    // it is not an necessarilly an error if all ranks do not have
+    // a dataset to process
     histogram.PreCompute(this->Communicator, this->Bins);
     histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     return true;
     }
 
-  if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(mesh))
+  if (!data->AddArray(mesh, this->Association, this->ArrayName.c_str()))
+    {
+    // it is an error if we try to compute a histogram over a non
+    // existant array
+    SENSEI_ERROR(<< data->GetClassName() << " faild to add "
+      << (this->Association == vtkDataObject::POINT ? "point" : "cell")
+      << " data array \""  << this->ArrayName << "\"")
+
+    histogram.PreCompute(this->Communicator, this->Bins);
+    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    return false;
+    }
+
+//  mesh->Print(cerr);
+
+  if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(mesh))
     {
     vtkSmartPointer<vtkCompositeDataIterator> iter;
     iter.TakeReference(cd->NewIterator());
+
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
       {
-      vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject(), this->ArrayName);
-      vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
-        this->GetArray(iter->GetCurrentDataObject(), GhostArrayName()));
+      // get the local mesh
+      vtkDataObject *curObj = iter->GetCurrentDataObject();
+
+      // get the array to compute histogram for
+      vtkDataArray* array = this->GetArray(curObj, this->ArrayName);
+      if (!array)
+        {
+        SENSEI_WARNING("Dataset " << iter->GetCurrentFlatIndex()
+          << " has no array named \"" << this->ArrayName << "\"")
+        continue;
+        }
+
+      // and get the ghost cell array
+      vtkUnsignedCharArray *ghostArray = dynamic_cast<vtkUnsignedCharArray*>(
+        this->GetArray(curObj, this->GetGhostArrayName()));
+
+      // compute local histogram range
       histogram.AddRange(array, ghostArray);
       }
+
+    // compute global histogram range
     histogram.PreCompute(this->Communicator, this->Bins);
+
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
       {
-      vtkDataArray* array = this->GetArray(iter->GetCurrentDataObject(), this->ArrayName);
-      vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
-        this->GetArray(iter->GetCurrentDataObject(), GhostArrayName()));
+      // get the local mesh
+      vtkDataObject *curObj = iter->GetCurrentDataObject();
+      // get the array to compute histogram for
+      vtkDataArray* array = this->GetArray(curObj, this->ArrayName);
+      if (!array)
+        {
+        SENSEI_WARNING("Dataset " << iter->GetCurrentFlatIndex()
+          << " has no array named \"" << this->ArrayName << "\"")
+        continue;
+        }
+
+      // and get the ghost cell array
+      vtkUnsignedCharArray *ghostArray = dynamic_cast<vtkUnsignedCharArray*>(
+        this->GetArray(curObj, this->GetGhostArrayName()));
+
+      // compute local histogram
       histogram.Compute(array, ghostArray);
       }
+
+    // compute the global histogram
     histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
     }
   else
     {
     vtkDataArray* array = this->GetArray(mesh, this->ArrayName);
-    vtkUnsignedCharArray* ghostArray = vtkUnsignedCharArray::SafeDownCast(
-      this->GetArray(mesh, GhostArrayName()));
-    histogram.AddRange(array, ghostArray);
-    histogram.PreCompute(this->Communicator, this->Bins);
-    histogram.Compute(array, ghostArray);
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    if (!array)
+      {
+      int rank = 0;
+      MPI_Comm_rank(this->Communicator, &rank);
+      SENSEI_WARNING("Dataset " << rank << " has no array named \""
+        << this->ArrayName << "\"")
+      histogram.PreCompute(this->Communicator, this->Bins);
+      histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+      }
+    else
+      {
+      vtkUnsignedCharArray *ghostArray = dynamic_cast<vtkUnsignedCharArray*>(
+        this->GetArray(mesh, this->GetGhostArrayName()));
+      histogram.AddRange(array, ghostArray);
+      histogram.PreCompute(this->Communicator, this->Bins);
+      histogram.Compute(array, ghostArray);
+      histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+      }
     }
   return true;
 }
@@ -102,12 +165,11 @@ bool Histogram::Execute(DataAdaptor* data)
 //-----------------------------------------------------------------------------
 vtkDataArray* Histogram::GetArray(vtkDataObject* dobj, const std::string& arrayname)
 {
-  assert(dobj != NULL && vtkCompositeDataSet::SafeDownCast(dobj) == NULL);
   if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(this->Association))
     {
     return fd->GetArray(arrayname.c_str());
     }
-  return NULL;
+  return nullptr;
 }
 
 }

@@ -1,6 +1,7 @@
 #include "Autocorrelation.h"
 
 #include "DataAdaptor.h"
+#include "Error.h"
 
 // VTK includes
 #include <vtkCompositeDataIterator.h>
@@ -26,20 +27,31 @@
 
 // http://stackoverflow.com/a/12580468
 template<typename T, typename ...Args>
-std::unique_ptr<T> make_unique( Args&& ...args )
+std::unique_ptr<T> make_unique(Args&& ...args)
 {
-    return std::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
+  return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
 template<class T>
 struct add_vectors
 {
     using Vector = std::vector<T>;
-    Vector  operator()(const Vector& lhs, const Vector& rhs) const      { Vector res(lhs.size(), 0); for (size_t i = 0; i < lhs.size(); ++i) res[i] = lhs[i] + rhs[i]; return res; }
+    Vector  operator()(const Vector& lhs, const Vector& rhs) const
+    {
+      Vector res(lhs.size(), 0);
+      for (size_t i = 0; i < lhs.size(); ++i)
+        res[i] = lhs[i] + rhs[i];
+      return res;
+    }
 };
+
 namespace diy { namespace mpi { namespace detail {
-  template<class U> struct mpi_op< add_vectors<U> >         { static MPI_Op  get() { return MPI_SUM; }  };
-} } }
+template<class U> struct mpi_op<add_vectors<U>>
+{
+  static MPI_Op get()
+  { return MPI_SUM; }
+};
+}}}
 
 namespace sensei
 {
@@ -222,7 +234,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
 
-  vtkDataObject* mesh = data->GetMesh(/*structure-only*/ true);
+  vtkDataObject* mesh = data->GetMesh(/*structure_only*/false);
   if (!data->AddArray(mesh, association, internals.ArrayName))
     {
     return false;
@@ -252,7 +264,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
           }
         else
           {
-          cerr <<"Current implementation only supports float arrays" << endl;
+          SENSEI_ERROR("Current implementation only supports float arrays")
           abort();
           }
         }
@@ -271,7 +283,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
       }
     else
       {
-      cerr <<"Current implementation only supports float arrays" << endl;
+      SENSEI_ERROR("Current implementation only supports float arrays")
       abort();
       }
     }
