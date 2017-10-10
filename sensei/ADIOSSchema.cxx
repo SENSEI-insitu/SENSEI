@@ -170,8 +170,10 @@ int isLegacyDataObject(int code)
     case VTK_POINT_SET:
     case VTK_COMPOSITE_DATA_SET:
     case VTK_GENERIC_DATA_SET:
+#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
     case VTK_UNSTRUCTURED_GRID_BASE:
     case VTK_PISTON_DATA_OBJECT:
+#endif
     // deprecated/removed
     case VTK_HIERARCHICAL_DATA_SET:
     case VTK_TEMPORAL_DATA_SET:
@@ -260,8 +262,10 @@ vtkDataObject *newDataObject(int code)
     case VTK_POINT_SET:
     case VTK_COMPOSITE_DATA_SET:
     case VTK_GENERIC_DATA_SET:
+#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
     case VTK_UNSTRUCTURED_GRID_BASE:
     case VTK_PISTON_DATA_OBJECT:
+#endif
     // deprecated/removed
     case VTK_HIERARCHICAL_DATA_SET:
     case VTK_TEMPORAL_DATA_SET:
