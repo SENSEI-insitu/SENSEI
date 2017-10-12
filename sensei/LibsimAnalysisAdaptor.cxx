@@ -68,7 +68,7 @@ public:
 
 std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
 {
-    os << "plots=[";
+    os << "{plots=[";
     for(size_t i = 0; i < obj.plots.size(); ++i)
     {
         if(i > 0)
@@ -97,8 +97,8 @@ std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
     }
     os << "slice=" << (obj.slice?"true":"false") << ", ";
     os << "project2d=" << (obj.project2d?"true":"false") << ", ";
-    os << "origin=[" << obj.origin[0] << ", " << obj.origin[1[] << ", " << obj.origin[2] << "], ";
-    os << "normal=[" << obj.normal[0] << ", " << obj.normal[1[] << ", " << obj.normal[2] << "]";
+    os << "origin=[" << obj.origin[0] << ", " << obj.origin[1] << ", " << obj.origin[2] << "], ";
+    os << "normal=[" << obj.normal[0] << ", " << obj.normal[1] << ", " << obj.normal[2] << "]}";
     return os;
 }
 

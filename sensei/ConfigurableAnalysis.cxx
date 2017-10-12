@@ -325,7 +325,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
 
   bool doExport = false;
   if(node.attribute("operation") != NULL)
-    doExport = node.attribute("operation").value() == "export";
+    doExport = (node.attribute("operation").value() == std::string("export"));
 
   std::string filename;
   LibsimImageProperties imageProps;
