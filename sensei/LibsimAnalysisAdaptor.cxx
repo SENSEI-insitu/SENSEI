@@ -457,11 +457,11 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
                 {
                     SENSEI_ERROR("VisItSaveWindow failed.")
                 }
-            }
-            else if(rank == 0)
-            {
-                SENSEI_ERROR("VisItDrawPlots failed.")
-            }
+            } // doExport
+        }
+        else if(rank == 0)
+        {
+            SENSEI_ERROR("VisItDrawPlots failed.")
         }
 
         // Delete the plots.
