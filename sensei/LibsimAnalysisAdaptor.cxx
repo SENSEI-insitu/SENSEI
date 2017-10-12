@@ -119,12 +119,12 @@ public:
     bool Initialize();
     bool Execute(sensei::DataAdaptor *DataAdaptor);
 
-    bool AddRender(const std::string &plots,
+    bool AddRender(int freq, const std::string &plots,
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
 	          const LibsimImageProperties &imgProps);
-    bool AddExport(const std::string &plots,
+    bool AddExport(int freq, const std::string &plots,
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
