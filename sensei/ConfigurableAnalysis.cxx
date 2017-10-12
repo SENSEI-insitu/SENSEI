@@ -388,7 +388,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   {
     // Add the export that we want to make.
     if(!this->LibsimAdaptor->AddExport(plots, plotVars,
-      slice, project, origin, normal, format))
+      slice, project, origin, normal, filename))
       return -2;
   }
   else
