@@ -323,10 +323,22 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
     this->Analyses.push_back(this->LibsimAdaptor);
     }
 
+  bool doExport = false;
+  if(node.attribute("operation") != NULL)
+    doExport = node.attribute("operation").value() == "export";
+
+  std::string filename;
   LibsimImageProperties imageProps;
   if(node.attribute("image-filename") != NULL)
+  {
     imageProps.SetFilename(node.attribute("image-filename").value());
-
+    filename = node.attribute("image-filename").value();
+  }
+  if(node.attribute("filename") != NULL)
+  {
+    imageProps.SetFilename(node.attribute("filename").value());
+    filename = node.attribute("filename").value();
+  }
   if(node.attribute("image-width") != NULL)
     imageProps.SetWidth(node.attribute("image-width").as_int());
 
@@ -372,10 +384,20 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   if(node.attribute("slice-project") != NULL)
     project = node.attribute("slice-project").as_int() != 0;
 
-  // Add the image that we want to make.
-  if(!this->LibsimAdaptor->AddPlots(plots, plotVars,
-    slice, project, origin, normal, imageProps))
-    return -2;
+  if(doExport)
+  {
+    // Add the export that we want to make.
+    if(!this->LibsimAdaptor->AddExport(plots, plotVars,
+      slice, project, origin, normal, format))
+      return -2;
+  }
+  else
+  {
+    // Add the image that we want to make.
+    if(!this->LibsimAdaptor->AddRender(plots, plotVars,
+      slice, project, origin, normal, imageProps))
+      return -2;
+  }
 
   SENSEI_STATUS("configured LibsimAnalysisAdaptor")
 #endif

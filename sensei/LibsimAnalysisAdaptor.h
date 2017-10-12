@@ -32,13 +32,18 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
-  // Simple method to add some VisIt plots. The limit is how complex
+  // Simple method to add some VisIt plots and render. The limit is how complex
   // we want to make this.
-  bool AddPlots(const std::string &plots,
+  bool AddRender(const std::string &plots,
             const std::string &plotVars,
             bool slice, bool project2d,
             const double origin[3], const double normal[3],
             const LibsimImageProperties &imgProps);
+
+  bool AddExport(const std::string &plot, const std::string &plotVars,
+                 bool slice, bool project2d,
+                 const double origin[3], const double normal[3],
+                 const std::string &filename);
 protected:
   LibsimAnalysisAdaptor();
   ~LibsimAnalysisAdaptor();

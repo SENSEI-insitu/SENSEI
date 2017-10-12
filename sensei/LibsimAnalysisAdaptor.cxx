@@ -33,7 +33,7 @@ namespace sensei
 class PlotRecord
 {
 public:
-    PlotRecord() : imageProps(), plots(), plotVars(), slice(false), project2d(false)
+    PlotRecord() : imageProps(), plots(), plotVars(), doExport(false), slice(false), project2d(false)
     {
         origin[0] = origin[1] = origin[2] = 0.;
         normal[0] = 1.; normal[1] = normal[2] = 0.;
@@ -59,6 +59,7 @@ public:
     LibsimImageProperties imageProps;
     std::vector<std::string> plots;
     std::vector<std::string> plotVars;
+    bool doExport;
     bool slice;
     bool project2d;
     double origin[3];
@@ -81,11 +82,16 @@ public:
     bool Initialize();
     bool Execute(sensei::DataAdaptor *DataAdaptor);
 
-    bool AddPlots(const std::string &plots,
+    bool AddRender(const std::string &plots,
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
 	          const LibsimImageProperties &imgProps);
+    bool AddExport(const std::string &plots,
+                  const std::string &plotVars,
+                  bool slice, bool project2d,
+                  const double origin[3], const double normal[3],
+	          const std::string &filename);
 private:
     static int broadcast_int(int *value, int sender, void *cbdata);
     static int broadcast_string(char *str, int len, int sender, void *cbdata);
@@ -189,7 +195,7 @@ LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddPlots(const std::string &plts,
+LibsimAnalysisAdaptor::PrivateData::AddRender(const std::string &plts,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
@@ -205,6 +211,30 @@ LibsimAnalysisAdaptor::PrivateData::AddPlots(const std::string &plts,
     memcpy(p.normal, normal, 3 * sizeof(double));
 
     bool retval = !p.plots.empty() && (p.plots.size() == p.plotVars.size());
+    if(retval)
+        plots.push_back(p);
+    return retval;
+}
+
+// --------------------------------------------------------------------------
+bool
+LibsimAnalysisAdaptor::PrivateData::AddExport(const std::string &plts,
+    const std::string &plotVars,
+    bool slice, bool project2d,
+    const double origin[3], const double normal[3],
+    const std::string &filename)
+{
+    PlotRecord p;
+    p.doExport = true;
+    p.imageProps.SetFilename(filename);
+    p.plots = PlotRecord::SplitAtCommas(plts)[0]; // Do the first plot.
+    p.plotVars = PlotRecord::SplitAtCommas(plotVars);
+    p.slice = slice;
+    p.project2d = project2d;
+    memcpy(p.origin, origin, 3 * sizeof(double));
+    memcpy(p.normal, normal, 3 * sizeof(double));
+
+    bool retval = !p.plots.empty() && !p.plotVars.empty();
     if(retval)
         plots.push_back(p);
     return retval;
@@ -370,38 +400,68 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
 
         if(VisItDrawPlots() == VISIT_OKAY)
         {
-            // Get the image properties.
-            int w = plots[i].imageProps.GetWidth();
-            int h = plots[i].imageProps.GetHeight();
             std::string filename;
             filename = MakeFileName(plots[i].imageProps.GetFilename(),
                                     DataAdaptor->GetDataTimeStep(),
                                     DataAdaptor->GetDataTime());
-            int format = VISIT_IMAGEFORMAT_PNG;
-            if(plots[i].imageProps.GetFormat() == "bmp")
-                format = VISIT_IMAGEFORMAT_BMP;
-            else if(plots[i].imageProps.GetFormat() == "jpeg")
-                format = VISIT_IMAGEFORMAT_JPEG;
-            else if(plots[i].imageProps.GetFormat() == "png")
-                format = VISIT_IMAGEFORMAT_PNG;
-            else if(plots[i].imageProps.GetFormat() == "ppm")
-                format = VISIT_IMAGEFORMAT_PPM;
-            else if(plots[i].imageProps.GetFormat() == "tiff")
-                format = VISIT_IMAGEFORMAT_TIFF;
 
-            // Save an image.
-            if(VisItSaveWindow(filename.c_str(), w, h, format) == VISIT_OKAY)
+            if(plots[i].doExport)
             {
-                retval = true;
+                const char *fmt = "VTK_1.0";
+                visit_handle vars = VISIT_INVALID_HANDLE;
+                if(VisIt_NameList_alloc(&vars))
+                {
+                    for(size_t v = 0; v < plots[i].plotVars.size(); ++v)
+                        VisIt_NameList_addName(vars, plots[i].plotVars[v].c_str());
+
+                    // Export the data instead of rendering it.
+                    if(VisItExportDatabase(filename.c_str(), fmt, vars) == VISIT_OKAY)
+                    {
+                        retval = true;
+                    }
+                    else if(rank == 0)
+                    {
+                        SENSEI_ERROR("VisItExportDatabase failed.")
+                    }
+
+                    VisIt_NameList_free(vars);
+                }
+                else if(rank == 0)
+                {
+                    SENSEI_ERROR("VisIt_NameList_alloc failed.")
+                }
+            }
+            else
+            {
+                // Get the image properties.
+                int w = plots[i].imageProps.GetWidth();
+                int h = plots[i].imageProps.GetHeight();
+                int format = VISIT_IMAGEFORMAT_PNG;
+                if(plots[i].imageProps.GetFormat() == "bmp")
+                    format = VISIT_IMAGEFORMAT_BMP;
+                else if(plots[i].imageProps.GetFormat() == "jpeg")
+                    format = VISIT_IMAGEFORMAT_JPEG;
+                else if(plots[i].imageProps.GetFormat() == "png")
+                    format = VISIT_IMAGEFORMAT_PNG;
+                else if(plots[i].imageProps.GetFormat() == "ppm")
+                    format = VISIT_IMAGEFORMAT_PPM;
+                else if(plots[i].imageProps.GetFormat() == "tiff")
+                    format = VISIT_IMAGEFORMAT_TIFF;
+
+                // Save an image.
+                if(VisItSaveWindow(filename.c_str(), w, h, format) == VISIT_OKAY)
+                {
+                    retval = true;
+                }
+                else if(rank == 0)
+                {
+                    SENSEI_ERROR("VisItSaveWindow failed.")
+                }
             }
             else if(rank == 0)
             {
-                SENSEI_ERROR("VisItSaveWindow failed.")
+                SENSEI_ERROR("VisItDrawPlots failed.")
             }
-        }
-        else if(rank == 0)
-        {
-            SENSEI_ERROR("VisItDrawPlots failed.")
         }
 
         // Delete the plots.
@@ -1016,14 +1076,25 @@ void LibsimAnalysisAdaptor::SetComm(MPI_Comm c)
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::AddPlots(const std::string &plots,
+bool LibsimAnalysisAdaptor::AddRender(const std::string &plots,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const LibsimImageProperties &imgProps)
 {
-    return internals->AddPlots(plots, plotVars, slice,
+    return internals->AddRender(plots, plotVars, slice,
       project2d, origin, normal, imgProps);
+}
+
+//-----------------------------------------------------------------------------
+bool LibsimAnalysisAdaptor::AddExport(const std::string &plots,
+    const std::string &plotVars,
+    bool slice, bool project2d,
+    const double origin[3], const double normal[3],
+    const std::string &filename)
+{
+    return internals->AddExport(plots, plotVars, slice,
+      project2d, origin, normal, filename);
 }
 
 //-----------------------------------------------------------------------------
