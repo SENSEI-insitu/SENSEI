@@ -75,7 +75,7 @@ std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
            os << ", ";
         os << "\"" << obj.plots[i] << "\"";
     }
-    os << "], " << endl;
+    os << "], ";
     os << "plotvars=[";
     for(size_t i = 0; i < obj.plotVars.size(); ++i)
     {
@@ -83,7 +83,7 @@ std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
            os << ", ";
         os << "\"" << obj.plotVars[i] << "\"";
     }
-    os << "], " << endl;
+    os << "], ";
     if(obj.doExport)
     {
         os << "filename=\"" << obj.imageProps.GetFilename() << ", ";
@@ -249,7 +249,7 @@ LibsimAnalysisAdaptor::PrivateData::AddRender(const std::string &plts,
     bool retval = !p.plots.empty() && (p.plots.size() == p.plotVars.size());
     if(retval)
         plots.push_back(p);
-    cout << "Libsim Render: " << (retval?"true":"false") << ", " << p << endl;
+//    cout << "Libsim Render: " << (retval?"true":"false") << ", " << p << endl;
     return retval;
 }
 
@@ -277,7 +277,7 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(const std::string &plts,
     bool retval = !p.plots.empty() && !p.plotVars.empty();
     if(retval)
         plots.push_back(p);
-    cout << "Libsim Export: " << (retval?"true":"false") << ", " << p << endl;
+//    cout << "Libsim Export: " << (retval?"true":"false") << ", " << p << endl;
 
     return retval;
 }
