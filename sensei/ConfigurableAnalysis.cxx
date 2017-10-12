@@ -390,6 +390,8 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
     if(!this->LibsimAdaptor->AddExport(plots, plotVars,
       slice, project, origin, normal, filename))
       return -2;
+
+    SENSEI_STATUS("configured LibsimAnalysisAdaptor export")
   }
   else
   {
@@ -397,9 +399,10 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
     if(!this->LibsimAdaptor->AddRender(plots, plotVars,
       slice, project, origin, normal, imageProps))
       return -2;
+
+    SENSEI_STATUS("configured LibsimAnalysisAdaptor render")
   }
 
-  SENSEI_STATUS("configured LibsimAnalysisAdaptor")
 #endif
   return 0;
 }

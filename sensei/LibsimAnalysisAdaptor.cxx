@@ -66,6 +66,42 @@ public:
     double normal[3];
 };
 
+std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
+{
+    os << "plots=[";
+    for(size_t i = 0; i < obj.plots.size(); ++i)
+    {
+        if(i > 0)
+           os << ", ";
+        os << "\"" << obj.plots[i] << "\"";
+    }
+    os << "], " << endl;
+    os << "plotvars=[";
+    for(size_t i = 0; i < obj.plotVars.size(); ++i)
+    {
+        if(i > 0)
+           os << ", ";
+        os << "\"" << obj.plotVars[i] << "\"";
+    }
+    os << "], " << endl;
+    if(obj.doExport)
+    {
+        os << "filename=\"" << obj.imageProps.GetFilename() << ", ";
+    }
+    else
+    {
+        os << "filename=\"" << obj.imageProps.GetFilename() << ", ";
+        os << "width=" << obj.imageProps.GetWidth() << ", ";
+        os << "height=" << obj.imageProps.GetHeight() << ", ";
+        os << "format=" << obj.imageProps.GetFormat() << ", ";
+    }
+    os << "slice=" << (obj.slice?"true":"false") << ", ";
+    os << "project2d=" << (obj.project2d?"true":"false") << ", ";
+    os << "origin=[" << obj.origin[0] << ", " << obj.origin[1[] << ", " << obj.origin[2] << "], ";
+    os << "normal=[" << obj.normal[0] << ", " << obj.normal[1[] << ", " << obj.normal[2] << "]";
+    return os;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 class LibsimAnalysisAdaptor::PrivateData
 {
@@ -213,6 +249,7 @@ LibsimAnalysisAdaptor::PrivateData::AddRender(const std::string &plts,
     bool retval = !p.plots.empty() && (p.plots.size() == p.plotVars.size());
     if(retval)
         plots.push_back(p);
+    cout << "Libsim Render: " << (retval?"true":"false") << ", " << p << endl;
     return retval;
 }
 
@@ -240,6 +277,8 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(const std::string &plts,
     bool retval = !p.plots.empty() && !p.plotVars.empty();
     if(retval)
         plots.push_back(p);
+    cout << "Libsim Export: " << (retval?"true":"false") << ", " << p << endl;
+
     return retval;
 }
 
