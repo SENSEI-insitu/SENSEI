@@ -228,7 +228,8 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(const std::string &plts,
     p.doExport = true;
     p.imageProps.SetFilename(filename);
     std::vector<std::string> plotTypes = PlotRecord::SplitAtCommas(plts);
-    p.plots = (plotTypes[0]); // Do the first plot.
+    std::vector<std::string> first(plotTypes[0]);
+    p.plots = first;
     p.plotVars = PlotRecord::SplitAtCommas(plotVars);
     p.slice = slice;
     p.project2d = project2d;
