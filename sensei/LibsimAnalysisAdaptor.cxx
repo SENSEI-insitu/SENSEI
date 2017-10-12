@@ -33,7 +33,7 @@ namespace sensei
 class PlotRecord
 {
 public:
-    PlotRecord() : imageProps(), plots(), plotVars(), doExport(false), slice(false), project2d(false)
+    PlotRecord() : frequency(5), imageProps(), plots(), plotVars(), doExport(false), slice(false), project2d(false)
     {
         origin[0] = origin[1] = origin[2] = 0.;
         normal[0] = 1.; normal[1] = normal[2] = 0.;
@@ -56,6 +56,7 @@ public:
         return result;
     }
 
+    int frequency;
     LibsimImageProperties imageProps;
     std::vector<std::string> plots;
     std::vector<std::string> plotVars;
@@ -231,13 +232,14 @@ LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddRender(const std::string &plts,
+LibsimAnalysisAdaptor::PrivateData::AddRender(int freq, const std::string &plts,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const LibsimImageProperties &imgProps)
 {
     PlotRecord p;
+    p.frequency = freq;
     p.imageProps = imgProps;
     p.plots = PlotRecord::SplitAtCommas(plts);
     p.plotVars = PlotRecord::SplitAtCommas(plotVars);
@@ -255,13 +257,14 @@ LibsimAnalysisAdaptor::PrivateData::AddRender(const std::string &plts,
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddExport(const std::string &plts,
+LibsimAnalysisAdaptor::PrivateData::AddExport(int freq, const std::string &plts,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const std::string &filename)
 {
     PlotRecord p;
+    p.frequency = freq;
     p.doExport = true;
     p.imageProps.SetFilename(filename);
     std::vector<std::string> plotTypes = PlotRecord::SplitAtCommas(plts);
@@ -400,6 +403,10 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
     // Now that the runtime stuff is loaded, we can execute some plots.
     for(size_t i = 0; i < plots.size(); ++i)
     {
+        // Skip if we're not executing now.
+        if(DataAdaptor->GetDataTimeStep() % plots[i].frequency != 0)
+            continue;
+
         // Add all the plots in this group.
         int *ap = new int[plots[i].plots.size()];
         int np = 0;
@@ -1118,24 +1125,24 @@ void LibsimAnalysisAdaptor::SetComm(MPI_Comm c)
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::AddRender(const std::string &plots,
+bool LibsimAnalysisAdaptor::AddRender(int frequency, const std::string &plots,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const LibsimImageProperties &imgProps)
 {
-    return internals->AddRender(plots, plotVars, slice,
+    return internals->AddRender(frequency, plots, plotVars, slice,
       project2d, origin, normal, imgProps);
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::AddExport(const std::string &plots,
+bool LibsimAnalysisAdaptor::AddExport(int frequency, const std::string &plots,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const std::string &filename)
 {
-    return internals->AddExport(plots, plotVars, slice,
+    return internals->AddExport(frequency, plots, plotVars, slice,
       project2d, origin, normal, filename);
 }
 

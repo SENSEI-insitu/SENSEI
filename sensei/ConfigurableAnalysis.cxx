@@ -327,6 +327,12 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   if(node.attribute("operation") != NULL)
     doExport = (node.attribute("operation").value() == std::string("export"));
 
+  int frequency = 5;
+  if(node.attribute("frequency") != NULL)
+      frequency = node.attribute("frequency").as_int();
+  if(frequency < 1)
+      frequency = 1;
+
   std::string filename;
   LibsimImageProperties imageProps;
   if(node.attribute("image-filename") != NULL)
@@ -387,7 +393,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   if(doExport)
   {
     // Add the export that we want to make.
-    if(!this->LibsimAdaptor->AddExport(plots, plotVars,
+    if(!this->LibsimAdaptor->AddExport(frequency, plots, plotVars,
       slice, project, origin, normal, filename))
       return -2;
 
@@ -396,7 +402,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   else
   {
     // Add the image that we want to make.
-    if(!this->LibsimAdaptor->AddRender(plots, plotVars,
+    if(!this->LibsimAdaptor->AddRender(frequency, plots, plotVars,
       slice, project, origin, normal, imageProps))
       return -2;
 
