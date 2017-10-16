@@ -309,8 +309,8 @@ class analysis_adaptor:
         if analysis == 'libsim':
             imProps = sensei.LibsimImageProperties()
             self.AnalysisAdaptor = sensei.LibsimAnalysisAdaptor.New()
-            self.AnalysisAdaptor.AddPlots('Pseudocolor','ids', False,False, \
-		(0.,0.,0.),(1.,1.,1.),imProps)
+            self.AnalysisAdaptor.AddRender(1,'Pseudocolor', \
+                'ids',False,False,(0.,0.,0.),(1.,1.,1.),imProps)
         # Catalyst
         if analysis == 'catalyst':
             if check_arg(args,'script'):
