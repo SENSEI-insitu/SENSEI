@@ -2,7 +2,7 @@
 #define _NYX_SENSEI_DATAADAPTOR_H
 
 #include <sensei/DataAdaptor.h>
-#include <REAL.H>
+#include <AMReX_REAL.H>
 
 class vtkImageData;
 
@@ -41,17 +41,17 @@ public:
 
   /// Set data for a specific block.
 #ifdef NYX_SENSEI_NO_COPY
-  void SetBlockData(int gid, const Real* data);
+  void SetBlockData(int gid, const amrex::Real* data);
 #else
   void SetBlockData(int gid, float* data);
 #endif
 
-  virtual vtkDataObject* GetMesh(bool structure_only=false);
-  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname);
-  virtual unsigned int GetNumberOfArrays(int) { return 1; }
-  virtual std::string GetArrayName(int association, unsigned int index)
+  virtual vtkDataObject* GetMesh(bool structure_only=false) override;
+  virtual bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname) override;
+  virtual unsigned int GetNumberOfArrays(int) override { return 1; }
+  virtual std::string GetArrayName(int association, unsigned int index) override
   { return index==0? "data" : std::string(); }
-  virtual void ReleaseData();
+  virtual void ReleaseData() override;
 
 protected:
   DataAdaptor();

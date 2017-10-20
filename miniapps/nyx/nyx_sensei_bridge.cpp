@@ -9,7 +9,7 @@
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 
-#include <MultiFab.H>
+#include <AMReX_MultiFab.H>
 
 namespace nyx_sensei_bridge
 {
@@ -43,17 +43,17 @@ void initialize(MPI_Comm world,
 
 //-----------------------------------------------------------------------------
 //
-void analyze(const MultiFab& simulation_data, Real time, int time_step)
+void analyze(const amrex::MultiFab& simulation_data, amrex::Real time, int time_step)
 {
   GlobalDataAdaptor->SetDataTime(time);
   GlobalDataAdaptor->SetDataTimeStep(time_step);
 
   timer::MarkStartEvent("sensei_bridge::copy-data");
   {
-    for (MFIter mfi(simulation_data); mfi.isValid(); ++mfi)
+    for (amrex::MFIter mfi(simulation_data); mfi.isValid(); ++mfi)
     {
 #ifdef NYX_SENSEI_NO_COPY
-      Box data_box = mfi.fabbox();
+      amrex::Box data_box = mfi.fabbox();
 
       GlobalDataAdaptor->SetValidBlockExtent(mfi.index(),
           mfi.validbox().smallEnd(0), mfi.validbox().bigEnd(0),
@@ -66,7 +66,7 @@ void analyze(const MultiFab& simulation_data, Real time, int time_step)
       //std::cout << " overall max: " << simulation_data[mfi].max(0) << " valid box max: " << simulation_data[mfi].max(mfi.validbox(),0) << std::endl;;
 
 #else
-      Box data_box = mfi.validbox();
+      amrex::Box data_box = mfi.validbox();
 
       float *data = new float[mfi.validbox().numPts()];
       float *currPtr = data;

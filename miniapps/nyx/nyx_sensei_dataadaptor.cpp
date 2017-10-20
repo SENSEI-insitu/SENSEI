@@ -30,7 +30,7 @@ class DataAdaptor::DInternals
   std::vector<diy::DiscreteBounds> CellExtents;
 #ifdef NYX_SENSEI_NO_COPY
   std::vector<diy::DiscreteBounds> ValidCellExtents;
-  std::vector<const Real*> Data;
+  std::vector<const amrex::Real*> Data;
 #else
   std::vector<float*> Data;
 #endif
@@ -167,7 +167,7 @@ void DataAdaptor::ComputeSpacingAndOrigin()
 
 //-----------------------------------------------------------------------------
 #ifdef NYX_SENSEI_NO_COPY
-void DataAdaptor::SetBlockData(int gid, const Real* data)
+void DataAdaptor::SetBlockData(int gid, const amrex::Real* data)
 #else
 void DataAdaptor::SetBlockData(int gid, float* data)
 #endif
@@ -269,7 +269,7 @@ bool DataAdaptor::AddArray(vtkDataObject* mesh, int association,
 #endif
         fa->SetName(arrayname.c_str());
 #ifdef NYX_SENSEI_NO_COPY
-        fa->SetArray(const_cast<Real*>(internals.Data[cc]), blockMesh->GetNumberOfCells(), 1);
+        fa->SetArray(const_cast<amrex::Real*>(internals.Data[cc]), blockMesh->GetNumberOfCells(), 1);
         fa->Modified();
 #else
         fa->SetArray(internals.Data[cc], blockMesh->GetNumberOfCells(), 0);
