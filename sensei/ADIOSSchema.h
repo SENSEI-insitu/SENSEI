@@ -37,7 +37,7 @@ public:
   virtual int DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds);
 
   // Gets number of bytes used in ADIOS representation
-  virtual uint64_t GetSize(vtkDataObject *dobj);
+  virtual uint64_t GetSize(MPI_Comm comm, vtkDataObject *dobj);
   virtual uint64_t GetSize(vtkDataSet *ds);
 
   // Writes data to ADIOS
@@ -67,7 +67,7 @@ public:
 
   int DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject* dobj) override;
 
-  uint64_t GetSize(vtkDataObject *dobj) override;
+  uint64_t GetSize(MPI_Comm comm, vtkDataObject *dobj) override;
 
   // Write time and time step metadata
   int WriteTimeStep(MPI_Comm comm, int64_t fh, unsigned long step, double time);
@@ -119,7 +119,7 @@ public:
   int DefineVariables(int64_t gh, unsigned int id, vtkDataSet*ds) override;
   int DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject* dobj) override;
 
-  uint64_t GetSize(vtkDataObject *dobj) override;
+  uint64_t GetSize(MPI_Comm comm, vtkDataObject *dobj) override;
   uint64_t GetSize(vtkDataSet *ds) override;
 
   int Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj) override;

@@ -420,8 +420,10 @@ int Schema::DefineVariables(int64_t, unsigned int, vtkDataSet *)
 }
 
 // --------------------------------------------------------------------------
-uint64_t Schema::GetSize(vtkDataObject *dobj)
+uint64_t Schema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 {
+  (void)comm;
+
   uint64_t size = 0;
 
   // function that accumulates size of a dataset
@@ -604,7 +606,11 @@ int Extent3DSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     double spacing[3] = {0.0};
     adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, spacing);
 
-    adios_perform_reads(fp, 1);
+    if (adios_perform_reads(fp, 1))
+      {
+      SENSEI_ERROR("Failed to read extents")
+      return -1;
+      }
 
     img->SetExtent(extent);
     img->SetOrigin(origin);
@@ -689,9 +695,10 @@ int DatasetAttributesSchema<att_t>::DefineVariables(int64_t gh,
       const char *name = array->GetName();
       oss.str("");
       oss << strlen(name) + 1;
+      std::string len = oss.str();
       path = array_path + "/name";
       adios_define_var(gh, path.c_str(), "", adios_byte,
-        oss.str().c_str(), "", "");
+        len.c_str(), len.c_str(), "0");
 
       // /dataset_<id>/<att_type>/array_<i>/number_of_tuples
       std::string elem_path = array_path + "/number_of_elements";
@@ -705,9 +712,10 @@ int DatasetAttributesSchema<att_t>::DefineVariables(int64_t gh,
       path = array_path + "/element_type";
       adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
-      // /dataset_<id>/<att_type>/array_<i>
-      adios_define_var(gh, array_path.c_str(), "", adiosType(array),
-        elem_path.c_str(), "", "");
+      // /dataset_<id>/<att_type>/array_<i>/data
+      path = array_path + "/data";
+      adios_define_var(gh, path.c_str(), "", adiosType(array),
+        elem_path.c_str(), elem_path.c_str(), "0");
       }
     }
 
@@ -793,7 +801,8 @@ int DatasetAttributesSchema<att_t>::Write(int64_t fh,
       adios_write(fh, path.c_str(), &elem_type);
 
       // /dataset_<id>/<att_type>/array_<i>
-      adios_write(fh, array_path.c_str(), array->GetVoidPointer(0));
+      path = array_path + "/data";
+      adios_write(fh, path.c_str(), array->GetVoidPointer(0));
       }
     }
 
@@ -840,7 +849,12 @@ int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
         }
       char *name = static_cast<char*>(malloc(vinfo->dims[0]));
       adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, name);
-      adios_perform_reads(fp, 1);
+      if (adios_perform_reads(fp, 1))
+        {
+        SENSEI_ERROR("Failed to read " << datasetAttributeString<att_t>::str()
+          << "data array name")
+        return -1;
+        }
       adios_free_varinfo(vinfo);
 
       // /dataset_<id>/<att_type>/array_<i>/number_of_elements
@@ -861,19 +875,26 @@ int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
       if (adiosInq(fp, path, elem_type))
         return -1;
 
-      // /dataset_<id>/<att_type>/array_<i>
+      // /dataset_<id>/<att_type>/array_<i>/data
+      path = array_path + "/data";
       vtkDataArray *array = vtkDataArray::CreateDataArray(elem_type);
       array->SetNumberOfComponents(n_comp);
       array->SetNumberOfTuples(n_elem/n_comp);
       array->SetName(name);
-      adios_schedule_read(fp, nullptr, array_path.c_str(),
+      adios_schedule_read(fp, nullptr, path.c_str(),
         0, 1, array->GetVoidPointer(0));
       dsa->AddArray(array);
       array->Delete();
-
-      adios_perform_reads(fp, 1);
-
       free(name);
+
+      if (adios_perform_reads(fp, 1))
+        {
+        SENSEI_ERROR("Failed to read data for "
+          << datasetAttributeString<att_t>::str() << " data array \""
+          << array->GetName() << "\"")
+        return -1;
+        }
+
       }
 
     }
@@ -948,7 +969,12 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(ADIOS_FILE *fp,
       }
     char *tmp = static_cast<char*>(malloc(vinfo->dims[0]));
     adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, tmp);
-    adios_perform_reads(fp, 1);
+    if (adios_perform_reads(fp, 1))
+      {
+      SENSEI_ERROR("Failed to read "
+        << datasetAttributeString<att_t>::str() << " data array names")
+      return -1;
+      }
     adios_free_varinfo(vinfo);
 
     std::string name(tmp);
@@ -1050,17 +1076,23 @@ int DatasetAttributesSchema<att_t>::ReadArray(ADIOS_FILE *fp,
     if (adiosInq(fp, path, elem_type))
       return -1;
 
-    // /dataset_<id>/<att_type>/array_<i>
+    // /dataset_<id>/<att_type>/array_<i>/data
+    path = array_path + "/data";
     vtkDataArray *array = vtkDataArray::CreateDataArray(elem_type);
     array->SetNumberOfComponents(n_comp);
     array->SetNumberOfTuples(n_elem/n_comp);
     array->SetName(array_name.c_str());
-    adios_schedule_read(fp, nullptr, array_path.c_str(),
+    adios_schedule_read(fp, nullptr, path.c_str(),
       0, 1, array->GetVoidPointer(0));
     dsa->AddArray(array);
     array->Delete();
 
-    adios_perform_reads(fp, 1);
+    if (adios_perform_reads(fp, 1))
+      {
+      SENSEI_ERROR("Failed to read " << datasetAttributeString<att_t>::str()
+        << " data array \"" << array_name << "\"")
+      return -1;
+      }
     }
 
   return 0;
@@ -1090,7 +1122,7 @@ int PointsSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
 
     path = dataset_id + "data";
     adios_define_var(gh, path.c_str(), "", adiosType(pts),
-      path_len.c_str(), "", "");
+      path_len.c_str(), path_len.c_str(), "0");
     }
   return 0;
 }
@@ -1100,7 +1132,7 @@ uint64_t PointsSchema::GetSize(vtkDataSet *ds)
 {
   uint64_t size = 0;
   if (dynamic_cast<vtkPointSet*>(ds))
-    size += sizeof(unsigned long)       // number of points
+    size += sizeof(unsigned long)     // number of points
       + this->GetPointsSize(ds);      // points array
   return size;
 }
@@ -1164,7 +1196,11 @@ int PointsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     adios_schedule_read(fp, nullptr, path.c_str(),
       0, 1, pts->GetVoidPointer(0));
 
-    adios_perform_reads(fp, 1);
+    if (adios_perform_reads(fp, 1))
+      {
+      SENSEI_ERROR("Failed to read points")
+      return -1;
+      }
 
     vtkPoints *points = vtkPoints::New();
     points->SetData(pts);
@@ -1226,16 +1262,16 @@ int CellsSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet* ds)
     // /dataset_<id>/cells/cell_types
     std::string path_array = dataset_id + "cell_types";
     adios_define_var(gh, path_array.c_str(), "", adios_unsigned_byte,
-      path_len.c_str(), "", "");
+      path_len.c_str(), path_len.c_str(), "0");
 
     // dataset_<id>/cells/number_of_cells
     path_len = dataset_id + "n_elem";
     adios_define_var(gh, path_len.c_str(), "", adios_unsigned_long, "", "", "");
 
-    // dataset_<id>/cells/array
+    // dataset_<id>/cells/data
     path_array = dataset_id + "data";
     adios_define_var(gh, path_array.c_str(), "", adiosIdType(),
-      path_len.c_str(), "", "");
+      path_len.c_str(), path_len.c_str(), "0");
     }
 
   return 0;
@@ -1387,7 +1423,11 @@ int CellsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     adios_schedule_read(fp, nullptr, path.c_str(),
       0, 1, cells->GetVoidPointer(0));
 
-    adios_perform_reads(fp, 1);
+    if (adios_perform_reads(fp, 1))
+      {
+      SENSEI_ERROR("Failed to read cells")
+      return -1;
+      }
 
     if (ug)
       {
@@ -1647,14 +1687,14 @@ int DatasetSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-uint64_t DatasetSchema::GetSize(vtkDataObject *dobj)
+uint64_t DatasetSchema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 {
-  return this->Internals->Extent.GetSize(dobj) +
-    this->Internals->Cells.GetSize(dobj) +
-    this->Internals->Points.GetSize(dobj) +
-    this->Internals->CellData.GetSize(dobj) +
-    this->Internals->PointData.GetSize(dobj) +
-    this->Schema::GetSize(dobj);
+  return this->Internals->Extent.GetSize(comm, dobj) +
+    this->Internals->Cells.GetSize(comm, dobj) +
+    this->Internals->Points.GetSize(comm, dobj) +
+    this->Internals->CellData.GetSize(comm, dobj) +
+    this->Internals->PointData.GetSize(comm, dobj) +
+    this->Schema::GetSize(comm, dobj);
 }
 
 // --------------------------------------------------------------------------
@@ -1876,10 +1916,14 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-uint64_t DataObjectSchema::GetSize(vtkDataObject *dobj)
+uint64_t DataObjectSchema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 {
-  return sizeof(unsigned int) + sizeof(int) +
-    this->Internals->dataset.GetSize(dobj);
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  return (rank == 0 ? 2*sizeof(unsigned int) + sizeof(int) +
+    sizeof(unsigned long) + sizeof(double) : 0) +
+    this->Internals->dataset.GetSize(comm, dobj);
 }
 
 // --------------------------------------------------------------------------
