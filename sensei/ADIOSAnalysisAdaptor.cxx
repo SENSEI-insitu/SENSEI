@@ -79,21 +79,23 @@ void ADIOSAnalysisAdaptor::InitializeADIOS(vtkDataObject *dobj)
   // initialize adios
   adios_init_noxml(this->Comm);
 
-  int64_t g_handle = 0;
+  int64_t gHandle = 0;
+  int64_t bufferSizeMB = 500;
+
 #if ADIOS_VERSION_GE(1,11,0)
-  adios_set_max_buffer_size(500);
-  adios_declare_group(&g_handle, "sensei", "",
+  adios_set_max_buffer_size(bufferSizeMB);
+  adios_declare_group(&gHandle, "sensei", "",
     static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_yes));
 #else
-  adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, 500);
-  adios_declare_group(&g_handle, "sensei", "", adios_flag_yes);
+  adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, bufferSizeMB);
+  adios_declare_group(&gHandle, "sensei", "", adios_flag_yes);
 #endif
 
-  adios_select_method(g_handle, this->Method.c_str(), "", "");
+  adios_select_method(gHandle, this->Method.c_str(), "", "");
 
   // define ADIOS variables
   this->Schema = new senseiADIOS::DataObjectSchema;
-  this->Schema->DefineVariables(this->Comm, g_handle, dobj);
+  this->Schema->DefineVariables(this->Comm, gHandle, dobj);
 }
 
 //----------------------------------------------------------------------------
@@ -116,7 +118,7 @@ void ADIOSAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   adios_open(&handle, "sensei", this->FileName.c_str(),
     timeStep == 0 ? "w" : "a", this->Comm);
 
-  uint64_t group_size = this->Schema->GetSize(dobj);
+  uint64_t group_size = this->Schema->GetSize(this->Comm, dobj);
   adios_group_size(handle, group_size, &group_size);
 
   if (this->Schema->Write(this->Comm, handle, dobj) ||

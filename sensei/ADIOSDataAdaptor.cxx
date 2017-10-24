@@ -19,10 +19,18 @@ using ArrayMapType = std::map<int,std::vector<std::string>>;
 
 namespace sensei
 {
+
 struct ADIOSDataAdaptor::InternalsType
 {
   InternalsType() : Comm(MPI_COMM_WORLD), File(nullptr),
-    Mesh(nullptr), StaticMesh(0), StructureOnly(0) {}
+    Mesh(nullptr), StaticMesh(0), StructureOnly(0),
+    Method(ADIOS_READ_METHOD_BP)
+    {}
+
+  bool MethodIsFileBased(ADIOS_READ_METHOD method);
+
+  bool MethodIsFileBased()
+  { return this->MethodIsFileBased(this->Method); }
 
   MPI_Comm Comm;
   ADIOS_FILE *File;
@@ -31,7 +39,25 @@ struct ADIOSDataAdaptor::InternalsType
   ArrayMapType ArrayNames;
   int StaticMesh;
   int StructureOnly;
+  ADIOS_READ_METHOD Method;
 };
+
+bool ADIOSDataAdaptor::InternalsType::MethodIsFileBased(ADIOS_READ_METHOD method)
+{
+  switch(method)
+    {
+    case ADIOS_READ_METHOD_BP:
+    case ADIOS_READ_METHOD_BP_AGGREGATE:
+      return true;
+    case ADIOS_READ_METHOD_DATASPACES:
+    case ADIOS_READ_METHOD_DIMES:
+    case ADIOS_READ_METHOD_FLEXPATH:
+    case ADIOS_READ_METHOD_ICEE:
+      return false;
+    }
+  SENSEI_ERROR("unknown read method " << method)
+  return false;
+}
 
 
 //----------------------------------------------------------------------------
@@ -65,8 +91,9 @@ int ADIOSDataAdaptor::Open(MPI_Comm comm,
   adios_read_init_method(method, comm, "verbose=2");
 
   // open the file
-  ADIOS_FILE *fp = adios_read_open(filename.c_str(),
-    method, comm, ADIOS_LOCKMODE_ALL, -1);
+  ADIOS_FILE *fp = adios_read_open(filename.c_str(), method, comm,
+    this->Internals->MethodIsFileBased(method) ? ADIOS_LOCKMODE_ALL :
+    ADIOS_LOCKMODE_CURRENT, -1.0f);
 
   if (!fp)
     {
@@ -86,6 +113,7 @@ int ADIOSDataAdaptor::Open(MPI_Comm comm,
   //
   this->Internals->Comm = comm;
   this->Internals->File = fp;
+  this->Internals->Method = method;
 
   // initialize the time step
   if (this->UpdateTimeStep())
@@ -104,9 +132,11 @@ int ADIOSDataAdaptor::Close()
   this->Internals->ArrayNames[vtkDataObject::CELL].clear();
 
   if (this->Internals->File)
+    {
     adios_read_close(this->Internals->File);
-
-  this->Internals->File = nullptr;
+    adios_read_finalize_method(this->Internals->Method);
+    this->Internals->File = nullptr;
+    }
 
   return 0;
 }
@@ -118,20 +148,9 @@ int ADIOSDataAdaptor::Advance()
 
   adios_release_step(this->Internals->File);
 
-  if (adios_advance_step(this->Internals->File, 0, /*timeout*/0.0))
-    {
-    /* TODO -- according to adios documentation adios_errno should be
-    // err_end_of_stream when we have processed all time steps
-    // however it is err_step_notready.
-    if (adios_errno != err_end_of_stream)
-      {
-      SENSEI_ERROR("Failed to advance to next time step")
-      return -1;
-      }
-    else
-      return 1;*/
+  if (adios_advance_step(this->Internals->File, 0,
+    this->Internals->MethodIsFileBased() ? 0.0f : -1.0f))
     return 1;
-    }
 
   if (this->UpdateTimeStep())
     return -1;
