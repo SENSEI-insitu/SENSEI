@@ -489,9 +489,9 @@ int Schema::Read(MPI_Comm comm, ADIOS_FILE *fp, vtkDataObject *&dobj)
   (void)comm;
 
   // function that reads a dataset
-  dataset_function func = [this,fp](unsigned int id, vtkDataSet *ds) -> int
+  dataset_function func = [&](unsigned int id, vtkDataSet *ds) -> int
   {
-    int ierr = this->Read(fp, id, ds);
+    int ierr = this->Read(comm, fp, id, ds);
     if (ierr < 0)
       SENSEI_ERROR("Failed to read dataset " << id);
     return ierr;
@@ -515,7 +515,7 @@ int Schema::Read(MPI_Comm comm, ADIOS_FILE *fp, vtkDataObject *&dobj)
 }
 
 // --------------------------------------------------------------------------
-int Schema::Read(ADIOS_FILE *, unsigned int, vtkDataSet *&)
+int Schema::Read(MPI_Comm, ADIOS_FILE *, unsigned int, vtkDataSet *&)
 {
   return 0;
 }
@@ -583,7 +583,8 @@ int Extent3DSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int Extent3DSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
+int Extent3DSchema::Read(MPI_Comm comm, ADIOS_FILE *fp, unsigned int id,
+  vtkDataSet *&ds)
 {
   if (vtkImageData *img = dynamic_cast<vtkImageData*>(ds))
     {
@@ -591,26 +592,37 @@ int Extent3DSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     oss << "dataset_" << id << "/";
     std::string dataset_id = oss.str();
 
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    ADIOS_SELECTION *sel = adios_selection_writeblock(rank);
+    if (!sel)
+      {
+      SENSEI_ERROR("Failed to make the selction")
+      return -1;
+      }
+
     // extent
     std::string path = dataset_id + "extent";
     int extent[6] = {0};
-    adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, extent);
+    adios_schedule_read(fp, sel, path.c_str(), 0, 1, extent);
 
     // origin
     path = dataset_id + "origin";
     double origin[3] = {0.0};
-    adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, origin);
+    adios_schedule_read(fp, sel, path.c_str(), 0, 1, origin);
 
     // spacing
     path = dataset_id + "spacing";
     double spacing[3] = {0.0};
-    adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, spacing);
+    adios_schedule_read(fp, sel, path.c_str(), 0, 1, spacing);
 
     if (adios_perform_reads(fp, 1))
       {
       SENSEI_ERROR("Failed to read extents")
       return -1;
       }
+
+    adios_selection_delete(sel);
 
     img->SetExtent(extent);
     img->SetOrigin(origin);
@@ -687,20 +699,20 @@ int DatasetAttributesSchema<att_t>::DefineVariables(int64_t gh,
       std::string array_path = att_path + array_id;
 
       // how do you best write a C string in ADIOS? An adios_string type
-      // scalar didn't work. adios_string is not well documented in the
-      // user guide.  writing it as a byte array works. unfortunately
+      // scalar didn't work. writing it as a byte array works. unfortunately
       // bpls displays it as an array of integer values.
 
+      // /dataset_<id>/<att_type>/array_<i>/name_len
+      std::string len = array_path + "/name_len";
+      adios_define_var(gh, len.c_str(), "", adios_integer,
+        "", "", "0");
+
       // /dataset_<id>/<att_type>/array_<i>/name
-      const char *name = array->GetName();
-      oss.str("");
-      oss << strlen(name) + 1;
-      std::string len = oss.str();
       path = array_path + "/name";
       adios_define_var(gh, path.c_str(), "", adios_byte,
         len.c_str(), len.c_str(), "0");
 
-      // /dataset_<id>/<att_type>/array_<i>/number_of_tuples
+      // /dataset_<id>/<att_type>/array_<i>/number_of_elements
       std::string elem_path = array_path + "/number_of_elements";
       adios_define_var(gh, elem_path.c_str(), "", adiosIdType(), "", "", "");
 
@@ -740,7 +752,7 @@ uint64_t DatasetAttributesSchema<att_t>::GetSize(vtkDataSet *ds)
       {
       vtkDataArray *da = dsa->GetArray(i);
 
-      size += strlen(da->GetName() + 1);
+      size += strlen(da->GetName()) + 1 + sizeof(int);
 
       size += da->GetNumberOfTuples()*
         da->GetNumberOfComponents()*da->GetElementComponentSize();
@@ -780,8 +792,13 @@ int DatasetAttributesSchema<att_t>::Write(int64_t fh,
       std::string array_id = oss.str();
       std::string array_path = att_path + array_id;
 
-      // /dataset_<id>/<att_type>/array_<i>/name
+      // /dataset_<id>/<att_type>/array_<i>/name_len
       //const char *name = array->GetName();
+      path = array_path + "/name_len";
+      int len = strlen(array->GetName()) + 1;
+      adios_write(fh, path.c_str(), &len);
+
+      // /dataset_<id>/<att_type>/array_<i>/name
       path = array_path + "/name";
       adios_write(fh, path.c_str(), array->GetName());
 
@@ -811,7 +828,7 @@ int DatasetAttributesSchema<att_t>::Write(int64_t fh,
 
 // --------------------------------------------------------------------------
 template<int att_t>
-int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
+int DatasetAttributesSchema<att_t>::Read(MPI_Comm comm, ADIOS_FILE *fp,
   unsigned int id, vtkDataSet *&ds)
 {
   if (ds)
@@ -831,6 +848,15 @@ int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
     if (adiosInq(fp, att_path, n_arrays))
       return -1;
 
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    ADIOS_SELECTION *sel = adios_selection_writeblock(rank);
+    if (!sel)
+      {
+      SENSEI_ERROR("Failed to make the selction")
+      return -1;
+      }
+
     for (int i = 0; i < n_arrays; ++i)
       {
       oss.str("");
@@ -848,7 +874,7 @@ int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
         return -1;
         }
       char *name = static_cast<char*>(malloc(vinfo->dims[0]));
-      adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, name);
+      adios_schedule_read(fp, sel, path.c_str(), 0, 1, name);
       if (adios_perform_reads(fp, 1))
         {
         SENSEI_ERROR("Failed to read " << datasetAttributeString<att_t>::str()
@@ -881,7 +907,7 @@ int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
       array->SetNumberOfComponents(n_comp);
       array->SetNumberOfTuples(n_elem/n_comp);
       array->SetName(name);
-      adios_schedule_read(fp, nullptr, path.c_str(),
+      adios_schedule_read(fp, sel, path.c_str(),
         0, 1, array->GetVoidPointer(0));
       dsa->AddArray(array);
       array->Delete();
@@ -897,6 +923,7 @@ int DatasetAttributesSchema<att_t>::Read(ADIOS_FILE *fp,
 
       }
 
+    adios_selection_delete(sel);
     }
   return 0;
 }
@@ -909,7 +936,7 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
   // adaptor function
   dataset_function func = [&](unsigned int id, vtkDataSet* ds) -> int
   {
-    int ierr = this->ReadArrayNames(fp, id, ds, array_names);
+    int ierr = this->ReadArrayNames(comm, fp, id, ds, array_names);
     if (ierr < 0)
       SENSEI_ERROR("Failed to get array names in dataset " << id)
     return ierr;
@@ -935,8 +962,9 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
 
 // --------------------------------------------------------------------------
 template<int att_t>
-int DatasetAttributesSchema<att_t>::ReadArrayNames(ADIOS_FILE *fp,
-  unsigned int id, vtkDataSet *ds, std::set<std::string> &array_names)
+int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
+  ADIOS_FILE *fp, unsigned int id, vtkDataSet *ds,
+  std::set<std::string> &array_names)
 {
   std::ostringstream oss;
   oss << "dataset_" << id << "/";
@@ -950,6 +978,15 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(ADIOS_FILE *fp,
   std::string path = att_path + "number_of_arrays";
   if (adiosInq(fp, path, n_arrays))
     return -1;
+
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+  ADIOS_SELECTION *sel = adios_selection_writeblock(rank);
+  if (!sel)
+    {
+    SENSEI_ERROR("Failed to make the selction")
+    return -1;
+    }
 
   for (int i = 0; i < n_arrays; ++i)
     {
@@ -968,7 +1005,7 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(ADIOS_FILE *fp,
       return -1;
       }
     char *tmp = static_cast<char*>(malloc(vinfo->dims[0]));
-    adios_schedule_read(fp, nullptr, path.c_str(), 0, 1, tmp);
+    adios_schedule_read(fp, sel, path.c_str(), 0, 1, tmp);
     if (adios_perform_reads(fp, 1))
       {
       SENSEI_ERROR("Failed to read "
@@ -988,6 +1025,8 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(ADIOS_FILE *fp,
       this->Internals->NameIdMap[name][id] = i;
     }
 
+  adios_selection_delete(sel);
+
   return 0;
 }
 
@@ -999,7 +1038,7 @@ int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm,
   // adaptor function
   dataset_function func = [&](unsigned int id, vtkDataSet* ds) -> int
   {
-    int ierr = this->ReadArray(fp, array_name, id, ds);
+    int ierr = this->ReadArray(comm, fp, array_name, id, ds);
     if (ierr < 0)
       SENSEI_ERROR("Failed to read array \"" << array_name
         << "\" from dataset " << id)
@@ -1031,7 +1070,7 @@ int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm,
 
 // --------------------------------------------------------------------------
 template<int att_t>
-int DatasetAttributesSchema<att_t>::ReadArray(ADIOS_FILE *fp,
+int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm, ADIOS_FILE *fp,
   const std::string &array_name, unsigned int id, vtkDataSet *ds)
 {
   if (ds)
@@ -1076,13 +1115,22 @@ int DatasetAttributesSchema<att_t>::ReadArray(ADIOS_FILE *fp,
     if (adiosInq(fp, path, elem_type))
       return -1;
 
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    ADIOS_SELECTION *sel = adios_selection_writeblock(rank);
+    if (!sel)
+      {
+      SENSEI_ERROR("Failed to make the selction")
+      return -1;
+      }
+
     // /dataset_<id>/<att_type>/array_<i>/data
     path = array_path + "/data";
     vtkDataArray *array = vtkDataArray::CreateDataArray(elem_type);
     array->SetNumberOfComponents(n_comp);
     array->SetNumberOfTuples(n_elem/n_comp);
     array->SetName(array_name.c_str());
-    adios_schedule_read(fp, nullptr, path.c_str(),
+    adios_schedule_read(fp, sel, path.c_str(),
       0, 1, array->GetVoidPointer(0));
     dsa->AddArray(array);
     array->Delete();
@@ -1093,6 +1141,8 @@ int DatasetAttributesSchema<att_t>::ReadArray(ADIOS_FILE *fp,
         << " data array \"" << array_name << "\"")
       return -1;
       }
+
+    adios_selection_delete(sel);
     }
 
   return 0;
@@ -1166,7 +1216,8 @@ int PointsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int PointsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
+int PointsSchema::Read(MPI_Comm comm, ADIOS_FILE *fp, unsigned int id,
+  vtkDataSet *&ds)
 {
   if (vtkPointSet *ps = dynamic_cast<vtkPointSet*>(ds))
     {
@@ -1192,8 +1243,17 @@ int PointsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     pts->SetNumberOfTuples(n_elem/3);
     pts->SetName("points");
 
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    ADIOS_SELECTION *sel = adios_selection_writeblock(rank);
+    if (!sel)
+      {
+      SENSEI_ERROR("Failed to make the selction")
+      return -1;
+      }
+
     path = dataset_id + "data";
-    adios_schedule_read(fp, nullptr, path.c_str(),
+    adios_schedule_read(fp, sel, path.c_str(),
       0, 1, pts->GetVoidPointer(0));
 
     if (adios_perform_reads(fp, 1))
@@ -1201,6 +1261,8 @@ int PointsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
       SENSEI_ERROR("Failed to read points")
       return -1;
       }
+
+    adios_selection_delete(sel);
 
     vtkPoints *points = vtkPoints::New();
     points->SetData(pts);
@@ -1383,7 +1445,8 @@ int CellsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int CellsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
+int CellsSchema::Read(MPI_Comm comm, ADIOS_FILE *fp, unsigned int id,
+  vtkDataSet *&ds)
 {
   vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds);
   vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds);
@@ -1406,7 +1469,16 @@ int CellsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     vtkUnsignedCharArray *types = vtkUnsignedCharArray::New();
     types->SetNumberOfTuples(n_cells);
 
-    adios_schedule_read(fp, nullptr, path.c_str(),
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    ADIOS_SELECTION *sel = adios_selection_writeblock(rank);
+    if (!sel)
+      {
+      SENSEI_ERROR("Failed to make the selction")
+      return -1;
+      }
+
+    adios_schedule_read(fp, sel, path.c_str(),
       0, 1, types->GetVoidPointer(0));
 
     // dataset_<id>/cells/n_elem
@@ -1420,7 +1492,7 @@ int CellsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
     vtkIdTypeArray *cells = vtkIdTypeArray::New();
     cells->SetNumberOfTuples(n_elem);
 
-    adios_schedule_read(fp, nullptr, path.c_str(),
+    adios_schedule_read(fp, sel, path.c_str(),
       0, 1, cells->GetVoidPointer(0));
 
     if (adios_perform_reads(fp, 1))
@@ -1428,6 +1500,8 @@ int CellsSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
       SENSEI_ERROR("Failed to read cells")
       return -1;
       }
+
+    adios_selection_delete(sel);
 
     if (ug)
       {
@@ -1756,8 +1830,11 @@ int DatasetSchema::Read(MPI_Comm comm, ADIOS_FILE *fp, vtkDataObject *&dobj)
 }
 
 // --------------------------------------------------------------------------
-int DatasetSchema::Read(ADIOS_FILE *fp, unsigned int id, vtkDataSet *&ds)
+int DatasetSchema::Read(MPI_Comm comm, ADIOS_FILE *fp, unsigned int id,
+  vtkDataSet *&ds)
 {
+  (void)comm;
+
   ds = nullptr;
 
   // consult the domain decomp, if it is ours then
@@ -1796,7 +1873,7 @@ int DatasetSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fp,
       int id = it->GetCurrentFlatIndex();
 
       vtkDataSet *ds = nullptr;
-      if (this->Read(fp, id, ds))
+      if (this->Read(comm, fp, id, ds))
         {
         it->Delete();
         SENSEI_ERROR("Failed to read dataset " << id);
@@ -1891,20 +1968,18 @@ DataObjectSchema::~DataObjectSchema()
 int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   vtkDataObject* dobj)
 {
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  // all ranks need to write this info for FLEXPATH method
+  // but not the MPI method.
+  adios_define_var(gh, "SENSEI_DataObjectSchema", "", adios_unsigned_integer,
+    "", "", "");
 
-  if (rank == 0)
-    {
-    adios_define_var(gh, "SENSEI_DataObjectSchema", "",
-      adios_unsigned_integer,"", "", "");
+  adios_define_var(gh, "number_of_datasets", "", adios_unsigned_integer,
+    "", "", "");
 
-    adios_define_var(gh, "number_of_datasets", "", adios_unsigned_integer, "", "", "");
-    adios_define_var(gh, "data_object_type" ,"", adios_integer, "", "", "");
+  adios_define_var(gh, "data_object_type" ,"", adios_integer, "", "", "");
 
-    adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
-    adios_define_var(gh, "time" ,"", adios_double, "", "", "");
-    }
+  adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
+  adios_define_var(gh, "time" ,"", adios_double, "", "", "");
 
   if (this->Internals->dataset.DefineVariables(comm, gh, dobj))
     {
@@ -1918,11 +1993,8 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 // --------------------------------------------------------------------------
 uint64_t DataObjectSchema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 {
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
-
-  return (rank == 0 ? 2*sizeof(unsigned int) + sizeof(int) +
-    sizeof(unsigned long) + sizeof(double) : 0) +
+  return 2*sizeof(unsigned int) + sizeof(int) +
+    sizeof(unsigned long) + sizeof(double) +
     this->Internals->dataset.GetSize(comm, dobj);
 }
 
@@ -1930,14 +2002,12 @@ uint64_t DataObjectSchema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 int DataObjectSchema::WriteTimeStep(MPI_Comm comm, int64_t fh,
   unsigned long time_step, double time)
 {
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  (void)comm;
 
-  if (rank == 0)
-    {
-    adios_write(fh, "time_step", &time_step);
-    adios_write(fh, "time", &time);
-    }
+  // all ranks need to write this info for FLEXPATH method
+  // but not the MPI method.
+  adios_write(fh, "time_step", &time_step);
+  adios_write(fh, "time", &time);
 
   return 0;
 }
@@ -1945,20 +2015,18 @@ int DataObjectSchema::WriteTimeStep(MPI_Comm comm, int64_t fh,
 // --------------------------------------------------------------------------
 int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
 {
+  (void)comm;
+
   unsigned int n_datasets = getNumberOfDatasets(comm, dobj, 0);
   int dobj_type = dobj->GetDataObjectType();
 
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  // all ranks need to write this info for FLEXPATH method
+  // but not the MPI method.
+  adios_write(fh, "SENSEI_DataObjectSchema",
+    &this->Internals->SchemaRevision);
 
-  if (rank == 0)
-    {
-    adios_write(fh, "SENSEI_DataObjectSchema",
-      &this->Internals->SchemaRevision);
-
-    adios_write(fh, "number_of_datasets", &n_datasets);
-    adios_write(fh, "data_object_type", &dobj_type);
-    }
+  adios_write(fh, "number_of_datasets", &n_datasets);
+  adios_write(fh, "data_object_type", &dobj_type);
 
   if (this->Internals->dataset.Write(comm, fh, dobj))
     {
@@ -1970,8 +2038,10 @@ int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::CanRead(ADIOS_FILE *fp)
+int DataObjectSchema::CanRead(MPI_Comm comm, ADIOS_FILE *fp)
 {
+  (void)comm;
+
   // check for the tag. if it is not present, this connot
   // be one of our files
   unsigned int revision = 0;
@@ -2117,9 +2187,10 @@ int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fp,
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::ReadTimeStep(ADIOS_FILE *fp,
+int DataObjectSchema::ReadTimeStep(MPI_Comm comm, ADIOS_FILE *fp,
   unsigned long &time_step, double &time)
 {
+  (void)comm;
 
   // read time and step values
   if (adiosInq(fp, "time", time))

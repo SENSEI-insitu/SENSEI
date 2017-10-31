@@ -102,7 +102,7 @@ int ADIOSDataAdaptor::Open(MPI_Comm comm,
     }
 
   // verify that it is one of ours
-  if (this->Internals->Schema.CanRead(fp))
+  if (this->Internals->Schema.CanRead(comm, fp))
     {
     adios_read_close(fp);
     SENSEI_ERROR("Failed to open \"" << filename << "\". Stream "
@@ -167,8 +167,8 @@ int ADIOSDataAdaptor::UpdateTimeStep()
   unsigned long timeStep = 0;
   double time = 0.0;
 
-  if (this->Internals->Schema.ReadTimeStep(this->Internals->File,
-    timeStep, time))
+  if (this->Internals->Schema.ReadTimeStep(this->Internals->Comm,
+    this->Internals->File, timeStep, time))
     {
     SENSEI_ERROR("Failed to update time step")
     return -1;
