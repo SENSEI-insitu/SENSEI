@@ -532,14 +532,26 @@ int Extent3DSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
 
     std::string dataset_id = oss.str();
 
+    std::string path_len = dataset_id + "/extent_len";
+    adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
+
     std::string path = dataset_id + "/extent";
-    adios_define_var(gh, path.c_str(), "", adios_integer, "6", "6", "0");
+    adios_define_var(gh, path.c_str(), "", adios_integer,
+      path_len.c_str(), path_len.c_str(), "0");
+
+    path_len = dataset_id + "/origin_len";
+    adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
 
     path = dataset_id + "/origin";
-    adios_define_var(gh, path.c_str(), "", adios_double, "3", "3", "0");
+    adios_define_var(gh, path.c_str(), "", adios_double,
+      path_len.c_str(), path_len.c_str(), "0");
+
+    path_len = dataset_id + "/spacing_len";
+    adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
 
     path = dataset_id + "/spacing";
-    adios_define_var(gh, path.c_str(), "", adios_double, "3", "3", "0");
+    adios_define_var(gh, path.c_str(), "", adios_double,
+      path_len.c_str(), path_len.c_str(), "0");
     }
   return 0;
 }
@@ -548,7 +560,9 @@ int Extent3DSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
 uint64_t Extent3DSchema::GetSize(vtkDataSet *ds)
 {
   if (dynamic_cast<vtkImageData*>(ds))
-    return 3*sizeof(unsigned long) + 6*sizeof(int) + 6*sizeof(double);
+    return 3*sizeof(unsigned long) + 6*sizeof(int) +
+      6*sizeof(double) + 3*sizeof(int);
+
   return 0;
 }
 
@@ -562,18 +576,30 @@ int Extent3DSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
     std::string dataset_id = oss.str();
 
     // extent
-    std::string path = dataset_id + "extent";
+    int extent_len = 6;
+    std::string path = dataset_id + "extent_len";
+    adios_write(fh, path.c_str(), &extent_len);
+
+    path = dataset_id + "extent";
     int extent[6] = {0};
     img->GetExtent(extent);
     adios_write(fh, path.c_str(), extent);
 
     // origin
+    int origin_len = 3;
+    path = dataset_id + "origin_len";
+    adios_write(fh, path.c_str(), &origin_len);
+
     path = dataset_id + "origin";
     double origin[3] = {0.0};
     img->GetOrigin(origin);
     adios_write(fh, path.c_str(), origin);
 
     // spacing
+    int spacing_len = 3;
+    path = dataset_id + "spacing_len";
+    adios_write(fh, path.c_str(), &spacing_len);
+
     path = dataset_id + "spacing";
     double spacing[3] = {0.0};
     img->GetSpacing(spacing);
