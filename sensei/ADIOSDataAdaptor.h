@@ -20,7 +20,9 @@ public:
   senseiTypeMacro(ADIOSDataAdaptor, ADIOSDataAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
+  int Open(MPI_Comm comm, const std::string &method, const std::string& filename);
   int Open(MPI_Comm comm, ADIOS_READ_METHOD method, const std::string& filename);
+
   int Close();
 
   // Set the mesh type to static or dynamic. A static mesh does not
