@@ -15,6 +15,7 @@ include(catalyst)
 include(python)
 include(version)
 include(config)
+include(testing)
 
 add_subdirectory(utils)
 add_subdirectory(sensei)
