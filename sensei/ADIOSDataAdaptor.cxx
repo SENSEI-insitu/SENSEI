@@ -22,42 +22,18 @@ namespace sensei
 
 struct ADIOSDataAdaptor::InternalsType
 {
-  InternalsType() : Comm(MPI_COMM_WORLD), File(nullptr),
-    Mesh(nullptr), StaticMesh(0), StructureOnly(0),
-    Method(ADIOS_READ_METHOD_BP)
+  InternalsType() : Comm(MPI_COMM_WORLD), Stream(),
+    Mesh(nullptr), StaticMesh(0), StructureOnly(0)
     {}
 
-  bool MethodIsFileBased(ADIOS_READ_METHOD method);
-
-  bool MethodIsFileBased()
-  { return this->MethodIsFileBased(this->Method); }
-
   MPI_Comm Comm;
-  ADIOS_FILE *File;
+  senseiADIOS::InputStream Stream;
   senseiADIOS::DataObjectSchema Schema;
   vtkDataObjectPtr Mesh;
   ArrayMapType ArrayNames;
   int StaticMesh;
   int StructureOnly;
-  ADIOS_READ_METHOD Method;
 };
-
-bool ADIOSDataAdaptor::InternalsType::MethodIsFileBased(ADIOS_READ_METHOD method)
-{
-  switch(method)
-    {
-    case ADIOS_READ_METHOD_BP:
-    case ADIOS_READ_METHOD_BP_AGGREGATE:
-      return true;
-    case ADIOS_READ_METHOD_DATASPACES:
-    case ADIOS_READ_METHOD_DIMES:
-    case ADIOS_READ_METHOD_FLEXPATH:
-    case ADIOS_READ_METHOD_ICEE:
-      return false;
-    }
-  SENSEI_ERROR("unknown read method " << method)
-  return false;
-}
 
 
 //----------------------------------------------------------------------------
@@ -83,37 +59,45 @@ void ADIOSDataAdaptor::EnableDynamicMesh(int val)
 
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::Open(MPI_Comm comm,
-  ADIOS_READ_METHOD method, const std::string& filename)
+  const std::string &method, const std::string& filename)
+{
+  size_t n = method.size();
+  std::string lcase_method(n, ' ');
+  for (size_t i = 0; i < n; ++i)
+    lcase_method[i] = tolower(method[i]);
+
+  std::map<std::string, ADIOS_READ_METHOD> readMethods;
+  readMethods["bp"] = ADIOS_READ_METHOD_BP;
+  readMethods["bp_aggregate"] = ADIOS_READ_METHOD_BP_AGGREGATE;
+  readMethods["dataspaces"] = ADIOS_READ_METHOD_DATASPACES;
+  readMethods["dimes"] = ADIOS_READ_METHOD_DIMES;
+  readMethods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
+
+  std::map<std::string, ADIOS_READ_METHOD>::iterator it =
+    readMethods.find(lcase_method);
+
+  if (it == readMethods.end())
+    {
+    SENSEI_ERROR("Unsupported read method requested \"" << method << "\"")
+    return -1;
+    }
+
+  return this->Open(comm, it->second, filename);
+}
+
+//----------------------------------------------------------------------------
+int ADIOSDataAdaptor::Open(MPI_Comm comm,
+  ADIOS_READ_METHOD method, const std::string& fileName)
 {
   timer::MarkEvent mark("ADIOSDataAdaptor::Open");
 
-  // initialize adios
-  adios_read_init_method(method, comm, "verbose=2");
-
-  // open the file
-  ADIOS_FILE *fp = adios_read_open(filename.c_str(), method, comm,
-    this->Internals->MethodIsFileBased(method) ? ADIOS_LOCKMODE_ALL :
-    ADIOS_LOCKMODE_CURRENT, -1.0f);
-
-  if (!fp)
-    {
-    SENSEI_ERROR("failed to open " << filename)
-    return -1;
-    }
-
-  // verify that it is one of ours
-  if (this->Internals->Schema.CanRead(comm, fp))
-    {
-    adios_read_close(fp);
-    SENSEI_ERROR("Failed to open \"" << filename << "\". Stream "
-      "was not written in the SENSEI ADIOS schema format")
-    return -1;
-    }
-
-  //
   this->Internals->Comm = comm;
-  this->Internals->File = fp;
-  this->Internals->Method = method;
+
+  if (this->Internals->Stream.Open(comm, method, fileName))
+    {
+    SENSEI_ERROR("Failed to open \"" << fileName << "\"")
+    return -1;
+    }
 
   // initialize the time step
   if (this->UpdateTimeStep())
@@ -131,12 +115,7 @@ int ADIOSDataAdaptor::Close()
   this->Internals->ArrayNames[vtkDataObject::POINT].clear();
   this->Internals->ArrayNames[vtkDataObject::CELL].clear();
 
-  if (this->Internals->File)
-    {
-    adios_read_close(this->Internals->File);
-    adios_read_finalize_method(this->Internals->Method);
-    this->Internals->File = nullptr;
-    }
+  this->Internals->Stream.Close();
 
   return 0;
 }
@@ -146,11 +125,8 @@ int ADIOSDataAdaptor::Advance()
 {
   timer::MarkEvent mark("ADIOSDataAdaptor::Advance");
 
-  adios_release_step(this->Internals->File);
-
-  if (adios_advance_step(this->Internals->File, 0,
-    this->Internals->MethodIsFileBased() ? 0.0f : -1.0f))
-    return 1;
+  if (this->Internals->Stream.AdvanceTimeStep())
+    return -1;
 
   if (this->UpdateTimeStep())
     return -1;
@@ -168,7 +144,7 @@ int ADIOSDataAdaptor::UpdateTimeStep()
   double time = 0.0;
 
   if (this->Internals->Schema.ReadTimeStep(this->Internals->Comm,
-    this->Internals->File, timeStep, time))
+    this->Internals->Stream, timeStep, time))
     {
     SENSEI_ERROR("Failed to update time step")
     return -1;
@@ -195,7 +171,7 @@ vtkDataObject* ADIOSDataAdaptor::GetMesh(bool structure_only)
   // get the mesh at the current time step
   vtkDataObject *mesh = nullptr;
   if (this->Internals->Schema.ReadMesh(this->Internals->Comm,
-    this->Internals->File, structure_only, mesh))
+    this->Internals->Stream, structure_only, mesh))
     {
     SENSEI_ERROR("Failed to read mesh")
     return nullptr;
@@ -209,7 +185,7 @@ vtkDataObject* ADIOSDataAdaptor::GetMesh(bool structure_only)
   // point data arrays
   std::set<std::string> point_arrays;
   if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
-    this->Internals->File, mesh, vtkDataObject::POINT, point_arrays))
+    this->Internals->Stream, mesh, vtkDataObject::POINT, point_arrays))
     {
     SENSEI_ERROR("Failed to read point associated array names")
     return nullptr;
@@ -220,7 +196,7 @@ vtkDataObject* ADIOSDataAdaptor::GetMesh(bool structure_only)
   // cell data arrays
   std::set<std::string> cell_arrays;
   if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
-    this->Internals->File, mesh, vtkDataObject::CELL, cell_arrays))
+    this->Internals->Stream, mesh, vtkDataObject::CELL, cell_arrays))
     {
     SENSEI_ERROR("Failed to read cell associated array names")
     return nullptr;
@@ -267,7 +243,7 @@ bool ADIOSDataAdaptor::AddArray(vtkDataObject* mesh, int association,
     }
 
   if (this->Internals->Schema.ReadArray(this->Internals->Comm,
-    this->Internals->File, mesh, association, name))
+    this->Internals->Stream, mesh, association, name))
     {
     SENSEI_ERROR("Failed to read "
       << (association == vtkDataObject::POINT ? "point" : "cell")

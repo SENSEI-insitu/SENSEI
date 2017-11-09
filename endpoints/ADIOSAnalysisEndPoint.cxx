@@ -68,19 +68,12 @@ int main(int argc, char **argv)
   timer::SetLogging(log || shortlog);
   timer::SetTrackSummariesOverTime(shortlog);
 
-  std::map<std::string, ADIOS_READ_METHOD> readmethods;
-  readmethods["bp"] = ADIOS_READ_METHOD_BP;
-  readmethods["bp_aggregate"] = ADIOS_READ_METHOD_BP_AGGREGATE;
-  readmethods["dataspaces"] = ADIOS_READ_METHOD_DATASPACES;
-  readmethods["dimes"] = ADIOS_READ_METHOD_DIMES;
-  readmethods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
-
   SENSEI_STATUS("Opening: \"" << input.c_str() << "\" using method \""
     << readmethod.c_str() << "\"")
 
   // open the ADIOS stream using the ADIOS adaptor
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
-  if (dataAdaptor->Open(comm, readmethods[readmethod], input))
+  if (dataAdaptor->Open(comm, readmethod, input))
     {
     SENSEI_ERROR("Failed to open \"" << input << "\"")
     MPI_Abort(comm, 1);

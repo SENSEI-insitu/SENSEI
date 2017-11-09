@@ -38,6 +38,8 @@ VTK_SWIG_INTEROP(vtkInformation)
  methods is causing the problem */
 %ignore sensei::DataAdaptor::SetDataTime(vtkInformation *,double);
 %ignore sensei::DataAdaptor::SetDataTimeStep(vtkInformation *,int);
+%ignore sensei::DataAdaptor::GetDataTime(vtkInformation *);
+%ignore sensei::DataAdaptor::GetDataTimeStep(vtkInformation *);
 
 VTK_DERIVED(DataAdaptor)
 VTK_DERIVED(AnalysisAdaptor)

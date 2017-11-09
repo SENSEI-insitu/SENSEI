@@ -56,4 +56,5 @@ if (ENABLE_SENSEI)
   install(EXPORT sensei DESTINATION lib/cmake
     EXPORT_LINK_INTERFACE_LIBRARIES)
 
+  add_subdirectory(testing)
 endif()
