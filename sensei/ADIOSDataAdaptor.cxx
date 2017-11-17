@@ -330,7 +330,7 @@ void ADIOSDataAdaptor::ReleaseAttributeData(vtkDataObject* dobj)
 //----------------------------------------------------------------------------
 void ADIOSDataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
-  this->Superclass::PrintSelf(os, indent);
+  this->sensei::DataAdaptor::PrintSelf(os, indent);
 }
 
 }
