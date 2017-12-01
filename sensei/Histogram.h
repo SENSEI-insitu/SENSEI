@@ -3,12 +3,15 @@
 
 #include "AnalysisAdaptor.h"
 #include <mpi.h>
+#include <vector>
 
 class vtkDataObject;
 class vtkDataArray;
 
 namespace sensei
 {
+
+class VTKHistogram;
 
 /// @class Histogram
 /// @brief sensei::Histogram is a AnalysisAdaptor specialization for histogram analysis.
@@ -26,6 +29,10 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
+  // return the last computed histogram
+  int GetHistogram(double &min, double &max,
+    std::vector<unsigned int> &bins);
+
 protected:
   Histogram();
   ~Histogram();
@@ -37,6 +44,8 @@ protected:
   int Bins;
   std::string ArrayName;
   int Association;
+
+  VTKHistogram *Internals;
 
 private:
   Histogram(const Histogram&);

@@ -5,7 +5,7 @@ if (BUILD_TESTING)
   include(CTest)
 endif()
 
-# sensei_add_test(name
+# senseiAddTest(name
 #   EXEC_NAME -- optional, name of the copiled test
 #   SOURCES  -- optional, source files to comile
 #   LIBS -- optional, libraries to link to the compiled test
@@ -13,7 +13,7 @@ endif()
 #   FEATURES -- optional, boolean condition decribing feature dependencies
 #   REQ_SENSEI_DATA -- flag whose presence indicates the test needs the data repo
 #   )
-function (sensei_add_test T_NAME)
+function (senseiAddTest T_NAME)
   set(opt_args REQ_SENSEI_DATA)
   set(val_args EXEC_NAME)
   set(array_args SOURCES LIBS COMMAND FEATURES)

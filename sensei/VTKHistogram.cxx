@@ -40,6 +40,7 @@ struct VTKHistogram::Internals
   const double *Range;
   int Bins;
   std::vector<unsigned int> Histogram;
+
   Internals(const double *range, int bins) :
     Range(range), Bins(bins), Histogram(bins,0.0) {}
 
@@ -236,7 +237,9 @@ void VTKHistogram::PreCompute(MPI_Comm comm, int bins)
 void VTKHistogram::PostCompute(MPI_Comm comm, int bins, const std::string& name)
 {
   std::vector<unsigned int> gHist(bins, 0);
-  MPI_Reduce(&this->Worker->Histogram[0], &gHist[0], bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
+
+  MPI_Reduce(&this->Worker->Histogram[0], &gHist[0],
+    bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
 
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
@@ -265,8 +268,31 @@ void VTKHistogram::PostCompute(MPI_Comm comm, int bins, const std::string& name)
         << ": " << std::fixed << gHist[i] << endl;
       }
 
+    // cache the last result
+    this->Worker->Histogram = gHist;
+
     cout.precision(origPrec);
     }
+}
+
+// --------------------------------------------------------------------------
+int VTKHistogram::GetHistogram(MPI_Comm comm, double &min, double &max,
+  std::vector<unsigned int> &bins)
+{
+  if (!this->Worker)
+    return -1;
+
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  if (rank == 0)
+    {
+    min = this->Range[0];
+    max = this->Range[1];
+    bins = this->Worker->Histogram;
+    }
+
+  return 0;
 }
 
 }
