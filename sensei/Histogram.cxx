@@ -23,18 +23,19 @@ senseiNewMacro(Histogram);
 
 //-----------------------------------------------------------------------------
 Histogram::Histogram() : Communicator(MPI_COMM_WORLD), Bins(0),
-  Association(vtkDataObject::FIELD_ASSOCIATION_POINTS)
+  Association(vtkDataObject::FIELD_ASSOCIATION_POINTS), Internals(nullptr)
 {
 }
 
 //-----------------------------------------------------------------------------
 Histogram::~Histogram()
 {
+  delete this->Internals;
 }
 
 //-----------------------------------------------------------------------------
-void Histogram::Initialize(
-  MPI_Comm comm, int bins, int association, const std::string& arrayname)
+void Histogram::Initialize(MPI_Comm comm, int bins, int association,
+  const std::string& arrayname)
 {
   this->Communicator = comm;
   this->Bins = bins;
@@ -57,14 +58,16 @@ bool Histogram::Execute(DataAdaptor* data)
 {
   timer::MarkEvent mark("histogram::execute");
 
-  VTKHistogram histogram;
+  delete this->Internals;
+  this->Internals = new VTKHistogram;
+
   vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
   if (!mesh)
     {
     // it is not an necessarilly an error if all ranks do not have
     // a dataset to process
-    histogram.PreCompute(this->Communicator, this->Bins);
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    this->Internals->PreCompute(this->Communicator, this->Bins);
+    this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
     return true;
     }
 
@@ -76,12 +79,10 @@ bool Histogram::Execute(DataAdaptor* data)
       << (this->Association == vtkDataObject::POINT ? "point" : "cell")
       << " data array \""  << this->ArrayName << "\"")
 
-    histogram.PreCompute(this->Communicator, this->Bins);
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    this->Internals->PreCompute(this->Communicator, this->Bins);
+    this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
     return false;
     }
-
-//  mesh->Print(cerr);
 
   if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(mesh))
     {
@@ -107,11 +108,11 @@ bool Histogram::Execute(DataAdaptor* data)
         this->GetArray(curObj, this->GetGhostArrayName()));
 
       // compute local histogram range
-      histogram.AddRange(array, ghostArray);
+      this->Internals->AddRange(array, ghostArray);
       }
 
     // compute global histogram range
-    histogram.PreCompute(this->Communicator, this->Bins);
+    this->Internals->PreCompute(this->Communicator, this->Bins);
 
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
       {
@@ -131,11 +132,11 @@ bool Histogram::Execute(DataAdaptor* data)
         this->GetArray(curObj, this->GetGhostArrayName()));
 
       // compute local histogram
-      histogram.Compute(array, ghostArray);
+      this->Internals->Compute(array, ghostArray);
       }
 
     // compute the global histogram
-    histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
     }
   else
     {
@@ -146,17 +147,17 @@ bool Histogram::Execute(DataAdaptor* data)
       MPI_Comm_rank(this->Communicator, &rank);
       SENSEI_WARNING("Dataset " << rank << " has no array named \""
         << this->ArrayName << "\"")
-      histogram.PreCompute(this->Communicator, this->Bins);
-      histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+      this->Internals->PreCompute(this->Communicator, this->Bins);
+      this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
       }
     else
       {
       vtkUnsignedCharArray *ghostArray = dynamic_cast<vtkUnsignedCharArray*>(
         this->GetArray(mesh, this->GetGhostArrayName()));
-      histogram.AddRange(array, ghostArray);
-      histogram.PreCompute(this->Communicator, this->Bins);
-      histogram.Compute(array, ghostArray);
-      histogram.PostCompute(this->Communicator, this->Bins, this->ArrayName);
+      this->Internals->AddRange(array, ghostArray);
+      this->Internals->PreCompute(this->Communicator, this->Bins);
+      this->Internals->Compute(array, ghostArray);
+      this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
       }
     }
   return true;
@@ -170,6 +171,16 @@ vtkDataArray* Histogram::GetArray(vtkDataObject* dobj, const std::string& arrayn
     return fd->GetArray(arrayname.c_str());
     }
   return nullptr;
+}
+
+//-----------------------------------------------------------------------------
+int Histogram::GetHistogram(double &min, double &max,
+  std::vector<unsigned int> &bins)
+{
+  if (!this->Internals)
+    return -1;
+
+  return this->Internals->GetHistogram(this->Communicator, min, max, bins);
 }
 
 }
