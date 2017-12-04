@@ -21,6 +21,9 @@
 #include "VTKmCDFAnalysis.h"
 #include "VTKmContourAnalysis.h"
 #endif
+#ifdef ENABLE_VTKm
+#include "VTKmSmartContour.h"
+#endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
 #endif
@@ -160,6 +163,9 @@ struct ConfigurableAnalysis::InternalsType
   int AddPosthocIO(pugi::xml_node node);
   int AddVTKAmrWriter(pugi::xml_node node);
   int AddPythonAnalysis(pugi::xml_node node);
+
+  // adds the VTKm smart contour
+  int AddVTKmSmartContour(MPI_Comm comm, pugi::xml_node node);
 
 public:
   // list of all analyses. api calls are forwareded to each
@@ -738,6 +744,96 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
     << " data array \"" << arrayName << "\" on mesh \"" << meshName
     << "\" window " << window << " k-max " << kMax
     << " n-threads " << numThreads)
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node)
+{
+#ifndef ENABLE_VTKm
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTKmSmartContour was requested but is disabled in this build")
+  return -1;
+#else
+
+  // configure the smart contour
+  if (!node.attribute("scalarField"))
+    {
+    SENSEI_ERROR("scalarField is a required attribute")
+    return -1;
+    }
+
+  std::string scalarField = node.attribute("scalarField").value();
+
+  int association = vtkDataObject::POINT;
+  if (node.attribute("association"))
+    {
+    std::string assoc = node.attribute("association").value();
+    if (strcmp(assoc.c_str(), "cell") == 0)
+      {
+      association = vtkDataObject::CELL;
+      }
+    else
+      {
+      SENSEI_ERROR("inavlid association " << assoc)
+      return -1;
+      }
+    }
+
+  int useMarchingCubes = node.attribute("useMarchingCubes") ?
+    node.attribute("useMarchingCubes").as_int() : 0;
+
+  int usePersistenceSorter = node.attribute("usePersistenceSorter") ?
+    node.attribute("usePersistenceSorter").as_int() : 1;
+
+  int numberOfLevels = node.attribute("numberOfLevels") ?
+    node.attribute("numberOfLevels").as_int() : 6;
+
+  int contourType = node.attribute("contourType") ?
+    node.attribute("contourType").as_int() : 0;
+
+  double eps = node.attribute("eps") ? node.attribute("eps").as_double() : 1e-5;
+
+  int selectMethod = node.attribute("SelectMethod") ?
+    node.attribute("SelectMethod").as_int() : 0;
+
+  int numberOfComps = node.attribute("numberOfComps") ?
+    node.attribute("numberOfComps").as_int() : numberOfLevels + 1;
+
+  std::string catalystScript;
+  if (node.attribute("catalystScript"))
+    {
+#ifndef ENABLE_CATALYST_PYTHON
+    SENSEI_ERROR("Catalyst Python was requested by "
+      "VTKmSmartContour but is disabled in this build")
+#else
+    catalystScript = node.attribute("catalystScript").value();
+#endif
+    }
+
+  vtkNew<VTKmSmartContour> adaptor;
+  adaptor->SetScalarField(scalarField);
+  adaptor->SetScalarFieldAssociation(association);
+  adaptor->SetUseMarchingCubes(useMarchingCubes);
+  adaptor->SetUsePersistenceSorter(usePersistenceSorter);
+  adaptor->SetNumberOfLevels(numberOfLevels);
+  adaptor->SetContourType(contourType);
+  adaptor->SetEps(eps);
+  adaptor->SetSelectMethod(selectMethod);
+  adaptor->SetNumberOfComps(numberOfComps);
+  adaptor->SetCatalystScript(catalystScript);
+
+  this->Analyses.push_back(adaptor.GetPointer());
+
+  SENSEI_STATUS("Configured VTKmSmartContour "
+   << "scalarField=" << scalarField << " useMarchingCubes=" << useMarchingCubes
+   << " numberOfLevels=" << numberOfLevels << " contourType=" << contourType
+   << " eps=" << eps << " selectMethod=" << selectMethod
+   << "usePeristenceSorter="<< usePersistenceSorter << " numberOfComps=" << numberOfComps
+   << " catalystScript=" << catalystScript << " outputFileName=" << outputFileName)
+#endif
 
   return 0;
 }
