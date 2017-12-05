@@ -168,7 +168,13 @@ public:
           ulsHelper.Set(use_log_scale? 1 : 0);
           }
         }
-      vtkSMRenderViewProxy::SafeDownCast(this->RenderView)->ResetCamera();
+      vtkSMRenderViewProxy* renderViewProxy = vtkSMRenderViewProxy::SafeDownCast(this->RenderView);
+      double position[3] = {0, 0, 0};
+      vtkSMPropertyHelper(renderViewProxy, "CameraPosition").Set(position, 3);
+      vtkSMPropertyHelper(renderViewProxy, "CameraFocalPoint").Set(this->Normal, 3);
+
+      renderViewProxy->ResetCamera();
+
       std::string filename = this->ImageFileName;
 
       // replace "%ts" with timestep in filename
