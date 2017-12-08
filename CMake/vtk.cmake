@@ -17,6 +17,7 @@ if (ENABLE_VTK_RENDERING)
     list(APPEND SENSEI_VTK_COMPONENTS vtkRenderingOpenGL)
   endif()
 endif()
+
 if (ENABLE_PYTHON)
   list(APPEND SENSEI_VTK_COMPONENTS vtkPython vtkWrappingPythonCore)
 endif()

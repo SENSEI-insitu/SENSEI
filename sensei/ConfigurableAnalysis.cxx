@@ -19,6 +19,7 @@
 #ifdef ENABLE_VTKM
 #include "VTKmVolumeReductionAnalysis.h"
 #include "VTKmCDFAnalysis.h"
+#include "VTKmContourAnalysis.h"
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
@@ -288,7 +289,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
     });
   this->Analyses.push_back(contour.GetPointer());
 
-  SENSEI_STATUS("Configured VTKmContourAnalysis " << array.value())
+  SENSEI_STATUS("Configured AcceleratorsVTKmContour " << array.value())
 
   return 0;
 #endif

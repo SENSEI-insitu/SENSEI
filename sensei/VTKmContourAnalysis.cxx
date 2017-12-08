@@ -40,11 +40,8 @@
 namespace sensei
 {
 
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-VTKmContourAnalysis *VTKmContourAnalysis::New() { return new VTKmContourAnalysis; }
-#else
-vtkStandardNewMacro(VTKmContourAnalysis);
-#endif
+//-----------------------------------------------------------------------------
+senseiNewMacro(VTKmContourAnalysis);
 
 //-----------------------------------------------------------------------------
 VTKmContourAnalysis::VTKmContourAnalysis()

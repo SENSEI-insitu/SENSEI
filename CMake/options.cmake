@@ -52,6 +52,10 @@ cmake_dependent_option(ENABLE_VTKM_RENDERING
   "Enable analysis methods that use VTK-m's rendering library" OFF
   "ENABLE_VTKM" OFF)
 
+cmake_dependent_option(ENABLE_VTK_ACCELERATORS_VTKM
+  "Enable analysis methods that use VTK vtkAcceleratorsVTKM library" OFF
+  "ENABLE_SENSEI" OFF)
+
 option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 option(ENABLE_CONDUITTEST "Enable Conduit miniapp" OFF)
