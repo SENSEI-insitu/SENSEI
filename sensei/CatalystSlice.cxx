@@ -168,6 +168,8 @@ public:
           ulsHelper.Set(use_log_scale? 1 : 0);
           }
         }
+      lut->UpdateVTKObjects();
+
       vtkSMRenderViewProxy* renderViewProxy = vtkSMRenderViewProxy::SafeDownCast(this->RenderView);
       double position[3] = {0, 0, 0};
       vtkSMPropertyHelper(renderViewProxy, "CameraPosition").Set(position, 3);
