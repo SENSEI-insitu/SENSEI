@@ -117,6 +117,97 @@ template <> struct PyTT<std::string>
 #define SENSEI_PY_OBJECT_DISPATCH_STR(PY_OBJ, CODE)         \
   SENSEI_PY_OBJECT_DISPATCH_CASE(char*, PY_OBJ, CODE)
 
+
+// container that keeps a reference to a PyObject
+class PyObjectPointer
+{
+public:
+  PyObjectPointer() : Object(nullptr) {}
+
+  PyObjectPointer(PyObject *obj)
+    : Object(obj) { Py_XINCREF(this->Object); }
+
+  virtual ~PyObjectPointer() { Py_XDECREF(this->Object); }
+
+  PyObjectPointer(PyObjectPointer &&o)
+     : Object(o.Object) { o.Object = nullptr; }
+
+  PyObjectPointer &operator=(PyObjectPointer &&o)
+    {
+    PyObject *tmp = this->Object;
+    this->Object = o.Object;
+    o.Object = tmp;
+    return *this;
+    }
+
+  PyObjectPointer(const PyObjectPointer &o)
+     : Object(o.Object) { Py_XINCREF(this->Object); }
+
+  PyObjectPointer &operator=(const PyObjectPointer &o)
+    {
+    Py_XINCREF(o.Object);
+    Py_XDECREF(this->Object);
+    this->Object = o.Object;
+    return *this;
+    }
+
+  explicit operator bool () const
+  { return this->Object != nullptr; }
+
+  PyObject *GetObject(){ return this->Object; }
+
+  virtual void SetObject(PyObject *obj)
+    {
+    Py_XINCREF(obj);
+    Py_XDECREF(this->Object);
+    this->Object = obj;
+    }
+
+private:
+  PyObject *Object;
+};
+
+
+// container that keeps a Python callable object
+class PyCallablePointer : public PyObjectPointer
+{
+public:
+  PyCallablePointer() : PyObjectPointer() {}
+
+  virtual ~PyCallablePointer()
+  { this->PyObjectPointer::SetObject(nullptr); }
+
+  PyCallablePointer(PyObject *f) : PyObjectPointer()
+  { this->PyCallablePointer::SetObject(f); }
+
+  PyCallablePointer(const PyCallablePointer &&o)
+    : PyObjectPointer(std::move(o)) {}
+
+  PyCallablePointer &operator=(const PyCallablePointer &&o)
+    {
+    this->PyObjectPointer::operator=(std::move(o));
+    return *this;
+    }
+
+  PyCallablePointer(const PyCallablePointer &o)
+    : PyObjectPointer(o) {}
+
+  PyCallablePointer &operator=(const PyCallablePointer &o)
+    {
+    this->PyObjectPointer::operator=(o);
+    return *this;
+    }
+
+  void SetObject(PyObject *f) override
+    {
+    if (PyCallable_Check(f))
+      this->PyObjectPointer::SetObject(f);
+    else
+      PyErr_Format(PyExc_TypeError,
+        "object is not callable");
+    }
+};
+
 }
 
 #endif
