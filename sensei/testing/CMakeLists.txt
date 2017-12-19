@@ -22,4 +22,9 @@ if (BUILD_TESTING)
       testADIOSMPIBP.bp MPI BP 2
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS})
 
+  senseiAddTest(testProgrammableDataAdaptor
+    COMMAND ${MPIEXEC} -np 1 testProgrammableDataAdaptor
+    SOURCES testProgrammableDataAdaptor.cpp
+    LIBS sensei)
+
 endif()
