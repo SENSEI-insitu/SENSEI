@@ -64,7 +64,7 @@ if (ENABLE_PYTHON)
       file(STRINGS ${depend_file} depends)
       add_custom_command(
           OUTPUT ${output_file}
-          COMMAND ${swig_cmd} -c++ -python -w341,325,401,504
+          COMMAND ${swig_cmd} -c++ -python -threads -w341,325,401,504
               -DSWIG_TYPE_TABLE=senseiPython
               -I${MPI4PY_INCLUDE_DIR} -I${CMAKE_BINARY_DIR}
               -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}

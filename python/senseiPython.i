@@ -15,6 +15,7 @@
 %}
 
 %init %{
+PyEval_InitThreads();
 import_array();
 %}
 
