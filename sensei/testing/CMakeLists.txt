@@ -27,4 +27,9 @@ if (BUILD_TESTING)
     SOURCES testProgrammableDataAdaptor.cpp
     LIBS sensei)
 
+  senseiAddTest(testProgrammableDataAdaptorPy
+    COMMAND ${MPIEXEC} -np 1 python
+      ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
+    FEATURES ${ENABLE_PYTHON})
+
 endif()

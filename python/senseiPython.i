@@ -11,6 +11,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL  PyArray_API_SENSEI
 #include <numpy/arrayobject.h>
 #include "senseiConfig.h"
+#include "senseiPyDataAdaptor.h"
 #include "LibsimImageProperties.h"
 %}
 
@@ -58,6 +59,49 @@ VTK_DERIVED(AnalysisAdaptor)
  * VTKDataAdaptor
  ***************************************************************************/
 VTK_DERIVED(VTKDataAdaptor)
+
+/****************************************************************************
+ * ProgrammableDataAdaptor
+ ***************************************************************************/
+%extend sensei::ProgrammableDataAdaptor
+{
+  // note: its not worth acquiring the GIL while setting the callbacks
+  // as these are intended to be used only from the main thread during
+  // initialization
+
+  void SetGetMeshCallback(PyObject *f)
+  {
+    self->SetGetMeshCallback(senseiPyDataAdaptor::PyGetMeshCallback(f));
+  }
+
+  void SetAddArrayCallback(PyObject *f)
+  {
+    self->SetAddArrayCallback(senseiPyDataAdaptor::PyAddArrayCallback(f));
+  }
+
+  void SetGetNumberOfArraysCallback(PyObject *f)
+  {
+    self->SetGetNumberOfArraysCallback(
+      senseiPyDataAdaptor::PyGetNumberOfArraysCallback(f));
+  }
+
+  void SetGetArrayNameCallback(PyObject *f)
+  {
+    self->SetGetArrayNameCallback(
+      senseiPyDataAdaptor::PyGetArrayNameCallback(f));
+  }
+
+  void SetReleaseDataCallback(PyObject *f)
+  {
+    self->SetReleaseDataCallback(senseiPyDataAdaptor::PyReleaseDataCallback(f));
+  }
+}
+%ignore sensei::ProgrammableDataAdaptor::SetGetMeshCallback;
+%ignore sensei::ProgrammableDataAdaptor::SetAddArrayCallback;
+%ignore sensei::ProgrammableDataAdaptor::SetGetNumberOfArraysCallback;
+%ignore sensei::ProgrammableDataAdaptor::SetGetArrayNameCallback;
+%ignore sensei::ProgrammableDataAdaptor::SetReleaseDataCallback;
+VTK_DERIVED(ProgrammableDataAdaptor)
 
 /****************************************************************************
  * ConfigurableAnalysis
