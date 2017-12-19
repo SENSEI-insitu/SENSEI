@@ -104,6 +104,25 @@ bool Copy(cpp_t *va, unsigned long n, PyObject *seq)
   return false;
 }
 
+// ****************************************************************************
+template <typename cpp_t>
+PyObject *NewList(const cpp_t *va, unsigned long n)
+{
+  PyObject *list = PyList_New(n);
+  for (unsigned long i = 0; i < n; ++i)
+    {
+    PyList_SetItem(list, i, senseiPyObject::PyTT<cpp_t>::NewObject(va[i]));
+    }
+  return list;
+}
+
+// ****************************************************************************
+template <typename cpp_t>
+PyObject *NewList(const std::vector<cpp_t> &va)
+{
+  return NewList<cpp_t>(va.data(), va.size());
+}
+
 }
 
 #endif
