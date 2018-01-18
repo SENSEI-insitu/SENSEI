@@ -57,10 +57,12 @@ VTKmContourAnalysis::~VTKmContourAnalysis()
 }
 
 //-----------------------------------------------------------------------------
-void VTKmContourAnalysis::Initialize(
-  MPI_Comm comm, const std::string& arrayname, double value, bool writeOutput)
+void VTKmContourAnalysis::Initialize(MPI_Comm comm,
+  const std::string &meshName, const std::string &arrayName,
+  double value, bool writeOutput)
 {
   this->Communicator = comm;
+  this->MeshName = meshName;
   this->ArrayName = arrayname;
   this->Value = value;
   this->WriteOutput = writeOutput;
@@ -373,14 +375,16 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
 //-----------------------------------------------------------------------------
 bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
 {
-  timer::MarkEvent mark("VTKmContourAnalysis::execute");
+  timer::MarkEvent mark("VTKmContourAnalysis::Execute");
 
   vtkMultiProcessController* prev =
     vtkMultiProcessController::GetGlobalController();
+
   if (prev)
     {
     prev->Register(0);
     }
+
   vtkNew<vtkMPICommunicator> vtkComm;
   vtkMPICommunicatorOpaqueComm h(&this->Communicator);
   vtkComm->InitializeExternal(&h);
@@ -390,9 +394,18 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
 
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
 
-  vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
-  if (mesh == NULL || !data->AddArray(mesh, vtkDataObject::FIELD_ASSOCIATION_CELLS, this->ArrayName.c_str()))
+  vtkDataObject* mesh = nullptr;
+  if (data->GetMesh(meshName, false, mesh))
     {
+    SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+    return false;
+    }
+
+  if (data->AddArray(mesh, this->MeshName,
+    vtkDataObject::FIELD_ASSOCIATION_CELLS, this->ArrayName))
+    {
+    SENSEI_ERROR("Failed to add cell data array \"" << this->ArrayName
+      << "\" to mesh \"" << this->MeshName << "\"")
     return false;
     }
 
@@ -432,10 +445,8 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
       }
     vtkIdType numTotCells;
     con->Reduce(&nCells, &numTotCells, 1, vtkCommunicator::SUM_OP, 0);
-    if (con->GetLocalProcessId() == 0)
-      {
-      std::cout << "Number of contour cells: " << numTotCells << std::endl;
-      }
+
+    SENSEI_STATUS("Number of contour cells: " << numTotCells)
 
     if (this->WriteOutput)
       {
@@ -458,6 +469,7 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
     vtkMultiProcessController::SetGlobalController(prev);
     prev->UnRegister(0);
     }
+
   return true;
 }
 

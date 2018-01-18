@@ -3,11 +3,14 @@
 
 #include <AnalysisAdaptor.h>
 
+class vtkCPDataDescription;
 class vtkCPInputDataDescription;
 class vtkCPPipeline;
+class vtkDataObject;
 
 namespace sensei
 {
+class DataRequirements;
 
 /// @brief Analysis adaptor for Catalyst-based analysis pipelines.
 ///
@@ -38,22 +41,14 @@ protected:
 
   void Initialize();
 
-  /// @brief Fill \c desc with meta data from \c DataAdaptor.
-  ///
-  /// Called before the RequestDataDescription step to fill \c desc with
-  /// information about fields (and any other meta-data) available in the
-  /// \c DataAdaptor.
-  /// @return true on success, false to abort execution.
-  virtual bool FillDataDescriptionWithMetaData(
-    DataAdaptor* dataAdaptor, vtkCPInputDataDescription* desc);
+  int DescribeData(int timeStep, double time,
+    const DataRequirements &reqs, vtkCPDataDescription *dataDesc);
 
-  /// @brief Fill \c desc with data from \c DataAdaptor.
-  ///
-  /// Called before the CoProcess() step to fill \c desc with
-  /// simulation data.
-  /// @return true on success, false to abort execution.
-  virtual bool FillDataDescriptionWithData(
-    DataAdaptor* dataAdaptor, vtkCPInputDataDescription* desc);
+  int SelectData(DataAdaptor *dataAdaptor,
+    const DataRequirements &reqs, vtkCPDataDescription *dataDesc);
+
+  int SetWholeExtent(vtkDataObject *dobj, vtkCPInputDataDescription *desc);
+
 private:
   CatalystAnalysisAdaptor(const CatalystAnalysisAdaptor&); // Not implemented.
   void operator=(const CatalystAnalysisAdaptor&); // Not implemented.

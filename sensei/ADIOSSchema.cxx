@@ -1,4 +1,5 @@
 #include "ADIOSSchema.h"
+#include "VTKUtils.h"
 #include "Error.h"
 
 #include <vtkCellTypes.h>
@@ -331,11 +332,13 @@ int adiosInq(InputStream &iStream, const std::string &path, val_t &val)
 //  1   : successfully processed the dataset, end the traversal
 //  0   : successfully processed the dataset, continue traversal
 //  < 0 : an error occured, report it and end traversal
-using dataset_function = std::function<int(unsigned int,vtkDataSet*)>;
+using dataset_function =
+  std::function<int(unsigned int,unsigned int,vtkDataSet*)>;
 
 // --------------------------------------------------------------------------
 // apply given function to each leaf in the data object.
-int apply(unsigned int id, vtkDataObject* dobj, dataset_function &func, int skip_empty=1)
+int apply(unsigned int doid, unsigned int dsid, vtkDataObject* dobj,
+  dataset_function &func, int skip_empty=1)
 {
   if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
     {
@@ -346,14 +349,14 @@ int apply(unsigned int id, vtkDataObject* dobj, dataset_function &func, int skip
       {
       // recurse
       int ierr = 0;
-      if ((ierr = apply(iter->GetCurrentFlatIndex(),
+      if ((ierr = apply(doid, iter->GetCurrentFlatIndex(),
         iter->GetCurrentDataObject(), func, skip_empty)))
         return ierr;
       }
     }
   else if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
     {
-    int ierr = func(id, ds);
+    int ierr = func(doid, dsid, ds);
 #ifdef ADIOSSchemaDEBUG
     if (ierr < 0)
       {
@@ -374,14 +377,14 @@ unsigned int getNumberOfDatasets(vtkDataObject *dobj)
   if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
     {
     // function to count number of datasets of the given type
-    dataset_function func = [&number_of_datasets](unsigned int, vtkDataSet *ds) -> int
+    dataset_function func = [&number_of_datasets](unsigned int, unsigned int, vtkDataSet *ds) -> int
     {
       if (dynamic_cast<dataset_t*>(ds))
         ++number_of_datasets;
       return 0;
     };
 
-    if (apply(0, dobj, func))
+    if (apply(0, 0, dobj, func))
       return -1;
     }
   else if (dynamic_cast<dataset_t*>(dobj))
@@ -398,13 +401,13 @@ unsigned int getNumberOfDatasets(MPI_Comm comm, vtkDataObject *dobj,
 {
   unsigned int number_of_datasets = 0;
   // function that counts number of datasets of any type
-  dataset_function func = [&number_of_datasets](unsigned int, vtkDataSet*) -> int
+  dataset_function func = [&number_of_datasets](unsigned int, unsigned int, vtkDataSet*) -> int
   {
     ++number_of_datasets;
     return 0;
   };
 
-  if (apply(0, dobj, func) < 0)
+  if (apply(0, 0, dobj, func) < 0)
     return -1;
 
   if (!local_only)
@@ -417,36 +420,39 @@ unsigned int getNumberOfDatasets(MPI_Comm comm, vtkDataObject *dobj,
 
 
 // --------------------------------------------------------------------------
-int Schema::DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject *dobj)
+int Schema::DefineVariables(MPI_Comm comm, int64_t gh, unsigned int doid,
+  vtkDataObject *dobj)
 {
   // lambda that defines variables for a dataset
-  dataset_function func = [this,gh](unsigned int id, vtkDataSet *ds) -> int
+  dataset_function func =
+    [this,gh](unsigned int doid, unsigned int dsid, vtkDataSet *ds) -> int
   {
-    int ierr = this->DefineVariables(gh, id, ds);
+    int ierr = this->DefineVariables(gh, doid, dsid, ds);
     if (ierr < 0)
-      SENSEI_ERROR("Failed to define variables on dataset " << id);
+      SENSEI_ERROR("Failed to define variables on data object "
+        << doid << " dataset " << dsid);
     return ierr;
   };
 
   // if the given object is a simple dataset then id is the MPI rank.
   // shift by 1 to be consistent with composite datasets whose flat
   // index starts at 1
-  int id = 0;
+  int dsid = 0;
   if (dynamic_cast<vtkDataSet*>(dobj))
     {
-    MPI_Comm_rank(comm, &id);
-    id += 1;
+    MPI_Comm_rank(comm, &dsid);
+    dsid += 1;
     }
 
   // apply to leaf datasets
-  if (apply(id, dobj, func) < 0)
+  if (apply(doid, dsid, dobj, func) < 0)
     return -1;
 
   return 0;
 }
 
 // --------------------------------------------------------------------------
-int Schema::DefineVariables(int64_t, unsigned int, vtkDataSet *)
+int Schema::DefineVariables(int64_t, unsigned int, unsigned int, vtkDataSet *)
 {
   return 0;
 }
@@ -459,14 +465,15 @@ uint64_t Schema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
   uint64_t size = 0;
 
   // function that accumulates size of a dataset
-  dataset_function func = [this,&size](unsigned int, vtkDataSet *ds) -> int
+  dataset_function func =
+    [this,&size](unsigned int, unsigned int, vtkDataSet *ds) -> int
   {
     size += this->GetSize(ds);
     return 0;
   };
 
   // apply to leaf datasets
-  if (apply(0, dobj, func) < 0)
+  if (apply(0, 0, dobj, func) < 0)
     return 0;
 
   return size;
@@ -479,94 +486,193 @@ uint64_t Schema::GetSize(vtkDataSet *)
 }
 
 // --------------------------------------------------------------------------
-int Schema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
+int Schema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
+  vtkDataObject *dobj)
 {
   (void)comm;
 
   // lambda that writes a dataset
-  dataset_function func = [this,fh](unsigned int id, vtkDataSet *ds) -> int
+  dataset_function func =
+    [this,fh](unsigned int doid, unsigned int dsid, vtkDataSet *ds) -> int
   {
-    int ierr = this->Write(fh, id, ds);
+    int ierr = this->Write(fh, doid, dsid, ds);
     if (ierr < 0)
-      SENSEI_ERROR("Failed to write dataset " << id);
+      SENSEI_ERROR("Failed to write data object "
+        << doid << " dataset " << dsid);
     return ierr;
   };
 
   // if the given object is a simple dataset then id is the MPI rank.
   // shift by 1 to be consistent with composite datasets whose flat
   // index starts at 1
-  int id = 0;
+  int dsid = 0;
   if (dynamic_cast<vtkDataSet*>(dobj))
     {
-    MPI_Comm_rank(comm, &id);
-    id += 1;
+    MPI_Comm_rank(comm, &dsid);
+    dsid += 1;
     }
 
   // apply to leaf datasets
-  if (apply(id, dobj, func) < 0)
+  if (apply(doid, dsid, dobj, func) < 0)
     return -1;
 
   return 0;
 }
 
 // --------------------------------------------------------------------------
-int Schema::Write(int64_t, unsigned int, vtkDataSet *)
+int Schema::Write(int64_t, unsigned int, unsigned int, vtkDataSet *)
 {
   return 0;
 }
 
 // --------------------------------------------------------------------------
-int Schema::Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dobj)
+int Schema::Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+  vtkDataObject *&dobj)
 {
   (void)comm;
 
   // function that reads a dataset
-  dataset_function func = [&](unsigned int id, vtkDataSet *ds) -> int
+  dataset_function func =
+    [&](unsigned int doid, unsigned int dsid, vtkDataSet *ds) -> int
   {
-    int ierr = this->Read(comm, iStream, id, ds);
+    int ierr = this->Read(comm, iStream, doid, dsid, ds);
     if (ierr < 0)
-      SENSEI_ERROR("Failed to read dataset " << id);
+      SENSEI_ERROR("Failed to read data object " << doid << " dataset " << dsid);
     return ierr;
   };
 
   // if the given object is a simple dataset then id is the MPI rank.
   // shift by 1 to be consistent with composite datasets whose flat
   // index starts at 1
-  int id = 0;
+  int dsid = 0;
   if (dynamic_cast<vtkDataSet*>(dobj))
     {
-    MPI_Comm_rank(comm, &id);
-    id += 1;
+    MPI_Comm_rank(comm, &dsid);
+    dsid += 1;
     }
 
   // apply to leaf datasets
-  if (apply(id, dobj, func) < 0)
+  if (apply(doid, dsid, dobj, func) < 0)
     return -1;
 
   return 0;
 }
 
 // --------------------------------------------------------------------------
-int Schema::Read(MPI_Comm, InputStream &, unsigned int, vtkDataSet *&)
+int Schema::Read(MPI_Comm, InputStream &, unsigned int, unsigned int,
+  vtkDataSet *&)
 {
   return 0;
 }
 
 
 
+
+// helper for writing strings. different ADIOS transports handle
+// strings differently and do not follow the documentation which
+// complicates things to the point that we factor the code into
+// its own class. the string is written into a byte array and
+// will be null terminated.
+class StringSchema
+{
+public:
+  static int DefineVariables(int64_t gh, const std::string &path);
+
+  static uint64_t GetSize(const std::string &str);
+
+  static int Write(uint64_t fh, const std::string &path,
+    const std::string &str);
+
+  static int Read(InputStream &iStream, ADIOS_SELECTION *sel,
+    const std::string &path, std::string &str);
+};
+
 // --------------------------------------------------------------------------
-int Extent3DSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
+uint64_t StringSchema::GetSize(const std::string &str)
+{
+  return str.size() + 1 + sizeof(int);
+}
+
+// --------------------------------------------------------------------------
+int StringSchema::DefineVariables(int64_t gh, const std::string &path)
+{
+  // a second variable holding the local, global, length is required
+  // for writing. according to trhe docs you could write a constant
+  // string literal, but that only works with BP and not FLEXPATH
+  std::string len = path + "_len";
+  adios_define_var(gh, len.c_str(), "", adios_integer,
+    "", "", "0");
+
+  // define the string
+  adios_define_var(gh, path.c_str(), "", adios_byte,
+    len.c_str(), len.c_str(), "0");
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int StringSchema::Read(InputStream &iStream, ADIOS_SELECTION *sel,
+  const std::string &path, std::string &result)
+{
+  // get metadata
+  ADIOS_VARINFO *vinfo = adios_inq_var(iStream.File, path.c_str());
+  if (!vinfo)
+    {
+    SENSEI_ERROR("ADIOS stream is missing \"" << path << "\"")
+    return -1;
+    }
+
+  // allocate a buffer
+  char *tmp = static_cast<char*>(malloc(vinfo->dims[0]));
+
+  // read it
+  adios_schedule_read(iStream.File, sel, path.c_str(), 0, 1, tmp);
+  if (adios_perform_reads(iStream.File, 1))
+    {
+    SENSEI_ERROR("Failed to read string at \"" << path << "\"")
+    return -1;
+    }
+
+  // clean up and pass string back
+  adios_free_varinfo(vinfo);
+  result = tmp;
+  free(tmp);
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int StringSchema::Write(uint64_t fh, const std::string &path,
+  const std::string &str)
+{
+  std::string len = path + "_len";
+  int n = str.size() + 1;
+  if (adios_write(fh, len.c_str(), &n) ||
+    adios_write(fh, path.c_str(), str.c_str()))
+    {
+    SENSEI_ERROR("Failed to write string at \"" << path << "\"")
+    return -1;
+    }
+  return 0;
+}
+
+
+
+// --------------------------------------------------------------------------
+int Extent3DSchema::DefineVariables(int64_t gh, unsigned int doid,
+  unsigned int dsid, vtkDataSet *ds)
 {
   if (dynamic_cast<vtkImageData*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id;
+    oss << "data_object_" << doid << "/dataset_" << dsid;
 
     std::string dataset_id = oss.str();
 
     std::string path_len = dataset_id + "/extent_len";
     adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
 
+    // /data_object_<id>/dataset_<id>/extent
     std::string path = dataset_id + "/extent";
     adios_define_var(gh, path.c_str(), "", adios_integer,
       path_len.c_str(), path_len.c_str(), "0");
@@ -574,6 +680,7 @@ int Extent3DSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
     path_len = dataset_id + "/origin_len";
     adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
 
+    // /data_object_<id>/dataset_<id>/origin
     path = dataset_id + "/origin";
     adios_define_var(gh, path.c_str(), "", adios_double,
       path_len.c_str(), path_len.c_str(), "0");
@@ -581,6 +688,7 @@ int Extent3DSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
     path_len = dataset_id + "/spacing_len";
     adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
 
+    // /data_object_<id>/dataset_<id>/spacing
     path = dataset_id + "/spacing";
     adios_define_var(gh, path.c_str(), "", adios_double,
       path_len.c_str(), path_len.c_str(), "0");
@@ -599,12 +707,13 @@ uint64_t Extent3DSchema::GetSize(vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int Extent3DSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
+int Extent3DSchema::Write(int64_t fh, unsigned int doid, unsigned int dsid,
+  vtkDataSet *ds)
 {
   if (vtkImageData *img = dynamic_cast<vtkImageData*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
     // extent
@@ -641,13 +750,13 @@ int Extent3DSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int Extent3DSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-  vtkDataSet *&ds)
+int Extent3DSchema::Read(MPI_Comm comm, InputStream &iStream,
+  unsigned int doid, unsigned int dsid, vtkDataSet *&ds)
 {
   if (vtkImageData *img = dynamic_cast<vtkImageData*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
     ADIOS_SELECTION *sel = nullptr;
@@ -715,7 +824,8 @@ struct DatasetAttributesSchema<att_t>::InternalsType
 {
   using IdMapType = std::map<unsigned int, int>;
   using NameIdMapType = std::map<std::string, IdMapType>;
-  NameIdMapType NameIdMap;
+  using MeshMapType = std::map<unsigned int, NameIdMapType>;
+  MeshMapType NameIdMap;
 };
 
 // --------------------------------------------------------------------------
@@ -735,19 +845,19 @@ DatasetAttributesSchema<att_t>::~DatasetAttributesSchema()
 // --------------------------------------------------------------------------
 template<int att_t>
 int DatasetAttributesSchema<att_t>::DefineVariables(int64_t gh,
-  unsigned int id, vtkDataSet* ds)
+  unsigned int doid, unsigned int dsid, vtkDataSet* ds)
 {
   if (ds)
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
     std::string att_type = datasetAttributeString<att_t>::str() + "_data/";
 
     std::string att_path = dataset_id + att_type;
 
-    // /dataset_<id>/<att_type>/number_of_arrays
+    // /data_object_<id>/dataset_<id>/<att_type>/number_of_arrays
     std::string path = att_path + "number_of_arrays";
     adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
@@ -761,33 +871,22 @@ int DatasetAttributesSchema<att_t>::DefineVariables(int64_t gh,
       std::string array_id = oss.str();
       std::string array_path = att_path + array_id;
 
-      // how do you best write a C string in ADIOS? An adios_string type
-      // scalar didn't work. writing it as a byte array works. unfortunately
-      // bpls displays it as an array of integer values.
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/name
+      StringSchema::DefineVariables(gh, array_path + "/name");
 
-      // /dataset_<id>/<att_type>/array_<i>/name_len
-      std::string len = array_path + "/name_len";
-      adios_define_var(gh, len.c_str(), "", adios_integer,
-        "", "", "0");
-
-      // /dataset_<id>/<att_type>/array_<i>/name
-      path = array_path + "/name";
-      adios_define_var(gh, path.c_str(), "", adios_byte,
-        len.c_str(), len.c_str(), "0");
-
-      // /dataset_<id>/<att_type>/array_<i>/number_of_elements
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_elements
       std::string elem_path = array_path + "/number_of_elements";
       adios_define_var(gh, elem_path.c_str(), "", adiosIdType(), "", "", "");
 
-      // /dataset_<id>/<att_type>/array_<i>/number_of_components
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_components
       path = array_path + "/number_of_components";
       adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
-      // /dataset_<id>/<att_type>/array_<i>/element_type
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/element_type
       path = array_path + "/element_type";
       adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
-      // /dataset_<id>/<att_type>/array_<i>/data
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/data
       path = array_path + "/data";
       adios_define_var(gh, path.c_str(), "", adiosType(array),
         elem_path.c_str(), elem_path.c_str(), "0");
@@ -815,7 +914,7 @@ uint64_t DatasetAttributesSchema<att_t>::GetSize(vtkDataSet *ds)
       {
       vtkDataArray *da = dsa->GetArray(i);
 
-      size += strlen(da->GetName()) + 1 + sizeof(int);
+      size += StringSchema::GetSize(da->GetName());
 
       size += da->GetNumberOfTuples()*
         da->GetNumberOfComponents()*da->GetElementComponentSize();
@@ -828,20 +927,20 @@ uint64_t DatasetAttributesSchema<att_t>::GetSize(vtkDataSet *ds)
 // -------------------------------------------------------------------------
 template<int att_t>
 int DatasetAttributesSchema<att_t>::Write(int64_t fh,
-  unsigned int id, vtkDataSet *ds)
+  unsigned int doid, unsigned int dsid, vtkDataSet *ds)
 {
   if (ds)
     {
     vtkDataSetAttributes* dsa = ds->GetAttributes(att_t);
 
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
     std::string att_type = datasetAttributeString<att_t>::str() + "_data/";
     std::string att_path = dataset_id + att_type;
 
-    // /dataset_<id>/<att_type>/number_of_arrays
+    // /data_object_<id>/dataset_<id>/<att_type>/number_of_arrays
     int n_arrays = dsa->GetNumberOfArrays();
     std::string path = att_path + "number_of_arrays";
     adios_write(fh, path.c_str(), &n_arrays);
@@ -855,32 +954,25 @@ int DatasetAttributesSchema<att_t>::Write(int64_t fh,
       std::string array_id = oss.str();
       std::string array_path = att_path + array_id;
 
-      // /dataset_<id>/<att_type>/array_<i>/name_len
-      //const char *name = array->GetName();
-      path = array_path + "/name_len";
-      int len = strlen(array->GetName()) + 1;
-      adios_write(fh, path.c_str(), &len);
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/name
+      StringSchema::Write(fh, array_path + "/name", array->GetName());
 
-      // /dataset_<id>/<att_type>/array_<i>/name
-      path = array_path + "/name";
-      adios_write(fh, path.c_str(), array->GetName());
-
-      // /dataset_<id>/<att_type>/array_<i>/number_of_elements
+      // /data_objevct_<id>/dataset_<id>/<att_type>/array_<i>/number_of_elements
       vtkIdType n_elem = array->GetNumberOfTuples()*array->GetNumberOfComponents();
       std::string elem_path = array_path + "/number_of_elements";
       adios_write(fh, elem_path.c_str(), &n_elem);
 
-      // /dataset_<id>/<att_type>/array_<i>/number_of_components
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_components
       path = array_path + "/number_of_components";
       int n_comp = array->GetNumberOfComponents();
       adios_write(fh, path.c_str(), &n_comp);
 
-      // /dataset_<id>/<att_type>/array_<i>/element_type
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/element_type
       path = array_path + "/element_type";
       int elem_type = array->GetDataType();
       adios_write(fh, path.c_str(), &elem_type);
 
-      // /dataset_<id>/<att_type>/array_<i>
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>
       path = array_path + "/data";
       adios_write(fh, path.c_str(), array->GetVoidPointer(0));
       }
@@ -892,20 +984,20 @@ int DatasetAttributesSchema<att_t>::Write(int64_t fh,
 // --------------------------------------------------------------------------
 template<int att_t>
 int DatasetAttributesSchema<att_t>::Read(MPI_Comm comm, InputStream &iStream,
-  unsigned int id, vtkDataSet *&ds)
+  unsigned int doid, unsigned int dsid, vtkDataSet *&ds)
 {
   if (ds)
     {
     vtkDataSetAttributes* dsa = ds->GetAttributes(att_t);
 
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
     std::string att_type = datasetAttributeString<att_t>::str() + "_data/";
     std::string att_path = dataset_id + att_type;
 
-    // /dataset_<id>/<att_type>/number_of_arrays
+    // /data_object_<id>/dataset_<id>/<att_type>/number_of_arrays
     int n_arrays = 0;
     std::string path = att_path + "number_of_arrays";
     if (adiosInq(iStream, att_path, n_arrays))
@@ -932,31 +1024,19 @@ int DatasetAttributesSchema<att_t>::Read(MPI_Comm comm, InputStream &iStream,
       std::string array_id = oss.str();
       std::string array_path = att_path + array_id;
 
-      // /dataset_<id>/<att_type>/array_<i>/name
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/name
+      std::string name;
       path = array_path + "/name";
-      ADIOS_VARINFO *vinfo = adios_inq_var(iStream.File, path.c_str());
-      if (!vinfo)
-        {
-        SENSEI_ERROR("ADIOS stream is missing \"" << path << "\"")
+      if (StringSchema::Read(iStream, sel, path, name))
         return -1;
-        }
-      char *name = static_cast<char*>(malloc(vinfo->dims[0]));
-      adios_schedule_read(iStream.File, sel, path.c_str(), 0, 1, name);
-      if (adios_perform_reads(iStream.File, 1))
-        {
-        SENSEI_ERROR("Failed to read " << datasetAttributeString<att_t>::str()
-          << "data array name")
-        return -1;
-        }
-      adios_free_varinfo(vinfo);
 
-      // /dataset_<id>/<att_type>/array_<i>/number_of_elements
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_elements
       vtkIdType n_elem = 0;
       path = array_path + "/number_of_elements";
       if (adiosInq(iStream, path, n_elem))
         return -1;
 
-      // /dataset_<id>/<att_type>/array_<i>/number_of_components
+      // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_components
       int n_comp = 0;
       path = array_path + "/number_of_components";
       if (adiosInq(iStream, path, n_comp))
@@ -968,17 +1048,16 @@ int DatasetAttributesSchema<att_t>::Read(MPI_Comm comm, InputStream &iStream,
       if (adiosInq(iStream, path, elem_type))
         return -1;
 
-      // /dataset_<id>/<att_type>/array_<i>/data
+      // /data_object_<id>//dataset_<id>/<att_type>/array_<i>/data
       path = array_path + "/data";
       vtkDataArray *array = vtkDataArray::CreateDataArray(elem_type);
       array->SetNumberOfComponents(n_comp);
       array->SetNumberOfTuples(n_elem/n_comp);
-      array->SetName(name);
+      array->SetName(name.c_str());
       adios_schedule_read(iStream.File, sel, path.c_str(),
         0, 1, array->GetVoidPointer(0));
       dsa->AddArray(array);
       array->Delete();
-      free(name);
 
       if (adios_perform_reads(iStream.File, 1))
         {
@@ -998,30 +1077,33 @@ int DatasetAttributesSchema<att_t>::Read(MPI_Comm comm, InputStream &iStream,
 // --------------------------------------------------------------------------
 template<int att_t>
 int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
-  InputStream &iStream, vtkDataObject *dobj, std::set<std::string> &array_names)
+  InputStream &iStream, unsigned int doid, vtkDataObject *dobj,
+  std::set<std::string> &array_names)
 {
   // adaptor function
-  dataset_function func = [&](unsigned int id, vtkDataSet* ds) -> int
+  dataset_function func =
+    [&](unsigned int doid, unsigned int dsid, vtkDataSet* ds) -> int
   {
-    int ierr = this->ReadArrayNames(comm, iStream, id, ds, array_names);
+    int ierr = this->ReadArrayNames(comm, iStream, doid, dsid, ds, array_names);
     if (ierr < 0)
-      SENSEI_ERROR("Failed to get array names in dataset " << id)
+      SENSEI_ERROR("Failed to get array names in dataset "
+        << "data object " << doid << " dataset " << dsid)
     return ierr;
   };
 
-  this->Internals->NameIdMap.clear();
+  this->Internals->NameIdMap[doid].clear();
 
   // if the given object is a simple dataset then id is the MPI rank.
   // shift by 1 to be consistent with composite datasets whose flat
   // index starts at 1
-  int id = 0;
+  int dsid = 0;
   if (dynamic_cast<vtkDataSet*>(dobj))
     {
-    MPI_Comm_rank(comm, &id);
-    id += 1;
+    MPI_Comm_rank(comm, &dsid);
+    dsid += 1;
     }
 
-  if (apply(id, dobj, func, 0) < 0)
+  if (apply(doid, dsid, dobj, func, 0) < 0)
     return -1;
 
   return 0;
@@ -1030,17 +1112,17 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
 // --------------------------------------------------------------------------
 template<int att_t>
 int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
-  InputStream &iStream, unsigned int id, vtkDataSet *ds,
+  InputStream &iStream, unsigned int doid, unsigned int dsid, vtkDataSet *ds,
   std::set<std::string> &array_names)
 {
   std::ostringstream oss;
-  oss << "dataset_" << id << "/";
+  oss << "data_object_" << doid << "/dataset_" << dsid << "/";
   std::string dataset_id = oss.str();
 
   std::string att_type = datasetAttributeString<att_t>::str() + "_data/";
   std::string att_path = dataset_id + att_type;
 
-  // /dataset_<id>/<att_type>/number_of_arrays
+  // /data_object_<id>/dataset_<id>/<att_type>/number_of_arrays
   int n_arrays = 0;
   std::string path = att_path + "number_of_arrays";
   if (adiosInq(iStream, path, n_arrays))
@@ -1067,33 +1149,18 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
     std::string array_id = oss.str();
     std::string array_path = att_path + array_id;
 
-    // /dataset_<id>/<att_type>/array_<i>/name
+    // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/name
+    std::string name;
     path = array_path + "/name";
-    ADIOS_VARINFO *vinfo = adios_inq_var(iStream.File, path.c_str());
-    if (!vinfo)
-      {
-      SENSEI_ERROR("ADIOS stream is missing \"" << path << "\"")
+    if (StringSchema::Read(iStream, sel, path, name))
       return -1;
-      }
-    char *tmp = static_cast<char*>(malloc(vinfo->dims[0]));
-    adios_schedule_read(iStream.File, sel, path.c_str(), 0, 1, tmp);
-    if (adios_perform_reads(iStream.File, 1))
-      {
-      SENSEI_ERROR("Failed to read "
-        << datasetAttributeString<att_t>::str() << " data array names")
-      return -1;
-      }
-    adios_free_varinfo(vinfo);
-
-    std::string name(tmp);
-    free(tmp);
 
     // add to list of arrays
     array_names.insert(name);
 
     // cacahe the array id by block and name
     if (ds)
-      this->Internals->NameIdMap[name][id] = i;
+      this->Internals->NameIdMap[doid][name][dsid] = i;
     }
 
   if (sel)
@@ -1105,36 +1172,40 @@ int DatasetAttributesSchema<att_t>::ReadArrayNames(MPI_Comm comm,
 // --------------------------------------------------------------------------
 template<int att_t>
 int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm,
-  InputStream &iStream, const std::string &array_name, vtkDataObject *dobj)
+  InputStream &iStream, const std::string &array_name, unsigned int doid,
+  vtkDataObject *dobj)
 {
   // adaptor function
-  dataset_function func = [&](unsigned int id, vtkDataSet* ds) -> int
+  dataset_function func =
+    [&](unsigned int doid, unsigned int dsid, vtkDataSet* ds) -> int
   {
-    int ierr = this->ReadArray(comm, iStream, array_name, id, ds);
+    int ierr = this->ReadArray(comm, iStream, array_name, doid, dsid, ds);
     if (ierr < 0)
       SENSEI_ERROR("Failed to read array \"" << array_name
-        << "\" from dataset " << id)
+        << "\" from dataset " << "data object " << doid << " dataset " << dsid)
     return ierr;
   };
+
 
   // may need to build the name map, if the user never called
   // ReadArrayNames
   std::set<std::string> tmp;
-  if (this->Internals->NameIdMap.empty() &&
-    this->ReadArrayNames(comm, iStream, dobj, tmp))
+  if (((this->Internals->NameIdMap.find(doid) == this->Internals->NameIdMap.end())
+    || this->Internals->NameIdMap[doid].empty()) &&
+    this->ReadArrayNames(comm, iStream, doid, dobj, tmp))
     return -1;
 
   // if the given object is a simple dataset then id is the MPI rank.
   // shift by 1 to be consistent with composite datasets whose flat
   // index starts at 1
-  int id = 0;
+  int dsid = 0;
   if (dynamic_cast<vtkDataSet*>(dobj))
     {
-    MPI_Comm_rank(comm, &id);
-    id += 1;
+    MPI_Comm_rank(comm, &dsid);
+    dsid += 1;
     }
 
-  if (apply(id, dobj, func) < 0)
+  if (apply(doid, dsid, dobj, func) < 0)
     return -1;
 
   return 0;
@@ -1142,46 +1213,65 @@ int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm,
 
 // --------------------------------------------------------------------------
 template<int att_t>
-int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm, InputStream &iStream,
-  const std::string &array_name, unsigned int id, vtkDataSet *ds)
+int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm,
+  InputStream &iStream, const std::string &array_name, unsigned int doid,
+  unsigned int dsid, vtkDataSet *ds)
 {
   if (ds)
     {
     vtkDataSetAttributes* dsa = ds->GetAttributes(att_t);
 
-    // use name and block id to get the array id
-    typename InternalsType::NameIdMapType::iterator name_map_it;
-    typename InternalsType::IdMapType::iterator id_map_it;
-    if (((name_map_it = this->Internals->NameIdMap.find(array_name)) ==
-      this->Internals->NameIdMap.end())
-      || ((id_map_it = name_map_it->second.find(id)) == name_map_it->second.end()))
+    // use mesh name, array name, and block id to get the array id
+    typename InternalsType::MeshMapType::iterator mesh_map_it =
+      this->Internals->NameIdMap.find(doid);
+    if (mesh_map_it == this->Internals->NameIdMap.end())
       {
-      SENSEI_ERROR("No array \"" << array_name << "\" in "
-        << datasetAttributeString<att_t>::str() << " data")
+      SENSEI_ERROR("No object id " << doid)
       return -1;
       }
+
+    typename InternalsType::NameIdMapType::iterator name_map_it =
+      mesh_map_it->second.find(array_name);
+    if (name_map_it == mesh_map_it->second.end())
+      {
+      SENSEI_ERROR("No array named \"" << array_name << "\" in "
+        << datasetAttributeString<att_t>::str() << " data of object "
+        << doid)
+      return -1;
+      }
+
+    typename InternalsType::IdMapType::iterator id_map_it =
+      name_map_it->second.find(dsid);
+    if (id_map_it == name_map_it->second.end())
+      {
+      SENSEI_ERROR("No array named \"" << array_name << "\" in "
+        << datasetAttributeString<att_t>::str() << " data of object "
+        << doid << " block " << dsid)
+      return -1;
+      }
+
     int array_id = id_map_it->second;
 
     std::ostringstream oss;
-    oss << "dataset_" << id << "/"
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/"
       << datasetAttributeString<att_t>::str() << "_data/"
       << "array_" << array_id;
 
     std::string array_path = oss.str();
 
-    // /dataset_<id>/<att_type>/array_<i>/number_of_elements
+    // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_elements
     vtkIdType n_elem = 0;
     std::string path = array_path + "/number_of_elements";
     if (adiosInq(iStream, path, n_elem))
       return -1;
 
-    // /dataset_<id>/<att_type>/array_<i>/number_of_components
+    // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/number_of_components
     int n_comp = 0;
     path = array_path + "/number_of_components";
     if (adiosInq(iStream, path, n_comp))
       return -1;
 
-    // /dataset_<id>/<att_type>/array_<i>/element_type
+    // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/element_type
     int elem_type = 0;
     path = array_path + "/element_type";
     if (adiosInq(iStream, path, elem_type))
@@ -1200,7 +1290,7 @@ int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm, InputStream &iStrea
         }
       }
 
-    // /dataset_<id>/<att_type>/array_<i>/data
+    // /data_object_<id>/dataset_<id>/<att_type>/array_<i>/data
     path = array_path + "/data";
     vtkDataArray *array = vtkDataArray::CreateDataArray(elem_type);
     array->SetNumberOfComponents(n_comp);
@@ -1228,23 +1318,24 @@ int DatasetAttributesSchema<att_t>::ReadArray(MPI_Comm comm, InputStream &iStrea
 
 
 // --------------------------------------------------------------------------
-int PointsSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
+int PointsSchema::DefineVariables(int64_t gh, unsigned int doid,
+  unsigned int dsid, vtkDataSet *ds)
 {
   if (vtkPointSet *ps = dynamic_cast<vtkPointSet*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/points/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/points/";
     std::string dataset_id = oss.str();
 
-    // dataset_<id>/n_elem
-    std::string path_len = dataset_id + "n_elem";
+    // /data_object_<id>/dataset_<id>/points/number_of_elements
+    std::string path_len = dataset_id + "number_of_elements";
     adios_define_var(gh, path_len.c_str(), "", adios_unsigned_long, "", "", "");
 
-    // dataset_<id>/elem_type
+    // /data_object_<id>/dataset_<id>/points/elem_type
     std::string path = dataset_id + "elem_type";
     adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
-    // dataset_<id>/points
+    // /data_object_<id>/dataset_<id>/points/data
     vtkDataArray *pts = ps->GetPoints()->GetData();
 
     path = dataset_id + "data";
@@ -1265,27 +1356,28 @@ uint64_t PointsSchema::GetSize(vtkDataSet *ds)
 }
 
 // -------------------------------------------------------------------------
-int PointsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
+int PointsSchema::Write(int64_t fh, unsigned int doid, unsigned int dsid,
+  vtkDataSet *ds)
 {
   if (vtkPointSet *ps = dynamic_cast<vtkPointSet*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/points/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/points/";
     std::string dataset_id = oss.str();
 
-    // dataset_<id>/points/n_elem
-    unsigned long n_elem = 3*ds->GetNumberOfPoints();
-    std::string path = dataset_id + "n_elem";
-    adios_write(fh, path.c_str(), &n_elem);
+    // /data_object_<id>/dataset_<id>/points/number_of_elements
+    unsigned long number_of_elements = 3*ds->GetNumberOfPoints();
+    std::string path = dataset_id + "number_of_elements";
+    adios_write(fh, path.c_str(), &number_of_elements);
 
     vtkDataArray *pts = ps->GetPoints()->GetData();
 
-    // dataset_<id>/points/type
+    // /data_object_<id>/dataset_<id>/points/type
     path = dataset_id + "elem_type";
     int points_type = pts->GetDataType();
     adios_write(fh, path.c_str(), &points_type);
 
-    // dataset_<id>/points/data
+    // /data_object_<id>/dataset_<id>/points/data
     path = dataset_id + "data";
     adios_write(fh, path.c_str(), pts->GetVoidPointer(0));
     }
@@ -1293,31 +1385,31 @@ int PointsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int PointsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-  vtkDataSet *&ds)
+int PointsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+  unsigned int dsid, vtkDataSet *&ds)
 {
   if (vtkPointSet *ps = dynamic_cast<vtkPointSet*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/points/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/points/";
     std::string dataset_id = oss.str();
 
-    // dataset_<id>/points/n_elem
-    unsigned long n_elem = 0;
-    std::string path = dataset_id + "n_elem";
-    if (adiosInq(iStream, path, n_elem))
+    // /data_object_<id>/dataset_<id>/points/number_of_elements
+    unsigned long number_of_elements = 0;
+    std::string path = dataset_id + "number_of_elements";
+    if (adiosInq(iStream, path, number_of_elements))
       return -1;
 
-    // dataset_<id>/points/type
+    // /data_object_<id>/dataset_<id>/points/type
     int elem_type = 0;
     path = dataset_id + "elem_type";
     if (adiosInq(iStream, path, elem_type))
       return -1;
 
-    // dataset_<id>/points/data
+    // /data_object_<id>/dataset_<id>/points/data
     vtkDataArray *pts = vtkDataArray::CreateDataArray(elem_type);
     pts->SetNumberOfComponents(3);
-    pts->SetNumberOfTuples(n_elem/3);
+    pts->SetNumberOfTuples(number_of_elements/3);
     pts->SetName("points");
 
     ADIOS_SELECTION *sel = nullptr;
@@ -1391,28 +1483,29 @@ unsigned long PointsSchema::GetNumberOfPoints(vtkDataSet *ds)
 
 
 // --------------------------------------------------------------------------
-int CellsSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet* ds)
+int CellsSchema::DefineVariables(int64_t gh, unsigned int doid,
+  unsigned int dsid, vtkDataSet* ds)
 {
   if (dynamic_cast<vtkPolyData*>(ds) || dynamic_cast<vtkUnstructuredGrid*>(ds))
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/cells/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/cells/";
     std::string dataset_id = oss.str();
 
-    // dataset_<id>/cells/number_of_cells
-    std::string path_len = dataset_id + "n_cells";
+    // /data_object_<id>/dataset_<id>/cells/number_of_cells
+    std::string path_len = dataset_id + "number_of_cells";
     adios_define_var(gh, path_len.c_str(), "", adios_unsigned_long, "", "", "");
 
-    // /dataset_<id>/cells/cell_types
+    // /data_object_<id>/dataset_<id>/cells/cell_types
     std::string path_array = dataset_id + "cell_types";
     adios_define_var(gh, path_array.c_str(), "", adios_unsigned_byte,
       path_len.c_str(), path_len.c_str(), "0");
 
-    // dataset_<id>/cells/number_of_cells
-    path_len = dataset_id + "n_elem";
+    // /data_object_<id>/dataset_<id>/cells/number_of_cells
+    path_len = dataset_id + "number_of_elements";
     adios_define_var(gh, path_len.c_str(), "", adios_unsigned_long, "", "", "");
 
-    // dataset_<id>/cells/data
+    // /data_object_<id>/dataset_<id>/cells/data
     path_array = dataset_id + "data";
     adios_define_var(gh, path_array.c_str(), "", adiosIdType(),
       path_len.c_str(), path_len.c_str(), "0");
@@ -1427,7 +1520,7 @@ uint64_t CellsSchema::GetSize(vtkDataSet *ds)
   uint64_t size = 0;
   if (dynamic_cast<vtkPolyData*>(ds) || dynamic_cast<vtkUnstructuredGrid*>(ds))
     {
-    size += 2*sizeof(unsigned long) +                    // n_cells, n_elems
+    size += 2*sizeof(unsigned long) +                    // number_of_cells, number_of_elementss
       this->GetNumberOfCells(ds)*sizeof(unsigned char) + // cell types array
       this->GetCellsLength(ds)*sizeof(vtkIdType);        // cells array
     }
@@ -1435,7 +1528,8 @@ uint64_t CellsSchema::GetSize(vtkDataSet *ds)
 }
 
 // -------------------------------------------------------------------------
-int CellsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
+int CellsSchema::Write(int64_t fh, unsigned int doid, unsigned int dsid,
+  vtkDataSet *ds)
 {
   vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds);
   vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds);
@@ -1443,26 +1537,26 @@ int CellsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
   if (pd || ug)
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/cells/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/cells/";
     std::string dataset_id = oss.str();
 
-    // dataset_<id>/cells/n_cells
-    std::string path = dataset_id + "n_cells";
-    unsigned long n_cells = ds->GetNumberOfCells();
-    adios_write(fh, path.c_str(), &n_cells);
+    // /data_object_<id>/dataset_<id>/cells/number_of_cells
+    std::string path = dataset_id + "number_of_cells";
+    unsigned long number_of_cells = ds->GetNumberOfCells();
+    adios_write(fh, path.c_str(), &number_of_cells);
 
     if (ug)
       {
-      // dataset_<id>/cells/cell_types
+      // /data_object_<id>/dataset_<id>/cells/cell_types
       path = dataset_id + "cell_types";
       adios_write(fh, path.c_str(), ug->GetCellTypesArray()->GetPointer(0));
 
-      // dataset_<id>/cells/n_elem
-      std::string path = dataset_id + "n_elem";
-      unsigned long n_elem = ug->GetCells()->GetData()->GetNumberOfTuples();
-      adios_write(fh, path.c_str(), &n_elem);
+      // /data_object_<id>/dataset_<id>/cells/number_of_elements
+      std::string path = dataset_id + "number_of_elements";
+      unsigned long number_of_elements = ug->GetCells()->GetData()->GetNumberOfTuples();
+      adios_write(fh, path.c_str(), &number_of_elements);
 
-      // dataset_<id>/cells/data
+      // /data_object_<id>/dataset_<id>/cells/data
       path = dataset_id + "data";
       adios_write(fh, path.c_str(), ug->GetCells()->GetData()->GetPointer(0));
       }
@@ -1508,16 +1602,16 @@ int CellsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
         cells.insert(cells.end(), ps, ps + pd->GetStrips()->GetData()->GetNumberOfTuples());
         }
 
-      // dataset_<id>/cells/cell_types
+      // /data_object_<id>/dataset_<id>/cells/cell_types
       path = dataset_id + "cell_types";
       adios_write(fh, path.c_str(), types.data());
 
-      // dataset_<id>/cells/n_elem
-      std::string path = dataset_id + "n_elem";
-      unsigned long n_elem = cells.size();
-      adios_write(fh, path.c_str(), &n_elem);
+      // /data_object_<id>/dataset_<id>/cells/number_of_elements
+      std::string path = dataset_id + "number_of_elements";
+      unsigned long number_of_elements = cells.size();
+      adios_write(fh, path.c_str(), &number_of_elements);
 
-      // dataset_<id>/cells/data
+      // /data_object_<id>/dataset_<id>/cells/data
       path = dataset_id + "data";
       adios_write(fh, path.c_str(), cells.data());
       }
@@ -1527,8 +1621,8 @@ int CellsSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-  vtkDataSet *&ds)
+int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+  unsigned int dsid, vtkDataSet *&ds)
 {
   vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds);
   vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds);
@@ -1536,20 +1630,20 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
   if (pd || ug)
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/cells/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/cells/";
     std::string dataset_id = oss.str();
 
-    // dataset_<id>/cells/n_cells
-    unsigned long n_cells = 0;
-    std::string path = dataset_id + "n_cells";
-    if (adiosInq(iStream, path, n_cells))
+    // /data_object_<id>/dataset_<id>/cells/number_of_cells
+    unsigned long number_of_cells = 0;
+    std::string path = dataset_id + "number_of_cells";
+    if (adiosInq(iStream, path, number_of_cells))
       return -1;
 
-    // dataset_<id>/cells/cell_types
+    // /data_object_<id>/dataset_<id>/cells/cell_types
     path = dataset_id + "cell_types";
 
     vtkUnsignedCharArray *types = vtkUnsignedCharArray::New();
-    types->SetNumberOfTuples(n_cells);
+    types->SetNumberOfTuples(number_of_cells);
 
     ADIOS_SELECTION *sel = nullptr;
     if (!streamIsFileBased(iStream.ReadMethod))
@@ -1567,16 +1661,16 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
     adios_schedule_read(iStream.File, sel, path.c_str(),
       0, 1, types->GetVoidPointer(0));
 
-    // dataset_<id>/cells/n_elem
-    unsigned long n_elem = 0;
-    path = dataset_id + "n_elem";
-    if (adiosInq(iStream, path, n_elem))
+    // /data_object_<id>/dataset_<id>/cells/number_of_elements
+    unsigned long number_of_elements = 0;
+    path = dataset_id + "number_of_elements";
+    if (adiosInq(iStream, path, number_of_elements))
       return -1;
 
-    // dataset_<id>/cells/data
+    // /data_object_<id>/dataset_<id>/cells/data
     path = dataset_id + "data";
     vtkIdTypeArray *cells = vtkIdTypeArray::New();
-    cells->SetNumberOfTuples(n_elem);
+    cells->SetNumberOfTuples(number_of_elements);
 
     adios_schedule_read(iStream.File, sel, path.c_str(),
       0, 1, cells->GetVoidPointer(0));
@@ -1594,16 +1688,16 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
       {
       // build locations
       vtkIdTypeArray *locs = vtkIdTypeArray::New();
-      locs->SetNumberOfTuples(n_cells);
+      locs->SetNumberOfTuples(number_of_cells);
       vtkIdType *p_locs = locs->GetPointer(0);
       vtkIdType *p_cells = cells->GetPointer(0);
       p_locs[0] = 0;
-      for (unsigned long i = 1; i < n_cells; ++i)
+      for (unsigned long i = 1; i < number_of_cells; ++i)
         p_locs[i] = p_locs[i-1] + p_cells[p_locs[i-1]];
 
       // pass types, locs, and cells
       vtkCellArray *ca = vtkCellArray::New();
-      ca->SetCells(n_cells, cells);
+      ca->SetCells(number_of_cells, cells);
       cells->Delete();
 
       ug->SetCells(types, locs, ca);
@@ -1618,13 +1712,13 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
       vtkIdType *p_cells = cells->GetPointer(0);
 
       // assumptions made here:
-      // data is serialized in the order verts, lines, polys strips
+      // data is serialized in the order verts, lines, polys, strips
 
       // find first and last vert and number of verts
       unsigned long i = 0;
       unsigned long n_verts = 0;
       vtkIdType *vert_begin = p_cells;
-      while ((i < n_cells) && (p_types[i] == VTK_VERTEX))
+      while ((i < number_of_cells) && (p_types[i] == VTK_VERTEX))
         {
         p_cells += p_cells[0] + 1;
         ++n_verts;
@@ -1635,7 +1729,7 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
       // find first and last line and number of lines
       unsigned long n_lines = 0;
       vtkIdType *line_begin = p_cells;
-      while ((i < n_cells) && (p_types[i] == VTK_LINE))
+      while ((i < number_of_cells) && (p_types[i] == VTK_LINE))
         {
         p_cells += p_cells[0] + 1;
         ++n_lines;
@@ -1646,7 +1740,7 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
       // find first and last poly and number of polys
       unsigned long n_polys = 0;
       vtkIdType *poly_begin = p_cells;
-      while ((i < n_cells) && (p_types[i] == VTK_VERTEX))
+      while ((i < number_of_cells) && (p_types[i] == VTK_VERTEX))
         {
         p_cells += p_cells[0] + 1;
         ++n_polys;
@@ -1657,7 +1751,7 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
       // find first and last strip and number of strips
       unsigned long n_strips = 0;
       vtkIdType *strip_begin = p_cells;
-      while ((i < n_cells) && (p_types[i] == VTK_VERTEX))
+      while ((i < number_of_cells) && (p_types[i] == VTK_VERTEX))
         {
         p_cells += p_cells[0] + 1;
         ++n_strips;
@@ -1810,21 +1904,22 @@ void DatasetSchema::ClearDecomp()
 }
 
 // --------------------------------------------------------------------------
-void DatasetSchema::SetDecomp( unsigned int id0, unsigned int id1)
+void DatasetSchema::SetDecomp(unsigned int id0, unsigned int id1)
 {
   for (unsigned int i = id0; i < id1; ++i)
     this->Internals->Decomp.insert(i);
 }
 
 // --------------------------------------------------------------------------
-int DatasetSchema::DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject *dobj)
+int DatasetSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+  unsigned int doid, vtkDataObject *dobj)
 {
-  if (this->Schema::DefineVariables(comm, gh, dobj) ||
-    this->Internals->Extent.DefineVariables(comm, gh, dobj) ||
-    this->Internals->Cells.DefineVariables(comm, gh, dobj) ||
-    this->Internals->Points.DefineVariables(comm, gh, dobj) ||
-    this->Internals->PointData.DefineVariables(comm, gh, dobj) ||
-    this->Internals->CellData.DefineVariables(comm, gh, dobj))
+  if (this->Schema::DefineVariables(comm, gh, doid, dobj) ||
+    this->Internals->Extent.DefineVariables(comm, gh, doid, dobj) ||
+    this->Internals->Cells.DefineVariables(comm, gh, doid, dobj) ||
+    this->Internals->Points.DefineVariables(comm, gh, doid, dobj) ||
+    this->Internals->PointData.DefineVariables(comm, gh, doid, dobj) ||
+    this->Internals->CellData.DefineVariables(comm, gh, doid, dobj))
     {
     SENSEI_ERROR("Failed to define variables")
     return -1;
@@ -1833,14 +1928,16 @@ int DatasetSchema::DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject *dob
 }
 
 // --------------------------------------------------------------------------
-int DatasetSchema::DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds)
+int DatasetSchema::DefineVariables(int64_t gh, unsigned doid,
+  unsigned int dsid, vtkDataSet *ds)
 {
   if (ds)
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
+    // /data_object_<id>/dataset_<id>/data_object_type
     std::string path = dataset_id + "data_object_type";
     adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
     }
@@ -1867,14 +1964,15 @@ uint64_t DatasetSchema::GetSize(vtkDataSet *ds)
 }
 
 // -------------------------------------------------------------------------
-int DatasetSchema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
+int DatasetSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
+ vtkDataObject *dobj)
 {
-  if (this->Schema::Write(comm, fh, dobj) ||
-    this->Internals->Extent.Write(comm, fh, dobj) ||
-    this->Internals->Cells.Write(comm, fh, dobj) ||
-    this->Internals->Points.Write(comm, fh, dobj) ||
-    this->Internals->PointData.Write(comm, fh, dobj) ||
-    this->Internals->CellData.Write(comm, fh, dobj))
+  if (this->Schema::Write(comm, fh, doid, dobj) ||
+    this->Internals->Extent.Write(comm, fh, doid, dobj) ||
+    this->Internals->Cells.Write(comm, fh, doid, dobj) ||
+    this->Internals->Points.Write(comm, fh, doid, dobj) ||
+    this->Internals->PointData.Write(comm, fh, doid, dobj) ||
+    this->Internals->CellData.Write(comm, fh, doid, dobj))
     {
     SENSEI_ERROR("Failed to write")
     return -1;
@@ -1884,14 +1982,16 @@ int DatasetSchema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
 }
 
 // --------------------------------------------------------------------------
-int DatasetSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
+int DatasetSchema::Write(int64_t fh, unsigned int doid, unsigned int dsid,
+  vtkDataSet *ds)
 {
   if (ds)
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
+    // /data_object_<id>/dataset_<id>/data_object_type
     std::string path = dataset_id + "data_object_type";
     int dobj_type = ds->GetDataObjectType();
     adios_write(fh, path.c_str(), &dobj_type);
@@ -1900,14 +2000,15 @@ int DatasetSchema::Write(int64_t fh, unsigned int id, vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dobj)
+int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream,
+  unsigned int doid, vtkDataObject *&dobj)
 {
-  if (this->Schema::Read(comm, iStream, dobj) ||
-    this->Internals->Extent.Read(comm, iStream, dobj) ||
-    this->Internals->Cells.Read(comm, iStream, dobj) ||
-    this->Internals->Points.Read(comm, iStream, dobj) ||
-    this->Internals->PointData.Read(comm, iStream, dobj) ||
-    this->Internals->CellData.Read(comm, iStream, dobj))
+  if (this->Schema::Read(comm, iStream, doid, dobj) ||
+    this->Internals->Extent.Read(comm, iStream, doid, dobj) ||
+    this->Internals->Cells.Read(comm, iStream, doid, dobj) ||
+    this->Internals->Points.Read(comm, iStream, doid, dobj) ||
+    this->Internals->PointData.Read(comm, iStream, doid, dobj) ||
+    this->Internals->CellData.Read(comm, iStream, doid, dobj))
     {
     SENSEI_ERROR("Failed to read")
     return -1;
@@ -1917,8 +2018,8 @@ int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dob
 }
 
 // --------------------------------------------------------------------------
-int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-  vtkDataSet *&ds)
+int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream,
+  unsigned int doid, unsigned int dsid, vtkDataSet *&ds)
 {
   (void)comm;
 
@@ -1926,12 +2027,13 @@ int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
 
   // consult the domain decomp, if it is ours then
   // construct an instance
-  if (this->Internals->Decomp.find(id) != this->Internals->Decomp.end())
+  if (this->Internals->Decomp.find(dsid) != this->Internals->Decomp.end())
     {
     std::ostringstream oss;
-    oss << "dataset_" << id << "/";
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
     std::string dataset_id = oss.str();
 
+    // /data_object_<id>/dataset_<id>/data_object_type
     int dobj_type = 0;
     std::string path = dataset_id + "data_object_type";
     if (adiosInq(iStream, path, dobj_type))
@@ -1945,7 +2047,7 @@ int DatasetSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
 
 // --------------------------------------------------------------------------
 int DatasetSchema::ReadMesh(MPI_Comm comm, InputStream &iStream,
-  bool structure_only, vtkDataObject *&dobj)
+  unsigned int doid, vtkDataObject *&dobj, bool structure_only)
 {
   // for composite datasets we need to initialize the local
   // datasets
@@ -1957,13 +2059,13 @@ int DatasetSchema::ReadMesh(MPI_Comm comm, InputStream &iStream,
 
     for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
       {
-      int id = it->GetCurrentFlatIndex();
+      int dsid = it->GetCurrentFlatIndex();
 
       vtkDataSet *ds = nullptr;
-      if (this->Read(comm, iStream, id, ds))
+      if (this->Read(comm, iStream, doid, dsid, ds))
         {
         it->Delete();
-        SENSEI_ERROR("Failed to read dataset " << id);
+        SENSEI_ERROR("Failed to read data object " << doid << " dataset " << dsid);
         return -1;
         }
 
@@ -1980,9 +2082,9 @@ int DatasetSchema::ReadMesh(MPI_Comm comm, InputStream &iStream,
     return 0;
 
   // read topology (cells) and geometry (points/extents)
-  if (this->Internals->Extent.Read(comm, iStream, dobj) ||
-    this->Internals->Cells.Read(comm, iStream, dobj) ||
-    this->Internals->Points.Read(comm, iStream, dobj))
+  if (this->Internals->Extent.Read(comm, iStream, doid, dobj) ||
+    this->Internals->Cells.Read(comm, iStream, doid, dobj) ||
+    this->Internals->Points.Read(comm, iStream, doid, dobj))
     return -1;
 
   return 0;
@@ -1990,18 +2092,19 @@ int DatasetSchema::ReadMesh(MPI_Comm comm, InputStream &iStream,
 
 // --------------------------------------------------------------------------
 int DatasetSchema::ReadArrayNames(MPI_Comm comm, InputStream &iStream,
-  vtkDataObject *dobj, int association, std::set<std::string> &array_names)
+  unsigned int doid, vtkDataObject *dobj, int association,
+  std::set<std::string> &array_names)
 {
   switch (association)
     {
     case vtkDataObject::POINT:
       return this->Internals->PointData.ReadArrayNames(comm,
-        iStream, dobj, array_names);
+        iStream, doid, dobj, array_names);
       break;
 
     case vtkDataObject::CELL:
       return this->Internals->CellData.ReadArrayNames(comm,
-        iStream, dobj, array_names);
+        iStream, doid, dobj, array_names);
       break;
     }
   SENSEI_ERROR("Invalid array association " << association)
@@ -2010,17 +2113,20 @@ int DatasetSchema::ReadArrayNames(MPI_Comm comm, InputStream &iStream,
 
 // --------------------------------------------------------------------------
 int DatasetSchema::ReadArray(MPI_Comm comm, InputStream &iStream,
-  vtkDataObject *dobj, int association, const std::string &name)
+  unsigned int doid, vtkDataObject *dobj, int association,
+  const std::string &name)
 {
   (void)comm;
 
   switch (association)
     {
     case vtkDataObject::POINT:
-      return this->Internals->PointData.ReadArray(comm, iStream, name, dobj);
+      return this->Internals->PointData.ReadArray(comm,
+        iStream, name, doid, dobj);
       break;
     case vtkDataObject::CELL:
-      return this->Internals->CellData.ReadArray(comm, iStream, name, dobj);
+      return this->Internals->CellData.ReadArray(comm,
+        iStream, name, doid, dobj);
       break;
     }
   SENSEI_ERROR("Invalid array association " << association)
@@ -2029,14 +2135,70 @@ int DatasetSchema::ReadArray(MPI_Comm comm, InputStream &iStream,
 
 
 
+class VersionSchema
+{
+public:
+  VersionSchema() : Revision(2), LowestCompatibleRevision(2) {}
+
+  uint64_t GetSize(){ return sizeof(unsigned int); }
+
+  int DefineVariables(int64_t gh);
+
+  int Write(int64_t fh);
+
+  int Read(InputStream &iStream);
+
+private:
+  unsigned int Revision;
+  unsigned int LowestCompatibleRevision;
+};
+
+// --------------------------------------------------------------------------
+int VersionSchema::DefineVariables(int64_t gh)
+{
+  // all ranks need to write this info for FLEXPATH method
+  // but not the MPI method.
+  // /SENSEIDataObjectSchema
+  adios_define_var(gh, "DataObjectSchema", "", adios_unsigned_integer,
+    "", "", "");
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int VersionSchema::Write(int64_t fh)
+{
+  // all ranks need to write this info for FLEXPATH method
+  // but not the MPI method.
+  adios_write(fh, "DataObjectSchema", &this->Revision);
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int VersionSchema::Read(InputStream &iStream)
+{
+  // check for the tag. if it is not present, this connot
+  // be one of our files
+  unsigned int revision = 0;
+  if (adiosInq(iStream, "DataObjectSchema", revision))
+    return -1;
+
+  // test for version backward compatibility.
+  if (revision < this->LowestCompatibleRevision)
+    {
+    SENSEI_ERROR("Schema revision " << this->LowestCompatibleRevision
+      << " is incompatible with with revision " << revision
+      << " found in the current stream")
+    return -2;
+    }
+
+  return 0;
+}
+
+
+
 struct DataObjectSchema::InternalsType
 {
-  InternalsType() : SchemaRevision(1), LowestCompatibleRevision(1) {}
-
-  DatasetSchema dataset;
-
-  unsigned int SchemaRevision;
-  unsigned int LowestCompatibleRevision;
+  DatasetSchema Dataset;
 };
 
 // --------------------------------------------------------------------------
@@ -2053,22 +2215,21 @@ DataObjectSchema::~DataObjectSchema()
 
 // --------------------------------------------------------------------------
 int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
-  vtkDataObject* dobj)
+  unsigned int doid, vtkDataObject* dobj)
 {
-  // all ranks need to write this info for FLEXPATH method
-  // but not the MPI method.
-  adios_define_var(gh, "SENSEIDataObjectSchema", "", adios_unsigned_integer,
+  std::ostringstream oss;
+  oss << "data_object_" << doid << "/";
+
+  // /data_object_<id>/number_of_datasets
+  std::string path = oss.str() + "number_of_datasets";
+  adios_define_var(gh, path.c_str(), "", adios_unsigned_integer,
     "", "", "");
 
-  adios_define_var(gh, "number_of_datasets", "", adios_unsigned_integer,
-    "", "", "");
+  // /data_object_<id>/data_object_type
+  path = oss.str() + "data_object_type";
+  adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
-  adios_define_var(gh, "data_object_type" ,"", adios_integer, "", "", "");
-
-  adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
-  adios_define_var(gh, "time" ,"", adios_double, "", "", "");
-
-  if (this->Internals->dataset.DefineVariables(comm, gh, dobj))
+  if (this->Internals->Dataset.DefineVariables(comm, gh, doid, dobj))
     {
     SENSEI_ERROR("Failed to define variables")
     return -1;
@@ -2081,41 +2242,28 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 uint64_t DataObjectSchema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 {
   return 2*sizeof(unsigned int) + sizeof(int) +
-    sizeof(unsigned long) + sizeof(double) +
-    this->Internals->dataset.GetSize(comm, dobj);
+    this->Internals->Dataset.GetSize(comm, dobj);
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::WriteTimeStep(MPI_Comm comm, int64_t fh,
-  unsigned long time_step, double time)
-{
-  (void)comm;
-
-  // all ranks need to write this info for FLEXPATH method
-  // but not the MPI method.
-  adios_write(fh, "time_step", &time_step);
-  adios_write(fh, "time", &time);
-
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
+int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
+  vtkDataObject *dobj)
 {
   (void)comm;
 
   unsigned int n_datasets = getNumberOfDatasets(comm, dobj, 0);
   int dobj_type = dobj->GetDataObjectType();
 
-  // all ranks need to write this info for FLEXPATH method
-  // but not the MPI method.
-  adios_write(fh, "SENSEIDataObjectSchema",
-    &this->Internals->SchemaRevision);
+  std::ostringstream oss;
+  oss << "data_object_" << doid << "/";
 
-  adios_write(fh, "number_of_datasets", &n_datasets);
-  adios_write(fh, "data_object_type", &dobj_type);
+  std::string path = oss.str() + "number_of_datasets";
+  adios_write(fh, path.c_str(), &n_datasets);
 
-  if (this->Internals->dataset.Write(comm, fh, dobj))
+  path = oss.str() + "data_object_type";
+  adios_write(fh, path.c_str(), &dobj_type);
+
+  if (this->Internals->Dataset.Write(comm, fh, doid, dobj))
     {
     SENSEI_ERROR("Failed to write datasets")
     return -1;
@@ -2125,31 +2273,8 @@ int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj)
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::CanRead(MPI_Comm comm, InputStream &iStream)
-{
-  (void)comm;
-
-  // check for the tag. if it is not present, this connot
-  // be one of our files
-  unsigned int revision = 0;
-  if (adiosInq(iStream, "SENSEIDataObjectSchema", revision))
-    return -1;
-
-  // test for version backward compatibility.
-  if (revision < this->Internals->LowestCompatibleRevision)
-    {
-    SENSEI_ERROR("Schema revision " << this->Internals->LowestCompatibleRevision
-      << " is incompatible with with revision " << revision
-      << " found in the current stream")
-    return -2;
-    }
-
-  return 0;
-}
-
-// --------------------------------------------------------------------------
 int DataObjectSchema::InitializeDataObject(MPI_Comm comm, InputStream &iStream,
-  vtkDataObject *&dobj)
+  unsigned int doid, vtkDataObject *&dobj)
 {
   int rank = 0;
   int n_ranks = 1;
@@ -2159,12 +2284,17 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm, InputStream &iStream,
 
   // read the number of datasets stored in the stream
   // and the type of the root object
+  std::ostringstream oss;
+  oss << "data_object_" << doid << "/";
+
+  std::string path = oss.str() + "number_of_datasets";
   unsigned int n_datasets = 0;
-  if (adiosInq(iStream, "number_of_datasets", n_datasets))
+  if (adiosInq(iStream, path, n_datasets))
     return -1;
 
   int dobj_type = 0;
-  if (adiosInq(iStream, "data_object_type", dobj_type))
+  path = oss.str() + "data_object_type";
+  if (adiosInq(iStream, path, dobj_type))
     return -1;
 
   // determine if we have the old style decompostion, namely 1 legacy dataset
@@ -2211,24 +2341,25 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm, InputStream &iStream,
   int id0 = 1 + n_local*rank + (rank < n_large ? rank : n_large);
   int id1 = id0 + n_local + (rank < n_large ? 1 : 0);
 
-  this->Internals->dataset.ClearDecomp();
-  this->Internals->dataset.SetDecomp(id0, id1);
+  this->Internals->Dataset.ClearDecomp();
+  this->Internals->Dataset.SetDecomp(id0, id1);
 
   return 0;
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dobj)
+int DataObjectSchema::Read(MPI_Comm comm, InputStream &iStream,
+  unsigned int doid, vtkDataObject *&dobj)
 {
   // create the data object
-  if (this->InitializeDataObject(comm, iStream, dobj))
+  if (this->InitializeDataObject(comm, iStream, doid, dobj))
     {
-    SENSEI_ERROR("Failed to initialize data object")
+    SENSEI_ERROR("Failed to initialize data object " << doid)
     return -1;
     }
 
   // process datasets
-  if (this->Internals->dataset.Read(comm, iStream, dobj))
+  if (this->Internals->Dataset.Read(comm, iStream, doid, dobj))
     {
     SENSEI_ERROR("Failed to read datasets")
     return -1;
@@ -2239,17 +2370,18 @@ int DataObjectSchema::Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&
 
 // --------------------------------------------------------------------------
 int DataObjectSchema::ReadMesh(MPI_Comm comm, InputStream &iStream,
-  bool structure_only, vtkDataObject *&dobj)
+  unsigned int doid, vtkDataObject *&dobj, bool structure_only)
 {
   // create the data object
-  if (this->InitializeDataObject(comm, iStream, dobj))
+  if (this->InitializeDataObject(comm, iStream, doid, dobj))
     {
     SENSEI_ERROR("Failed to initialize data object")
     return -1;
     }
 
   // process datasets
-  if (this->Internals->dataset.ReadMesh(comm, iStream, structure_only, dobj))
+  if (this->Internals->Dataset.ReadMesh(comm, iStream,
+    doid, dobj, structure_only))
     {
     SENSEI_ERROR("Failed to read datasets")
     return -1;
@@ -2260,22 +2392,330 @@ int DataObjectSchema::ReadMesh(MPI_Comm comm, InputStream &iStream,
 
 // --------------------------------------------------------------------------
 int DataObjectSchema::ReadArrayNames(MPI_Comm comm, InputStream &iStream,
-  vtkDataObject *dobj, int association, std::set<std::string> &array_names)
+  unsigned int doid, vtkDataObject *dobj, int association,
+  std::set<std::string> &array_names)
 {
-  return this->Internals->dataset.ReadArrayNames(comm, iStream, dobj,
+  return this->Internals->Dataset.ReadArrayNames(comm, iStream, doid, dobj,
     association, array_names);
 }
 
 // --------------------------------------------------------------------------
 int DataObjectSchema::ReadArray(MPI_Comm comm, InputStream &iStream,
-  vtkDataObject *dobj, int association, const std::string &name)
+  unsigned int doid, vtkDataObject *dobj, int association,
+  const std::string &name)
 {
-  return this->Internals->dataset.ReadArray(comm, iStream, dobj, association, name);
+  return this->Internals->Dataset.ReadArray(comm, iStream, doid,
+    dobj, association, name);
+}
+
+
+
+using ObjectNameIdMapType = std::map<std::string, unsigned int>;
+
+struct DataObjectCollectionSchema::InternalsType
+{
+  VersionSchema Version;
+  DataObjectSchema DataObject;
+  ObjectNameIdMapType ObjectNameIdMap;
+};
+
+// --------------------------------------------------------------------------
+DataObjectCollectionSchema::DataObjectCollectionSchema()
+{
+  this->Internals = new DataObjectCollectionSchema::InternalsType;
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::ReadTimeStep(MPI_Comm comm, InputStream &iStream,
-  unsigned long &time_step, double &time)
+DataObjectCollectionSchema::~DataObjectCollectionSchema()
+{
+  delete this->Internals;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+  const std::vector<std::string> &object_names,
+  const std::vector<vtkDataObject*> &objects)
+{
+  // mark the file as ours and declare version it is written with
+  this->Internals->Version.DefineVariables(gh);
+
+  unsigned int n_objects = objects.size();
+
+  if (objects.size() != object_names.size())
+    {
+    SENSEI_ERROR("Objects and names are not 1 to 1. "
+      << n_objects << " objects and " << object_names.size() << " names")
+    return -1;
+    }
+
+  // /time
+  // /time_step
+  adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
+  adios_define_var(gh, "time" ,"", adios_double, "", "", "");
+
+  // /number_of_data_objects
+  adios_define_var(gh, "number_of_data_objects", "", adios_integer,
+    "", "", "");
+
+  for (unsigned int i = 0; i < n_objects; ++i)
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << i << "/";
+    std::string object_id = oss.str();
+
+    // /data_object_<id>/name
+    StringSchema::DefineVariables(gh, object_id + "name");
+
+    if (this->Internals->DataObject.DefineVariables(comm, gh, i, objects[i]))
+      {
+      SENSEI_ERROR("Failed to define variables for object "
+        << i << " " << object_names[i])
+      return -1;
+      }
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+uint64_t DataObjectCollectionSchema::GetSize(MPI_Comm comm,
+  const std::vector<std::string> &object_names,
+  const std::vector<vtkDataObject*> &objects)
+{
+  unsigned int n_objects = objects.size();
+
+  if (objects.size() != object_names.size())
+    {
+    SENSEI_ERROR("Objects and names are not the same length. "
+      << n_objects << " objects and " << object_names.size()
+      << " names")
+    return -1;
+    }
+
+  uint64_t size_of_names = 0;
+  uint64_t size_of_objects = 0;
+  for (unsigned int i = 0; i < n_objects; ++i)
+    {
+    size_of_names += StringSchema::GetSize(object_names[i]);
+    size_of_objects += this->Internals->DataObject.GetSize(comm, objects[i]);
+    }
+
+  return sizeof(int) + size_of_names +
+    size_of_objects + this->Internals->Version.GetSize();
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
+  unsigned long time_step, double time,
+  const std::vector<std::string> &object_names,
+  const std::vector<vtkDataObject*> &objects)
+{
+  unsigned int n_objects = objects.size();
+  if (objects.size() != object_names.size())
+    {
+    SENSEI_ERROR("Objects and names are not 1 to 1. "
+      << n_objects << " objects and " << object_names.size()
+      << " names")
+    return -1;
+    }
+
+  // all ranks need to write this info for FLEXPATH method
+  // but not the MPI method.
+  adios_write(fh, "time_step", &time_step);
+  adios_write(fh, "time", &time);
+
+  // /number_of_data_objects
+  std::string path = "number_of_data_objects";
+  adios_write(fh, path.c_str(), &n_objects);
+
+  for (unsigned int i = 0; i < n_objects; ++i)
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << i << "/";
+    std::string object_id = oss.str();
+
+    // /data_object_<id>/name
+    path = object_id + "name";
+    StringSchema::Write(fh, path, object_names[i]);
+
+    if (this->Internals->DataObject.Write(comm, fh, i, objects[i]))
+      {
+      SENSEI_ERROR("Failed to write object " << i << " " << object_names[i])
+      return -1;
+      }
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::ReadObject(MPI_Comm comm,
+  InputStream &iStream, const std::string &object_name,
+  vtkDataObject *&object, bool structure_only)
+{
+  object = nullptr;
+
+  unsigned int doid = 0;
+  if (this->GetObjectId(comm, iStream, object_name, doid))
+    {
+    SENSEI_ERROR("Failed to get object id for \"" << object_name << "\"")
+    return -1;
+    }
+
+  if (this->Internals->DataObject.ReadMesh(comm, iStream,
+    doid, object, structure_only))
+    {
+    SENSEI_ERROR("Failed to read object " << doid << " \""
+      << object_name << "\"")
+    return -1;
+    }
+
+  return 0;
+}
+
+
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::ReadObjectNames(MPI_Comm comm,
+  InputStream &iStream, std::vector<std::string> &object_names)
+{
+  (void)comm;
+
+  if (this->Internals->ObjectNameIdMap.empty())
+    {
+    // /number_of_data_objects
+    unsigned int n_objects = 0;
+    if (adiosInq(iStream, "number_of_data_objects", n_objects))
+      return -1;
+
+    ADIOS_SELECTION *sel = nullptr;
+    if (!streamIsFileBased(iStream.ReadMethod))
+      {
+      int rank = 0;
+      MPI_Comm_rank(comm, &rank);
+      sel = adios_selection_writeblock(rank);
+      if (!sel)
+        {
+        SENSEI_ERROR("Failed to make the selction")
+        return -1;
+        }
+      }
+
+    for (unsigned int i = 0; i < n_objects; ++i)
+      {
+      std::ostringstream oss;
+      oss << "data_object_" << i << "/";
+      std::string data_object_id = oss.str();
+
+      // /data_object_<id>/name
+      std::string name;
+      std::string path = data_object_id + "name";
+      if (StringSchema::Read(iStream, sel, path, name))
+        return -1;
+
+      // store name to object id conversion
+      this->Internals->ObjectNameIdMap[name] = i;
+      }
+
+    if (sel)
+      adios_selection_delete(sel);
+    }
+
+  // copy object names
+  ObjectNameIdMapType::iterator it =
+    this->Internals->ObjectNameIdMap.begin();
+
+  ObjectNameIdMapType::iterator end =
+    this->Internals->ObjectNameIdMap.end();
+
+  for (; it != end; ++it)
+    object_names.push_back(it->first);
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::GetObjectId(MPI_Comm comm,
+ InputStream &iStream, const std::string &object_name,
+  unsigned int &doid)
+{
+  doid = 0;
+
+  std::vector<std::string> tmp;
+  if (this->Internals->ObjectNameIdMap.empty() &&
+    this->ReadObjectNames(comm, iStream, tmp))
+    {
+    SENSEI_ERROR("Failed to read object names")
+    return -1;
+    }
+
+  ObjectNameIdMapType::iterator it =
+    this->Internals->ObjectNameIdMap.find(object_name);
+
+  if (it == this->Internals->ObjectNameIdMap.end())
+    {
+    SENSEI_ERROR("No object named \"" << object_name << "\"")
+    return -1;
+    }
+
+  doid = it->second;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::ReadArrayNames(MPI_Comm comm,
+  InputStream &iStream, const std::string &object_name,
+  vtkDataObject *object, int association,
+  std::set<std::string> &array_names)
+{
+  unsigned int doid = 0;
+  if (this->GetObjectId(comm, iStream, object_name, doid))
+    {
+    SENSEI_ERROR("Failed to get object id for \"" << object_name << "\"")
+    return -1;
+    }
+
+  if (this->Internals->DataObject.ReadArrayNames(comm, iStream, doid,
+    object, association, array_names))
+    {
+    SENSEI_ERROR("Failed to read array names for object \""
+      << object_name << "\"")
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::ReadArray(MPI_Comm comm, InputStream &iStream,
+  const std::string &object_name, vtkDataObject *dobj, int association,
+  const std::string &array_name)
+{
+
+  unsigned int doid = 0;
+  if (this->GetObjectId(comm, iStream, object_name, doid))
+    {
+    SENSEI_ERROR("Failed to get object id for \"" << object_name << "\"")
+    return -1;
+    }
+
+  if (this->Internals->DataObject.ReadArray(comm, iStream, doid, dobj,
+    association, array_name))
+    {
+    SENSEI_ERROR("Failed to read "
+      << sensei::VTKUtils::GetAttributesName(association)
+      << " data array \"" << array_name << "\" from object \"" << object_name
+      << "\"")
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::ReadTimeStep(MPI_Comm comm,
+  InputStream &iStream, unsigned long &time_step, double &time)
 {
   (void)comm;
 
@@ -2290,6 +2730,32 @@ int DataObjectSchema::ReadTimeStep(MPI_Comm comm, InputStream &iStream,
 }
 
 
+/*
+// --------------------------------------------------------------------------
+int OutputStream::Open(MPI_Comm comm, const std::string fileName, char mode)
+{
+  if (adios_open(&handle, "SENSEI", fileName.c_str(), mode, comm))
+    {
+    SENSEI_ERROR("Failed to open \"" << fileName
+      << "\" for " << mode << " mode")
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int OutputStream::SetGroupSize(uint64_t size)
+{
+  if (adios_group_size(handle, size + sizeof(int), &group_size))
+    {
+    SENSEI_ERROR("Failed to set group size to " << size << " bytes")
+    return -1;
+    }
+
+  return 0;
+}
+*/
 
 // --------------------------------------------------------------------------
 int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
@@ -2314,6 +2780,7 @@ int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
   this->File = file;
   this->ReadMethod = method;
 
+/*
   // verify that it is one of ours
   DataObjectSchema schema;
   if (schema.CanRead(comm, *this))
@@ -2323,7 +2790,7 @@ int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
     this->Close();
     return -1;
     }
-
+*/
   return 0;
 }
 

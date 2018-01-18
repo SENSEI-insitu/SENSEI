@@ -1,9 +1,11 @@
 #include "ConfigurableAnalysis.h"
 #include "senseiConfig.h"
 #include "Error.h"
+#include "VTKUtils.h"
+#include "DataRequirements.h"
 
 #include "Autocorrelation.h"
-#include "PosthocIO.h"
+#include "VTKPosthocIO.h"
 #include "Histogram.h"
 #ifdef ENABLE_VTK_M
 # include "VTKmContourAnalysis.h"
@@ -36,6 +38,20 @@ using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 
 namespace sensei
 {
+
+
+static
+int requireAttribute(pugi::xml_node &node, const char *attributeName)
+{
+  if (!node.attribute(attributeName))
+    {
+    SENSEI_ERROR(<< node.name()
+      << " is missing required attribute " << attributeName)
+    return -1;
+    }
+  return 0;
+}
+
 
 // --------------------------------------------------------------------------
 static int parse(MPI_Comm comm, int rank,
@@ -122,11 +138,7 @@ public:
   // adds the post hoc I/O analysis
   int AddPosthocIO(MPI_Comm comm, pugi::xml_node node);
 
-private:
-  int GetAssociation(pugi::xml_attribute asscNode);
-
 public:
-  std::vector<vtkSmartPointer<AnalysisAdaptor>> Analyses;
   AnalysisAdaptorVector Analyses;
 #ifdef ENABLE_LIBSIM
   vtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
@@ -140,21 +152,33 @@ public:
 int ConfigurableAnalysis::InternalsType::AddHistogram(MPI_Comm comm,
   pugi::xml_node node)
 {
-  pugi::xml_attribute array = node.attribute("array");
-  if (!array)
+  if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
     {
-    SENSEI_ERROR("'histogram' missing required attribute 'array'");
+    SENSEI_ERROR("Failed to initialize Histogram");
     return -1;
     }
 
-  int association = GetAssociation(node.attribute("association"));
-  int bins = node.attribute("bins")? node.attribute("bins").as_int() : 10;
+  int association = 0;
+  std::string assocStr = node.attribute("association").as_string("point");
+  if (VTKUtils::GetAssociation(assocStr, association))
+    {
+    SENSEI_ERROR("Failed to initialize Histogram");
+    return -1;
+    }
+
+  std::string mesh = node.attribute("mesh").value();
+  std::string array = node.attribute("array").value();
+  int bins = node.attribute("bins").as_int(10);
 
   vtkNew<Histogram> histogram;
-  histogram->Initialize(comm, bins, association, array.value());
+
+  histogram->Initialize(comm, bins, mesh, association, array);
+
   this->Analyses.push_back(histogram.GetPointer());
 
-  SENSEI_STATUS("Configured histogram " << array.value())
+  SENSEI_STATUS("Configured histogram with " << bins
+    << " " << assocStr << "data array " << array
+    << " on mesh " << mesh)
 
   return 0;
 }
@@ -169,21 +193,21 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
   SENSEI_ERROR("VTK-m was requested but is disabled in this build")
   return -1;
 #else
-  if (node.attribute("enabled") && !node.attribute("enabled").as_int())
-    return -1;
 
-  pugi::xml_attribute array = node.attribute("array");
-  if (!array)
+  if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
     {
-    SENSEI_ERROR("'vtkmcontour' missing required attribute 'array'. Skipping.");
+    SENSEI_ERROR("Failed to initialize VTKmContourAnalysis");
     return -1;
     }
 
-  double value = node.attribute("value")? node.attribute("value").as_double() : 0.0;
-  bool writeOutput = node.attribute("write_output")? node.attribute("write_output").as_bool() : 0.0;
+  double value = node.attribute("value").as_double(0.0);
+  bool writeOutput = node.attribute("write_output").as_bool(false);
 
   vtkNew<VTKmContourAnalysis> contour;
-  contour->Initialize(comm, array.value(), value, writeOutput);
+
+  contour->Initialize(comm, mesh.value(),
+    array.value(), value, writeOutput);
+
   this->Analyses.push_back(contour.GetPointer());
 
   SENSEI_STATUS("Configured VTKmContourAnalysis " << array.value())
@@ -247,6 +271,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
       {
       slice->SetSliceNormal(tmp[0], tmp[1], tmp[2]);
       }
+
     if (node.attribute("slice-origin") &&
       (std::sscanf(node.attribute("slice-origin").value(),
       "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
@@ -258,8 +283,16 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
       {
       slice->SetAutoCenter(true);
       }
-    slice->ColorBy(
-      this->GetAssociation(node.attribute("association")), node.attribute("array").value());
+
+    int association = 0;
+    std::string assocStr = node.attribute("association").as_string("point");
+    if (VTKUtils::GetAssociation(assocStr, association))
+      {
+      SENSEI_ERROR("Failed to initialize Catalyst")
+      return -1;
+      }
+
+    slice->ColorBy(association, node.attribute("array").value());
     if (node.attribute("color-range") &&
       (std::sscanf(node.attribute("color-range").value(), "%lg,%lg", &tmp[0], &tmp[1]) == 2))
       {
@@ -270,6 +303,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
       {
       slice->SetAutoColorRange(true);
       }
+
     slice->SetUseLogScale(node.attribute("color-log").as_int(0) == 1);
     if (node.attribute("image-filename"))
       {
@@ -278,6 +312,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
         node.attribute("image-width").as_int(800),
         node.attribute("image-height").as_int(800));
       }
+
     this->CatalystAdaptor->AddPipeline(slice.GetPointer());
     }
   else if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
@@ -420,16 +455,35 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
 int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(MPI_Comm comm,
   pugi::xml_node node)
 {
+  if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
+    {
+    SENSEI_ERROR("Failed to initialize Autocorrelation");
+    return -1;
+    }
+
+  std::string meshName = node.attribute("mesh").value();
+  std::string arrayName = node.attribute("array").value();
+
+  std::string assocStr = node.attribute("association").as_string("point");
+  int assoc = 0;
+  if (VTKUtils::GetAssociation(assocStr, assoc))
+    {
+    SENSEI_ERROR("Failed to initialize Autocorrelation");
+    return -1;
+    }
+
+  int window = node.attribute("window").as_int(10);
+  int kMax = node.attribute("k-max").as_int(3);
+
+
   vtkNew<Autocorrelation> adaptor;
-  std::string arrayname = node.attribute("array").value();
-  adaptor->Initialize(comm,
-    node.attribute("window")? node.attribute("window").as_int() : 10,
-    this->GetAssociation(node.attribute("association")),
-    arrayname,
-    node.attribute("k-max")? node.attribute("k-max").as_int() : 3);
+  adaptor->Initialize(comm, window, meshName, assoc, arrayName, kMax);
+
   this->Analyses.push_back(adaptor.GetPointer());
 
-  SENSEI_STATUS("Configured Autocorrelation " << arrayname)
+  SENSEI_STATUS("Configured Autocorrelation " << assocStr
+    << " data array " << arrayName << " on mesh " << meshName
+    << " window " << window << " k-max " << kMax)
 
   return 0;
 }
@@ -438,84 +492,44 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(MPI_Comm comm,
 int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
   pugi::xml_node node)
 {
-  if (!node.attribute("array"))
+#ifndef ENABLE_VTK_XMLP
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTK I/O was requested but is disabled in this build")
+  return -1;
+#else
+  DataRequirements req;
+
+  if (req.Initialize(node) ||
+    (req.GetNumberOfRequiredMeshes() < 1))
     {
-    SENSEI_ERROR("need at least one array");
+    SENSEI_ERROR("Failed to initialize VTKPosthocIO. "
+      "At least one mesh is required")
     return -1;
     }
-  std::string arrayName = node.attribute("array").value();
 
-  std::vector<std::string> cellArrays;
-  std::vector<std::string> pointArrays;
-  pugi::xml_attribute assoc_att = node.attribute("association");
-  if (assoc_att && (std::string(assoc_att.value()) == "cell"))
-    cellArrays.push_back(arrayName);
-  else
-    pointArrays.push_back(arrayName);
+  std::string outputDir = node.attribute("output_dir").as_string("./");
+  std::string fileName = node.attribute("file_name").as_string("data");
+  std::string mode = node.attribute("mode").as_string("visit");
 
-  std::string outputDir = "./";
-  if (node.attribute("output_dir"))
-    outputDir = node.attribute("output_dir").value();
+  vtkNew<VTKPosthocIO> adapter;
 
-  std::string fileBase = "PosthocIO";
-  if (node.attribute("file_base"))
-    fileBase = node.attribute("file_base").value();
-
-  std::string blockExt = "block";
-  if (node.attribute("block_ext"))
-    blockExt = node.attribute("block_ext").value();
-
-  int mode = PosthocIO::mpiIO;
-  if (node.attribute("mode"))
+  if (adapter->SetCommunicator(comm) ||
+    adapter->SetOutputDir(outputDir) ||
+    adapter->SetMode(mode) ||
+    adapter->SetDataRequirements(req))
     {
-    std::string val = node.attribute("mode").value();
-    if (val == "vtkXmlP")
-      mode = PosthocIO::vtkXmlP;
-    else
-    if (val == "mpiIO")
-      mode = PosthocIO::mpiIO;
-    else
-      {
-      SENSEI_ERROR(<< "invalid mode \"" << val << "\"");
-      return -1;
-      }
+    SENSEI_ERROR("Failed to initialize the VTKPosthocIO analysis")
+    return -1;
     }
 
-  int period = 1;
-  if (node.attribute("period"))
-    period = node.attribute("period").as_int();
+  this->Analyses.push_back(adapter.GetPointer());
 
-  PosthocIO *adapter = PosthocIO::New();
-
-  adapter->Initialize(comm, outputDir, fileBase,
-      blockExt, cellArrays, pointArrays, mode, period);
-
-  this->Analyses.push_back(adapter);
-  adapter->Delete();
-
-  SENSEI_STATUS("Configured PosthocIO " << arrayName)
+  SENSEI_STATUS("Configured VTKPosthocIO")
 
   return 0;
+#endif
 }
-
-// --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::GetAssociation(
-  pugi::xml_attribute asscNode)
-{
-  std::string association = asscNode.value();
-  if (!asscNode || (association == "point"))
-    {
-    return vtkDataObject::FIELD_ASSOCIATION_POINTS;
-    }
-  if (association == "cell")
-    {
-    return vtkDataObject::FIELD_ASSOCIATION_CELLS;
-    }
-  SENSEI_ERROR(<< "Invalid association type '"
-    << association.c_str() << "'. Assuming 'point'");
-  return vtkDataObject::FIELD_ASSOCIATION_POINTS;
-}
-
 
 
 
@@ -552,7 +566,7 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
     {
-    if (node.attribute("enabled") && !node.attribute("enabled").as_int())
+    if (!node.attribute("enabled").as_int(0))
       continue;
 
     std::string type = node.attribute("type").value();

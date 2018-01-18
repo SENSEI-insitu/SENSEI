@@ -1,9 +1,10 @@
 #include "CatalystAnalysisAdaptor.h"
 
 #include "DataAdaptor.h"
+#include "DataRequirements.h"
+#include "VTKUtils.h"
 #include "Error.h"
-
-#include <Timer.h>
+#include "Timer.h"
 
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
@@ -77,97 +78,172 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
 #endif
 }
 
-//-----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+int CatalystAnalysisAdaptor::DescribeData(int timeStep, double time,
+  const DataRequirements &reqs, vtkCPDataDescription *dataDesc)
+{
+  dataDesc->SetTimeData(time, timeStep);
+
+  // pass metadata from sim into Catalyst
+  MeshRequirementsIterator mit =
+    reqs.GetMeshRequirementsIterator();
+
+  for (; mit; ++mit)
+    {
+    // add the mesh
+    std::string meshName = mit.MeshName();
+
+    dataDesc->AddInput(meshName.c_str());
+
+    vtkCPInputDataDescription *inDesc =
+      dataDesc->GetInputDescriptionByName(meshName.c_str());
+
+    // add the available arrays
+    ArrayRequirementsIterator ait =
+      reqs.GetArrayRequirementsIterator(meshName);
+
+    for (; ait; ++ait)
+      {
+      int assoc = ait.Association();
+      if (assoc == vtkDataObject::POINT)
+        inDesc->AddPointField(ait.Array().c_str());
+      else if (assoc == vtkDataObject::CELL)
+        inDesc->AddCellField(ait.Array().c_str());
+      else
+        SENSEI_WARNING("Unknown association " << assoc)
+      }
+
+    // let Catalyst tell us which arrays are needed
+    inDesc->AllFieldsOff();
+    }
+
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
+  const DataRequirements &reqs, vtkCPDataDescription *dataDesc)
+{
+  MeshRequirementsIterator mit = reqs.GetMeshRequirementsIterator();
+  for (; mit; ++mit)
+    {
+    std::string meshName = mit.MeshName();
+
+    vtkCPInputDataDescription *inDesc =
+      dataDesc->GetInputDescriptionByName(meshName.c_str());
+
+    if (inDesc->GetIfGridIsNecessary())
+      {
+      // get the mesh
+      vtkDataObject* dobj = nullptr;
+      if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
+        {
+        SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+        return -1;
+        }
+
+      // add the requested arrays
+      ArrayRequirementsIterator ait =
+        reqs.GetArrayRequirementsIterator(meshName);
+
+      for (; ait; ++ait)
+        {
+        int assoc = ait.Association();
+        std::string arrayName = ait.Array();
+
+        if (inDesc->IsFieldNeeded(arrayName.c_str()))
+          {
+          if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
+            {
+            SENSEI_ERROR("Failed to add "
+              << VTKUtils::GetAttributesName(assoc)
+              << " data array \"" << arrayName << "\" to mesh \""
+              << meshName << "\"")
+            return -1;
+            }
+          }
+        }
+
+      inDesc->SetGrid(dobj);
+      this->SetWholeExtent(dobj, inDesc);
+      }
+    }
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
+  vtkCPInputDataDescription *desc)
+{
+  int localExtent[6] = {0};
+
+  if (vtkImageData *id = dynamic_cast<vtkImageData*>(dobj))
+    id->GetExtent(localExtent);
+  else if (vtkRectilinearGrid *rg = dynamic_cast<vtkRectilinearGrid*>(dobj))
+    rg->GetExtent(localExtent);
+  else if (vtkStructuredGrid *sg = dynamic_cast<vtkStructuredGrid*>(dobj))
+    sg->GetExtent(localExtent);
+  else
+    return 0;
+
+  localExtent[0] = -localExtent[0];
+  localExtent[2] = -localExtent[2];
+  localExtent[4] = -localExtent[4];
+
+  int wholeExtent[6] = {0};
+
+  vtkMultiProcessController* controller =
+    vtkMultiProcessController::GetGlobalController();
+
+  controller->AllReduce(localExtent, wholeExtent, 6, vtkCommunicator::MAX_OP);
+
+  wholeExtent[0] = -wholeExtent[0];
+  wholeExtent[2] = -wholeExtent[2];
+  wholeExtent[4] = -wholeExtent[4];
+
+  desc->SetWholeExtent(wholeExtent);
+
+  return 0;
+}
+
+
+//----------------------------------------------------------------------------
 bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("catalyst::execute");
-  double time = dataAdaptor->GetDataTime();
-  int timeStep = dataAdaptor->GetDataTimeStep();
-  int coprocessThisTimeStep;
+  timer::MarkEvent mark("CatalystAnalysisAdaptor::Execute");
 
-  vtkCPInputDataDescription* inputDesc =
-    vtkCPAdaptorAPI::GetCoProcessorData()->GetInputDescription(0);
-  if (!this->FillDataDescriptionWithMetaData(dataAdaptor, inputDesc))
+  // Get a description of the simulation metadata
+  DataRequirements reqs;
+  if (reqs.Initialize(dataAdaptor))
     {
+    SENSEI_ERROR("Failed to initialze data requirements")
     return false;
     }
-  vtkCPAdaptorAPI::RequestDataDescription(&timeStep, &time, &coprocessThisTimeStep);
-  if (coprocessThisTimeStep == 1)
+
+  double time = dataAdaptor->GetDataTime();
+  int timeStep = dataAdaptor->GetDataTimeStep();
+
+  vtkSmartPointer<vtkCPDataDescription> dataDesc =
+    vtkSmartPointer<vtkCPDataDescription>::New();
+
+  if (this->DescribeData(timeStep, time, reqs, dataDesc.GetPointer()))
     {
-    if (!this->FillDataDescriptionWithData(dataAdaptor, inputDesc))
+    SENSEI_ERROR("Failed to describe simulation data")
+    return false;
+    }
+
+  vtkCPProcessor *proc = vtkCPAdaptorAPI::GetCoProcessor();
+  if (proc->RequestDataDescription(dataDesc.GetPointer()))
+    {
+    // Querry Catalyst for what data is required, fetch from the sim
+    if (this->SelectData(dataAdaptor, reqs, dataDesc.GetPointer()))
       {
+      SENSEI_ERROR("Failed to selct data")
       return false;
       }
-    vtkCPAdaptorAPI::CoProcess();
-    vtkCPAdaptorAPI::GetCoProcessorData()->ResetAll();
-    }
-  return true;
-}
 
-//-----------------------------------------------------------------------------
-bool CatalystAnalysisAdaptor::FillDataDescriptionWithMetaData(
-  DataAdaptor* dA, vtkCPInputDataDescription* desc)
-{
-  desc->Reset();
-  for (unsigned int cc=0, max=dA->GetNumberOfArrays(vtkDataObject::POINT); cc<max;++cc)
-    {
-    desc->AddPointField(dA->GetArrayName(vtkDataObject::POINT, cc).c_str());
-    }
-  for (unsigned int cc=0, max=dA->GetNumberOfArrays(vtkDataObject::CELL); cc<max;++cc)
-    {
-    desc->AddCellField(dA->GetArrayName(vtkDataObject::CELL, cc).c_str());
-    }
-
-  return true;
-}
-
-//-----------------------------------------------------------------------------
-bool CatalystAnalysisAdaptor::FillDataDescriptionWithData(
-  DataAdaptor* dA, vtkCPInputDataDescription* desc)
-{
-  bool structure_only = desc->GetGenerateMesh()? false : true;
-  vtkDataObject* mesh = dA->GetMesh(structure_only);
-
-  for (int attr=vtkDataObject::POINT; attr<=vtkDataObject::CELL; ++attr)
-    {
-    for (unsigned int cc=0, max=dA->GetNumberOfArrays(attr); cc < max; ++cc)
-      {
-      std::string aname = dA->GetArrayName(attr, cc);
-      if (desc->GetAllFields() || desc->IsFieldNeeded(aname.c_str()))
-        {
-        dA->AddArray(mesh, attr, aname);
-        }
-      }
-    }
-
-  desc->SetGrid(mesh);
-
-  if (mesh->IsA("vtkImageData") || mesh->IsA("vtkRectilinearGrid") ||
-      mesh->IsA("vtkStructuredGrid") )
-    {
-    int wholeExtent[6], localExtent[6];
-    if (vtkImageData* id = vtkImageData::SafeDownCast(mesh))
-      {
-      id->GetExtent(localExtent);
-      }
-    else if(vtkRectilinearGrid* rg = vtkRectilinearGrid::SafeDownCast(mesh))
-      {
-      rg->GetExtent(localExtent);
-      }
-    else if(vtkStructuredGrid* sg = vtkStructuredGrid::SafeDownCast(mesh))
-      {
-      sg->GetExtent(localExtent);
-      }
-    vtkMultiProcessController* c =
-      vtkMultiProcessController::GetGlobalController();
-    localExtent[0] = -localExtent[0];
-    localExtent[2] = -localExtent[2];
-    localExtent[4] = -localExtent[4];
-    c->AllReduce(localExtent, wholeExtent, 6, vtkCommunicator::MAX_OP);
-    wholeExtent[0] = -wholeExtent[0];
-    wholeExtent[2] = -wholeExtent[2];
-    wholeExtent[4] = -wholeExtent[4];
-    desc->SetWholeExtent(wholeExtent);
+    // transfer control to Catalyst
+    proc->CoProcess(dataDesc.GetPointer());
     }
 
   return true;

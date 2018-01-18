@@ -22,88 +22,151 @@ ProgrammableDataAdaptor::ProgrammableDataAdaptor() :
 ProgrammableDataAdaptor::~ProgrammableDataAdaptor()
 {
 }
+//----------------------------------------------------------------------------
+void ProgrammableDataAdaptor::SetGetNumberOfMeshesCallback(
+  const GetNumberOfMeshesFunction &callback)
+{
+  this->GetNumberOfMeshesCallback = callback;
+}
+
+//----------------------------------------------------------------------------
+void ProgrammableDataAdaptor::SetGetMeshNameCallback(
+  const GetMeshNameFunction &callback)
+{
+  this->GetMeshNameCallback = callback;
+}
 
 //----------------------------------------------------------------------------
 void ProgrammableDataAdaptor::SetGetMeshCallback(
-  const GetMeshCallbackType &callback)
+  const GetMeshFunction &callback)
 {
   this->GetMeshCallback = callback;
 }
 
 //----------------------------------------------------------------------------
 void ProgrammableDataAdaptor::SetAddArrayCallback(
- const AddArrayCallbackType &callback)
+ const AddArrayFunction &callback)
 {
   this->AddArrayCallback = callback;
 }
 
 //----------------------------------------------------------------------------
 void ProgrammableDataAdaptor::SetGetNumberOfArraysCallback(
-  const GetNumberOfArraysCallbackType &callback)
+  const GetNumberOfArraysFunction &callback)
 {
   this->GetNumberOfArraysCallback = callback;
 }
 
 //----------------------------------------------------------------------------
 void ProgrammableDataAdaptor::SetGetArrayNameCallback(
-  const GetArrayNameCallbackType &callback)
+  const GetArrayNameFunction &callback)
 {
   this->GetArrayNameCallback = callback;
 }
 
 //----------------------------------------------------------------------------
 void ProgrammableDataAdaptor::SetReleaseDataCallback(
-  const ReleaseDataCallbackType &callback)
+  const ReleaseDataFunction &callback)
 {
   this->ReleaseDataCallback = callback;
 }
 
 //----------------------------------------------------------------------------
-vtkDataObject *ProgrammableDataAdaptor::GetMesh(bool structure_only)
+int ProgrammableDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
+  numMeshes = 0;
+
+  if (!this->GetNumberOfMeshesCallback)
+    {
+    SENSEI_ERROR("No GetNumberOfMeshesCallback has been provided")
+    return -1;
+    }
+
+  return this->GetNumberOfMeshesCallback(numMeshes);
+}
+
+//----------------------------------------------------------------------------
+int ProgrammableDataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
+{
+  meshName.clear();
+
+  if (!this->GetMeshNameCallback)
+    {
+    SENSEI_ERROR("No GetMeshNameCallback has been provided")
+    return -1;
+    }
+
+  return this->GetMeshNameCallback(id, meshName);
+
+}
+
+//----------------------------------------------------------------------------
+int ProgrammableDataAdaptor::GetMesh(const std::string &meshName,
+  bool structureOnly, vtkDataObject *&mesh)
+{
+  mesh = nullptr;
+
   if (!this->GetMeshCallback)
     {
     SENSEI_ERROR("No GetMeshCallback has been provided")
-    return nullptr;
+    return -1;
     }
 
-  return this->GetMeshCallback(structure_only);
+  return this->GetMeshCallback(meshName, structureOnly, mesh);
 }
 
 //----------------------------------------------------------------------------
-bool ProgrammableDataAdaptor::AddArray(vtkDataObject* mesh, int association,
-  const std::string& arrayname)
+int ProgrammableDataAdaptor::AddArray(vtkDataObject* mesh,
+  const std::string &meshName, int association, const std::string &arrayName)
 {
   if (!this->AddArrayCallback)
-    return true;
+    {
+    SENSEI_ERROR("No AddArrayCallback has been provided")
+    return -1;
+    }
 
-  return this->AddArrayCallback(mesh, association, arrayname);
+  return this->AddArrayCallback(mesh, meshName, association, arrayName);
 }
 
 //----------------------------------------------------------------------------
-unsigned int ProgrammableDataAdaptor::GetNumberOfArrays(int association)
+int ProgrammableDataAdaptor::GetNumberOfArrays(const std::string &meshName,
+  int association, unsigned int &numberOfArrays)
 {
+  numberOfArrays = 0;
+
   if (!this->GetNumberOfArraysCallback)
-    return 0;
+    {
+    SENSEI_ERROR("No GetNumberOfArraysCallback has been provided")
+    return -1;
+    }
 
-  return this->GetNumberOfArraysCallback(association);
+  return this->GetNumberOfArraysCallback(meshName,
+    association, numberOfArrays);
 }
 
 //----------------------------------------------------------------------------
-std::string ProgrammableDataAdaptor::GetArrayName(int association,
-  unsigned int index)
+int ProgrammableDataAdaptor::GetArrayName(const std::string &meshName,
+  int association, unsigned int index, std::string &arrayName)
+
 {
-  if (!this->GetArrayNameCallback)
-    return "";
+  arrayName.clear();
 
-  return this->GetArrayNameCallback(association, index);
+  if (!this->GetArrayNameCallback)
+    {
+    SENSEI_ERROR("No GetArrayNameCallback has been provided")
+    return -1;
+    }
+
+  return this->GetArrayNameCallback(meshName, association, index, arrayName);
 }
 
 //----------------------------------------------------------------------------
-void ProgrammableDataAdaptor::ReleaseData()
+int ProgrammableDataAdaptor::ReleaseData()
 {
   if (this->ReleaseDataCallback)
-    this->ReleaseDataCallback();
+    return this->ReleaseDataCallback();
+
+  return -1;
 }
 
 }

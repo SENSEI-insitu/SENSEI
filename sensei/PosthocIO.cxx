@@ -131,7 +131,8 @@ PosthocIO::~PosthocIO()
 //-----------------------------------------------------------------------------
 void PosthocIO::Initialize(MPI_Comm comm,
     const std::string &outputDir, const std::string &headerFile,
-    const std::string &blockExt, const std::vector<std::string> &cellArrays,
+    const std::string &blockExt, const std::string &meshName,
+    const std::vector<std::string> &cellArrays,
     const std::vector<std::string> &pointArrays, int mode, int period)
 {
 #ifdef PosthocIO_DEBUG
@@ -144,6 +145,7 @@ void PosthocIO::Initialize(MPI_Comm comm,
   this->OutputDir = outputDir;
   this->HeaderFile = headerFile;
   this->BlockExt = blockExt;
+  this->MeshName = meshName;
   this->CellArrays = cellArrays;
   this->PointArrays = pointArrays;
   this->HaveHeader = (this->CommRank==0 ? false : true);
@@ -161,8 +163,13 @@ bool PosthocIO::Execute(DataAdaptor* data)
   // validate the input dataset.
   // TODO:for now we need composite data, to support non-composite
   // data we will wrap it in a composite dataset.
-  vtkCompositeDataSet* cd =
-    dynamic_cast<vtkCompositeDataSet*>(data->GetMesh(false));
+  vtkCompositeDataSet* cd = nullptr;
+
+  if (data->GetMesh(this->MeshName, false, mesh))
+    {
+    SENSEI_ERROR("failed to get mesh \"" << this->MeshName << "\"")
+    return false;
+    }
 
   if (!cd)
     {

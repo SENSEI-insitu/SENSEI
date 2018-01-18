@@ -2,10 +2,13 @@
 #define sensei_ADIOSAnalysisAdaptor_h
 
 #include "AnalysisAdaptor.h"
+#include "DataRequirements.h"
+
+#include <vector>
 #include <string>
 #include <mpi.h>
 
-namespace senseiADIOS { class DataObjectSchema; }
+namespace senseiADIOS { class DataObjectCollectionSchema; }
 class vtkDataObject;
 
 namespace sensei
@@ -25,6 +28,11 @@ public:
   static ADIOSAnalysisAdaptor* New();
   senseiTypeMacro(ADIOSAnalysisAdaptor, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
+
+  /// Sets the maximum buffer allocated by ADIOS in MB
+  /// takes affect on first Execute
+  void SetMaxBufferSize(unsigned int size)
+  { this->MaxBufferSize = size; }
 
   /// @brief Set the ADIOS method e.g. MPI, FLEXPATH etc.
   ///
@@ -48,6 +56,13 @@ public:
   void SetCommunicator(MPI_Comm comm)
   { this->Comm = comm; }
 
+  /// data requirements tell the adaptor what to push
+  /// if none are given then all data is pushed.
+  int SetDataRequirements(const DataRequirements &reqs);
+
+  int AddDataRequirement(const std::string &meshName,
+    int association, const std::vector<std::string> &arrays);
+
   bool Execute(DataAdaptor* data) override;
 
   int Finalize() override;
@@ -56,14 +71,25 @@ protected:
   ADIOSAnalysisAdaptor();
   ~ADIOSAnalysisAdaptor();
 
-  void InitializeADIOS(vtkDataObject *dobj);
-  void WriteTimestep(unsigned long timeStep, double time, vtkDataObject *dobj);
-  void FinalizeADIOS();
+  // intializes ADIOS in no-xml mode, allocate buffers, and declares a group
+  int InitializeADIOS(const std::vector<std::string> &objectNames,
+    const std::vector<vtkDataObject*> &objects);
+
+  // writes the data collection
+  int WriteTimestep(unsigned long timeStep, double time,
+    const std::vector<std::string> &objectNames,
+    const std::vector<vtkDataObject*> &dobjects);
+
+  // shuts down ADIOS
+  int FinalizeADIOS();
 
   MPI_Comm Comm;
-  senseiADIOS::DataObjectSchema *Schema;
+  unsigned int MaxBufferSize;
+  senseiADIOS::DataObjectCollectionSchema *Schema;
+  sensei::DataRequirements Requirements;
   std::string Method;
   std::string FileName;
+
 
 private:
   ADIOSAnalysisAdaptor(const ADIOSAnalysisAdaptor&); // Not implemented.

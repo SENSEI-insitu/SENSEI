@@ -1,8 +1,9 @@
 #ifndef PARALLEL3D_DATAADAPTOR_H
 #define PARALLEL3D_DATAADAPTOR_H
 
-#include <sensei/DataAdaptor.h>
-#include "vtkSmartPointer.h"
+#include "sensei/DataAdaptor.h"
+
+#include <vtkSmartPointer.h>
 #include <map>
 #include <string>
 #include <cstdint>
@@ -22,9 +23,7 @@ public:
   senseiTypeMacro(DataAdaptor, sensei::DataAdaptor);
 
   /// Initialize the data adaptor.
-  void Initialize(
-    int g_x, int g_y, int g_z,
-    int l_x, int l_y, int l_z,
+  void Initialize(int g_x, int g_y, int g_z, int l_x, int l_y, int l_z,
     uint64_t start_extents_x, uint64_t start_extents_y, uint64_t start_extents_z,
     int tot_blocks_x, int tot_blocks_y, int tot_blocks_z,
     int block_id_x, int block_id_y, int block_id_z);
@@ -35,28 +34,43 @@ public:
   /// Clear all arrays.
   void ClearArrays();
 
-  vtkDataObject* GetMesh(bool structure_only=false) override;
-  bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname) override;
-  unsigned int GetNumberOfArrays(int association) override;
-  std::string GetArrayName(int association, unsigned int index) override;
-  void ReleaseData() override;
+  // SENSEI API
+  int GetNumberOfMeshes(unsigned int &numMeshes) override;
+
+  int GetMeshName(unsigned int id, std::string &meshName) override;
+
+  int GetMesh(const std::string &meshName, bool structureOnly,
+    vtkDataObject *&mesh) override;
+
+  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+    int association, const std::string &arrayName) override;
+
+  int GetNumberOfArrays(const std::string &meshName, int association,
+    unsigned int &numberOfArrays) override;
+
+  int GetArrayName(const std::string &meshName, int association,
+    unsigned int index, std::string &arrayName) override;
+
+  int ReleaseData() override;
 
 protected:
   DataAdaptor();
   ~DataAdaptor();
 
-  typedef std::map<std::string, double*> VariablesType;
+  using VariablesType = std::map<std::string, double*>;
+  using ArraysType = std::map<std::string, vtkSmartPointer<vtkDoubleArray>>;
+  using vtkImageDataPtr = vtkSmartPointer<vtkImageData>;
+  using vtkDoubleArrayPtr = vtkSmartPointer<vtkDoubleArray>;
+
   VariablesType Variables;
-
-  typedef std::map<std::string, vtkSmartPointer<vtkDoubleArray> > ArraysType;
   ArraysType Arrays;
-
-  vtkSmartPointer<vtkImageData> Mesh;
+  vtkImageDataPtr Mesh;
   int CellExtent[6];
   int WholeExtent[6];
+
 private:
-  DataAdaptor(const DataAdaptor&); // not implemented.
-  void operator=(const DataAdaptor&); // not implemented.
+  DataAdaptor(const DataAdaptor&) = delete;
+  void operator=(const DataAdaptor&) = delete;
 };
 
 }

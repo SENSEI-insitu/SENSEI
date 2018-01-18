@@ -27,9 +27,8 @@ public:
 
   void Initialize(MPI_Comm comm, const std::string &outputDir,
     const std::string &headerFile, const std::string &blockExt,
-    const std::vector<std::string> &cellArrays,
-    const std::vector<std::string> &pointArrays, int mode,
-    int period);
+    const std::string &meshName, const std::vector<std::string> &cellArrays,
+    const std::vector<std::string> &pointArrays, int mode, int period);
 
   bool Execute(DataAdaptor* data) override;
 
@@ -56,6 +55,7 @@ private:
   std::string OutputDir;
   std::string HeaderFile;
   std::string BlockExt;
+  std::string MeshName;
   std::vector<std::string> CellArrays;
   std::vector<std::string> PointArrays;
   bool HaveHeader;

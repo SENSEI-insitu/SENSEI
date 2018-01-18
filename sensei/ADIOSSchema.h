@@ -10,11 +10,72 @@ typedef struct _ADIOS_FILE ADIOS_FILE;
 #include <mpi.h>
 #include <set>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 namespace senseiADIOS
 {
 
 struct InputStream;
+
+/// ADIOS representation of collections of vtkDataObject
+// This class provides the user facing API managing the lower level
+// objects internally. The write API defines variables needed for the
+// ADIOS representation, computes their size for ADIOS buffers, and
+// serializes complete VTK objects. The read API can deserialize complete
+// representation and also includes methods that coorrelate to SENSEI
+// data adaptor API which enables targeted reading of subsets of the
+// data.
+class DataObjectCollectionSchema
+{
+public:
+  DataObjectCollectionSchema();
+  ~DataObjectCollectionSchema();
+
+  int DefineVariables(MPI_Comm comm, int64_t gh,
+    const std::vector<std::string> &object_names,
+    const std::vector<vtkDataObject*> &objects);
+
+  uint64_t GetSize(MPI_Comm comm, const std::vector<std::string> &object_names,
+    const std::vector<vtkDataObject*> &objects);
+
+  // write the object collection
+  int Write(MPI_Comm comm, int64_t fh, unsigned long time_step, double time,
+    const std::vector<std::string> &object_names,
+    const std::vector<vtkDataObject*> &objects);
+
+  // creates the mesh matching what is on disk(or stream), indluding a domain
+  // decomposition, but does not read data arrays. If structure_only is true
+  // then points and cells are not read from disk.
+  int ReadObject(MPI_Comm comm, InputStream &iStream, const std::string &name,
+    vtkDataObject *&object, bool structure_only);
+
+  // discover names of data objects on disk(or stream)
+  int ReadObjectNames(MPI_Comm comm, InputStream &iStream,
+    std::vector<std::string> &object_names);
+
+  // discover names of data arrays on disk(or stream)
+  int ReadArrayNames(MPI_Comm comm, InputStream &iStream,
+    const std::string &object_name, vtkDataObject *object,
+    int association, std::set<std::string> &array_names);
+
+  // read a single array from disk(or stream), store it into the mesh
+  int ReadArray(MPI_Comm comm, InputStream &iStream,
+    const std::string &object_name, vtkDataObject *dobj, int association,
+    const std::string &array_name);
+
+  // returns the current time and time step
+  int ReadTimeStep(MPI_Comm comm, InputStream &iStream,
+    unsigned long &time_step, double &time);
+
+private:
+  // given a name get the id
+  int GetObjectId(MPI_Comm comm, InputStream &iStream,
+    const std::string &object_name, unsigned int &doid);
+
+  struct InternalsType;
+  InternalsType *Internals;
+};
 
 /// Base class for representing VTK data in ADIOS.
 // the 3 operations that need to be done to send data to ADIOS are:
@@ -36,23 +97,30 @@ public:
   virtual ~Schema() {}
 
   // sends ADIOS variable definitions
-  virtual int DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject *dobj);
-  virtual int DefineVariables(int64_t gh, unsigned int id, vtkDataSet *ds);
+  virtual int DefineVariables(MPI_Comm comm, int64_t gh,
+    unsigned int doid, vtkDataObject *dobj);
+
+  virtual int DefineVariables(int64_t gh,
+    unsigned int doid, unsigned int dsid, vtkDataSet *ds);
 
   // Gets number of bytes used in ADIOS representation
   virtual uint64_t GetSize(MPI_Comm comm, vtkDataObject *dobj);
   virtual uint64_t GetSize(vtkDataSet *ds);
 
   // Writes data to ADIOS
-  virtual int Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj);
-  virtual int Write(int64_t fh, unsigned int id, vtkDataSet *ds);
+  virtual int Write(MPI_Comm comm, int64_t fh,
+    unsigned int doid, vtkDataObject *dobj);
+
+  virtual int Write(int64_t fh,
+    unsigned int doid, unsigned int dsid, vtkDataSet *ds);
 
   // Read data from ADIOS
-  virtual int Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dobj);
-  virtual int Read(MPI_Comm comm, InputStream &iStream, unsigned int id, vtkDataSet *&ds);
+  virtual int Read(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, vtkDataObject *&dobj);
+
+  virtual int Read(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, unsigned int id, vtkDataSet *&ds);
 };
-
-
 
 /// ADIOS representation of vtkDataObject
 // This class provides the user facing API managing the lower level
@@ -68,42 +136,37 @@ public:
   DataObjectSchema();
   ~DataObjectSchema();
 
-  int DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject* dobj) override;
+  int DefineVariables(MPI_Comm comm, int64_t gh,
+    unsigned int doid, vtkDataObject* dobj) override;
 
   uint64_t GetSize(MPI_Comm comm, vtkDataObject *dobj) override;
 
-  // Write time and time step metadata
-  int WriteTimeStep(MPI_Comm comm, int64_t fh, unsigned long step, double time);
+  int Write(MPI_Comm comm, int64_t fh, unsigned int doid,
+    vtkDataObject *dobj) override;
 
-  int Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj) override;
-
-  int Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dobj) override;
-
-  // verifies that the file is ours
-  int CanRead(MPI_Comm comm, InputStream &iStream);
+  int Read(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, vtkDataObject *&dobj) override;
 
   // creates the mesh matching what is on disk(or stream), indluding a domain
   // decomposition, but does not read data arrays. If structure_only is true
   // then points and cells are not read from disk.
-  int ReadMesh(MPI_Comm comm, InputStream &iStream, bool structure_only,
-    vtkDataObject *&dobj);
+  int ReadMesh(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    vtkDataObject *&dobj, bool structure_only);
 
   // discover names of data arrays on disk(or stream)
-  int ReadArrayNames(MPI_Comm comm, InputStream &iStream, vtkDataObject *dobj,
-    int association, std::set<std::string> &array_names);
+  int ReadArrayNames(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, vtkDataObject *dobj, int association,
+    std::set<std::string> &array_names);
 
   // read a single array from disk(or stream), store it into the mesh
-  int ReadArray(MPI_Comm comm, InputStream &iStream, vtkDataObject *dobj,
-    int association, const std::string &name);
-
-  // returns the current time and time step
-  int ReadTimeStep(MPI_Comm comm, InputStream &iStream,
-    unsigned long &time_step, double &time);
+  int ReadArray(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, vtkDataObject *dobj, int association,
+    const std::string &name);
 
 private:
   // create data object
   int InitializeDataObject(MPI_Comm comm, InputStream &iStream,
-    vtkDataObject *&dobj);
+    unsigned int doid, vtkDataObject *&dobj);
 
   struct InternalsType;
   InternalsType *Internals;
@@ -120,36 +183,44 @@ public:
   DatasetSchema();
   ~DatasetSchema();
 
-  int DefineVariables(int64_t gh, unsigned int id, vtkDataSet*ds) override;
-  int DefineVariables(MPI_Comm comm, int64_t gh, vtkDataObject* dobj) override;
+  int DefineVariables(int64_t gh, unsigned int doid,
+    unsigned int dsid, vtkDataSet*ds) override;
+
+  int DefineVariables(MPI_Comm comm, int64_t gh,
+    unsigned int doid, vtkDataObject* dobj) override;
 
   uint64_t GetSize(MPI_Comm comm, vtkDataObject *dobj) override;
   uint64_t GetSize(vtkDataSet *ds) override;
 
-  int Write(MPI_Comm comm, int64_t fh, vtkDataObject *dobj) override;
-  int Write(int64_t fh, unsigned int id, vtkDataSet *ds) override;
+  int Write(MPI_Comm comm, int64_t fh,
+    unsigned int doid, vtkDataObject *dobj) override;
 
-  int Read(MPI_Comm comm, InputStream &iStream, vtkDataObject *&dobj) override;
+  int Write(int64_t fh,
+    unsigned int doid, unsigned int dsid, vtkDataSet *ds) override;
 
-  int Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *&ds) override;
+  int Read(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, vtkDataObject *&dobj) override;
+
+  int Read(MPI_Comm comm, InputStream &iStream,
+   unsigned int doid, unsigned int dsid, vtkDataSet *&ds) override;
 
   // creates the mesh matching what is on disk(or stream), indluding a domain
   // decomposition, but does not read data arrays. If structure_only is true
   // then points and cells are not read from disk.
-  int ReadMesh(MPI_Comm comm, InputStream &iStream, bool structure_only,
-    vtkDataObject *&dobj);
+  int ReadMesh(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, vtkDataObject *&dobj, bool structure_only);
 
-  int ReadMesh(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *&ds, bool structure_only);
+  int ReadMesh(MPI_Comm comm, InputStream &iStream,
+    unsigned int doid, unsigned int dsid, vtkDataSet *&ds,
+    bool structure_only);
 
   // discover names of data arrays on disk(or stream)
-  int ReadArrayNames(MPI_Comm comm, InputStream &iStream, vtkDataObject *dobj,
-    int association, std::set<std::string> &array_names);
+  int ReadArrayNames(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    vtkDataObject *dobj, int association, std::set<std::string> &array_names);
 
   // read a single array from disk(or stream), store it into the mesh
-  int ReadArray(MPI_Comm comm, InputStream &iStream, vtkDataObject *dobj,
-    int association, const std::string &name);
+  int ReadArray(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    vtkDataObject *dobj, int association, const std::string &name);
 
   // define the local domain decomposition by a start data object id
   // and length.
@@ -174,14 +245,16 @@ public:
   using Schema::Read;
   using Schema::GetSize;
 
-  int DefineVariables(int64_t gh, unsigned int id, vtkDataSet*ds) override;
+  int DefineVariables(int64_t gh, unsigned int doid, unsigned int dsid,
+    vtkDataSet*ds) override;
 
   uint64_t GetSize(vtkDataSet *ds) override;
 
-  int Write(int64_t fh, unsigned int id, vtkDataSet *ds) override;
+  int Write(int64_t fh, unsigned int doid, unsigned int dsid,
+    vtkDataSet *ds) override;
 
-  int Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *&ds) override;
+  int Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    unsigned int dsid, vtkDataSet *&ds) override;
 };
 
 
@@ -201,28 +274,32 @@ public:
   DatasetAttributesSchema();
   ~DatasetAttributesSchema();
 
-  int DefineVariables(int64_t gh, unsigned int id, vtkDataSet* ds) override;
+  int DefineVariables(int64_t gh, unsigned int doid, unsigned int dsid,
+    vtkDataSet* ds) override;
 
   uint64_t GetSize(vtkDataSet *ds) override;
 
-  int Write(int64_t fh, unsigned int id, vtkDataSet *ds) override;
+  int Write(int64_t fh, unsigned int doid, unsigned int dsid,
+    vtkDataSet *ds) override;
 
-  int Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *&ds) override;
+  int Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    unsigned int dsid, vtkDataSet *&ds) override;
 
   // discover names of data arrays
   int ReadArrayNames(MPI_Comm comm, InputStream &iStream,
-    vtkDataObject *dobj, std::set<std::string> &array_names);
+    unsigned int doid, vtkDataObject *dobj,
+    std::set<std::string> &array_names);
 
-  int ReadArrayNames(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *ds, std::set<std::string> &array_names);
+  int ReadArrayNames(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    unsigned int dsid, vtkDataSet *ds, std::set<std::string> &array_names);
 
   // read a single array and store it into the mesh
   int ReadArray(MPI_Comm comm, InputStream &iStream,
-    const std::string &array_name, vtkDataObject *dobj);
+    const std::string &array_name, unsigned int doid, vtkDataObject *dobj);
 
   int ReadArray(MPI_Comm comm, InputStream &iStream,
-    const std::string &array_name, unsigned int id, vtkDataSet *ds);
+    const std::string &array_name, unsigned int doid, unsigned int dsid,
+    vtkDataSet *ds);
 
 private:
   struct InternalsType;
@@ -245,14 +322,16 @@ public:
   using Schema::Read;
   using Schema::GetSize;
 
-  int DefineVariables(int64_t gh, unsigned int id, vtkDataSet* ds) override;
+  int DefineVariables(int64_t gh, unsigned int doid, unsigned int dsid,
+    vtkDataSet* ds) override;
 
   uint64_t GetSize(vtkDataSet *ds) override;
 
-  int Write(int64_t fh, unsigned int id, vtkDataSet *ds) override;
+  int Write(int64_t fh, unsigned int doid, unsigned int dsid,
+    vtkDataSet *ds) override;
 
-  int Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *&ds) override;
+  int Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    unsigned int dsid, vtkDataSet *&ds) override;
 
   // get length of arrays
   static unsigned long GetCellsLength(vtkDataSet *ds);
@@ -276,14 +355,16 @@ public:
   using Schema::Read;
   using Schema::GetSize;
 
-  int DefineVariables(int64_t gh, unsigned int id, vtkDataSet* ds) override;
+  int DefineVariables(int64_t gh, unsigned int doid, unsigned int dsid,
+    vtkDataSet* ds) override;
 
   uint64_t GetSize(vtkDataSet *ds) override;
 
-  int Write(int64_t fh, unsigned int id, vtkDataSet *ds) override;
+  int Write(int64_t fh, unsigned int doid, unsigned int dsid,
+    vtkDataSet *ds) override;
 
-  int Read(MPI_Comm comm, InputStream &iStream, unsigned int id,
-    vtkDataSet *&ds) override;
+  int Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
+    unsigned int dsid, vtkDataSet *&ds) override;
 
   // get length of arrays
   static unsigned long GetPointsLength(vtkDataSet *ds);
@@ -294,8 +375,6 @@ public:
   // get the number of points
   static unsigned long GetNumberOfPoints(vtkDataSet *ds);
 };
-
-
 
 /// High level operations on an ADIOS file/stream
 struct InputStream
@@ -308,6 +387,9 @@ struct InputStream
 
   int Open(MPI_Comm comm, ADIOS_READ_METHOD method,
     const std::string &fileName);
+
+  // verifies that the file is ours
+  int CanRead(MPI_Comm comm);
 
   int AdvanceTimeStep();
 

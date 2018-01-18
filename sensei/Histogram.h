@@ -24,7 +24,7 @@ public:
   static Histogram* New();
   senseiTypeMacro(Histogram, AnalysisAdaptor);
 
-  void Initialize(MPI_Comm comm, int bins,
+  void Initialize(MPI_Comm comm, int bins, const std::string &meshName,
     int association, const std::string& arrayname);
 
   bool Execute(DataAdaptor* data) override;
@@ -44,6 +44,7 @@ protected:
 
   MPI_Comm Communicator;
   int Bins;
+  std::string MeshName;
   std::string ArrayName;
   int Association;
 

@@ -28,12 +28,24 @@ public:
   /// Set data for a specific block.
   void SetBlockData(int gid, float* data);
 
-  vtkDataObject* GetMesh(bool structure_only=false) override;
-  bool AddArray(vtkDataObject* mesh, int association, const std::string& arrayname) override;
-  unsigned int GetNumberOfArrays(int) override { return 1; }
-  std::string GetArrayName(int, unsigned int index) override
-  { return index==0? "data" : std::string(); }
-  void ReleaseData() override;
+  // SENSEI API
+  int GetNumberOfMeshes(unsigned int &numMeshes) override;
+
+  int GetMeshName(unsigned int id, std::string &meshName) override;
+
+  int GetMesh(const std::string &meshName, bool structureOnly,
+    vtkDataObject *&mesh) override;
+
+  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+    int association, const std::string &arrayName) override;
+
+  int GetNumberOfArrays(const std::string &meshName, int association,
+    unsigned int &numberOfArrays) override;
+
+  int GetArrayName(const std::string &meshName, int association,
+    unsigned int index, std::string &arrayName) override;
+
+  int ReleaseData() override;
 
 protected:
   DataAdaptor();

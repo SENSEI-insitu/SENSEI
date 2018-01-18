@@ -2,9 +2,9 @@
       set enabled="1" on analyses you wish to enable -->
 <sensei>
   <!-- Custom Analyses -->
-  <analysis type="histogram" array="pressure" association="cell" bins="10" enabled="1" />
-  <analysis type="histogram" array="density" association="cell" bins="10" enabled="1" />
-  <analysis type="histogram" array="temperature" association="cell" bins="10" enabled="1" />
+  <analysis type="histogram" mesh="mesh" array="pressure" association="cell" bins="10" enabled="1" />
+  <analysis type="histogram" mesh="mesh" array="density" association="cell" bins="10" enabled="1" />
+  <analysis type="histogram" mesh="mesh" array="temperature" association="cell" bins="10" enabled="1" />
 
   <!-- ADIOS Analyses -->
   <analysis type="adios" filename="3D_Grid.bp" method="MPI" enabled ="0"/>

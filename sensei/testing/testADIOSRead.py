@@ -45,48 +45,59 @@ def read_data(file_name, method):
     t = da.GetDataTime()
     it = da.GetDataTimeStep()
     status_message('received step %d time %0.1f'%(it, t))
-    # get a VTK dataset with all the arrays
-    ds = da.GetMesh(False)
-    # request each array
-    assocs = {vtk.VTK_POINT_DATA:'point', vtk.VTK_CELL_DATA:'cell'}
-    for assoc,assoc_name in assocs.iteritems():
-      n_arrays = da.GetNumberOfArrays(assoc)
-      i = 0
-      while i < n_arrays:
-        array_name = da.GetArrayName(assoc, i)
-        da.AddArray(ds, assoc, array_name)
-        i += 1
-    # this often will cause segv's if the dataset has been
-    # improperly constructed, thus serves as a good check
-    str_rep = str(ds)
-    # check the arrays have the expected data
-    it = ds.NewIterator()
-    while not it.IsDoneWithTraversal():
-      bds = it.GetCurrentDataObject()
-      idx = it.GetCurrentFlatIndex()
+
+    # get the mesh info
+    nMeshes = da.GetNumberOfMeshes()
+    i = 0
+    while i < nMeshes:
+      meshName = da.GetMeshName(i)
+      status_message('received mesh %s'%(meshName))
+
+      # get a VTK dataset with all the arrays
+      ds = da.GetMesh(meshName, False)
+      # request each array
+      assocs = {vtk.VTK_POINT_DATA:'point', vtk.VTK_CELL_DATA:'cell'}
       for assoc,assoc_name in assocs.iteritems():
-        n_arrays = da.GetNumberOfArrays(assoc)
-        status_message('checking %d %s data arrays ' \
-          'in block %d %s'%(n_arrays,assoc_name,idx,bds.GetClassName()), \
-          rank)
-        j = 0
-        while j < n_arrays:
-          array = bds.GetPointData().GetArray(j) \
-            if assoc == vtk.VTK_POINT_DATA else \
-              bds.GetCellData().GetArray(j)
-          if (check_array(array)):
-            error_message('Test failed on array %d "%s"'%( \
-              j, array.GetName()))
-            retval = -1
-          j += 1
-      it.GoToNextItem()
+        n_arrays = da.GetNumberOfArrays(meshName, assoc)
+        i = 0
+        while i < n_arrays:
+          array_name = da.GetArrayName(meshName, assoc, i)
+          da.AddArray(ds, meshName, assoc, array_name)
+          i += 1
+      # this often will cause segv's if the dataset has been
+      # improperly constructed, thus serves as a good check
+      str_rep = str(ds)
+      # check the arrays have the expected data
+      it = ds.NewIterator()
+      while not it.IsDoneWithTraversal():
+        bds = it.GetCurrentDataObject()
+        idx = it.GetCurrentFlatIndex()
+        for assoc,assoc_name in assocs.iteritems():
+          n_arrays = da.GetNumberOfArrays(meshName, assoc)
+          status_message('checking %d %s data arrays ' \
+            'in block %d %s'%(n_arrays,assoc_name,idx,bds.GetClassName()), \
+            rank)
+          j = 0
+          while j < n_arrays:
+            array = bds.GetPointData().GetArray(j) \
+              if assoc == vtk.VTK_POINT_DATA else \
+                bds.GetCellData().GetArray(j)
+            if (check_array(array)):
+              error_message('Test failed on array %d "%s"'%( \
+                j, array.GetName()))
+              retval = -1
+            j += 1
+        it.GoToNextItem()
+      i += 1
+
     n_steps += 1
     if (da.Advance()):
       break
-  # close down the stream
-  da.Close()
-  status_message('closed stream after receiving %d steps'%(n_steps))
-  return retval
+
+    # close down the stream
+    da.Close()
+    status_message('closed stream after receiving %d steps'%(n_steps))
+    return retval
 
 if __name__ == '__main__':
   # process command line

@@ -15,6 +15,10 @@ namespace sensei
 namespace VTKUtils
 {
 
+/// returns the enum value given an association name. where name
+/// can be one of: point, cell or, field
+int GetAssociation(std::string assocStr, int &assoc);
+
 /// returns the name of the association, point, cell or field
 const char *GetAttributesName(int association);
 

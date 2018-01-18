@@ -34,17 +34,19 @@ Histogram::~Histogram()
 }
 
 //-----------------------------------------------------------------------------
-void Histogram::Initialize(MPI_Comm comm, int bins, int association,
-  const std::string& arrayname)
+void Histogram::Initialize(MPI_Comm comm, int bins,
+  const std::string &meshName, int association,
+  const std::string& arrayName)
 {
   this->Communicator = comm;
   this->Bins = bins;
-  this->ArrayName = arrayname;
+  this->MeshName = meshName;
+  this->ArrayName = arrayName;
   this->Association = association;
 }
 
-const char *
-Histogram::GetGhostArrayName()
+//-----------------------------------------------------------------------------
+const char *Histogram::GetGhostArrayName()
 {
 #if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
     return "vtkGhostType";
@@ -56,12 +58,17 @@ Histogram::GetGhostArrayName()
 //-----------------------------------------------------------------------------
 bool Histogram::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent mark("histogram::execute");
+  timer::MarkEvent mark("Histogram::Execute");
 
   delete this->Internals;
   this->Internals = new VTKHistogram;
 
-  vtkDataObject* mesh = data->GetMesh(/*structure_only*/true);
+  vtkDataObject* mesh = nullptr;
+  if (data->GetMesh(this->MeshName, true, mesh))
+    {
+    SENSEI_ERROR("GetMesh failed")
+    }
+
   if (!mesh)
     {
     // it is not an necessarilly an error if all ranks do not have
@@ -71,7 +78,7 @@ bool Histogram::Execute(DataAdaptor* data)
     return true;
     }
 
-  if (!data->AddArray(mesh, this->Association, this->ArrayName.c_str()))
+  if (data->AddArray(mesh, this->MeshName, this->Association, this->ArrayName))
     {
     // it is an error if we try to compute a histogram over a non
     // existant array
@@ -81,6 +88,7 @@ bool Histogram::Execute(DataAdaptor* data)
 
     this->Internals->PreCompute(this->Communicator, this->Bins);
     this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
+
     return false;
     }
 

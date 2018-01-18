@@ -26,6 +26,34 @@ namespace sensei
 {
 namespace VTKUtils
 {
+
+//----------------------------------------------------------------------------
+int GetAssociation(std::string assocStr, int &assoc)
+{
+  unsigned int n = assocStr.size();
+  for (unsigned int i = 0; i < n; ++i)
+    assocStr[i] = tolower(assocStr[i]);
+
+  if (assocStr == "point")
+    {
+    assoc = vtkDataObject::POINT;
+    return 0;
+    }
+  else if (assocStr == "cell")
+    {
+    assoc = vtkDataObject::CELL;
+    return 0;
+    }
+  else if (assocStr == "field")
+    {
+    assoc = vtkDataObject::FIELD;
+    return 0;
+    }
+
+  SENSEI_ERROR("Invalid association \"" << assocStr << "\"")
+  return -1;
+}
+
 //----------------------------------------------------------------------------
 const char *GetAttributesName(int association)
 {

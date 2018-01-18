@@ -122,6 +122,7 @@ class Autocorrelation::AInternals
 public:
   std::unique_ptr<diy::Master> Master;
   size_t KMax;
+  std::string MeshName;
   int Association;
   std::string ArrayName;
   size_t Window;
@@ -211,15 +212,17 @@ Autocorrelation::~Autocorrelation()
 }
 
 //-----------------------------------------------------------------------------
-void Autocorrelation::Initialize(
-  MPI_Comm world, size_t window, int association,
-  std::string& arrayname, size_t kmax)
+void Autocorrelation::Initialize(MPI_Comm world, size_t window,
+  const std::string &meshName, int association, const std::string &arrayname,
+  size_t kmax)
 {
-  timer::MarkEvent mark("autocorrelation::initialize");
+  timer::MarkEvent mark("Autocorrelation::Initialize");
+
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
                                               &AutocorrelationImpl::create,
                                               &AutocorrelationImpl::destroy);
+  internals.MeshName = meshName;
   internals.Association = association;
   internals.ArrayName = arrayname;
   internals.Window = window;
@@ -229,13 +232,22 @@ void Autocorrelation::Initialize(
 //-----------------------------------------------------------------------------
 bool Autocorrelation::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent mark("autocorrelation::execute");
+  timer::MarkEvent mark("Autocorrelation::Execute");
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
 
-  vtkDataObject* mesh = data->GetMesh(/*structure_only*/false);
-  if (!data->AddArray(mesh, association, internals.ArrayName))
+  vtkDataObject* mesh = nullptr;
+  if (data->GetMesh(internals.MeshName, false, mesh))
+   {
+   SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
+   return false;
+   }
+
+  if (data->AddArray(mesh, internals.MeshName,
+    internals.Association, internals.ArrayName))
     {
+    SENSEI_ERROR("Failed to add array \"" << internals.ArrayName
+      << "\" on mesh \"" << internals.MeshName << "\"")
     return false;
     }
 
