@@ -13,7 +13,7 @@
 // CODE - code to execute on match
 // ST - typedef coresponding to matching tag
 #define SENSEI_PY_SEQUENCE_DISPATCH_CASE(PYT, SEQ, CODE)  \
-  if (senseiPySequence::is_type<PYT>(SEQ))                \
+  if (senseiPySequence::IsType<PYT>(SEQ))                 \
     {                                                     \
     using ST = PYT;                                       \
     CODE                                                  \
@@ -42,7 +42,7 @@ namespace senseiPySequence
 {
 // ****************************************************************************
 template <typename py_t>
-bool is_type(PyObject *seq)
+bool IsType(PyObject *seq)
 {
   // nothing to do
   long n_items = PySequence_Size(seq);
@@ -53,7 +53,7 @@ bool is_type(PyObject *seq)
   // the requested type
   for (long i = 0; i < n_items; ++i)
     {
-    if (!senseiPyObject::cpp_tt<py_t>::is_type(PySequence_GetItem(seq, i)))
+    if (!senseiPyObject::CppTT<py_t>::IsType(PySequence_GetItem(seq, i)))
       {
       if (i)
         {
@@ -70,7 +70,7 @@ bool is_type(PyObject *seq)
 
 // ****************************************************************************
 template <typename cpp_t>
-bool copy(cpp_t *va, unsigned long n, PyObject *seq)
+bool Copy(cpp_t *va, unsigned long n, PyObject *seq)
 {
   // not a sequence
   if (!PySequence_Check(seq) || PyString_Check(seq))
@@ -94,7 +94,7 @@ bool copy(cpp_t *va, unsigned long n, PyObject *seq)
   SENSEI_PY_SEQUENCE_DISPATCH_NUM(seq,
     for (unsigned long i = 0; i < n_items; ++i)
       {
-      va[i] = senseiPyObject::cpp_tt<ST>::value(
+      va[i] = senseiPyObject::CppTT<ST>::Value(
         PySequence_GetItem(seq, i));
       }
     return true;
@@ -102,6 +102,25 @@ bool copy(cpp_t *va, unsigned long n, PyObject *seq)
 
   // unknown type, not an error, give other code chance to recognize it
   return false;
+}
+
+// ****************************************************************************
+template <typename cpp_t>
+PyObject *NewList(const cpp_t *va, unsigned long n)
+{
+  PyObject *list = PyList_New(n);
+  for (unsigned long i = 0; i < n; ++i)
+    {
+    PyList_SetItem(list, i, senseiPyObject::PyTT<cpp_t>::NewObject(va[i]));
+    }
+  return list;
+}
+
+// ****************************************************************************
+template <typename cpp_t>
+PyObject *NewList(const std::vector<cpp_t> &va)
+{
+  return NewList<cpp_t>(va.data(), va.size());
 }
 
 }

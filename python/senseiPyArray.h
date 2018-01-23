@@ -8,66 +8,66 @@
 
 namespace senseiPyArray
 {
-/// cpp_tt -- traits class for working with PyArrayObject's
+/// CppTT -- traits class for working with PyArrayObject's
 /**
-cpp_tt::type -- get the C++ type given a numpy enum.
+CppTT::type -- get the C++ type given a numpy enum.
 
 CODE -- numpy type enumeration
 CPP_T -- corresponding C++ type
 */
-template <int numpy_code> struct cpp_tt
+template <int numpy_code> struct CppTT
 {};
 
-#define senseiPyArray_cpp_tt_declare(CODE, CPP_T)   \
-template <> struct cpp_tt<CODE>                     \
-{                                                   \
-  typedef CPP_T type;                               \
+#define senseiPyArray_CppTT_declare(CODE, CPP_T)   \
+template <> struct CppTT<CODE>                     \
+{                                                  \
+  typedef CPP_T type;                              \
 };
-senseiPyArray_cpp_tt_declare(NPY_BYTE, char)
-senseiPyArray_cpp_tt_declare(NPY_INT32, int)
-senseiPyArray_cpp_tt_declare(NPY_INT64, long long)
-senseiPyArray_cpp_tt_declare(NPY_UBYTE, unsigned char)
-senseiPyArray_cpp_tt_declare(NPY_UINT32, unsigned int)
-senseiPyArray_cpp_tt_declare(NPY_UINT64, unsigned long long)
-senseiPyArray_cpp_tt_declare(NPY_FLOAT, float)
-senseiPyArray_cpp_tt_declare(NPY_DOUBLE, double)
+senseiPyArray_CppTT_declare(NPY_BYTE, char)
+senseiPyArray_CppTT_declare(NPY_INT32, int)
+senseiPyArray_CppTT_declare(NPY_INT64, long long)
+senseiPyArray_CppTT_declare(NPY_UBYTE, unsigned char)
+senseiPyArray_CppTT_declare(NPY_UINT32, unsigned int)
+senseiPyArray_CppTT_declare(NPY_UINT64, unsigned long long)
+senseiPyArray_CppTT_declare(NPY_FLOAT, float)
+senseiPyArray_CppTT_declare(NPY_DOUBLE, double)
 
-/// numpy_tt - traits class for working with PyArrayObject's
+/// NumpyTT - traits class for working with PyArrayObject's
 /**
 ::code - get the numpy type enum given a C++ type.
-::is_type - return true if the PyArrayObject has the given type
+::IsType - return true if the PyArrayObject has the given type
 
 CODE -- numpy type enumeration
 CPP_T -- corresponding C++ type
 */
-template <typename cpp_t> struct numpy_tt
+template <typename cpp_t> struct NumpyTT
 {};
 
-#define senseiPyArray_numpy_tt_declare(CODE, CPP_T) \
-template <> struct numpy_tt<CPP_T>                  \
-{                                                   \
-  enum { code = CODE };                             \
-  static bool is_type(PyArrayObject *arr)           \
-  { return PyArray_TYPE(arr) == CODE; }             \
+#define senseiPyArray_NumpyTT_declare(CODE, CPP_T) \
+template <> struct NumpyTT<CPP_T>                  \
+{                                                  \
+  enum { code = CODE };                            \
+  static bool IsType(PyArrayObject *arr)           \
+  { return PyArray_TYPE(arr) == CODE; }            \
 };
-senseiPyArray_numpy_tt_declare(NPY_BYTE, char)
-senseiPyArray_numpy_tt_declare(NPY_INT16, short)
-senseiPyArray_numpy_tt_declare(NPY_INT32, int)
-senseiPyArray_numpy_tt_declare(NPY_LONG, long)
-senseiPyArray_numpy_tt_declare(NPY_INT64, long long)
-senseiPyArray_numpy_tt_declare(NPY_UBYTE, unsigned char)
-senseiPyArray_numpy_tt_declare(NPY_UINT16, unsigned short)
-senseiPyArray_numpy_tt_declare(NPY_UINT32, unsigned int)
-senseiPyArray_numpy_tt_declare(NPY_ULONG, unsigned long)
-senseiPyArray_numpy_tt_declare(NPY_UINT64, unsigned long long)
-senseiPyArray_numpy_tt_declare(NPY_FLOAT, float)
-senseiPyArray_numpy_tt_declare(NPY_DOUBLE, double)
+senseiPyArray_NumpyTT_declare(NPY_BYTE, char)
+senseiPyArray_NumpyTT_declare(NPY_INT16, short)
+senseiPyArray_NumpyTT_declare(NPY_INT32, int)
+senseiPyArray_NumpyTT_declare(NPY_LONG, long)
+senseiPyArray_NumpyTT_declare(NPY_INT64, long long)
+senseiPyArray_NumpyTT_declare(NPY_UBYTE, unsigned char)
+senseiPyArray_NumpyTT_declare(NPY_UINT16, unsigned short)
+senseiPyArray_NumpyTT_declare(NPY_UINT32, unsigned int)
+senseiPyArray_NumpyTT_declare(NPY_ULONG, unsigned long)
+senseiPyArray_NumpyTT_declare(NPY_UINT64, unsigned long long)
+senseiPyArray_NumpyTT_declare(NPY_FLOAT, float)
+senseiPyArray_NumpyTT_declare(NPY_DOUBLE, double)
 
 // CPP_T - array type to match
 // OBJ - PyArrayObject* instance
 // CODE - code to execute on match
 #define SENSEI_PY_ARRAY_DISPATCH_CASE(CPP_T, OBJ, CODE) \
-  if (senseiPyArray::numpy_tt<CPP_T>::is_type(OBJ))     \
+  if (senseiPyArray::NumpyTT<CPP_T>::IsType(OBJ))       \
     {                                                   \
     using AT = CPP_T;                                   \
     CODE                                                \
@@ -82,12 +82,12 @@ senseiPyArray_numpy_tt_declare(NPY_DOUBLE, double)
   SENSEI_PY_ARRAY_DISPATCH_CASE(unsigned long, OBJ, CODE)       \
   SENSEI_PY_ARRAY_DISPATCH_CASE(long long, OBJ, CODE)           \
   SENSEI_PY_ARRAY_DISPATCH_CASE(unsigned long long, OBJ, CODE)  \
-  SENSEI_PY_ARRAY_DISPATCH_CASE(char, OBJ, CODE)        \
+  SENSEI_PY_ARRAY_DISPATCH_CASE(char, OBJ, CODE)                \
   SENSEI_PY_ARRAY_DISPATCH_CASE(unsigned char, OBJ, CODE)
 
 // ****************************************************************************
 template <typename cpp_t>
-bool copy(cpp_t *va, unsigned long n, PyObject *obj)
+bool Copy(cpp_t *va, unsigned long n, PyObject *obj)
 {
   // not an array
   if (!PyArray_Check(obj))
