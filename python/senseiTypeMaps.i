@@ -9,8 +9,8 @@
 %define FIXED_LENGTH_ARRAY_TYPEMAP(cpp_t)
 %typemap(in) cpp_t[ANY] (cpp_t tmpFla[$1_dim0])
 {
-  if (!senseiPyArray::copy(tmpFla, $1_dim0, $input)
-    && !senseiPySequence::copy(tmpFla, $1_dim0, $input))
+  if (!senseiPyArray::Copy(tmpFla, $1_dim0, $input)
+    && !senseiPySequence::Copy(tmpFla, $1_dim0, $input))
     {
     const char *estr = "FIXED_LENGTH_ARRAY_TYPEMAP " #cpp_t " $1_dim0 failed.";
 	SENSEI_ERROR(<< estr)
