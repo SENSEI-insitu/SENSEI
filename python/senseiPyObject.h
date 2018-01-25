@@ -2,6 +2,7 @@
 #define senseiPyObject_h
 
 #include <Python.h>
+#include <string>
 
 namespace senseiPyObject
 {
