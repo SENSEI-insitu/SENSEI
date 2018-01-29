@@ -10,7 +10,7 @@
 set(_TMP_PY_OUTPUT)
 set(_TMP_PY_RETURN)
 exec_program("${PYTHON_EXECUTABLE}"
-  ARGS "-c 'import mpi4py; print mpi4py.get_include()'"
+  ARGS "-c 'import mpi4py; print(mpi4py.get_include())'"
   OUTPUT_VARIABLE _TMP_PY_OUTPUT
   RETURN_VALUE _TMP_PY_RETURN)
 set(MPI4PY_INCLUDE_FOUND FALSE)
@@ -25,7 +25,7 @@ set(MPI4PY_INCLUDE_DIR "${_TMP_PY_OUTPUT}" CACHE PATH
 set(_TMP_PY_OUTPUT)
 set(_TMP_PY_RETURN)
 exec_program("${PYTHON_EXECUTABLE}"
-  ARGS "-c 'import mpi4py; print mpi4py.__version__'"
+  ARGS "-c 'import mpi4py; print(mpi4py.__version__)'"
   OUTPUT_VARIABLE _TMP_PY_OUTPUT
   RETURN_VALUE _TMP_PY_RETURN)
 set(MPI4PY_VERSION_FOUND FALSE)
