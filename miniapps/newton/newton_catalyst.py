@@ -6,6 +6,8 @@ from paraview import lookuptable
 paraview.simple.lookuptable = lookuptable
 paraview.simple._lutReader = lookuptable.vtkPVLUTReader()
 
+import sys
+
 #--------------------------------------------------------------
 # Code generated from cpstate.py to create the CoProcessor.
 # ParaView 5.3.0-78-gd6e7170 64 bits
@@ -54,7 +56,7 @@ def CreateCoProcessor():
 
       # create a new 'PVD Reader'
       # create a producer from a simulation input
-      ptdatamasterpvd = coprocessor.CreateProducer(datadescription, 'input')
+      ptdatamasterpvd = coprocessor.CreateProducer(datadescription, 'bodies')
 
       # create a new 'Threshold'
       threshold1 = Threshold(Input=ptdatamasterpvd)
@@ -177,7 +179,7 @@ def CreateCoProcessor():
 
   coprocessor = CoProcessor()
   # these are the frequencies at which the coprocessor updates.
-  freqs = {'input': [1, 1, 1, 1, 1]}
+  freqs = {'bodies': [1, 1, 1, 1, 1]}
   coprocessor.SetUpdateFrequencies(freqs)
   return coprocessor
 

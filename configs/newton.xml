@@ -1,15 +1,18 @@
 <sensei>
   <!-- Custom Analyses -->
-  <analysis type="histogram" array="v" association="point"
-    bins="10" enabled="1" />
+  <analysis type="histogram" mesh="bodies" array="v" association="point"
+    bins="10" enabled="0" />
 
   <!-- Available with ENABLE_VTK_XMLP -->
-  <analysis type="PosthocIO" array="vx" association="point"
-    enabled="0" period="1" mode="vtkXmlP" output_dir="./" />
+  <analysis type="PosthocIO" mode="paraview" output_dir="./" enabled="0">
+    <mesh name="bodies">
+        <point_arrays> ids, m, v, f </point_arrays>
+    </mesh>
+  </analysis>
 
   <!-- Avalailable with ENABLE_CATALYST -->
   <analysis type="catalyst" pipeline="pythonscript"
-    filename="newton_catalyst.py" enabled="0" />
+    filename="../sensei/miniapps/newton/newton_catalyst.py" enabled="1" />
 
   <!-- Available with ENABLE_LIBSIM -->
   <analysis type="libsim" plots="Pseudocolor" plotvars="ids"
