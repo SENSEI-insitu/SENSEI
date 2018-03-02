@@ -15,7 +15,7 @@ endif()
 
 if (NOT MSVC)
   if (NOT CMAKE_CXX_FLAGS)
-  set(tmp "-fPIC -std=c++11 -Wall -Wextra")
+  set(tmp "-fPIC -std=c++11 -Wall -Wextra -fpermissive")
   if (BUILD_STATIC_EXECS)
     set(tmp "${tmp} -static -static-libgcc -static-libstdc++ -pthread -Wl,-Bstatic")
   endif()
