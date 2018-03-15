@@ -996,17 +996,15 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
         // able to make the right VTK dataset on the other end. Silly/Stupid
         // but giving VTK datasets to Libsim has never come up before.
 
-        int dims[3];
+        double x0[3] = {0.0};
+        double dx[3] = {0.0};
+        int dims[3] = {0};
+        int ext[6] = {0};
         igrid->GetDimensions(dims);
-        int x0, x1, y0, y1, z0, z1;
-        igrid->GetExtent(x0, x1, y0, y1, z0, z1);
-#ifdef DEBUG_PRINT
-        char tmp[500];
-        sprintf(tmp, "\tdims={%d,%d,%d}\n", dims[0], dims[1], dims[2]);
-        VisItDebug5(tmp);
-        sprintf(tmp, "\textents={%d,%d,%d,%d,%d,%d}\n", x0, x1, y0, y1, z0, z1);
-        VisItDebug5(tmp);
-#endif
+        igrid->GetExtent(ext);
+        igrid->GetOrigin(x0);
+        igrid->GetSpacing(dx);
+
         if(VisIt_RectilinearMesh_alloc(&mesh) == VISIT_OKAY)
         {
             int nx = std::max(dims[0], 1);
@@ -1025,15 +1023,15 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
                    VisIt_VariableData_alloc(&zc) == VISIT_OKAY)
                 {
                     for(int i = 0; i < nx; ++i)
-                        x[i] = x0 + i;
+                        x[i] = x0[0] + (ext[0] + i)*dx[0];
                     for(int i = 0; i < ny; ++i)
-                        y[i] = y0 + i;
+                        y[i] = x0[1] + (ext[2] + i)*dx[1];
                     for(int i = 0; i < nz; ++i)
-                        z[i] = z0 + i;
+                        z[i] = x0[2] + (ext[4] + i)*dx[2];
                     VisIt_VariableData_setDataF(xc, VISIT_OWNER_VISIT, 1, nx, x);
                     VisIt_VariableData_setDataF(yc, VISIT_OWNER_VISIT, 1, ny, y);
                     VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
-                    VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+                    VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);                    
                 }
                 else
                 {
