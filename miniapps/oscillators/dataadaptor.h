@@ -52,6 +52,7 @@ protected:
   ~DataAdaptor();
 
   vtkDataObject* GetBlockMesh(int gid);
+  vtkDataObject* GetUnstructuredMesh(int gid, bool structureOnly);
 
 private:
   DataAdaptor(const DataAdaptor&); // not implemented.
