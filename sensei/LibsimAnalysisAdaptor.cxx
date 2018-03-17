@@ -17,6 +17,7 @@
 #include <vtkUnstructuredGrid.h>
 #include <vtkCompositeDataSet.h>
 #include <vtkCompositeDataIterator.h>
+#include <vtkCellArray.h>
 
 #include <VisItControlInterface_V2.h>
 #include <VisItDataInterface_V2.h>
@@ -978,7 +979,49 @@ vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
 }
 
 // -----------------------------------------------------------------------------
-visit_handle
+static int vtk_to_libsim[VTK_NUMBER_OF_CELL_TYPES];
+static bool vtk_to_libsim_init = false;
+static int
+celltype_vtk_to_libsim(unsigned char vtkcelltype)
+{
+    if(!vtk_to_libsim_init)
+    {
+        for(int i =0; i < VTK_NUMBER_OF_CELL_TYPES; ++i)
+            vtk_to_libsim[i] = -1;
+
+        vtk_to_libsim[VTK_LINE] = VISIT_CELL_BEAM;
+        vtk_to_libsim[VTK_TRIANGLE] =  VISIT_CELL_TRI;
+        vtk_to_libsim[VTK_QUAD] =  VISIT_CELL_QUAD;
+        vtk_to_libsim[VTK_TETRA] =  VISIT_CELL_TET;
+        vtk_to_libsim[VTK_PYRAMID] =  VISIT_CELL_PYR;
+        vtk_to_libsim[VTK_WEDGE] =  VISIT_CELL_WEDGE;
+        vtk_to_libsim[VTK_HEXAHEDRON] =  VISIT_CELL_HEX;
+        vtk_to_libsim[VTK_VERTEX] =  VISIT_CELL_POINT;
+
+        vtk_to_libsim[VTK_QUADRATIC_EDGE] =  VISIT_CELL_QUADRATIC_EDGE;
+        vtk_to_libsim[VTK_QUADRATIC_TRIANGLE] =  VISIT_CELL_QUADRATIC_TRI;
+        vtk_to_libsim[VTK_QUADRATIC_QUAD] =  VISIT_CELL_QUADRATIC_QUAD;
+        vtk_to_libsim[VTK_QUADRATIC_TETRA] =  VISIT_CELL_QUADRATIC_TET;
+        vtk_to_libsim[VTK_QUADRATIC_PYRAMID] =  VISIT_CELL_QUADRATIC_PYR;
+        vtk_to_libsim[VTK_QUADRATIC_WEDGE] =  VISIT_CELL_QUADRATIC_WEDGE;
+        vtk_to_libsim[VTK_QUADRATIC_HEXAHEDRON] =  VISIT_CELL_QUADRATIC_HEX;
+
+        vtk_to_libsim[VTK_BIQUADRATIC_TRIANGLE] =  VISIT_CELL_BIQUADRATIC_TRI;
+        vtk_to_libsim[VTK_BIQUADRATIC_QUAD] =  VISIT_CELL_BIQUADRATIC_QUAD;
+        vtk_to_libsim[VTK_TRIQUADRATIC_HEXAHEDRON] =  VISIT_CELL_TRIQUADRATIC_HEX;
+        vtk_to_libsim[VTK_QUADRATIC_LINEAR_QUAD] =  VISIT_CELL_QUADRATIC_LINEAR_QUAD;
+        vtk_to_libsim[VTK_QUADRATIC_LINEAR_WEDGE] =  VISIT_CELL_QUADRATIC_LINEAR_WEDGE;
+        vtk_to_libsim[VTK_BIQUADRATIC_QUADRATIC_WEDGE] =  VISIT_CELL_BIQUADRATIC_QUADRATIC_WEDGE;
+        vtk_to_libsim[VTK_BIQUADRATIC_QUADRATIC_HEXAHEDRON] =  VISIT_CELL_BIQUADRATIC_QUADRATIC_HEX;
+
+        vtk_to_libsim_init = true;
+    }
+
+    return vtk_to_libsim[vtkcelltype];
+}
+
+// -----------------------------------------------------------------------------
+static visit_handle
 vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
 {
     visit_handle mesh = VISIT_INVALID_HANDLE;
@@ -986,6 +1029,7 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
     vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds);
     vtkStructuredGrid  *sgrid = vtkStructuredGrid::SafeDownCast(ds);
     vtkPolyData *pgrid = vtkPolyData::SafeDownCast(ds);
+    vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::SafeDownCast(ds);
     if(igrid != nullptr)
     {
         VisItDebug5("\tExposing vtkImageData as a rectilinear grid.\n");
@@ -1110,6 +1154,75 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
             else
             {
                 VisIt_PointMesh_free(mesh);
+                mesh = VISIT_INVALID_HANDLE;
+            }
+        }
+    }
+    else if(ugrid != nullptr)
+    {
+        VisItDebug5("vtkUnstructuredGrid: npts = %d, ncells = %d\n", 
+            (int)ugrid->GetNumberOfPoints(), (int)ugrid->GetNumberOfCells());
+        if(VisIt_UnstructuredMesh_alloc(&mesh) != VISIT_ERROR)
+        {
+            bool err = false;
+            visit_handle pts = vtkDataArray_To_VisIt_VariableData(ugrid->GetPoints()->GetData());
+            if(pts != VISIT_INVALID_HANDLE)
+                VisIt_UnstructuredMesh_setCoords(mesh, pts);
+            else
+                err = true;
+
+            // Libsim and VTK connectivity is a little different. Why'd we do that?
+            vtkIdType ncells = ugrid->GetNumberOfCells();
+            if(ncells > 0 && !err)
+            {
+                const unsigned char *cellTypes = (const unsigned char *)ugrid->GetCellTypesArray()->GetVoidPointer(0);
+                const vtkIdType *vtkconn = (const vtkIdType *)ugrid->GetCells()->GetData()->GetVoidPointer(0);
+                const vtkIdType *offsets = (const vtkIdType *)ugrid->GetCellLocationsArray()->GetVoidPointer(0);
+                int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
+                int *newconn = new int[connlen];
+                int *lsconn = newconn;
+                for(int cellid = 0; cellid < ncells; ++cellid)
+                {
+                    // Map VTK cell type to Libsim cell type.
+                    int lsct = celltype_vtk_to_libsim(cellTypes[cellid]);
+                    if(lsct != -1)
+                    {
+                        *lsconn++ = lsct;
+
+                        // The number of points is the first number for the cell.
+                        const vtkIdType *cellConn = vtkconn + offsets[cellid];
+                        vtkIdType npts = cellConn[0];
+                        cellConn++;
+                        for(vtkIdType idx = 0; idx < npts; ++idx)
+                            *lsconn++ = static_cast<int>(cellConn[idx]);
+                    }
+                    else
+                    {
+                        // We got a cell type we don't support. Make a vertex cell 
+                        // so we at least don't mess up the cell data later.
+                        *lsconn++ = VISIT_CELL_POINT;
+                        const vtkIdType *cellConn = vtkconn + offsets[cellid];
+                        *lsconn++ = cellConn[1];
+                    }
+                }
+
+                visit_handle hc = VISIT_INVALID_HANDLE;
+                if(VisIt_VariableData_alloc(&hc) != VISIT_ERROR)
+                {
+                    // Wrap newconn, let VisIt own it.
+                    VisIt_VariableData_setDataI(hc, VISIT_OWNER_VISIT, 1, connlen, newconn);
+                    VisIt_UnstructuredMesh_setConnectivity(mesh, ncells, hc);
+                }
+                else
+                {
+                    delete [] newconn;
+                    err = true;
+                }
+            }
+
+            if(err)
+            {
+                VisIt_UnstructuredMesh_free(mesh);
                 mesh = VISIT_INVALID_HANDLE;
             }
         }
@@ -1431,11 +1544,9 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 SENSEI_ERROR("Failed to allocate variable metadata")
                 return VISIT_INVALID_HANDLE;
             }
-            std::string arrayName;
+            std::string arrayName(node_vars[i]);
             if(nMeshes > 1)
-                arrayName = (meshName + "/") + node_vars[i];
-            else
-                arrayName = node_vars[i];
+                arrayName = (meshName + "/") + arrayName;
 #if 1
             VisItDebug5("point var: %s\n", arrayName.c_str());
 #endif
@@ -1473,9 +1584,13 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             if (alreadyDefined)
             {
                 if(nMeshes > 1)
-                    arrayName = (meshName + "/cell_") + node_vars[i];
+                    arrayName = (meshName + "/cell_") + arrayName;
                 else
                     arrayName = std::string("cell_") + arrayName;
+            }
+            else if(nMeshes > 1)
+            {
+                arrayName = (meshName + "/") + arrayName;
             }
 
 #if 1
