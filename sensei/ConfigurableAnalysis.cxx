@@ -357,6 +357,8 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
       this->LibsimAdaptor->SetOptions(node.attribute("options").value());
     if(node.attribute("visitdir"))
       this->LibsimAdaptor->SetVisItDirectory(node.attribute("visitdir").value());
+    if(node.attribute("mode"))
+      this->LibsimAdaptor->SetMode(node.attribute("mode").value());
     this->LibsimAdaptor->Initialize();
     this->Analyses.push_back(this->LibsimAdaptor);
     }

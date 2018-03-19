@@ -30,6 +30,10 @@
 
 #define DEBUG_PRINT
 
+#define VISIT_COMMAND_PROCESS 0
+#define VISIT_COMMAND_SUCCESS 1
+#define VISIT_COMMAND_FAILURE 2
+
 namespace sensei
 {
 
@@ -191,6 +195,7 @@ public:
     void SetOptions(const std::string &s);
     void SetVisItDirectory(const std::string &s);
     void SetComm(MPI_Comm comm);
+    void SetMode(const std::string &mode);
 
     void PrintSelf(ostream& os, vtkIndent indent);
     bool Initialize();
@@ -209,11 +214,16 @@ public:
 private:
     static int broadcast_int(int *value, int sender, void *cbdata);
     static int broadcast_string(char *str, int len, int sender, void *cbdata);
+    static void ControlCommandCallback(const char *cmd, const char *args, void *cbdata);
     static void SlaveProcessCallback(void *cbdata);
     static visit_handle GetMetaData(void *cbdata);
     static visit_handle GetMesh(int dom, const char *name, void *cbdata);
     static visit_handle GetVariable(int dom, const char *name, void *cbdata);
     static visit_handle GetDomainList(const char *name, void *cbdata);
+
+    int ProcessVisItCommand(int rank);
+    bool Execute_Batch(int rank);
+    bool Execute_Interactive(int rank);
 
     void ClearMeshDataCache();
     MeshInfo *AddMeshDataCacheEntry(const std::string &meshName, int ndatasets);
@@ -238,16 +248,19 @@ private:
     std::string               traceFile, options, visitdir;
     std::vector<PlotRecord>   plots;
     MPI_Comm                  comm;
-    static bool               runtimeLoaded;
+    std::string               mode;
+    bool                      paused;
+    static bool               initialized;
     static int                instances;
 };
 
-bool LibsimAnalysisAdaptor::PrivateData::runtimeLoaded = false;
+bool LibsimAnalysisAdaptor::PrivateData::initialized = false;
 int  LibsimAnalysisAdaptor::PrivateData::instances = 0;
 
 // --------------------------------------------------------------------------
 LibsimAnalysisAdaptor::PrivateData::PrivateData() : da(nullptr),
-  meshData(), traceFile(), options(), visitdir()
+  meshData(), traceFile(), options(), visitdir(), mode("batch"), 
+  paused(false)
 {
     comm = MPI_COMM_WORLD;
     ++instances;
@@ -259,10 +272,11 @@ LibsimAnalysisAdaptor::PrivateData::~PrivateData()
     ClearMeshDataCache();
 
     --instances;
-    if(instances == 0 && runtimeLoaded && VisItIsConnected())
+    if(instances == 0 && initialized)
     {
         timer::MarkEvent mark("libsim::finalize");
-        VisItDisconnect();
+        if(VisItIsConnected())
+            VisItDisconnect();
     }
 }
 
@@ -296,6 +310,13 @@ LibsimAnalysisAdaptor::PrivateData::SetComm(MPI_Comm c)
 
 // --------------------------------------------------------------------------
 void
+LibsimAnalysisAdaptor::PrivateData::SetMode(const std::string &m)
+{
+    mode = m;
+}
+
+// --------------------------------------------------------------------------
+void
 LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
 {
     int rank = 0, size = 1;
@@ -306,7 +327,8 @@ LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
         os << "traceFile = " << traceFile << endl;
         os << "options = " << options << endl;
         os << "visitdir = " << visitdir << endl;
-        os << "runtimeLoaded = " << (runtimeLoaded ? "true" : "false") << endl;
+        os << "mode = " << mode << endl;
+        os << "initialized = " << (initialized ? "true" : "false") << endl;
         os << "meshData = {" << endl;
         std::map<std::string, MeshInfo*>::const_iterator it = meshData.begin();
         for( ; it != meshData.end(); ++it)
@@ -377,7 +399,7 @@ bool
 LibsimAnalysisAdaptor::PrivateData::Initialize()
 {
     // Load the runtime if we have not done it before.
-    if(!runtimeLoaded)
+    if(!initialized)
     {
         timer::MarkEvent mark("libsim::initialize");
 
@@ -419,25 +441,46 @@ LibsimAnalysisAdaptor::PrivateData::Initialize()
         if(env != nullptr)
             free(env);
 
-        // Try and initialize the runtime.
-        if(VisItInitializeRuntime() == VISIT_ERROR)
+        bool i0 = mode == "interactive";
+        bool i1 = mode == "interactive,paused";
+        if(i0 || i1)
         {
-            SENSEI_ERROR("Could not initialize the VisIt runtime library.")
+            // We can start paused if desired.
+            this->paused = i1;
+
+            // Write out .sim file that VisIt uses to connect.
+            if(rank == 0)
+            {
+                VisItInitializeSocketAndDumpSimFile(
+                    "sensei",
+                    "Connected via SENSEI",
+                    "/path/to/where/sim/was/started",
+                    NULL, NULL, "sensei.sim2");
+            }
+            initialized = true;
         }
         else
         {
-            // Register Libsim callbacks.
-            VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
-            VisItSetGetMetaData(GetMetaData, (void*)this);
-            VisItSetGetMesh(GetMesh, (void*)this);
-            VisItSetGetVariable(GetVariable, (void*)this);
-            VisItSetGetDomainList(GetDomainList, (void*)this);
+            // Try and initialize the runtime.
+            if(VisItInitializeRuntime() == VISIT_ERROR)
+            {
+                SENSEI_ERROR("Could not initialize the VisIt runtime library.")
+            }
+            else
+            {
+                // Register Libsim callbacks.
+                VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
+                VisItSetGetMetaData(GetMetaData, (void*)this);
+                VisItSetGetMesh(GetMesh, (void*)this);
+                VisItSetGetVariable(GetVariable, (void*)this);
+                VisItSetGetDomainList(GetDomainList, (void*)this);
 
-            runtimeLoaded = true;
+                initialized = true;
+            }
         }
     }
 
-    return runtimeLoaded;
+    return initialized;
 }
 
 // --------------------------------------------------------------------------
@@ -485,7 +528,24 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
     // Let's get new metadata.
     VisItTimeStepChanged();
 
-#if 1
+    if(mode.substr(0, 11) == "interactive")
+        retval = Execute_Interactive(rank);
+    else
+        retval = Execute_Batch(rank);
+
+    // Clear out any data that we've cached over the lifetime of this
+    // Execute function.
+    ClearMeshDataCache();
+
+    return retval;
+}
+
+// --------------------------------------------------------------------------
+bool
+LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
+{
+    bool retval = false;
+
     // NOTE: this executes a set of really simple pipelines prescribed by the
     //       options from the SENSEI config file.
 
@@ -493,7 +553,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
     for(size_t i = 0; i < plots.size(); ++i)
     {
         // Skip if we're not executing now.
-        if(DataAdaptor->GetDataTimeStep() % plots[i].frequency != 0)
+        if(da->GetDataTimeStep() % plots[i].frequency != 0)
             continue;
 
         // Add all the plots in this group.
@@ -540,8 +600,8 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
         {
             std::string filename;
             filename = MakeFileName(plots[i].imageProps.GetFilename(),
-                                    DataAdaptor->GetDataTimeStep(),
-                                    DataAdaptor->GetDataTime());
+                                    da->GetDataTimeStep(),
+                                    da->GetDataTime());
 
             if(plots[i].doExport)
             {
@@ -605,13 +665,133 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
         // Delete the plots.
         VisItDeleteActivePlots();
     }
-#endif
-
-    // Clear out any data that we've cached over the lifetime of this
-    // Execute function.
-    ClearMeshDataCache();
 
     return retval;
+}
+
+// --------------------------------------------------------------------------
+int
+LibsimAnalysisAdaptor::PrivateData::ProcessVisItCommand(int rank)
+{
+    int command = VISIT_COMMAND_PROCESS;
+    if (rank==0)
+    {  
+        int success = VisItProcessEngineCommand();
+
+        if (success == VISIT_OKAY)
+        {
+            command = VISIT_COMMAND_SUCCESS;
+            MPI_Bcast(&command, 1, MPI_INT, 0, this->comm);
+            return 1;
+        }
+        else
+        {
+            command = VISIT_COMMAND_FAILURE;
+            MPI_Bcast(&command, 1, MPI_INT, 0, this->comm);
+            return 0;
+        }
+    }
+    else
+    {
+        /* Note: only through the SlaveProcessCallback callback
+         * above can the rank 0 process send a VISIT_COMMAND_PROCESS
+         * instruction to the non-rank 0 processes. */
+        while (1)
+        {
+            MPI_Bcast(&command, 1, MPI_INT, 0, this->comm);
+            switch (command)
+            {
+            case VISIT_COMMAND_PROCESS:
+                VisItProcessEngineCommand();
+                break;
+            case VISIT_COMMAND_SUCCESS:
+                return 1;
+            case VISIT_COMMAND_FAILURE:
+                return 0;
+            }
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+bool
+LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
+{
+    int visitstate = 0, blocking = 0, err = 0;
+
+    // If we are paused, block. We can do this even if we're not connected
+    // if we gave "interactive,paused" as the mode. This means that we want
+    // to start paused so we can connect.
+    if(this->paused)
+        blocking = 1;
+
+    // If we've connected, we might have plots to update.
+    if(VisItIsConnected())
+        VisItUpdatePlots();
+
+    do
+    {
+        // Get input from VisIt
+        if(rank == 0)
+        {
+            visitstate = VisItDetectInputWithTimeout(blocking, 200, -1);
+        }
+        // Broadcast the return value of VisItDetectInput to all procs.
+        MPI_Bcast(&visitstate, 1, MPI_INT, 0, this->comm);
+
+        // Do different things depending on the output from VisItDetectInput.
+        switch(visitstate)
+        {
+        case 0:
+            // There was no input from VisIt, try again.
+            break;
+        case 1:
+            // VisIt is trying to connect to sim.
+            if(VisItAttemptToCompleteConnection() == VISIT_OKAY)
+            {
+                // Register Libsim callbacks.
+                VisItSetCommandCallback(ControlCommandCallback, (void*)this);
+                VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this);
+                VisItSetGetMetaData(GetMetaData, (void*)this);
+                VisItSetGetMesh(GetMesh, (void*)this);
+                VisItSetGetVariable(GetVariable, (void*)this);
+                VisItSetGetDomainList(GetDomainList, (void*)this);
+
+                // Pause when we connect.
+                this->paused = true;
+            }
+            else 
+            {
+                // Print the error message
+                if(rank == 0)
+                {
+                    char *err = VisItGetLastError();
+                    fprintf(stderr, "VisIt did not connect: %s\n", err);
+                    free(err);
+                }
+            }
+            break;
+        case 2:
+            // VisIt wants to tell the engine something.
+            if(!ProcessVisItCommand(rank))
+            {
+                // Disconnect on an error or closed connection.
+                VisItDisconnect();
+                // Start running again if VisIt closes.
+                this->paused = false;
+            }
+            break;
+        case 3:
+            // No console input.
+            break;
+        default:
+            //fprintf(stderr, "Can't recover from error %d!\n", visitstate);
+            //err = 1;
+            break;
+        }
+    } while(this->paused && err == 0);
+
+    return true;
 }
 
 // --------------------------------------------------------------------------
@@ -1267,6 +1447,19 @@ LibsimAnalysisAdaptor::PrivateData::SlaveProcessCallback(void *cbdata)
     broadcast_int(&value, 0, cbdata);
 }
 
+void
+LibsimAnalysisAdaptor::PrivateData::ControlCommandCallback(
+    const char *cmd, const char *args, void *cbdata)
+{
+    (void)args;
+    PrivateData *This = (PrivateData *)cbdata;
+
+    if(strcmp(cmd, "pause") == 0)
+        This->paused = true;
+    else if(strcmp(cmd, "run") == 0)
+        This->paused = false;
+}
+
 // --------------------------------------------------------------------------
 visit_handle
 LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
@@ -1305,7 +1498,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
     }
 
     // Set the simulation state.
-    VisIt_SimulationMetaData_setMode(md, VISIT_SIMMODE_RUNNING);
+    VisIt_SimulationMetaData_setMode(md, This->paused ? VISIT_SIMMODE_STOPPED : VISIT_SIMMODE_RUNNING);
     VisIt_SimulationMetaData_setCycleTime(md, da->GetDataTimeStep(), da->GetDataTime());
 
     unsigned int nMeshes = meshNames.size();
@@ -1604,6 +1797,18 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         }
     }
 
+    // Add some commands.
+    static const char *cmd_names[] = {"pause", "run"};
+    for(int i = 0; i < static_cast<int>(sizeof(cmd_names)/sizeof(const char *)); ++i)
+    {
+        visit_handle cmd = VISIT_INVALID_HANDLE;
+        if(VisIt_CommandMetaData_alloc(&cmd) == VISIT_OKAY)
+        {
+            VisIt_CommandMetaData_setName(cmd, cmd_names[i]);
+            VisIt_SimulationMetaData_addGenericCommand(md, cmd);
+        }
+    }
+
     return md;
 }
 
@@ -1775,6 +1980,12 @@ void LibsimAnalysisAdaptor::SetVisItDirectory(const std::string &s)
 void LibsimAnalysisAdaptor::SetComm(MPI_Comm c)
 {
     internals->SetComm(c);
+}
+
+//-----------------------------------------------------------------------------
+void LibsimAnalysisAdaptor::SetMode(const std::string &mode)
+{
+    internals->SetMode(mode);
 }
 
 //-----------------------------------------------------------------------------
