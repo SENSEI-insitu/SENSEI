@@ -196,6 +196,31 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       return -1;
       }
 
+    // get ghost cell/node metadata always provide this information as
+    // it is essential to process the data objects
+    int nGhostCellLayers = 0;
+    int nGhostNodeLayers = 0;
+    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
+      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
+      {
+      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // add the ghost cell arrays to the mesh
+    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // add the ghost node arrays to the mesh
+    if ((nGhostNodeLayers > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
     // add the required arrays
     ArrayRequirementsIterator ait =
       this->Requirements.GetArrayRequirementsIterator(meshName);

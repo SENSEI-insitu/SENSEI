@@ -163,6 +163,36 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
             }
           }
         }
+      int numGhostCellLayers = 0;
+      if (dataAdaptor->GetMeshHasGhostNodes(meshName, numGhostCellLayers) == 0)
+      {
+        if (numGhostCellLayers > 0)
+        {
+          if (dataAdaptor->AddGhostNodesArray(dobj, meshName))
+          {
+            SENSEI_ERROR("Failed to get ghost points for mesh \"" << mit.MeshName() << "\"")
+          }
+        }
+      }
+      else
+      {
+        SENSEI_ERROR("Failed to get ghost point information for \"" << mit.MeshName() << "\"")
+      }
+
+      if (dataAdaptor->GetMeshHasGhostCells(meshName, numGhostCellLayers) == 0)
+      {
+        if (numGhostCellLayers > 0)
+        {
+          if (dataAdaptor->AddGhostCellsArray(dobj, meshName))
+          {
+            SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+          }
+        }
+      }
+      else
+      {
+        SENSEI_ERROR("Failed to get ghost cell information for \"" << mit.MeshName() << "\"")
+      }
 
       inDesc->SetGrid(dobj);
       this->SetWholeExtent(dobj, inDesc);

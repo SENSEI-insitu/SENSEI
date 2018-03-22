@@ -5,6 +5,7 @@
 
 // VTK includes
 #include <vtkCompositeDataIterator.h>
+#include <vtkCellData.h>
 #include <vtkFieldData.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
@@ -12,6 +13,7 @@
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 #include <vtkStructuredData.h>
+#include <vtkUnsignedCharArray.h>
 
 #include <memory>
 #include <vector>
@@ -75,28 +77,51 @@ struct AutocorrelationImpl
 
   static void* create()            { return new AutocorrelationImpl; }
   static void destroy(void* b)    { delete static_cast<AutocorrelationImpl*>(b); }
-  void process(float* data)
+  void process(float* data, unsigned char *ghostArray)
     {
     GridRef g(data, shape);
 
-    // record the values
-    grid::for_each(g.shape(), [&](const Vertex& v)
+    if (ghostArray)
       {
-      auto gv = g(v);
+      grid::GridRef<unsigned char, 3> ghost(ghostArray, shape);
+      // record the values
+      grid::for_each(g.shape(), [&](const Vertex& v)
+        {
+        auto gv = (ghost(v) == 0) ? g(v) : 0;
 
-      for (size_t i = 1; i <= window; ++i)
-      {
-      if (i > count) continue;    // during the initial fill, we don't get contributions to some shifts
+        for (size_t i = 1; i <= window; ++i)
+        {
+        if (i > count) continue;    // during the initial fill, we don't get contributions to some shifts
 
-      auto uc = v.lift(3, i-1);
-      auto uv = v.lift(3, (offset + window - i) % window);
-      corr(uc) += values(uv)*gv;
+        auto uc = v.lift(3, i-1);
+        auto uv = v.lift(3, (offset + window - i) % window);
+        corr(uc) += values(uv)*gv;
+        }
+
+        auto u = v.lift(3, offset);
+        values(u) = gv;
+        });
       }
+    else
+      {
+      // record the values
+      grid::for_each(g.shape(), [&](const Vertex& v)
+        {
+        auto gv = g(v);
 
-      auto u = v.lift(3, offset);
-      values(u) = gv;
-      });
+        for (size_t i = 1; i <= window; ++i)
+        {
+        if (i > count) continue;    // during the initial fill, we don't get contributions to some shifts
 
+        auto uc = v.lift(3, i-1);
+        auto uv = v.lift(3, (offset + window - i) % window);
+        corr(uc) += values(uv)*gv;
+        }
+
+        auto u = v.lift(3, offset);
+        values(u) = gv;
+        });
+      }
     offset += 1;
     offset %= window;
 
@@ -251,8 +276,22 @@ bool Autocorrelation::Execute(DataAdaptor* data)
     return false;
     }
 
-  internals.InitializeBlocks(mesh);
+  int nLayers = 0;
+  if (data->GetMeshHasGhostCells(internals.MeshName, nLayers) == 0)
+   {
+   if (nLayers > 0 && data->AddGhostCellsArray(mesh, internals.MeshName))
+     {
+     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
+     return false;
+     }
+   }
+  else
+   {
+   SENSEI_ERROR(<< data->GetClassName() << " failed to query for ghost cells.")
+   return false;
+   }
 
+  internals.InitializeBlocks(mesh);
 
   if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(mesh))
     {
@@ -269,9 +308,11 @@ bool Autocorrelation::Execute(DataAdaptor* data)
         AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
         vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
           dataObj->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
+        vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
+          dataObj->GetCellData()->GetArray("vtkGhostType"));       
         if (fa)
           {
-          corr->process(fa->GetPointer(0));
+          corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);
           }
         else
           {
@@ -288,9 +329,11 @@ bool Autocorrelation::Execute(DataAdaptor* data)
     AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
     vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
       ds->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
+    vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
+      ds->GetCellData()->GetArray("vtkGhostType"));       
     if (fa)
       {
-      corr->process(fa->GetPointer(0));
+      corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);
       }
     else
       {

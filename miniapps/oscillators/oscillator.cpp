@@ -96,6 +96,7 @@ int main(int argc, char** argv)
     size_t                      window    = 10;
     size_t                      k_max     = 3;
     int                         threads   = 1;
+    int                         ghostLevels = 0;
     std::string                 config_file;
     std::string                 out_prefix = "";
     Options ops(argc, argv);
@@ -112,6 +113,7 @@ int main(int argc, char** argv)
         >> Option(     "t-end",  t_end,     "end time")
         >> Option('j', "jobs",   threads,   "number of threads to use")
         >> Option('o', "output", out_prefix, "prefix to save output")
+        >> Option('g', "ghost levels", ghostLevels, "Number of ghost levels")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
     bool log = ops >> Present("log", "generate full time and memory usage log");
@@ -176,6 +178,9 @@ int main(int argc, char** argv)
                      to_x,   to_y,   to_z;
 
 
+    diy::RegularDecomposer<Bounds>::BoolVector share_face, wrap;
+    diy::RegularDecomposer<Bounds>::CoordinateVector ghosts = {ghostLevels, ghostLevels, ghostLevels};
+
     // decompose the domain
     diy::decompose(3, world.rank(), domain, assigner,
                    [&](int gid, const Bounds&, const Bounds& bounds, const Bounds& domain, const Link& link)
@@ -192,7 +197,8 @@ int main(int argc, char** argv)
                       to_x.push_back(bounds.max[0]);
                       to_y.push_back(bounds.max[1]);
                       to_z.push_back(bounds.max[2]);
-                   });
+                   },
+                   share_face, wrap, ghosts);
 
     timer::MarkEndEvent("oscillators::initialize");
 
@@ -203,6 +209,7 @@ int main(int argc, char** argv)
                        &gids[0],
                        &from_x[0], &from_y[0], &from_z[0],
                        &to_x[0],   &to_y[0],   &to_z[0],
+                       &shape[0], ghostLevels,
                        config_file);
 #else
     init_analysis(world, window, gids.size(),

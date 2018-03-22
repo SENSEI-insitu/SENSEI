@@ -5,19 +5,21 @@
 #include "Timer.h"
 #include "Error.h"
 
+#include <vtkCellArray.h>
 #include <vtkCellData.h>
+#include <vtkCharArray.h>
+#include <vtkCompositeDataIterator.h>
+#include <vtkCompositeDataSet.h>
 #include <vtkDataArray.h>
 #include <vtkDataObject.h>
 #include <vtkImageData.h>
+#include <vtkIntArray.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 #include <vtkRectilinearGrid.h>
 #include <vtkStructuredGrid.h>
 #include <vtkUnstructuredGrid.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCellArray.h>
 
 #include <VisItControlInterface_V2.h>
 #include <VisItDataInterface_V2.h>
@@ -999,6 +1001,25 @@ LibsimAnalysisAdaptor::PrivateData::FetchMesh(const std::string &meshName)
             {
                 mit->second->SetDataSet(0, vtkDataSet::SafeDownCast(obj));
             }
+
+            // If the data adaptor can provide a ghost nodes array, add it to the
+            // data object now. The datasets we've registered will then have that
+            // as a point data array.
+            int nLayers = 0;
+            if(da->GetMeshHasGhostNodes(meshName, nLayers) == 0)
+            {
+                if(nLayers > 0)
+                    da->AddGhostNodesArray(obj, meshName);
+            }
+
+            // If the data adaptor can provide a ghost cells array, add it to the
+            // data object now. The datasets we've registered will then have that
+            // as a point data array.
+            if(da->GetMeshHasGhostCells(meshName, nLayers) == 0)
+            {
+                if(nLayers > 0)
+                    da->AddGhostCellsArray(obj, meshName);
+            }
         }
     }
 }
@@ -1113,7 +1134,7 @@ vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
             int nt = arr->GetNumberOfTuples();
             if(arr->HasStandardMemoryLayout())
             {
-                if(arr->GetDataType() == VTK_CHAR)
+                if(arr->GetDataType() == VTK_CHAR || arr->GetDataType() == VTK_UNSIGNED_CHAR)
                     VisIt_VariableData_setDataC(h, VISIT_OWNER_SIM, nc, nt, (char *)arr->GetVoidPointer(0));
                 else if(arr->GetDataType() == VTK_INT)
                     VisIt_VariableData_setDataI(h, VISIT_OWNER_SIM, nc, nt, (int *)arr->GetVoidPointer(0));
@@ -1202,7 +1223,27 @@ celltype_vtk_to_libsim(unsigned char vtkcelltype)
 
 // -----------------------------------------------------------------------------
 static visit_handle
-vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
+vtkDataSet_GhostData(vtkDataSetAttributes *dsa, const std::string &name)
+{
+    visit_handle h = VISIT_INVALID_HANDLE;
+    // Check that we have the array and it is of allowed types.
+    vtkDataArray *arr = dsa->GetArray(name.c_str());
+    if(arr && 
+       arr->GetNumberOfComponents() == 1 &&
+       arr->GetNumberOfTuples() > 0 &&
+       (vtkUnsignedCharArray::SafeDownCast(arr) ||
+        vtkCharArray::SafeDownCast(arr) ||
+        vtkIntArray::SafeDownCast(arr))
+      )
+    {
+        h = vtkDataArray_To_VisIt_VariableData(arr);
+    }
+    return h;
+}
+
+// -----------------------------------------------------------------------------
+static visit_handle
+vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds, DataAdaptor */*da*/)
 {
     visit_handle mesh = VISIT_INVALID_HANDLE;
     vtkImageData *igrid = vtkImageData::SafeDownCast(ds);
@@ -1228,7 +1269,18 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
         igrid->GetExtent(ext);
         igrid->GetOrigin(x0);
         igrid->GetSpacing(dx);
-
+#if 0
+int rank;
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+if(rank == 0)
+{
+cout << "dims=" << dims[0] << ", " << dims[1] << ", " << dims[2] << endl;
+cout << "ext=" << ext[0] << ", " << ext[1] << ", " << ext[2] << ", "
+               << ext[3] << ", " << ext[4] << ", " << ext[5] << endl;
+cout << "x0=" << x0[0] << ", " << x0[1] << ", " << x0[2] << endl;
+cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
+}
+#endif
         if(VisIt_RectilinearMesh_alloc(&mesh) == VISIT_OKAY)
         {
             int nx = std::max(dims[0], 1);
@@ -1255,7 +1307,18 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
                     VisIt_VariableData_setDataF(xc, VISIT_OWNER_VISIT, 1, nx, x);
                     VisIt_VariableData_setDataF(yc, VISIT_OWNER_VISIT, 1, ny, y);
                     VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
-                    VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);                    
+                    VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+
+                    // Try and make some ghost nodes.
+                    visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
+                                          "vtkGhostType");
+                    if(gn != VISIT_INVALID_HANDLE)
+                        VisIt_RectilinearMesh_setGhostNodes(mesh, gn);
+                    // Try and make some ghost cells.
+                    visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
+                                          "vtkGhostType");
+                    if(gz != VISIT_INVALID_HANDLE)
+                        VisIt_RectilinearMesh_setGhostCells(mesh, gz);
                 }
                 else
                 {
@@ -1291,11 +1354,22 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
             hy = vtkDataArray_To_VisIt_VariableData(rgrid->GetYCoordinates());
             if(hx != VISIT_INVALID_HANDLE && hy != VISIT_INVALID_HANDLE)
             {
-               hz = vtkDataArray_To_VisIt_VariableData(rgrid->GetZCoordinates());
-               if(hz != VISIT_INVALID_HANDLE)
+                hz = vtkDataArray_To_VisIt_VariableData(rgrid->GetZCoordinates());
+                if(hz != VISIT_INVALID_HANDLE)
                     VisIt_RectilinearMesh_setCoordsXYZ(mesh, hx, hy, hz);
                 else
                     VisIt_RectilinearMesh_setCoordsXY(mesh, hx, hy);
+
+                // Try and make some ghost nodes.
+                visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
+                                      "vtkGhostType");
+                if(gn != VISIT_INVALID_HANDLE)
+                    VisIt_RectilinearMesh_setGhostNodes(mesh, gn);
+                // Try and make some ghost cells.
+                visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
+                                      "vtkGhostType");
+                if(gz != VISIT_INVALID_HANDLE)
+                    VisIt_RectilinearMesh_setGhostCells(mesh, gz);
             }
             else
             {
@@ -1316,7 +1390,20 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
             sgrid->GetDimensions(dims);
             visit_handle pts = vtkDataArray_To_VisIt_VariableData(sgrid->GetPoints()->GetData());
             if(pts != VISIT_INVALID_HANDLE)
+            {
                 VisIt_CurvilinearMesh_setCoords3(mesh, dims, pts);
+
+                // Try and make some ghost nodes.
+                visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
+                                      "vtkGhostType");
+                if(gn != VISIT_INVALID_HANDLE)
+                    VisIt_CurvilinearMesh_setGhostNodes(mesh, gn);
+                // Try and make some ghost cells.
+                visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
+                                      "vtkGhostType");
+                if(gz != VISIT_INVALID_HANDLE)
+                    VisIt_CurvilinearMesh_setGhostCells(mesh, gz);
+            }
             else
             {
                 VisIt_CurvilinearMesh_free(mesh);
@@ -1392,6 +1479,17 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds)
                     // Wrap newconn, let VisIt own it.
                     VisIt_VariableData_setDataI(hc, VISIT_OWNER_VISIT, 1, connlen, newconn);
                     VisIt_UnstructuredMesh_setConnectivity(mesh, ncells, hc);
+
+                    // Try and make some ghost nodes.
+                    visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
+                                          "vtkGhostType");
+                    if(gn != VISIT_INVALID_HANDLE)
+                        VisIt_RectilinearMesh_setGhostNodes(mesh, gn);
+                    // Try and make some ghost cells.
+                    visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
+                                          "vtkGhostType");
+                    if(gz != VISIT_INVALID_HANDLE)
+                        VisIt_UnstructuredMesh_setGhostCells(mesh, gz);
                 }
                 else
                 {
@@ -1842,7 +1940,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbd
             ds = This->GetDataSet(meshName, localdomain);
         }
 
-        mesh = vtkDataSet_to_VisIt_Mesh(ds);
+        mesh = vtkDataSet_to_VisIt_Mesh(ds, This->da);
     }
 
     return mesh;

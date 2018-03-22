@@ -82,9 +82,10 @@ bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     SENSEI_WARNING("No subset specified. Writing all available data")
     }
 
-  // collect the specified data objects
+  // collect the specified data objects and metadata
   std::vector<vtkDataObject*> objects;
   std::vector<std::string> objectNames;
+  std::vector<std::pair<int,int>> ghostLayers;
 
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
@@ -96,6 +97,42 @@ bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // get ghost cell/node metadata always provide this information as
+    // it is essential to process the data objects
+    int nGhostCellLayers = 0;
+    int nGhostNodeLayers = 0;
+    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
+      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
+      {
+      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // pass ghost layer metadata in field data.
+    vtkIntArray *glmd = vtkIntArray::New();
+    glmd->SetName("senseiGhostLayers");
+    glmd->SetNumberOfTuples(2);
+    glmd->SetValue(0, nGhostCellLayers);
+    glmd->SetValue(1, nGhostNodeLayers);
+
+    vtkFieldData *fd = dobj->GetFieldData();
+    fd->AddArray(glmd);
+    glmd->Delete();
+
+    // add the ghost cell arrays to the mesh
+    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // add the ghost node arrays to the mesh
+    if (nGhostNodeLayers > 0 && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return -1;
       }
 

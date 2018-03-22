@@ -43,6 +43,15 @@ using DatasetFunction = std::function<int(vtkDataSet*)>;
 /// The function is called once for each leaf dataset
 int Apply(vtkDataObject *dobj, DatasetFunction &func);
 
+/// Store ghost layer metadata in the mesh
+int SetGhostLayerMetadata(vtkDataObject *mesh,
+  int nGhostCellLayers, int nGhostNodeLayers);
+
+/// Retreive ghost layer metadata from the mesh. returns non-zero if
+/// no such metadata is found.
+int GetGhostLayerMetadata(vtkDataObject *mesh,
+  int &nGhostCellLayers, int &nGhostNodeLayers);
+
 }
 }
 

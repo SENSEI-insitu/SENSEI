@@ -229,6 +229,11 @@ int DataAdaptor::GetCompleteMesh(const std::string &meshName,
     SENSEI_ERROR("failed to get mesh \"" << meshName << "\"")
     return -1;
     }
+  if (mesh == nullptr)
+    {
+    SENSEI_ERROR("data adaptor returned null mesh for \"" << meshName << "\"")
+    return -1;
+    }
 
   if (this->AddArrays(mesh, meshName, vtkDataObject::CELL))
     {
@@ -242,6 +247,60 @@ int DataAdaptor::GetCompleteMesh(const std::string &meshName,
     return -1;
     }
 
+  int nLayers = 0;
+  if (this->GetMeshHasGhostNodes(meshName, nLayers) == 0)
+    {
+    if(nLayers > 0)
+      {
+      if(this->AddGhostNodesArray(mesh, meshName))
+        {
+        SENSEI_ERROR("Failed to add ghost nodes to mesh \"" << meshName << "\"")
+        return -1;
+        }
+      }
+    }
+
+  nLayers = 0;
+  if (this->GetMeshHasGhostCells(meshName, nLayers) == 0)
+    {
+    if(nLayers > 0)
+      {
+      if(this->AddGhostCellsArray(mesh, meshName))
+        {
+        SENSEI_ERROR("Failed to add ghost cells to mesh \"" << meshName << "\"")
+        return -1;
+        }
+      }
+    }
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::GetMeshHasGhostNodes(const std::string &/*meshName*/, 
+  int &nLayers)
+{
+  nLayers = 0;
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::AddGhostNodesArray(vtkDataObject*, const std::string &)
+{
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/, 
+  int &nLayers)
+{
+  nLayers = 0;
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::AddGhostCellsArray(vtkDataObject*, const std::string &)
+{
   return 0;
 }
 

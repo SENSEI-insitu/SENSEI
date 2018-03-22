@@ -82,7 +82,7 @@ bool Histogram::Execute(DataAdaptor* data)
     {
     // it is an error if we try to compute a histogram over a non
     // existant array
-    SENSEI_ERROR(<< data->GetClassName() << " faild to add "
+    SENSEI_ERROR(<< data->GetClassName() << " failed to add "
       << (this->Association == vtkDataObject::POINT ? "point" : "cell")
       << " data array \""  << this->ArrayName << "\"")
 
@@ -91,6 +91,21 @@ bool Histogram::Execute(DataAdaptor* data)
 
     return false;
     }
+
+  int nLayers = 0;
+  if (data->GetMeshHasGhostCells(this->MeshName, nLayers) == 0)
+   {
+   if (nLayers > 0 && data->AddGhostCellsArray(mesh, this->MeshName))
+     {
+     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
+     return false;
+     }
+   }
+  else
+   {
+   SENSEI_ERROR(<< data->GetClassName() << " failed to query for ghost cells.")
+   return false;
+   }
 
   if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(mesh))
     {

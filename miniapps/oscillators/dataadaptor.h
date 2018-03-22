@@ -3,6 +3,8 @@
 
 #include <sensei/DataAdaptor.h>
 
+class vtkDataArray;
+
 namespace oscillators
 {
 
@@ -16,7 +18,7 @@ public:
   ///
   /// This initializes the data adaptor. This must be called once per simulation run.
   /// @param nblocks is the total number of blocks in the simulation run.
-  void Initialize(size_t nblocks);
+  void Initialize(size_t nblocks, const int *shape, int ghostLevels);
 
   /// @brief Set the extents for local blocks.
   void SetBlockExtent(int gid,
@@ -45,6 +47,10 @@ public:
   int GetArrayName(const std::string &meshName, int association,
     unsigned int index, std::string &arrayName) override;
 
+  int GetMeshHasGhostCells(const std::string &meshName, int &nLayers) override;
+
+  int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
+
   int ReleaseData() override;
 
 protected:
@@ -53,6 +59,7 @@ protected:
 
   vtkDataObject* GetBlockMesh(int gid);
   vtkDataObject* GetUnstructuredMesh(int gid, bool structureOnly);
+  vtkDataArray*  CreateGhostCellsArray(int cc) const;
 
 private:
   DataAdaptor(const DataAdaptor&); // not implemented.

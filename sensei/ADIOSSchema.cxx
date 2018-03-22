@@ -2229,6 +2229,14 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   path = oss.str() + "data_object_type";
   adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
 
+  // /data_object_<id>/number_of_ghost_cell_layers
+  path = oss.str() + "number_of_ghost_cell_layers";
+  adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
+
+  // /data_object_<id>/number_of_ghost_node_layers
+  path = oss.str() + "number_of_ghost_node_layers";
+  adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
+
   if (this->Internals->Dataset.DefineVariables(comm, gh, doid, dobj))
     {
     SENSEI_ERROR("Failed to define variables")
@@ -2241,7 +2249,7 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 // --------------------------------------------------------------------------
 uint64_t DataObjectSchema::GetSize(MPI_Comm comm, vtkDataObject *dobj)
 {
-  return 2*sizeof(unsigned int) + sizeof(int) +
+  return sizeof(unsigned int) + 3*sizeof(int) +
     this->Internals->Dataset.GetSize(comm, dobj);
 }
 
@@ -2262,6 +2270,21 @@ int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
 
   path = oss.str() + "data_object_type";
   adios_write(fh, path.c_str(), &dobj_type);
+
+  int nGhostCellLayers = 0;
+  int nGhostNodeLayers = 0;
+  if (sensei::VTKUtils::GetGhostLayerMetadata(dobj,
+    nGhostCellLayers, nGhostNodeLayers))
+    {
+    SENSEI_ERROR("missing ghost layer meta data")
+    return -1;
+    }
+
+  path = oss.str() + "number_of_ghost_cell_layers";
+  adios_write(fh, path.c_str(), &nGhostCellLayers);
+
+  path = oss.str() + "number_of_ghost_node_layers";
+  adios_write(fh, path.c_str(), &nGhostNodeLayers);
 
   if (this->Internals->Dataset.Write(comm, fh, doid, dobj))
     {
@@ -2343,6 +2366,21 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm, InputStream &iStream,
 
   this->Internals->Dataset.ClearDecomp();
   this->Internals->Dataset.SetDecomp(id0, id1);
+
+  // add the ghost layer info
+  int nGhostCellLayers = 0;
+  path = oss.str() + "number_of_ghost_cell_layers";
+  if (adiosInq(iStream, path, nGhostCellLayers))
+    return -1;
+
+  int nGhostNodeLayers = 0;
+  path = oss.str() + "number_of_ghost_node_layers";
+  if (adiosInq(iStream, path, nGhostNodeLayers))
+    return -1;
+
+  // pass ghost layer metadata in field data.
+  sensei::VTKUtils::SetGhostLayerMetadata(dobj,
+    nGhostCellLayers, nGhostNodeLayers);
 
   return 0;
 }

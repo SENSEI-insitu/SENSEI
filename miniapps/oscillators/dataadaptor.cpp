@@ -5,6 +5,7 @@
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
 #include <vtkIdTypeArray.h>
+#include <vtkIntArray.h>
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
@@ -28,6 +29,8 @@ struct DataAdaptor::DInternals
   vtkSmartPointer<vtkMultiBlockDataSet> uMesh;
   std::vector<vtkSmartPointer<vtkUnstructuredGrid> > UnstructuredMesh;
   std::vector<int> DataExtent;
+  int shape[3];
+  int ghostLevels;
 };
 
 inline bool areBoundsValid(const diy::DiscreteBounds& bds)
@@ -52,7 +55,7 @@ DataAdaptor::~DataAdaptor()
 }
 
 //-----------------------------------------------------------------------------
-void DataAdaptor::Initialize(size_t nblocks)
+void DataAdaptor::Initialize(size_t nblocks, const int *shape_, int ghostLevels_)
 {
   DInternals& internals = (*this->Internals);
   internals.CellExtents.resize(nblocks);
@@ -68,6 +71,12 @@ void DataAdaptor::Initialize(size_t nblocks)
     internals.CellExtents[cc].max[1] = -1;
     internals.CellExtents[cc].max[2] = -1;
     }
+
+  internals.shape[0] = shape_[0];
+  internals.shape[1] = shape_[1];
+  internals.shape[2] = shape_[2];
+  internals.ghostLevels = ghostLevels_;
+
   this->ReleaseData();
 }
 
@@ -122,6 +131,8 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       {
       internals.uMesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
       internals.uMesh->SetNumberOfBlocks(static_cast<unsigned int>(internals.CellExtents.size()));
+      for (size_t cc=0; cc < internals.CellExtents.size(); ++cc)
+        internals.uMesh->SetBlock(static_cast<unsigned int>(cc), NULL);
       }
     // Either create empty vtkUnstructuredGrid objects or let us replace
     // empty ones with new ones that have the right data.
@@ -130,12 +141,20 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       unsigned int bid = static_cast<unsigned int>(cc);
       vtkUnstructuredGrid *g = vtkUnstructuredGrid::SafeDownCast(
           internals.uMesh->GetBlock(bid));
-      if((structureOnly && g == NULL) || 
-         (!structureOnly && g != NULL && g->GetNumberOfCells() == 0))
+      if(g == NULL)
         {
-        internals.uMesh->SetBlock(bid, this->GetUnstructuredMesh(cc, structureOnly));
+        g = (vtkUnstructuredGrid *)this->GetUnstructuredMesh(cc, structureOnly);
+        //cout << "Setting uMesh[" << bid << "] structureOnly=" << structureOnly << ", g=" << (void*)g << ", ncells=" << (g ? g->GetNumberOfCells() : 0) << endl;
+        internals.uMesh->SetBlock(bid, g);
+        }
+      else if(!structureOnly && g->GetNumberOfCells() == 0)
+        {
+        g = (vtkUnstructuredGrid *)this->GetUnstructuredMesh(cc, structureOnly);
+        //cout << "Replacing uMesh[" << bid << "] structureOnly=" << structureOnly << ", g=" << (void*)g << ", ncells=" << (g ? g->GetNumberOfCells() : 0) << endl;
+        internals.uMesh->SetBlock(bid, g);
         }
       }
+
     mesh = internals.uMesh;
     }
   else
@@ -271,7 +290,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
   vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
   for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
     {
-    if (!internals.Data[cc])
+    if (!internals.Data[cc]) // Exclude NULL datasets
       {
       continue;
       }
@@ -281,13 +300,13 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
        {
        vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
        cd = (blockMesh? blockMesh->GetCellData() : NULL);
-       ncells = blockMesh->GetNumberOfCells();
+       ncells = (blockMesh? blockMesh->GetNumberOfCells() : 0);
        }
     else if(meshName == "ucdmesh")
        {
        vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
        cd = (uMesh? uMesh->GetCellData() : NULL);
-       ncells = uMesh->GetNumberOfCells();
+       ncells = (uMesh? uMesh->GetNumberOfCells() : 0);
        }
     if (cd != NULL)
       {
@@ -299,6 +318,142 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
         cd->SetScalars(fa);
         cd->SetActiveScalars("data");
         fa->FastDelete();
+        }
+      retVal = 0;
+      }
+    }
+  return retVal;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/, 
+  int &nLayers)
+{
+  DInternals& internals = (*this->Internals);
+  nLayers = internals.ghostLevels;
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+vtkDataArray *
+DataAdaptor::CreateGhostCellsArray(int cc) const
+{
+    // This sim is always 3D.
+    const DInternals& internals = (*this->Internals);
+    int imin = internals.CellExtents[cc].min[0];
+    int jmin = internals.CellExtents[cc].min[1];
+    int kmin = internals.CellExtents[cc].min[2];
+    int imax = internals.CellExtents[cc].max[0];
+    int jmax = internals.CellExtents[cc].max[1];
+    int kmax = internals.CellExtents[cc].max[2];
+    int nx = imax - imin + 1;
+    int ny = jmax - jmin + 1;
+    int nz = kmax - kmin + 1;
+    int nxny = nx*ny;
+    int ncells = nx * ny *nz;
+    int ng = internals.ghostLevels;
+
+#define GCTYPE unsigned char
+#define GCVTKARRAY vtkUnsignedCharArray
+    GCVTKARRAY *g = GCVTKARRAY::New();
+    g->SetNumberOfTuples(ncells);
+    memset(g->GetVoidPointer(0), 0, sizeof(GCTYPE) * ncells);
+    g->SetName("vtkGhostType");
+    GCTYPE *gptr = (GCTYPE *)g->GetVoidPointer(0);
+    GCTYPE ghost = 1;
+
+    if(imin > 0)
+    {
+        // Set the low I faces to ghosts.
+        for(int k = 0; k < nz; ++k)
+        for(int j = 0; j < ny; ++j)
+        for(int i = 0; i < ng; ++i)
+            gptr[k * nxny + j*nx + i] = ghost;
+    }
+    if(imax < internals.shape[0]-1)
+    {
+        // Set the high I faces to ghosts.
+        for(int k = 0; k < nz; ++k)
+        for(int j = 0; j < ny; ++j)
+        for(int i = nx-ng; i < nx; ++i)
+            gptr[k * nxny + j*nx + i] = ghost;
+    }
+    if(jmin > 0)
+    {
+        // Set the low J faces to ghosts.
+        for(int k = 0; k < nz; ++k)
+        for(int j = 0; j < ng; ++j)
+        for(int i = 0; i < nx; ++i)
+            gptr[k * nxny + j*nx + i] = ghost;
+    }
+    if(jmax < internals.shape[1]-1)
+    {
+        // Set the high J faces to ghosts.
+        for(int k = 0; k < nz; ++k)
+        for(int j = ny-ng; j < ny; ++j)
+        for(int i = 0; i < nx; ++i)
+            gptr[k * nxny + j*nx + i] = ghost;
+    }
+    if(kmin > 0)
+    {
+        // Set the low K faces to ghosts.
+        for(int k = 0; k < ng; ++k)
+        for(int j = 0; j < ny; ++j)
+        for(int i = 0; i < nx; ++i)
+            gptr[k * nxny + j*nx + i] = ghost;
+    }
+    if(kmax < internals.shape[2]-1)
+    {
+        // Set the high K faces to ghosts.
+        for(int k = nz-ng; k < nz; ++k)
+        for(int j = 0; j < ny; ++j)
+        for(int i = 0; i < nx; ++i)
+            gptr[k * nxny + j*nx + i] = ghost;
+    }
+
+    return g;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &meshName)
+{
+#ifndef NDEBUG
+  if (meshName != "mesh" && meshName != "ucdmesh")
+    {
+    SENSEI_ERROR("the miniapp provides meshes \"mesh\" and \"ucdmesh\".")
+    return 1;
+    }
+#else
+  (void)mesh;
+  (void)meshName;
+#endif
+  int retVal = 1;
+  DInternals& internals = (*this->Internals);
+  vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
+  for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
+    {
+    vtkCellData *cd = NULL;
+    if(meshName == "mesh")
+       {
+       vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
+       cd = (blockMesh? blockMesh->GetCellData() : NULL);
+       }
+    else if(meshName == "ucdmesh")
+       {
+       vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
+       cd = (uMesh? uMesh->GetCellData() : NULL);
+       }
+
+    // NOTE: we could end up with a NULL cd if we encounter an empty mesh slot
+    //       since the vtkMultiBlockDataSet is mostly empty.
+
+    if (cd != NULL)
+      {
+      if (cd->GetArray("vtkGhostType") == NULL)
+        {
+        vtkDataArray *g = CreateGhostCellsArray(cc);
+        cd->AddArray(g);
+        g->Delete();
         }
       retVal = 0;
       }
@@ -335,6 +490,7 @@ int DataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
 int DataAdaptor::GetNumberOfArrays(const std::string &meshName, int association,
     unsigned int &numberOfArrays)
 {
+  numberOfArrays = 0;
   if ((meshName == "mesh" || meshName == "ucdmesh") && (association == vtkDataObject::CELL))
     {
     numberOfArrays = 1;

@@ -4,6 +4,7 @@
 #include "Timer.h"
 #include "ADIOSSchema.h"
 #include "VTKUtils.h"
+#include "MeshMetadata.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
@@ -15,51 +16,46 @@
 
 #include <sstream>
 
-using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
-
-// associates an object and flag indicating if it is static
-// to a name
-using ObjectMapType = std::map<std::string, std::pair<vtkDataObjectPtr, int>>;
-
 
 
 namespace sensei
 {
+// associate the mesh name to a data object and mesh metadata
+using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
+using ObjectType = std::pair<vtkDataObjectPtr, MeshMetadata>;
+using ObjectMapType = std::map<std::string, ObjectType>;
+using ObjectMapIterType = ObjectMapType::iterator;
+
+// helpers to keep things legible accessing pairs of pairs
+static void setObject(ObjectType &ot, vtkDataObject *dobj){ ot.first.TakeReference(dobj); }
+static vtkDataObject *getObject(ObjectType &ot) { return ot.first.GetPointer(); }
+static vtkDataObjectPtr &getObjectPtr(ObjectType &ot) { return ot.first; }
+static MeshMetadata &getMetadata(ObjectType &ot){ return ot.second; }
+
+static const std::string &getObjectName(ObjectMapIterType &it) { return it->first; }
+static void setObject(ObjectMapIterType &it, vtkDataObject *dobj){ setObject(it->second, dobj); }
+static vtkDataObject *getObject(ObjectMapIterType &it) { return getObject(it->second); }
+static vtkDataObjectPtr &getObjectPtr(ObjectMapIterType &it) { return getObjectPtr(it->second); }
+static MeshMetadata &getMetadata(ObjectMapIterType &it){ return getMetadata(it->second); }
+
+static ObjectMapIterType find(ObjectMapType &objMap, const std::string &meshName)
+{
+  return objMap.find(meshName);
+}
+
+static bool good(ObjectMapType &objMap, const ObjectMapIterType &it)
+{
+  return objMap.end() != it;
+}
+
 
 struct ADIOSDataAdaptor::InternalsType
 {
   InternalsType() : Comm(MPI_COMM_WORLD), Stream() {}
 
-
-  ObjectMapType::iterator FindObject(const std::string &name)
-  {
-    return this->ObjectMap.find(name);
-  }
-
-  vtkDataObject *GetObject(ObjectMapType::iterator &it)
-  {
-    return it->second.first.GetPointer();
-  }
-
-  const vtkDataObject *GetObject(ObjectMapType::const_iterator &it)
-  {
-    return it->second.first.GetPointer();
-  }
-
-  int GetStatic(ObjectMapType::iterator &it)
-  {
-    return it->second.second;
-  }
-
-  int GetStatic(ObjectMapType::const_iterator &it)
-  {
-    return it->second.second;
-  }
-
   MPI_Comm Comm;
   senseiADIOS::InputStream Stream;
   senseiADIOS::DataObjectCollectionSchema Schema;
-  std::set<std::string> ObjectNames;
   ObjectMapType ObjectMap;
 };
 
@@ -82,7 +78,7 @@ ADIOSDataAdaptor::~ADIOSDataAdaptor()
 //----------------------------------------------------------------------------
 void ADIOSDataAdaptor::EnableDynamicMesh(const std::string &meshName, int val)
 {
-  this->Internals->ObjectMap[meshName].second = val;
+  getMetadata(this->Internals->ObjectMap[meshName]).StaticMesh = val;
 }
 
 //----------------------------------------------------------------------------
@@ -140,7 +136,6 @@ int ADIOSDataAdaptor::Close()
   timer::MarkEvent mark("ADIOSDataAdaptor::Close");
 
   this->Internals->ObjectMap.clear();
-  this->Internals->ObjectNames.clear();
   this->Internals->Stream.Close();
 
   return 0;
@@ -180,8 +175,6 @@ int ADIOSDataAdaptor::UpdateTimeStep()
   this->SetDataTime(time);
 
   // update the available meshes
-  this->Internals->ObjectNames.clear();
-
   std::vector<std::string> names;
   if (this->Internals->Schema.ReadObjectNames(this->Internals->Comm,
     this->Internals->Stream, names))
@@ -190,9 +183,14 @@ int ADIOSDataAdaptor::UpdateTimeStep()
     return -1;
     }
 
+  // try to add new object, if one exists nothing changes, preserving metadata
+  // this is necessary since static flag can be set before mesh names are read
   unsigned int nNames = names.size();
   for (unsigned int i = 0; i < nNames; ++i)
-    this->Internals->ObjectNames.insert(names[i]);
+    {
+    this->Internals->ObjectMap.insert(std::make_pair(names[i],
+      ObjectType(vtkDataObjectPtr(), MeshMetadata(names[i]))));
+    }
 
   return 0;
 }
@@ -200,7 +198,7 @@ int ADIOSDataAdaptor::UpdateTimeStep()
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
-  numMeshes = this->Internals->ObjectNames.size();
+  numMeshes = this->Internals->ObjectMap.size();
   return  0;
 }
 
@@ -209,121 +207,174 @@ int ADIOSDataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
 {
   meshName = "";
 
-  if (id >= this->Internals->ObjectNames.size())
+  if (id >= this->Internals->ObjectMap.size())
     {
     SENSEI_ERROR("Mesh name " << id << " out of bounds. "
-      << " only " << this->Internals->ObjectNames.size()
+      << " only " << this->Internals->ObjectMap.size()
       << " mesh names available")
     return -1;
     }
 
-  std::set<std::string>::iterator it = this->Internals->ObjectNames.begin();
+  ObjectMapIterType it = this->Internals->ObjectMap.begin();
 
   for (unsigned int i = 0; i < id; ++i)
     ++it;
 
-  meshName = *it;
+  meshName = getObjectName(it);
 
   return 0;
 }
 
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
-   bool structure_only, vtkDataObject *&mesh)
+   bool structureOnly, vtkDataObject *&mesh)
 {
   timer::MarkEvent mark("ADIOSDataAdaptor::GetMesh");
 
   mesh = nullptr;
-  int staticMesh = 1;
 
-  ObjectMapType::iterator it = this->Internals->FindObject(meshName);
-  if (it != this->Internals->ObjectMap.end())
+  ObjectMapIterType it = find(this->Internals->ObjectMap, meshName);
+  if (!good(this->Internals->ObjectMap, it))
     {
-    mesh = this->Internals->GetObject(it);
-    staticMesh = this->Internals->GetStatic(it);
-
-    // TODO -- handle structure_only changed
-    // static mesh and we have already read it
-    if (mesh && staticMesh)
-      return 0;
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+    return -1;
     }
 
-  // get the mesh at the current time step
+  // if we already read, and we have a static mesh, and requested structure matches
+  // what we have we can return cached mesh.
+  vtkDataObjectPtr &pmesh = getObjectPtr(it);
+  MeshMetadata &metadata = getMetadata(it);
+
+  if (pmesh && metadata.StaticMesh && (structureOnly == metadata.StructureOnly))
+    {
+    mesh = pmesh.GetPointer();
+    return 0;
+    }
+
+  // other wise we need to read the mesh at the current time step
   if (this->Internals->Schema.ReadObject(this->Internals->Comm,
-    this->Internals->Stream, meshName, mesh, structure_only))
+    this->Internals->Stream, meshName, mesh, structureOnly))
     {
     SENSEI_ERROR("Failed to read mesh \"" << meshName << "\"")
     return -1;
     }
 
-  // cache the mesh, TODO - record structure_only
-  vtkDataObjectPtr ptr;
-  ptr.TakeReference(mesh);
+  // cache the mesh
+  pmesh = mesh;
 
-  this->Internals->ObjectMap[meshName] = std::make_pair(ptr, staticMesh);
-
-/* TODO -- is caching array names worth complexity it will add??
-  // discover the available array names
-  // point data arrays
-  std::set<std::string> point_arrays;
-  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
-    this->Internals->Stream, mesh, vtkDataObject::POINT, point_arrays))
+  // get the ghost layer metadata
+  int nGhostCellLayers = 0;
+  int nGhostNodeLayers = 0;
+  if (VTKUtils::GetGhostLayerMetadata(mesh, nGhostCellLayers, nGhostNodeLayers))
     {
-    SENSEI_ERROR("Failed to read point associated array names")
+    SENSEI_ERROR("missing ghost layer meta data")
     return -1;
     }
-  this->Internals->ArrayNames[vtkDataObject::POINT].assign(
-    point_arrays.begin(), point_arrays.end());
 
+  // discover the available array names
   // cell data arrays
-  std::set<std::string> cell_arrays;
+  std::set<std::string> cellArrays;
+
   if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
-    this->Internals->Stream, mesh, vtkDataObject::CELL, cell_arrays))
+    this->Internals->Stream, meshName, mesh, vtkDataObject::CELL, cellArrays))
     {
     SENSEI_ERROR("Failed to read cell associated array names")
     return -1;
     }
-  this->Internals->ArrayNames[vtkDataObject::CELL].assign(
-    cell_arrays.begin(), cell_arrays.end());
-*/
+
+  // point data arrays
+  std::set<std::string> pointArrays;
+  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
+    this->Internals->Stream, meshName, mesh, vtkDataObject::POINT, pointArrays))
+    {
+    SENSEI_ERROR("Failed to read point associated array names")
+    return -1;
+    }
+
+  // update the metadata
+  metadata.MeshName = meshName;
+  metadata.StructureOnly = structureOnly;
+  metadata.NumberOfGhostCellLayers = nGhostCellLayers;
+  metadata.NumberOfGhostNodeLayers = nGhostNodeLayers;
+  metadata.SetArrayNames(vtkDataObject::CELL, cellArrays);
+  metadata.SetArrayNames(vtkDataObject::POINT, pointArrays);
 
   return 0;
 }
 
-/*
 //----------------------------------------------------------------------------
-std::string ADIOSDataAdaptor::GetAvailableArrays(const std::string &meshName,
-  int association)
+int ADIOSDataAdaptor::GetMeshHasGhostNodes(const std::string &meshName,
+    int &nGhostNodeLayers)
 {
-  // TODO -- handle meshName
-
-  // if the mesh has not been initialized then do so now
-  vtkDataObject *mesh = nullptr;
-  if (!this->Internals->Mesh && this->GetMesh(meshName, false, mesh))
-    return "";
-
-  std::ostringstream arrays;
-  unsigned int nArrays = 0;
-  if (!this->GetNumberOfArrays(meshName, association, nArrays))
+  // look in cache, at the very least mesh names should exist
+  ObjectMapIterType it = find(this->Internals->ObjectMap, meshName);
+  if (!good(this->Internals->ObjectMap, it))
     {
-    std::string arrayName;
-    this->GetArrayName(meshName, association, 0, arrayName);
-    arrays << "\"" << arrayName << "\"";
-    for (unsigned int i = 1; i < nArrays; ++i)
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+    return -1;
+    }
+
+  // check if mesh and hence metadata exisst
+  vtkDataObjectPtr &pmesh = getObjectPtr(it);
+  if (!pmesh)
+    {
+    // initialize mesh and metadata
+    vtkDataObject *dobj = nullptr;
+    if (this->GetMesh(meshName, 0, dobj))
       {
-      arrayName.clear();
-      this->GetArrayName(meshName, association, i, arrayName);
-      arrays << "\"" << arrayName << "\"";
+      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+      return -1;
       }
     }
-  else
+
+  MeshMetadata &metadata = getMetadata(it);
+  nGhostNodeLayers = metadata.NumberOfGhostNodeLayers;
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int ADIOSDataAdaptor::GetMeshHasGhostCells(const std::string &meshName,
+    int &nGhostCellLayers)
+{
+  // look in cache, at the very least mesh names should exist
+  ObjectMapIterType it = find(this->Internals->ObjectMap, meshName);
+  if (!good(this->Internals->ObjectMap, it))
     {
-    arrays << "{}";
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+    return -1;
     }
 
-  return arrays.str();
+  // check if mesh and hence metadata exist
+  vtkDataObjectPtr &pmesh = getObjectPtr(it);
+  if (!pmesh)
+    {
+    // initialize mesh and metadata
+    vtkDataObject *dobj = nullptr;
+    if (this->GetMesh(meshName, 0, dobj))
+      {
+      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+      return -1;
+      }
+    }
+
+  MeshMetadata &metadata = getMetadata(it);
+  nGhostCellLayers = metadata.NumberOfGhostCellLayers;
+
+  return 0;
 }
-*/
+
+//----------------------------------------------------------------------------
+int ADIOSDataAdaptor::AddGhostNodesArray(vtkDataObject *mesh, const std::string &meshName)
+{
+  return AddArray(mesh, meshName, vtkDataObject::POINT, "vtkGhostType");
+}
+
+//----------------------------------------------------------------------------
+int ADIOSDataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &meshName)
+{
+  return AddArray(mesh, meshName, vtkDataObject::CELL, "vtkGhostType");
+}
 
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::AddArray(vtkDataObject* mesh,
@@ -356,31 +407,35 @@ int ADIOSDataAdaptor::GetNumberOfArrays(const std::string &meshName,
 {
   numberOfArrays = 0;
 
-  vtkDataObject *mesh;
-  ObjectMapType::iterator it = this->Internals->FindObject(meshName);
-  if (it == this->Internals->ObjectMap.end())
+  // look in cache, at the very least mesh names should exist
+  ObjectMapIterType it = find(this->Internals->ObjectMap, meshName);
+  if (!good(this->Internals->ObjectMap, it))
     {
-    // this mesh has not been initialized do it now
-    if (this->GetMesh(meshName, false, mesh))
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+    return -1;
+    }
+
+  // check if mesh and hence metadata exist
+  vtkDataObjectPtr &pmesh = getObjectPtr(it);
+  if (!pmesh)
+    {
+    // initialize mesh and metadata
+    vtkDataObject *dobj = nullptr;
+    if (this->GetMesh(meshName, 0, dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
       return -1;
       }
     }
-  else
-    {
-    mesh = this->Internals->GetObject(it);
-    }
 
-  std::set<std::string> arrayNames;
-  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
-    this->Internals->Stream, meshName, mesh, association, arrayNames))
+  // check valid association
+  if ((association != vtkDataObject::POINT) && (association != vtkDataObject::CELL))
     {
-    SENSEI_ERROR("Failed to read array names on mesh \"" << meshName << "\"")
+    SENSEI_ERROR("Invalid association " << association)
     return -1;
     }
 
-  numberOfArrays = arrayNames.size();
+  numberOfArrays = getMetadata(it).GetArrayNames(association).size();
 
   return 0;
 }
@@ -389,31 +444,36 @@ int ADIOSDataAdaptor::GetNumberOfArrays(const std::string &meshName,
 int ADIOSDataAdaptor::GetArrayName(const std::string &meshName,
   int association, unsigned int index, std::string &arrayName)
 {
-  vtkDataObject *mesh;
-  ObjectMapType::iterator it = this->Internals->FindObject(meshName);
-  if (it == this->Internals->ObjectMap.end())
+  // look in cache, at the very least mesh names should exist
+  ObjectMapIterType it = find(this->Internals->ObjectMap, meshName);
+  if (!good(this->Internals->ObjectMap, it))
     {
-    // this mesh has not been initialized do it now
-    if (this->GetMesh(meshName, false, mesh))
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+    return -1;
+    }
+
+  // check if mesh and hence metadata exist
+  vtkDataObjectPtr &pmesh = getObjectPtr(it);
+  if (!pmesh)
+    {
+    // initialize mesh and metadata
+    vtkDataObject *dobj = nullptr;
+    if (this->GetMesh(meshName, 0, dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
       return -1;
       }
     }
-  else
-    {
-    mesh = this->Internals->GetObject(it);
-    }
 
-  std::set<std::string> arrayNames;
-  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
-    this->Internals->Stream, meshName, mesh, association, arrayNames))
+  MeshMetadata &metadata = getMetadata(it);
+
+  if ((association != vtkDataObject::POINT) && (association != vtkDataObject::CELL))
     {
-    SENSEI_ERROR("Failed to read array names on mesh \"" << meshName << "\"")
+    SENSEI_ERROR("Invalid association " << association)
     return -1;
     }
 
-  // bounds check
+  std::vector<std::string> &arrayNames = metadata.GetArrayNames(association);
   if (index >= arrayNames.size())
     {
     SENSEI_ERROR(<< VTKUtils::GetAttributesName(association)
@@ -422,11 +482,7 @@ int ADIOSDataAdaptor::GetArrayName(const std::string &meshName,
     return -1;
     }
 
-  std::set<std::string>::iterator nit = arrayNames.begin();
-  for (unsigned int i =0; i < index; ++i)
-    ++nit;
-
-  arrayName = *nit;
+  arrayName = arrayNames[index];
 
   return 0;
 }
@@ -441,10 +497,11 @@ int ADIOSDataAdaptor::ReleaseData()
   for (; it != end; ++it)
     {
     // keep the static meshes, release their data arrays
-    if (this->Internals->GetStatic(it))
-      this->ReleaseAttributeData(this->Internals->GetObject(it));
+    MeshMetadata &md = getMetadata(it);
+    if (md.StaticMesh)
+      this->ReleaseAttributeData(getObject(it));
     else
-      it->second.first = nullptr;
+      setObject(it, nullptr);
     }
 
   return 0;

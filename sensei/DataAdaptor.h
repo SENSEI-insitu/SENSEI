@@ -90,6 +90,36 @@ public:
   virtual int GetCompleteMesh(const std::string &meshName,
     bool structureOnly, vtkDataObject *&mesh);
 
+  /// @brief Returns whether a mesh has ghost nodes.
+  ///
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[out] nLayers  the number of layers of ghost nodes present or 0.
+  /// @returns zero if successful, non zero if an error occurred
+  virtual int GetMeshHasGhostNodes(const std::string &meshName, int &nLayers);
+
+  /// @brief Adds ghost nodes on the specified mesh. The array name must be set
+  ///        to "vtkGhostType".
+  ///
+  /// @param[in] mesh the VTK object returned from GetMesh
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @returns zero if successful, non zero if an error occurred
+  virtual int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName);
+
+  /// @brief Returns whether a mesh has ghost cells.
+  ///
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[out] nLayers  the number of layers of ghost cells present or 0.
+  /// @returns zero if successful, non zero if an error occurred
+  virtual int GetMeshHasGhostCells(const std::string &meshName, int &nLayers);
+
+  /// @brief Adds ghost cells on the specified mesh. The array name must be set
+  ///        to "vtkGhostType".
+  ///
+  /// @param[in] mesh the VTK object returned from GetMesh
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @returns zero if successful, non zero if an error occurred
+  virtual int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName);
+
   /// @brief Adds the specified field array to the mesh.
   ///
   /// This method will add the requested array to the mesh, if available. If the

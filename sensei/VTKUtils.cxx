@@ -16,6 +16,7 @@
 #include <vtkSmartPointer.h>
 #include <vtkInformation.h>
 #include <vtkInformationIntegerKey.h>
+#include <vtkIntArray.h>
 
 #include <functional>
 
@@ -251,6 +252,43 @@ int Apply(vtkDataObject *dobj, DatasetFunction &func)
     SENSEI_ERROR("Unsupoorted data object type " << dobj->GetClassName())
     return -1;
     }
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int GetGhostLayerMetadata(vtkDataObject *mesh,
+  int &nGhostCellLayers, int &nGhostNodeLayers)
+{
+  // get the ghost layer metadata
+  vtkFieldData *fd = mesh->GetFieldData();
+
+  vtkIntArray *glmd =
+    dynamic_cast<vtkIntArray*>(fd->GetArray("senseiGhostLayers"));
+
+  if (!glmd)
+    return -1;
+
+  nGhostCellLayers = glmd->GetValue(0);
+  nGhostNodeLayers = glmd->GetValue(1);
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int SetGhostLayerMetadata(vtkDataObject *mesh,
+  int nGhostCellLayers, int nGhostNodeLayers)
+{
+  // pass ghost layer metadata in field data.
+  vtkIntArray *glmd = vtkIntArray::New();
+  glmd->SetName("senseiGhostLayers");
+  glmd->SetNumberOfTuples(2);
+  glmd->SetValue(0, nGhostCellLayers);
+  glmd->SetValue(1, nGhostNodeLayers);
+
+  vtkFieldData *fd = mesh->GetFieldData();
+  fd->AddArray(glmd);
+  glmd->Delete();
+
   return 0;
 }
 

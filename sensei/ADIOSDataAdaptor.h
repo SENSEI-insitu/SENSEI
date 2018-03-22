@@ -74,6 +74,36 @@ public:
   int GetMesh(const std::string &meshName, bool structure_only,
     vtkDataObject *&mesh) override;
 
+  /// @brief Returns whether a mesh has ghost nodes.
+  ///
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[out] nLayers  the number of layers of ghost nodes present or 0.
+  /// @returns zero if successful, non zero if an error occurred
+  int GetMeshHasGhostNodes(const std::string &meshName, int &nLayers) override;
+
+  /// @brief Adds ghost nodes on the specified mesh. The array name must be set
+  ///        using the return value from GHOST_NODE_ARRAY_NAME().
+  ///
+  /// @param[in] mesh the VTK object returned from GetMesh
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @returns zero if successful, non zero if an error occurred
+  int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName) override;
+
+  /// @brief Returns whether a mesh has ghost cells.
+  ///
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[out] nLayers  the number of layers of ghost cells present or 0.
+  /// @returns zero if successful, non zero if an error occurred
+  int GetMeshHasGhostCells(const std::string &meshName, int &nLayers) override;
+
+  /// @brief Adds ghost cells on the specified mesh. The array name must be set
+  ///        using the return value from GHOST_CELL_ARRAY_NAME().
+  ///
+  /// @param[in] mesh the VTK object returned from GetMesh
+  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @returns zero if successful, non zero if an error occurred
+  int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
+
   /// @brief Adds the specified field array to the mesh.
   ///
   /// This method will add the requested array to the mesh, if available. If the
@@ -132,6 +162,11 @@ public:
 protected:
   ADIOSDataAdaptor();
   ~ADIOSDataAdaptor();
+
+   int GetObject(const std::string &meshName, vtkDataObject *&mesh);
+
+  int GetGhostLayers(const std::string &meshName,
+      int &nGhostCellLayers, int &nGhostNodeLayers);
 
 private:
   struct InternalsType;
