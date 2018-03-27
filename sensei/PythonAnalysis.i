@@ -1,20 +1,26 @@
-%define SENSEI_PY_DOC
-"SENSEI Python module
-"
+%define PYTHON_ANALYSIS_DOC
+"SENSEI PythonAnalysis. Provides a minimal sensei wrapping to
+code up analysis adaptors in a Python script."
 %enddef
-%module (docstring=SENSEI_PY_DOC) senseiPython
+%module (docstring=PYTHON_ANALYSIS_DOC) PythonAnalysis
 %feature("autodoc", "3");
 
 %{
 #define SWIG_FILE_WITH_INIT
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define PY_ARRAY_UNIQUE_SYMBOL  PyArray_API_SENSEI
+#define PY_ARRAY_UNIQUE_SYMBOL  PyArray_API_SENSEI_PYTHON_ANALYSIS
 #include <numpy/arrayobject.h>
 #include "senseiConfig.h"
-#include "senseiPyDataAdaptor.h"
-#include "LibsimImageProperties.h"
-#include "DataRequirements.h"
 #include "VTKUtils.h"
+#include "DataRequirements.h"
+#include "DataAdaptor.h"
+#include "Error.h"
+#include <mpi.h>
+
+/* PythonAnalysis sources included directly as they
+   need direct access to the SWIG run time and type table */
+#include "PythonAnalysis.h"
+#include "PythonAnalysis.cxx"
 %}
 
 %init %{
@@ -30,7 +36,6 @@ import_array();
 %template(map_int_vector_string) std::map<int, std::vector<std::string>>;
 %include <mpi4py/mpi4py.i>
 %include "vtk.i"
-%include "senseiTypeMaps.i"
 %include "senseiDataAdaptor.i"
 
 %mpi4py_typemap(Comm, MPI_Comm);
@@ -181,152 +186,3 @@ VTK_SWIG_INTEROP(vtkInformation)
   }
 }
 SENSEI_DATA_ADAPTOR(DataAdaptor)
-
-/****************************************************************************
- * AnalysisAdaptor
- ***************************************************************************/
-VTK_DERIVED(AnalysisAdaptor)
-
-/****************************************************************************
- * VTKDataAdaptor
- ***************************************************************************/
-SENSEI_DATA_ADAPTOR(VTKDataAdaptor)
-
-/****************************************************************************
- * ProgrammableDataAdaptor
- ***************************************************************************/
-%extend sensei::ProgrammableDataAdaptor
-{
-  /* replace the callback setter's. we'll use objects
-     that forward to/from a Python callable as there
-     is no direct mapping from Python to C/C++ */
-  void SetGetNumberOfMeshesCallback(PyObject *f)
-  {
-    self->SetGetNumberOfMeshesCallback(
-      senseiPyDataAdaptor::PyGetNumberOfMeshesCallback(f));
-  }
-
-  void SetGetMeshNameCallback(PyObject *f)
-  {
-    self->SetGetMeshNameCallback(
-      senseiPyDataAdaptor::PyGetMeshNameCallback(f));
-  }
-
-  void SetGetMeshCallback(PyObject *f)
-  {
-    self->SetGetMeshCallback(
-      senseiPyDataAdaptor::PyGetMeshCallback(f));
-  }
-
-  void SetAddArrayCallback(PyObject *f)
-  {
-    self->SetAddArrayCallback(
-      senseiPyDataAdaptor::PyAddArrayCallback(f));
-  }
-
-  void SetGetNumberOfArraysCallback(PyObject *f)
-  {
-    self->SetGetNumberOfArraysCallback(
-      senseiPyDataAdaptor::PyGetNumberOfArraysCallback(f));
-  }
-
-  void SetGetArrayNameCallback(PyObject *f)
-  {
-    self->SetGetArrayNameCallback(
-      senseiPyDataAdaptor::PyGetArrayNameCallback(f));
-  }
-
-  void SetReleaseDataCallback(PyObject *f)
-  {
-    self->SetReleaseDataCallback(
-      senseiPyDataAdaptor::PyReleaseDataCallback(f));
-  }
-}
-%ignore sensei::ProgrammableDataAdaptor::SetGetNumberOfMeshesCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetMeshNameCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetMeshCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetAddArrayCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetNumberOfArraysCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetArrayNameCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetReleaseDataCallback;
-SENSEI_DATA_ADAPTOR(ProgrammableDataAdaptor)
-
-/****************************************************************************
- * ConfigurableAnalysis
- ***************************************************************************/
-VTK_DERIVED(ConfigurableAnalysis)
-
-/****************************************************************************
- * Histogram
- ***************************************************************************/
-%extend sensei::Histogram
-{
-  /* hide the C++ implementation, as Python doesn't pass by referemce
-     and instead return a tuple (min, max, bins) or raise an exception
-     if an error occurred */
-  PyObject *GetHistogram()
-  {
-    // invoke the C++ method
-    double hmin = 0.0;
-    double hmax = 0.0;
-    std::vector<unsigned int> hist;
-    if (self->GetHistogram(hmin, hmax, hist))
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to get the histogram");
-      return nullptr;
-      }
-
-    // pass the result back in a tuple
-    PyObject *retTup = PyTuple_New(3);
-    PyTuple_SetItem(retTup, 0, senseiPyObject::PyTT<double>::NewObject(hmin));
-    PyTuple_SetItem(retTup, 1, senseiPyObject::PyTT<double>::NewObject(hmax));
-    PyTuple_SetItem(retTup, 2, senseiPySequence::NewList<unsigned int>(hist));
-
-    return retTup;
-  }
-}
-%ignore sensei::Histogram::GetHistogram;
-VTK_DERIVED(Histogram)
-
-/****************************************************************************
- * Autocorrelation
- ***************************************************************************/
-VTK_DERIVED(Autocorrelation)
-
-/****************************************************************************
- * CatalystAnalysisAdaptor
- ***************************************************************************/
-#ifdef ENABLE_CATALYST
-VTK_DERIVED(CatalystAnalysisAdaptor)
-#endif
-
-/****************************************************************************
- * LibsimAnalysisAdaptor
- ***************************************************************************/
-#ifdef ENABLE_LIBSIM
-VTK_DERIVED(LibsimAnalysisAdaptor)
-%include "LibsimImageProperties.h"
-#endif
-
-/****************************************************************************
- * ADIOSAnalysisAdaptor/DataAdaptor
- ***************************************************************************/
-#ifdef ENABLE_ADIOS
-VTK_DERIVED(ADIOSAnalysisAdaptor)
-SENSEI_DATA_ADAPTOR(ADIOSDataAdaptor)
-#endif
-
-/****************************************************************************
- * VTKPosthocIO
- ***************************************************************************/
-#ifdef ENABLE_VTK_IO
-VTK_DERIVED(VTKPosthocIO)
-#endif
-
-/****************************************************************************
- * VTKAmrWriter
- ***************************************************************************/
-#ifdef ENABLE_VTK_IO
-VTK_DERIVED(VTKAmrWriter)
-#endif

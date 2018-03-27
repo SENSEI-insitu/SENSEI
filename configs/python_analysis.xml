@@ -1,0 +1,10 @@
+<sensei>
+  <analysis type="python" script_file="Histogram.py" enabled="1">
+    <initialize_source>
+numBins=10
+meshName='mesh'
+arrayName='values'
+arrayCen=1
+     </initialize_source>
+  </analysis>
+</sensei>

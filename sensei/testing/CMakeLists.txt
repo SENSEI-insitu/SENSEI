@@ -32,4 +32,14 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
     FEATURES ${ENABLE_PYTHON})
 
+  senseiAddTest(testPythonAnalysis
+    COMMAND testPythonAnalysis
+    ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+    EXEC_NAME testPythonAnalysis SOURCES testPythonAnalysis.cpp
+    LIBS sensei)
+
+  senseiAddTest(testPythonAnalysisParallel
+    COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
+      ${MPIEXEC_MAX_NUMPROCS} testPythonAnalysis
+      ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml)
 endif()
