@@ -1693,7 +1693,7 @@ int CellsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
       vtkIdType *p_cells = cells->GetPointer(0);
       p_locs[0] = 0;
       for (unsigned long i = 1; i < number_of_cells; ++i)
-        p_locs[i] = p_locs[i-1] + p_cells[p_locs[i-1]];
+        p_locs[i] = p_locs[i-1] + p_cells[p_locs[i-1]] + 1;
 
       // pass types, locs, and cells
       vtkCellArray *ca = vtkCellArray::New();
