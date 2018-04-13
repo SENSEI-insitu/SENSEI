@@ -29,6 +29,8 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
+  int Finalize() override;
+
   // return the last computed histogram
   int GetHistogram(double &min, double &max,
     std::vector<unsigned int> &bins);

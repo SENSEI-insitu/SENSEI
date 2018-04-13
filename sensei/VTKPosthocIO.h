@@ -32,7 +32,10 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
-  bool Finalize();
+  // SENSEI API
+  int Initialize();
+  bool Execute(DataAdaptor* data) override;
+  int Finalize() override;
 
 protected:
   VTKPosthocIO();

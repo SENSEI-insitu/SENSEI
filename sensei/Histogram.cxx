@@ -183,4 +183,12 @@ int Histogram::GetHistogram(double &min, double &max,
   return this->Internals->GetHistogram(this->Communicator, min, max, bins);
 }
 
+//-----------------------------------------------------------------------------
+int Histogram::Finalize()
+{
+  delete this->Internals;
+  this->Internals = nullptr;
+  return 0;
+}
+
 }

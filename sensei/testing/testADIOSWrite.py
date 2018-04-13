@@ -125,7 +125,7 @@ def write_data(file_name, method, n_its):
     da = None
     i += 1
   # force free up the adaptor
-  aw = None
+  aw.Finalize()
   status_message('finished writing %d steps'%(n_its))
   # set the return value
   return 0

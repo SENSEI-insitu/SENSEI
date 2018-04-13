@@ -25,7 +25,7 @@
 namespace sensei
 {
 
-static size_t vtkCPAdaptorAPIInitializationCounter = 0;
+static int vtkCPAdaptorAPIInitializationCounter = 0;
 
 //-----------------------------------------------------------------------------
 senseiNewMacro(CatalystAnalysisAdaptor);
@@ -33,23 +33,24 @@ senseiNewMacro(CatalystAnalysisAdaptor);
 //-----------------------------------------------------------------------------
 CatalystAnalysisAdaptor::CatalystAnalysisAdaptor()
 {
-  if (vtkCPAdaptorAPIInitializationCounter == 0)
-    {
-    timer::MarkEvent mark("catalyst::initialize");
-    vtkCPAdaptorAPI::CoProcessorInitialize();
-    }
-  vtkCPAdaptorAPIInitializationCounter++;
+  this->Initialize();
 }
 
 //-----------------------------------------------------------------------------
 CatalystAnalysisAdaptor::~CatalystAnalysisAdaptor()
 {
-  vtkCPAdaptorAPIInitializationCounter--;
+  this->Finalize();
+}
+
+//-----------------------------------------------------------------------------
+void CatalystAnalysisAdaptor::Initialize()
+{
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
-    timer::MarkEvent mark("catalyst::finalize");
-    vtkCPAdaptorAPI::CoProcessorFinalize();
+    timer::MarkEvent mark("CatalystAnalysisAdaptor::Initialize");
+    vtkCPAdaptorAPI::CoProcessorInitialize();
     }
+  vtkCPAdaptorAPIInitializationCounter++;
 }
 
 //-----------------------------------------------------------------------------
@@ -170,6 +171,18 @@ bool CatalystAnalysisAdaptor::FillDataDescriptionWithData(
     }
 
   return true;
+}
+
+//-----------------------------------------------------------------------------
+int CatalystAnalysisAdaptor::Finalize()
+{
+  vtkCPAdaptorAPIInitializationCounter--;
+  if (vtkCPAdaptorAPIInitializationCounter == 0)
+    {
+    timer::MarkEvent mark("CatalystAnalysisAdaptor::Finalize");
+    vtkCPAdaptorAPI::CoProcessorFinalize();
+    }
+  return 0;
 }
 
 //-----------------------------------------------------------------------------

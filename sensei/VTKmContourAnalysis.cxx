@@ -461,4 +461,10 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
   return true;
 }
 
-} // end of namespace sensei
+//-----------------------------------------------------------------------------
+int VTKmContourAnalysis::Finalize()
+{
+  return 0;
+}
+
+}

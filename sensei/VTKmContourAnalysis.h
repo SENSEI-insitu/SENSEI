@@ -19,9 +19,12 @@ public:
   static VTKmContourAnalysis* New();
   vtkTypeMacro(VTKmContourAnalysis, AnalysisAdaptor);
 
-  void Initialize(MPI_Comm comm, const std::string& arrayname, double value, bool writeOutput);
+  void Initialize(MPI_Comm comm, const std::string& arrayname,
+    double value, bool writeOutput);
 
-  virtual bool Execute(sensei::DataAdaptor* data) override;
+  bool Execute(sensei::DataAdaptor* data) override;
+
+  int Finalize() override;
 
 protected:
   VTKmContourAnalysis();

@@ -50,6 +50,8 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
+  int Finalize() override;
+
 protected:
   ADIOSAnalysisAdaptor();
   ~ADIOSAnalysisAdaptor();

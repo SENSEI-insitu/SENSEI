@@ -120,6 +120,7 @@ int main(int argc, char **argv)
 
   // close the ADIOS stream
   dataAdaptor->Close();
+  analysisAdaptor->Finalize();
 
   // we must force these to be destroyed before mpi finalize
   // some of the adaptors make MPI calls in the destructor

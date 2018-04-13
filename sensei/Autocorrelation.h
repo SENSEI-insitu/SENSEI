@@ -35,6 +35,9 @@ public:
     std::string& arrayname, size_t k_max);
 
   bool Execute(DataAdaptor* data) override;
+
+  int Finalize() override;
+
 protected:
   Autocorrelation();
   ~Autocorrelation();

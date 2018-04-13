@@ -47,10 +47,6 @@ ADIOSAnalysisAdaptor::ADIOSAnalysisAdaptor() : Comm(MPI_COMM_WORLD),
 //----------------------------------------------------------------------------
 ADIOSAnalysisAdaptor::~ADIOSAnalysisAdaptor()
 {
-  if (this->Schema)
-    this->FinalizeADIOS();
-
-  delete Schema;
 }
 
 //----------------------------------------------------------------------------
@@ -101,10 +97,22 @@ void ADIOSAnalysisAdaptor::InitializeADIOS(vtkDataObject *dobj)
 //----------------------------------------------------------------------------
 void ADIOSAnalysisAdaptor::FinalizeADIOS()
 {
-  timer::MarkEvent mark("ADIOSAnalysisAdaptor::FinalizeADIOS");
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   adios_finalize(rank);
+}
+
+//----------------------------------------------------------------------------
+int ADIOSAnalysisAdaptor::Finalize()
+{
+  timer::MarkEvent mark("ADIOSAnalysisAdaptor::Finalize");
+
+  if (this->Schema)
+    this->FinalizeADIOS();
+
+  delete Schema;
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------

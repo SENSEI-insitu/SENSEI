@@ -30,9 +30,13 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
+  int Finalize() override;
+
 protected:
   CatalystAnalysisAdaptor();
   ~CatalystAnalysisAdaptor();
+
+  void Initialize();
 
   /// @brief Fill \c desc with meta data from \c DataAdaptor.
   ///

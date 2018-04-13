@@ -32,6 +32,8 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
+  int Finalize() override;
+
   // Simple method to add some VisIt plots and render. The limit is how complex
   // we want to make this.
   bool AddRender(int frequency, const std::string &plots,

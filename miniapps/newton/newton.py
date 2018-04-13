@@ -320,6 +320,7 @@ class analysis_adaptor:
         elif analysis == 'posthoc':
             if check_arg(args,'file','newton') and check_arg(args,'dir','./') \
                 and check_arg(args,'mode','0') and check_arg(args,'freq','1'):
+                # TODO -- mesh name API updates
                 self.AnalysisAdaptor = sensei.VTKPosthocIO.New()
                 self.AnalysisAdaptor.Initialize(comm, args['dir'],args['file'],\
                     [], ['ids','fx','fy','fz','f','vx','vy','vz','v','m'], \
@@ -335,8 +336,7 @@ class analysis_adaptor:
             sys.exit(-1)
 
     def finalize(self):
-        if self.Analysis == 'posthoc':
-            self.AnalysisAdaptor.Finalize()
+        self.AnalysisAdaptor.Finalize()
 
     def update(self, i,t,ids,x,y,z,m,vx,vy,vz,fx,fy,fz):
 
@@ -349,6 +349,7 @@ class analysis_adaptor:
         mb.SetNumberOfBlocks(n_ranks)
         mb.SetBlock(rank, node)
 
+        # TODO -- mesh name API updates
         self.DataAdaptor.SetDataTime(t)
         self.DataAdaptor.SetDataTimeStep(i)
         self.DataAdaptor.SetDataObject(mb)

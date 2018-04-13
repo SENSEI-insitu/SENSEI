@@ -1160,6 +1160,14 @@ bool LibsimAnalysisAdaptor::Execute(DataAdaptor* DataAdaptor)
 }
 
 //-----------------------------------------------------------------------------
+int LibsimAnalysisAdaptor::Finalize()
+{
+  delete this->internals;
+  this->internals = nullptr;
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
 void LibsimAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
     this->Superclass::PrintSelf(os, indent);

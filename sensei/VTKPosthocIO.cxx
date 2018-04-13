@@ -185,13 +185,13 @@ bool VTKPosthocIO::Execute(DataAdaptor* data)
 }
 
 //-----------------------------------------------------------------------------
-bool VTKPosthocIO::Finalize()
+int VTKPosthocIO::Finalize()
 {
   int rank = 0;
   MPI_Comm_rank(this->Comm, &rank);
 
   if (rank != 0)
-    return true;
+    return 0;
 
   int nRanks = 1;
   MPI_Comm_size(this->Comm, &nRanks);
@@ -208,7 +208,7 @@ bool VTKPosthocIO::Finalize()
     if (!pvdFile)
       {
       SENSEI_ERROR("Failed to open " << pvdFileName << " for writing")
-      return false;
+      return -1;
       }
 
     pvdFile << "<?xml version=\"1.0\"?>" << endl
@@ -271,7 +271,7 @@ bool VTKPosthocIO::Finalize()
   }
 
   SENSEI_ERROR("Invalid mode \"" << this->Mode << "\"")
-  return false;
+  return -1;
 }
 
 }

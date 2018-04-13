@@ -207,7 +207,6 @@ Autocorrelation::Autocorrelation()
 //-----------------------------------------------------------------------------
 Autocorrelation::~Autocorrelation()
 {
-  this->PrintResults(this->Internals->KMax);
   delete this->Internals;
 }
 
@@ -395,6 +394,15 @@ void Autocorrelation::PrintResults(size_t k_max)
                         }
                     }
                 });
+}
+
+//-----------------------------------------------------------------------------
+int Autocorrelation::Finalize()
+{
+  this->PrintResults(this->Internals->KMax);
+  delete this->Internals;
+  this->Internals = nullptr;
+  return 0;
 }
 
 }

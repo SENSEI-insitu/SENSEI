@@ -2,12 +2,6 @@
 #include "senseiConfig.h"
 #include "Error.h"
 
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
-#include <vtkDataObject.h>
-
-#include "senseiConfig.h"
 #include "Autocorrelation.h"
 #include "PosthocIO.h"
 #include "Histogram.h"
@@ -26,11 +20,19 @@
 #include "LibsimImageProperties.h"
 #endif
 
+#include <vtkObjectFactory.h>
+#include <vtkSmartPointer.h>
+#include <vtkNew.h>
+#include <vtkDataObject.h>
+
 #include <vector>
 #include <pugixml.hpp>
 #include <sstream>
 #include <cstdio>
 #include <errno.h>
+
+using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
+using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 
 namespace sensei
 {
@@ -125,6 +127,7 @@ private:
 
 public:
   std::vector<vtkSmartPointer<AnalysisAdaptor>> Analyses;
+  AnalysisAdaptorVector Analyses;
 #ifdef ENABLE_LIBSIM
   vtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
 #endif
@@ -571,15 +574,29 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
-  for (std::vector<vtkSmartPointer<AnalysisAdaptor> >::iterator iter
-    = this->Internals->Analyses.begin();
-    iter != this->Internals->Analyses.end(); ++iter)
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
     {
-    iter->GetPointer()->Execute(data);
+    // TODO -- should we be checking the return value here?
+    // what happens when an analysis errors out? do we keep trying
+    // to execute it?
+    (*iter)->Execute(data);
     }
   return true;
 }
 
+//----------------------------------------------------------------------------
+int ConfigurableAnalysis::Finalize()
+{
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    {
+    (*iter)->Finalize();
+    }
+  return true;
+}
 //----------------------------------------------------------------------------
 void ConfigurableAnalysis::PrintSelf(ostream& os, vtkIndent indent)
 {

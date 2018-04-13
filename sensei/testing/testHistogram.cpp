@@ -137,6 +137,8 @@ int main(int argc, char **argv)
 
   int testResult = validateHistogram(min, max, bins);
 
+  analysisAdaptor->Finalize();
+
   MPI_Finalize();
 
   return testResult;
