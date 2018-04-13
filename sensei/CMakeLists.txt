@@ -1,9 +1,10 @@
 if (ENABLE_SENSEI)
   message(STATUS "Enabled: sensei library")
 
-  set(sensei_sources Error.cxx AnalysisAdaptor.cxx Autocorrelation.cxx
-    ConfigurableAnalysis.cxx DataAdaptor.cxx ProgrammableDataAdaptor.cxx
-    PosthocIO.cxx Histogram.cxx VTKHistogram.cxx VTKDataAdaptor.cxx)
+  set(sensei_sources AnalysisAdaptor.cxx Autocorrelation.cxx
+    ConfigurableAnalysis.cxx DataAdaptor.cxx DataRequirements.cxx
+    Histogram.cxx Error.cxx ProgrammableDataAdaptor.cxx VTKHistogram.cxx
+    VTKDataAdaptor.cxx)
 
   set(sensei_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 

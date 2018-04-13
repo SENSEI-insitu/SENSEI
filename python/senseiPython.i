@@ -13,6 +13,7 @@
 #include "senseiConfig.h"
 #include "senseiPyDataAdaptor.h"
 #include "LibsimImageProperties.h"
+#include "DataRequirements.h"
 %}
 
 %init %{
@@ -24,8 +25,8 @@ import_array();
 %include <std_vector.i>
 %template(vector_string) std::vector<std::string>;
 %include <mpi4py/mpi4py.i>
-%include <vtk.i>
-%include <senseiTypeMaps.i>
+%include "vtk.i"
+%include "senseiTypeMaps.i"
 
 %mpi4py_typemap(Comm, MPI_Comm);
 
@@ -37,6 +38,47 @@ import_array();
 VTK_SWIG_INTEROP(vtkObjectBase)
 VTK_SWIG_INTEROP(vtkDataObject)
 VTK_SWIG_INTEROP(vtkInformation)
+
+/****************************************************************************
+ * DataRequirements
+ ***************************************************************************/
+%ignore sensei::MeshRequirementsIterator::operator++;
+%ignore sensei::MeshRequirementsIterator::operator bool() const;
+%extend sensei::MeshRequirementsIterator
+{
+  // ------------------------------------------------------------------------
+  int __bool__()
+  {
+    return static_cast<bool>(*self);
+  }
+
+  // ------------------------------------------------------------------------
+  sensei::MeshRequirementsIterator &__iadd__(int n)
+  {
+    for (int i = 0; (i < n) && *self; ++i)
+      self->operator++();
+    return *self;
+  }
+}
+%ignore sensei::ArrayRequirementsIterator::operator++;
+%ignore sensei::ArrayRequirementsIterator::operator bool() const;
+%extend sensei::ArrayRequirementsIterator
+{
+  // ------------------------------------------------------------------------
+  int __bool__()
+  {
+    return static_cast<bool>(*self);
+  }
+
+  // ------------------------------------------------------------------------
+  sensei::ArrayRequirementsIterator &__iadd__(int n)
+  {
+    for (int i = 0; i < n; ++i)
+      self->operator++();
+    return *self;
+  }
+}
+%include "DataRequirements.h"
 
 /****************************************************************************
  * DataAdaptor
