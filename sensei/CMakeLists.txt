@@ -4,7 +4,7 @@ if (ENABLE_SENSEI)
   set(sensei_sources AnalysisAdaptor.cxx Autocorrelation.cxx
     ConfigurableAnalysis.cxx DataAdaptor.cxx DataRequirements.cxx
     Histogram.cxx Error.cxx ProgrammableDataAdaptor.cxx VTKHistogram.cxx
-    VTKDataAdaptor.cxx)
+    VTKDataAdaptor.cxx VTKUtils.cxx)
 
   set(sensei_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
