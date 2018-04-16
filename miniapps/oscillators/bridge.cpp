@@ -23,12 +23,13 @@ void initialize(MPI_Comm world,
                 int* gid,
                 int* from_x, int* from_y, int* from_z,
                 int* to_x,   int* to_y,   int* to_z,
+                int* shape, int ghostLevels,
                 const std::string& config_file)
 {
   (void)window;
   timer::MarkEvent mark("oscillators::bridge::initialize");
   GlobalDataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
-  GlobalDataAdaptor->Initialize(nblocks);
+  GlobalDataAdaptor->Initialize(nblocks, shape, ghostLevels);
   GlobalDataAdaptor->SetDataTimeStep(-1);
 
   for (size_t cc=0; cc < n_local_blocks; ++cc)
@@ -73,8 +74,12 @@ void finalize(size_t k_max, size_t nblocks)
   (void)k_max;
   (void)nblocks;
   timer::MarkStartEvent("oscillators::bridge::finalize");
+
+  GlobalAnalysisAdaptor->Finalize();
+
   GlobalAnalysisAdaptor = NULL;
   GlobalDataAdaptor = NULL;
+
   timer::MarkEndEvent("oscillators::bridge::finalize");
 }
 

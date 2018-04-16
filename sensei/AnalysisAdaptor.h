@@ -27,6 +27,17 @@ public:
   /// iteration.
   virtual bool Execute(DataAdaptor* data) = 0;
 
+  /// @breif Finalize the analyis routine
+  ///
+  /// This method is called when the run is finsihed clean up
+  /// and shut down should occur here rather than in the destructor
+  /// as MPI may not be available at desctruction time for instance
+  /// when smart pointers are used MPI is finalized before the
+  /// pointer goes out of scope and is destroyed.
+  ///
+  /// @returns zero if successful
+  virtual int Finalize() = 0;
+
 protected:
   AnalysisAdaptor();
   ~AnalysisAdaptor();

@@ -99,12 +99,20 @@ def write_data(file_name, method, n_its):
   aw = ADIOSAnalysisAdaptor.New()
   aw.SetFileName(file_name)
   aw.SetMethod(method)
-  # create the dataset
-  # each rank contributes a x-z plane
-  mbim = vtk.vtkMultiBlockDataSet()
-  mbim.SetNumberOfBlocks(2*n_ranks)
-  mbim.SetBlock(2*rank, get_image(rank,rank,0,16,0,1))
-  mbim.SetBlock(2*rank+1, get_polydata(16))
+
+  # create the datasets
+  # the first mesh is an image
+  im = vtk.vtkMultiBlockDataSet()
+  im.SetNumberOfBlocks(n_ranks)
+  im.SetBlock(rank, get_image(rank,rank,0,16,0,1))
+  # the second mesh is unstructured
+  ug = vtk.vtkMultiBlockDataSet()
+  ug.SetNumberOfBlocks(n_ranks)
+  ug.SetBlock(rank, get_polydata(16))
+  # associate a name with each mesh
+  meshes = {'image':im, 'unstructured':ug}
+
+  # loop over time steps
   i = 0
   while i < n_its:
     t = float(i)
@@ -112,20 +120,27 @@ def write_data(file_name, method, n_its):
     # pass into the data adaptor
     status_message('initializing the VTKDataAdaptor ' \
       'step %d time %0.1f'%(it,t))
+
     da = VTKDataAdaptor.New()
     da.SetDataTime(t)
     da.SetDataTimeStep(it)
-    da.SetDataObject(mbim)
+
+    for meshName,mesh in meshes.iteritems():
+      da.SetDataObject(meshName, mesh)
+
     # execute the analysis adaptor
     status_message('executing ADIOSAnalysisAdaptor %s ' \
       'step %d time %0.1f'%(method,it,t))
+
     aw.Execute(da)
+
     # free up data
     da.ReleaseData()
     da = None
     i += 1
+
   # force free up the adaptor
-  aw = None
+  aw.Finalize()
   status_message('finished writing %d steps'%(n_its))
   # set the return value
   return 0

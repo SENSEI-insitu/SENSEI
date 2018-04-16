@@ -18,35 +18,39 @@ data = np.array([0, 1,1, 2,2,2,2, \
   5,5,5, 6], dtype=np.float64)
 
 # get mesh callback
-def getMesh(structure_only):
+def getMesh(meshName, structureOnly):
   sys.stderr.write('===getMesh\n')
-  im = vtk.vtkImageData()
-  im.SetDimensions(len(data), 1, 1)
-  return im
+  if (meshName == 'image'):
+    im = vtk.vtkImageData()
+    im.SetDimensions(len(data), 1, 1)
+    return im
+  raise RuntimeError('failed to get mesh')
 
 # add array callback
-def addArray(mesh, assoc, name):
+def addArray(mesh, meshName, assoc, arrayName):
   sys.stderr.write('===addArray\n')
-  if ((assoc == vtk.vtkDataObject.POINT) and (name == 'data')):
+  if ((meshName == 'image') and (assoc == vtk.vtkDataObject.POINT) \
+    and (arrayName == 'data')):
     da = vtknp.numpy_to_vtk(data)
     da.SetName('data')
     mesh.GetPointData().AddArray(da)
-    return True
-  return False
+    return
+  raise RuntimeError('failed to add array')
 
 # number of arrays callback
-def getNumArrays(assoc):
+def getNumArrays(meshName, assoc):
   sys.stderr.write('===getNumArrays\n')
-  if (assoc == vtk.vtkDataObject.POINT):
+  if (meshName == 'image') and (assoc == vtk.vtkDataObject.POINT):
     return 1
-  return 0
+  raise RuntimeError('failed to get the number of arrays')
 
 # array name callback
-def getArrayName(assoc, aid):
+def getArrayName(meshName, assoc, aid):
   sys.stderr.write('===getArrayName\n')
-  if ((assoc == vtk.vtkDataObject.POINT) and (aid == 0)):
+  if ((meshName == 'image') and (assoc == vtk.vtkDataObject.POINT) \
+    and (aid == 0)):
     return 'data'
-  return ''
+  raise RuntimeError('failed to get array name')
 
 # release data callback
 def releaseData():
@@ -61,12 +65,12 @@ pda.SetGetArrayNameCallback(getArrayName)
 pda.SetReleaseDataCallback(releaseData)
 
 result = -1
-if pda.GetNumberOfArrays(vtk.vtkDataObject.POINT) > 0:
+if pda.GetNumberOfArrays("image", vtk.vtkDataObject.POINT) > 0:
 
   ha = sensei.Histogram.New()
 
-  ha.Initialize(MPI.COMM_WORLD, 7, vtk.vtkDataObject.POINT,
-    pda.GetArrayName(vtk.vtkDataObject.POINT,0))
+  ha.Initialize(MPI.COMM_WORLD, 7, 'image', vtk.vtkDataObject.POINT,
+    pda.GetArrayName('image', vtk.vtkDataObject.POINT, 0))
 
   ha.Execute(pda)
 

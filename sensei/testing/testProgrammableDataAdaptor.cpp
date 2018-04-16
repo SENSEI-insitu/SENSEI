@@ -31,21 +31,47 @@ int main(int argc, char **argv)
   std::vector<double> data = {0, 1,1, 2,2,2,2,
     3,3,3,3,3,3, 4,4,4,4,4, 5,5,5, 6};
 
+  // get number of meshes callback
+  auto getNumberOfMeshes = [](unsigned int &n) -> int
+    {
+    cerr << "===getNumberOfMeshes" << endl;
+    n = 1;
+    return 0;
+    };
+
+  // get mesh name callback
+  auto getMeshName = [](unsigned int id, std::string &meshName) -> int
+    {
+    cerr << "===getMeshName" << endl;
+    if (id == 0)
+      {
+      meshName = "image";
+      return 0;
+      }
+    return -1;
+    };
+
   // get mesh callback
-  auto getMesh = [&data](bool) -> vtkDataObject*
+  auto getMesh = [&data](const std::string &meshName,
+    bool, vtkDataObject *&mesh) -> int
     {
     cerr << "===getMesh" << endl;
-    vtkImageData *im = vtkImageData::New();
-    im->SetDimensions(data.size(), 1, 1);
-    return im;
+    if (meshName == "image")
+      {
+      vtkImageData *im = vtkImageData::New();
+      im->SetDimensions(data.size(), 1, 1);
+      mesh = im;
+      return 0;
+      }
+    return -1;
     };
 
   // add array callback
-  auto addArray = [&data](vtkDataObject *mesh, int assoc,
-    const std::string &name) -> bool
+  auto addArray = [&data](vtkDataObject *mesh,
+    const std::string &meshName, int assoc, const std::string &name) -> int
     {
     cerr << "===addArray" << endl;
-    if ((assoc == vtkDataObject::POINT) && (name == "data"))
+    if ((meshName == "image") && (assoc == vtkDataObject::POINT) && (name == "data"))
       {
       vtkDoubleArray *da = vtkDoubleArray::New();
       da->SetName("data");
@@ -53,50 +79,66 @@ int main(int argc, char **argv)
 
       static_cast<vtkImageData*>(mesh)->GetPointData()->AddArray(da);
       da->Delete();
-      return true;
+      return 0;
       }
-    return false;
+    return -1;
     };
 
   // number of arrays callback
-  auto getNumArrays = [](int assoc) -> unsigned int
+  auto getNumArrays = [](const std::string &meshName, int assoc,
+    unsigned int &num) -> int
     {
     cerr << "===getNumArrays" << endl;
-    if (assoc == vtkDataObject::POINT)
-      return 1;
-    return 0;
+    if ((meshName == "image") && (assoc == vtkDataObject::POINT))
+      {
+      num = 1;
+      return 0;
+      }
+    return -1;
     };
 
   // array name callback
-  auto getArrayName = [](int assoc, unsigned int id) -> std::string
+  auto getArrayName = [](const std::string &meshName, int assoc,
+    unsigned int id, std::string &arrayName) -> int
     {
     cerr << "===getArrayName" << endl;
-    if ((assoc == vtkDataObject::POINT) && (id == 0))
-      return "data";
-    return "";
+    if ((meshName == "image") &&
+      (assoc == vtkDataObject::POINT) && (id == 0))
+      {
+      arrayName = "data";
+      return 0;
+      }
+    return -1;
     };
 
   // release data callback
-  auto releaseData = []()
+  auto releaseData = []() -> int
     {
     cerr << "===releaseData" << endl;
+    return 0;
     };
 
   sensei::ProgrammableDataAdaptor *pda = sensei::ProgrammableDataAdaptor::New();
+  pda->SetGetNumberOfMeshesCallback(getNumberOfMeshes);
+  pda->SetGetMeshNameCallback(getMeshName);
   pda->SetGetMeshCallback(getMesh);
   pda->SetAddArrayCallback(addArray);
   pda->SetGetNumberOfArraysCallback(getNumArrays);
   pda->SetGetArrayNameCallback(getArrayName);
   pda->SetReleaseDataCallback(releaseData);
 
+
+  unsigned int nArrays = 0;
+  pda->GetNumberOfArrays("image", vtkDataObject::POINT, nArrays);
+
   int result = -1;
-  if (pda->GetNumberOfArrays(vtkDataObject::POINT) > 0)
+  if (nArrays > 0)
     {
+    std::string arrayName;
+    pda->GetArrayName("image", vtkDataObject::POINT, 0, arrayName);
+
     sensei::Histogram *ha = sensei::Histogram::New();
-
-    ha->Initialize(MPI_COMM_WORLD, 7, vtkDataObject::POINT,
-      pda->GetArrayName(vtkDataObject::POINT, 0));
-
+    ha->Initialize(MPI_COMM_WORLD, 7, "image", vtkDataObject::POINT, arrayName);
     ha->Execute(pda);
 
     pda->ReleaseData();

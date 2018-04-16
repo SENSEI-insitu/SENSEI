@@ -26,11 +26,14 @@ public:
   void SetOptions(const std::string &options);
   void SetVisItDirectory(const std::string &dir);
   void SetComm(MPI_Comm comm);
+  void SetMode(const std::string &mode);
 
   // Let the caller explicitly initialize.
   void Initialize();
 
   bool Execute(DataAdaptor* data) override;
+
+  int Finalize() override;
 
   // Simple method to add some VisIt plots and render. The limit is how complex
   // we want to make this.

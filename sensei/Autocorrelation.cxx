@@ -5,6 +5,7 @@
 
 // VTK includes
 #include <vtkCompositeDataIterator.h>
+#include <vtkCellData.h>
 #include <vtkFieldData.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
@@ -12,6 +13,7 @@
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 #include <vtkStructuredData.h>
+#include <vtkUnsignedCharArray.h>
 
 #include <memory>
 #include <vector>
@@ -75,28 +77,51 @@ struct AutocorrelationImpl
 
   static void* create()            { return new AutocorrelationImpl; }
   static void destroy(void* b)    { delete static_cast<AutocorrelationImpl*>(b); }
-  void process(float* data)
+  void process(float* data, unsigned char *ghostArray)
     {
     GridRef g(data, shape);
 
-    // record the values
-    grid::for_each(g.shape(), [&](const Vertex& v)
+    if (ghostArray)
       {
-      auto gv = g(v);
+      grid::GridRef<unsigned char, 3> ghost(ghostArray, shape);
+      // record the values
+      grid::for_each(g.shape(), [&](const Vertex& v)
+        {
+        auto gv = (ghost(v) == 0) ? g(v) : 0;
 
-      for (size_t i = 1; i <= window; ++i)
-      {
-      if (i > count) continue;    // during the initial fill, we don't get contributions to some shifts
+        for (size_t i = 1; i <= window; ++i)
+        {
+        if (i > count) continue;    // during the initial fill, we don't get contributions to some shifts
 
-      auto uc = v.lift(3, i-1);
-      auto uv = v.lift(3, (offset + window - i) % window);
-      corr(uc) += values(uv)*gv;
+        auto uc = v.lift(3, i-1);
+        auto uv = v.lift(3, (offset + window - i) % window);
+        corr(uc) += values(uv)*gv;
+        }
+
+        auto u = v.lift(3, offset);
+        values(u) = gv;
+        });
       }
+    else
+      {
+      // record the values
+      grid::for_each(g.shape(), [&](const Vertex& v)
+        {
+        auto gv = g(v);
 
-      auto u = v.lift(3, offset);
-      values(u) = gv;
-      });
+        for (size_t i = 1; i <= window; ++i)
+        {
+        if (i > count) continue;    // during the initial fill, we don't get contributions to some shifts
 
+        auto uc = v.lift(3, i-1);
+        auto uv = v.lift(3, (offset + window - i) % window);
+        corr(uc) += values(uv)*gv;
+        }
+
+        auto u = v.lift(3, offset);
+        values(u) = gv;
+        });
+      }
     offset += 1;
     offset %= window;
 
@@ -122,6 +147,7 @@ class Autocorrelation::AInternals
 public:
   std::unique_ptr<diy::Master> Master;
   size_t KMax;
+  std::string MeshName;
   int Association;
   std::string ArrayName;
   size_t Window;
@@ -207,20 +233,21 @@ Autocorrelation::Autocorrelation()
 //-----------------------------------------------------------------------------
 Autocorrelation::~Autocorrelation()
 {
-  this->PrintResults(this->Internals->KMax);
   delete this->Internals;
 }
 
 //-----------------------------------------------------------------------------
-void Autocorrelation::Initialize(
-  MPI_Comm world, size_t window, int association,
-  std::string& arrayname, size_t kmax)
+void Autocorrelation::Initialize(MPI_Comm world, size_t window,
+  const std::string &meshName, int association, const std::string &arrayname,
+  size_t kmax)
 {
-  timer::MarkEvent mark("autocorrelation::initialize");
+  timer::MarkEvent mark("Autocorrelation::Initialize");
+
   AInternals& internals = (*this->Internals);
   internals.Master = make_unique<diy::Master>(world, -1, -1,
                                               &AutocorrelationImpl::create,
                                               &AutocorrelationImpl::destroy);
+  internals.MeshName = meshName;
   internals.Association = association;
   internals.ArrayName = arrayname;
   internals.Window = window;
@@ -230,18 +257,41 @@ void Autocorrelation::Initialize(
 //-----------------------------------------------------------------------------
 bool Autocorrelation::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent mark("autocorrelation::execute");
+  timer::MarkEvent mark("Autocorrelation::Execute");
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
 
-  vtkDataObject* mesh = data->GetMesh(/*structure_only*/false);
-  if (!data->AddArray(mesh, association, internals.ArrayName))
+  vtkDataObject* mesh = nullptr;
+  if (data->GetMesh(internals.MeshName, false, mesh))
+   {
+   SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
+   return false;
+   }
+
+  if (data->AddArray(mesh, internals.MeshName,
+    internals.Association, internals.ArrayName))
     {
+    SENSEI_ERROR("Failed to add array \"" << internals.ArrayName
+      << "\" on mesh \"" << internals.MeshName << "\"")
     return false;
     }
 
-  internals.InitializeBlocks(mesh);
+  int nLayers = 0;
+  if (data->GetMeshHasGhostCells(internals.MeshName, nLayers) == 0)
+   {
+   if (nLayers > 0 && data->AddGhostCellsArray(mesh, internals.MeshName))
+     {
+     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
+     return false;
+     }
+   }
+  else
+   {
+   SENSEI_ERROR(<< data->GetClassName() << " failed to query for ghost cells.")
+   return false;
+   }
 
+  internals.InitializeBlocks(mesh);
 
   if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(mesh))
     {
@@ -258,9 +308,11 @@ bool Autocorrelation::Execute(DataAdaptor* data)
         AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
         vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
           dataObj->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
+        vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
+          dataObj->GetCellData()->GetArray("vtkGhostType"));       
         if (fa)
           {
-          corr->process(fa->GetPointer(0));
+          corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);
           }
         else
           {
@@ -277,9 +329,11 @@ bool Autocorrelation::Execute(DataAdaptor* data)
     AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
     vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
       ds->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
+    vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
+      ds->GetCellData()->GetArray("vtkGhostType"));       
     if (fa)
       {
-      corr->process(fa->GetPointer(0));
+      corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);
       }
     else
       {
@@ -395,6 +449,15 @@ void Autocorrelation::PrintResults(size_t k_max)
                         }
                     }
                 });
+}
+
+//-----------------------------------------------------------------------------
+int Autocorrelation::Finalize()
+{
+  this->PrintResults(this->Internals->KMax);
+  delete this->Internals;
+  this->Internals = nullptr;
+  return 0;
 }
 
 }

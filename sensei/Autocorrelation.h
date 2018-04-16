@@ -25,16 +25,19 @@ public:
   ///
   /// @param world MPI communicator to use.
   /// @param window analysis window in timestep count.
+  /// @param name of mesh containing the array to process
   /// @param association together with \c arrayname, identifies the array to
   ///         compute autocorrelation for.
   /// @param arrayname together with \c association, identifies the array to
   ///         compute autocorrelation for.
   /// @param k_max number of strongest autocorrelations to report
-  void Initialize(
-    MPI_Comm world, size_t window, int association,
-    std::string& arrayname, size_t k_max);
+  void Initialize(MPI_Comm world, size_t window, const std::string &meshName,
+    int association, const std::string &arrayname, size_t k_max);
 
   bool Execute(DataAdaptor* data) override;
+
+  int Finalize() override;
+
 protected:
   Autocorrelation();
   ~Autocorrelation();

@@ -297,9 +297,146 @@ def check_arg(dic, arg, dfl=None, req=True):
             return True
     return True
 
+class data_adaptor:
+    def __init__(self):
+        # data from sim
+        self.arrays = {}
+        self.points = None
+        self.cells = None
+        # connect all the callbacks
+        self.pda = sensei.ProgrammableDataAdaptor.New()
+        self.pda.SetGetNumberOfMeshesCallback(self.get_number_of_meshes())
+        self.pda.SetGetMeshNameCallback(self.get_mesh_name())
+        self.pda.SetGetNumberOfArraysCallback(self.get_number_of_arrays())
+        self.pda.SetGetArrayNameCallback(self.get_array_name())
+        self.pda.SetGetMeshCallback(self.get_mesh())
+        self.pda.SetAddArrayCallback(self.add_array())
+        self.pda.SetReleaseDataCallback(self.release_data())
+
+    def __getattr__(self, *args):
+        # forward calls to pda
+        return self.pda.__getattribute__(*args)
+
+    def base(self):
+        return self.pda
+
+    def update(self, i,t,ids,x,y,z,m,vx,vy,vz,fx,fy,fz):
+        # update the state arrays
+        self.set_array_1(ids, 'ids')
+        self.set_array_1(m, 'm')
+        self.set_array_3(vx,vy,vz, 'v')
+        self.set_array_3(fx,fy,fz, 'f')
+        self.set_geometry(x,y,z)
+        self.SetDataTime(t)
+        self.SetDataTimeStep(i)
+
+    def set_array_1(self, vals, name):
+        arr = vtknp.numpy_to_vtk(vals, 1)
+        arr.SetName(name)
+        self.arrays[name] = arr
+
+    def set_array_3(self, vx,vy,vz, name):
+        # vector
+        nx = len(x)
+        vxyz = np.zeros(3*nx, dtype=vx.dtype)
+        vxyz[::3] = vx
+        vxyz[1::3] = vy
+        vxyz[2::3] = vz
+        vtkv = vtknp.numpy_to_vtk(vxyz, deep=1)
+        vtkv.SetName(name)
+        self.arrays[name] = vtkv
+        # mag
+        mname = 'mag%s'%(name)
+        mv = np.sqrt(vx**2 + vy**2 + vz**2)
+        vtkmv = vtknp.numpy_to_vtk(mv, deep=1)
+        vtkmv.SetName(mname)
+        self.arrays[mname] = vtkmv
+
+    def set_geometry(self, x,y,z):
+        # points
+        nx = len(x)
+        xyz = np.zeros(3*nx, dtype=x.dtype)
+        xyz[::3] = x[:]
+        xyz[1::3] = y[:]
+        xyz[2::3] = z[:]
+        vxyz = vtknp.numpy_to_vtk(xyz, deep=1)
+        vxyz.SetNumberOfComponents(3)
+        vxyz.SetNumberOfTuples(nx)
+        pts = vtk.vtkPoints()
+        pts.SetData(vxyz)
+        self.points = pts
+        # cells
+        cids = np.empty(2*nx, dtype=np.int32)
+        cids[::2] = 1
+        cids[1::2] = np.arange(0,nx,dtype=np.int32)
+        cells = vtk.vtkCellArray()
+        cells.SetCells(nx, vtknp.numpy_to_vtk(cids, \
+            deep=1, array_type=vtk.VTK_ID_TYPE))
+        self.cells = cells
+
+    def validate_mesh_name(self, mesh_name):
+        if mesh_name != "bodies":
+            raise RuntimeError('no mesh named "%s"'%(mesh_name))
+
+    def get_number_of_meshes(self):
+        def callback():
+            return 1
+        return callback
+
+    def get_mesh_name(self):
+        def callback(idx):
+            if idx != 0: raise RuntimeError('no mesh %d'%(idx))
+            return 'bodies'
+        return callback
+
+    def get_number_of_arrays(self):
+        def callback(mesh_name, assoc):
+            self.validate_mesh_name(mesh_name)
+            return len(self.arrays.keys()) \
+                if assoc == vtk.vtkDataObject.POINT else 0
+        return callback
+
+    def get_array_name(self):
+        def callback(mesh_name, assoc, idx):
+            self.validate_mesh_name(mesh_name)
+            return self.arrays.keys()[idx] \
+                if assoc == vtk.vtkDataObject.POINT else 0
+        return callback
+
+    def get_mesh(self):
+        def callback(mesh_name, structure_only):
+            self.validate_mesh_name(mesh_name)
+            # local bodies
+            pd = vtk.vtkPolyData()
+            if not structure_only:
+                pd.SetPoints(self.points)
+                pd.SetVerts(self.cells)
+            # global dataset
+            mb = vtk.vtkMultiBlockDataSet()
+            mb.SetNumberOfBlocks(n_ranks)
+            mb.SetBlock(rank, pd)
+            return mb
+        return callback
+
+    def add_array(self):
+        def callback(mesh, mesh_name, assoc, array_name):
+            self.validate_mesh_name(mesh_name)
+            if assoc != vtk.vtkDataObject.POINT:
+                raise RuntimeError('no array named "%s" in cell data'%(array_name))
+            pd = mesh.GetBlock(rank)
+            pd.GetPointData().AddArray(self.arrays[array_name])
+        return callback
+
+    def release_data(self):
+        def callback():
+            self.arrays = {}
+            self.points = None
+            self.cells = None
+        return callback
+
 class analysis_adaptor:
     def __init__(self):
-        self.DataAdaptor = sensei.VTKDataAdaptor.New()
+        self.DataAdaptor = data_adaptor()
         self.AnalysisAdaptor = None
 
     def initialize(self, analysis, args=''):
@@ -317,13 +454,14 @@ class analysis_adaptor:
                 self.AnalysisAdaptor = sensei.CatalystAnalysisAdaptor.New()
                 self.AnalysisAdaptor.AddPythonScriptPipeline(args['script'])
         # VTK I/O
-        elif analysis == 'posthoc':
-            if check_arg(args,'file','newton') and check_arg(args,'dir','./') \
-                and check_arg(args,'mode','0') and check_arg(args,'freq','1'):
-                self.AnalysisAdaptor = sensei.VTKPosthocIO.New()
-                self.AnalysisAdaptor.Initialize(comm, args['dir'],args['file'],\
-                    [], ['ids','fx','fy','fz','f','vx','vy','vz','v','m'], \
-                    int(args['mode']), int(args['freq']))
+        #elif analysis == 'posthoc':
+        #    if check_arg(args,'file','newton') and check_arg(args,'dir','./') \
+        #        and check_arg(args,'mode','0') and check_arg(args,'freq','1'):
+        #        # TODO -- mesh name API updates
+        #        self.AnalysisAdaptor = sensei.VTKPosthocIO.New()
+        #        self.AnalysisAdaptor.Initialize(comm, args['dir'],args['file'],\
+        #            [], ['ids','fx','fy','fz','f','vx','vy','vz','v','m'], \
+        #            int(args['mode']), int(args['freq']))
         # Libisim, ADIOS, etc
         elif analysis == 'configurable':
             if check_arg(args,'config'):
@@ -335,30 +473,30 @@ class analysis_adaptor:
             sys.exit(-1)
 
     def finalize(self):
-        if self.Analysis == 'posthoc':
-            self.AnalysisAdaptor.Finalize()
+        self.AnalysisAdaptor.Finalize()
 
     def update(self, i,t,ids,x,y,z,m,vx,vy,vz,fx,fy,fz):
 
         status('% 5d\n'%(i)) if i > 0 and i % 70 == 0 else None
         status('.')
 
-        node = points_to_polydata(ids,x,y,z,m,vx,vy,vz,fx,fy,fz)
-
-        mb = vtk.vtkMultiBlockDataSet()
-        mb.SetNumberOfBlocks(n_ranks)
-        mb.SetBlock(rank, node)
-
+        #node = points_to_polydata(ids,x,y,z,m,vx,vy,vz,fx,fy,fz)
+        #
+        #mb = vtk.vtkMultiBlockDataSet()
+        #mb.SetNumberOfBlocks(n_ranks)
+        #mb.SetBlock(rank, node)
+        self.DataAdaptor.update(i,t,ids,x,y,z,m,vx,vy,vz,fx,fy,fz)
         self.DataAdaptor.SetDataTime(t)
         self.DataAdaptor.SetDataTimeStep(i)
-        self.DataAdaptor.SetDataObject(mb)
+        #self.DataAdaptor.SetDataObject(mb)
 
-        self.AnalysisAdaptor.Execute(self.DataAdaptor)
+        self.AnalysisAdaptor.Execute(self.DataAdaptor.base())
 
         self.DataAdaptor.ReleaseData()
 
 def status(msg):
     sys.stderr.write(msg if rank == 0 else '')
+
 
 if __name__ == '__main__':
     # parse the command line

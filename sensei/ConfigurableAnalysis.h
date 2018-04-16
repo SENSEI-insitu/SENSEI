@@ -23,6 +23,8 @@ public:
 
   bool Execute(DataAdaptor* data) override;
 
+  int Finalize() override;
+
 protected:
   ConfigurableAnalysis();
   ~ConfigurableAnalysis();

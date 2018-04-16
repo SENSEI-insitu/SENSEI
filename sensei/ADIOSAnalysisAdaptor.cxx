@@ -2,6 +2,7 @@
 
 #include "ADIOSSchema.h"
 #include "DataAdaptor.h"
+#include "VTKUtils.h"
 #include "Timer.h"
 #include "Error.h"
 
@@ -40,76 +41,197 @@ senseiNewMacro(ADIOSAnalysisAdaptor);
 
 //----------------------------------------------------------------------------
 ADIOSAnalysisAdaptor::ADIOSAnalysisAdaptor() : Comm(MPI_COMM_WORLD),
-   Schema(nullptr), Method("MPI"), FileName("sensei.bp")
+   MaxBufferSize(500), Schema(nullptr), Method("MPI"), FileName("sensei.bp")
 {
 }
 
 //----------------------------------------------------------------------------
 ADIOSAnalysisAdaptor::~ADIOSAnalysisAdaptor()
 {
-  if (this->Schema)
-    this->FinalizeADIOS();
+}
 
-  delete Schema;
+//-----------------------------------------------------------------------------
+int ADIOSAnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs)
+{
+  this->Requirements = reqs;
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int ADIOSAnalysisAdaptor::AddDataRequirement(const std::string &meshName,
+  int association, const std::vector<std::string> &arrays)
+{
+  this->Requirements.AddRequirement(meshName, association, arrays);
+  return 0;
 }
 
 //----------------------------------------------------------------------------
-bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* data)
+bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   timer::MarkEvent mark("ADIOSAnalysisAdaptor::Execute");
 
-  vtkDataObject* dobj = data->GetCompleteMesh();
-  unsigned long timeStep = data->GetDataTimeStep();
-  double time = data->GetDataTime();
+  // if no dataAdaptor requirements are given, push all the data
+  // fill in the requirements with every thing
+  if (this->Requirements.Empty())
+    {
+    if (this->Requirements.Initialize(dataAdaptor))
+      {
+      SENSEI_ERROR("Failed to initialze dataAdaptor description")
+      return -1;
+      }
+    SENSEI_WARNING("No subset specified. Writing all available data")
+    }
 
-  this->InitializeADIOS(dobj);
-  this->WriteTimestep(timeStep, time, dobj);
+  // collect the specified data objects and metadata
+  std::vector<vtkDataObject*> objects;
+  std::vector<std::string> objectNames;
+  std::vector<std::pair<int,int>> ghostLayers;
+
+  MeshRequirementsIterator mit =
+    this->Requirements.GetMeshRequirementsIterator();
+
+  for (; mit; ++mit)
+    {
+    // get the mesh
+    vtkDataObject* dobj = nullptr;
+    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+      {
+      SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // get ghost cell/node metadata always provide this information as
+    // it is essential to process the data objects
+    int nGhostCellLayers = 0;
+    int nGhostNodeLayers = 0;
+    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
+      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
+      {
+      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // pass ghost layer metadata in field data.
+    vtkIntArray *glmd = vtkIntArray::New();
+    glmd->SetName("senseiGhostLayers");
+    glmd->SetNumberOfTuples(2);
+    glmd->SetValue(0, nGhostCellLayers);
+    glmd->SetValue(1, nGhostNodeLayers);
+
+    vtkFieldData *fd = dobj->GetFieldData();
+    fd->AddArray(glmd);
+    glmd->Delete();
+
+    // add the ghost cell arrays to the mesh
+    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // add the ghost node arrays to the mesh
+    if (nGhostNodeLayers > 0 && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
+      return -1;
+      }
+
+    // add the required arrays
+    ArrayRequirementsIterator ait =
+      this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
+
+    for (; ait; ++ait)
+      {
+      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+         ait.Association(), ait.Array()))
+        {
+        SENSEI_ERROR("Failed to add "
+          << VTKUtils::GetAttributesName(ait.Association())
+          << " data array \"" << ait.Array() << "\" to mesh \""
+          << mit.MeshName() << "\"")
+        return -1;
+        }
+      }
+
+    // add to the collection
+    objects.push_back(dobj);
+    objectNames.push_back(mit.MeshName());
+    }
+
+  unsigned long timeStep = dataAdaptor->GetDataTimeStep();
+  double time = dataAdaptor->GetDataTime();
+
+  if (this->InitializeADIOS(objectNames, objects) ||
+    this->WriteTimestep(timeStep, time, objectNames, objects))
+    return false;
 
   return true;
 }
 
 //----------------------------------------------------------------------------
-void ADIOSAnalysisAdaptor::InitializeADIOS(vtkDataObject *dobj)
+int ADIOSAnalysisAdaptor::InitializeADIOS(
+  const std::vector<std::string> &objectNames,
+  const std::vector<vtkDataObject*> &objects)
 {
-  if (this->Schema)
-    return;
+  if (!this->Schema)
+    {
+    timer::MarkEvent mark("ADIOSAnalysisAdaptor::IntializeADIOS");
 
-  timer::MarkEvent mark("ADIOSAnalysisAdaptor::IntializeADIOS");
+    // initialize adios
+    adios_init_noxml(this->Comm);
 
-  // initialize adios
-  adios_init_noxml(this->Comm);
-
-  int64_t gHandle = 0;
-  int64_t bufferSizeMB = 500;
+    int64_t gHandle = 0;
 
 #if ADIOS_VERSION_GE(1,11,0)
-  adios_set_max_buffer_size(bufferSizeMB);
-  adios_declare_group(&gHandle, "sensei", "",
-    static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_yes));
+    adios_set_max_buffer_size(this->MaxBufferSize);
+    adios_declare_group(&gHandle, "SENSEI", "",
+      static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_yes));
 #else
-  adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, bufferSizeMB);
-  adios_declare_group(&gHandle, "sensei", "", adios_flag_yes);
+    adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
+    adios_declare_group(&gHandle, "SENSEI", "", adios_flag_yes);
 #endif
 
-  adios_select_method(gHandle, this->Method.c_str(), "", "");
+    adios_select_method(gHandle, this->Method.c_str(), "", "");
 
-  // define ADIOS variables
-  this->Schema = new senseiADIOS::DataObjectSchema;
-  this->Schema->DefineVariables(this->Comm, gHandle, dobj);
+    // define ADIOS variables
+    this->Schema = new senseiADIOS::DataObjectCollectionSchema;
+
+    if (this->Schema->DefineVariables(this->Comm, gHandle, objectNames, objects))
+      {
+      SENSEI_ERROR("Failed to define variables")
+      return -1;
+      }
+    }
+  return 0;
 }
 
 //----------------------------------------------------------------------------
-void ADIOSAnalysisAdaptor::FinalizeADIOS()
+int ADIOSAnalysisAdaptor::FinalizeADIOS()
 {
-  timer::MarkEvent mark("ADIOSAnalysisAdaptor::FinalizeADIOS");
   int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   adios_finalize(rank);
+  return 0;
 }
 
 //----------------------------------------------------------------------------
-void ADIOSAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
-  double time, vtkDataObject *dobj)
+int ADIOSAnalysisAdaptor::Finalize()
+{
+  timer::MarkEvent mark("ADIOSAnalysisAdaptor::Finalize");
+
+  if (this->Schema)
+    this->FinalizeADIOS();
+
+  delete this->Schema;
+  this->Schema = nullptr;
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int ADIOSAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
+  double time, const std::vector<std::string> &objectNames,
+  const std::vector<vtkDataObject*> &objects)
 {
   timer::MarkEvent mark("ADIOSAnalysisAdaptor::WriteTimestep");
 
@@ -118,18 +240,20 @@ void ADIOSAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   adios_open(&handle, "sensei", this->FileName.c_str(),
     timeStep == 0 ? "w" : "a", this->Comm);
 
-  uint64_t group_size = this->Schema->GetSize(this->Comm, dobj);
+  uint64_t group_size = this->Schema->GetSize(this->Comm, objectNames, objects);
   adios_group_size(handle, group_size, &group_size);
 
-  if (this->Schema->Write(this->Comm, handle, dobj) ||
-    this->Schema->WriteTimeStep(this->Comm, handle, timeStep, time))
+  if (this->Schema->Write(this->Comm, handle, timeStep, time,
+    objectNames, objects))
     {
     SENSEI_ERROR("Failed to write step " << timeStep
       << " to \"" << this->FileName << "\"")
-    return;
+    return -1;
     }
 
   adios_close(handle);
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------

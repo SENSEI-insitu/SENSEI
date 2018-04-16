@@ -2,13 +2,17 @@
       set enabled="1" on analyses you wish to enable -->
 <sensei>
   <!-- Custom Analyses-->
-  <analysis type="PosthocIO" array="data" association="cell"
-    enabled="0" period="1" mode="vtkXmlP" output_dir="./" />
+  <analysis type="PosthocIO"
+    output_dir="./" file_name="output" mode="visit" enabled="1">
+    <mesh name="mesh">
+      <cell_arrays> data </cell_arrays>
+    </mesh>
+  </analysis>
 
-  <analysis type="histogram" array="data" association="cell"
+  <analysis type="histogram" mesh="mesh" array="data" association="cell"
     bins="10" enabled="1" />
 
-  <analysis type="autocorrelation" array="data" association="cell" window="10"
+  <analysis type="autocorrelation" mesh="mesh" array="data" association="cell" window="10"
     k-max="3" enabled="1" />
 
   <!-- VTK-m Analyses -->

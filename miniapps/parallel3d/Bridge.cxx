@@ -55,8 +55,10 @@ void bridge_update(int tstep, double time, double *pressure, double* temperature
 //-----------------------------------------------------------------------------
 void bridge_finalize()
 {
+  BridgeInternals::GlobalAnalysisAdaptor->Finalize();
+
   BridgeInternals::GlobalAnalysisAdaptor = NULL;
   BridgeInternals::GlobalDataAdaptor = NULL;
-  
+
   timer::PrintLog(std::cout, BridgeInternals::comm);
 }

@@ -35,6 +35,110 @@ using std::endl;
 namespace senseiPyDataAdaptor
 {
 
+// a container for the DataAdaptor::GetNumberOfMeshes callable
+class PyGetNumberOfMeshesCallback
+{
+public:
+  PyGetNumberOfMeshesCallback(PyObject *f) : Callback(f) {}
+
+  void SetObject(PyObject *f)
+  { this->Callback.SetObject(f); }
+
+  explicit operator bool() const
+  { return static_cast<bool>(this->Callback); }
+
+  int operator()(unsigned int &numberOfMeshes)
+    {
+    // lock the GIL
+    senseiPyGILState gil;
+
+    // get the callback
+    PyObject *f = this->Callback.GetObject();
+    if (!f)
+      {
+      PyErr_Format(PyExc_TypeError,
+        "A GetNumberOfMeshesCallback was not provided");
+      return -1;
+      }
+
+    // build arguments list and call the callback
+    PyObject *ret = nullptr;
+    if (!(ret = PyObject_CallObject(f, nullptr)) || PyErr_Occurred())
+      {
+      SENSEI_PY_CALLBACK_ERROR(GetNumberOfMeshesCallback, f)
+      return -1;
+      }
+
+    // convert the return
+    if (!senseiPyObject::CppTT<int>::IsType(ret))
+      {
+      PyErr_Format(PyExc_TypeError,
+        "Bad return type from GetNumberOfMeshesCallback (not an int)");
+      return -1;
+      }
+
+    numberOfMeshes = senseiPyObject::CppTT<int>::Value(ret);
+    return 0;
+    }
+
+private:
+  senseiPyObject::PyCallablePointer Callback;
+};
+
+// a container for the DataAdaptor::GetMeshName callable
+class PyGetMeshNameCallback
+{
+public:
+  PyGetMeshNameCallback(PyObject *f) : Callback(f) {}
+
+  void SetObject(PyObject *f)
+  { this->Callback.SetObject(f); }
+
+  explicit operator bool() const
+  { return static_cast<bool>(this->Callback); }
+
+  int operator()(unsigned int index, std::string &meshName)
+    {
+    // lock the GIL
+    senseiPyGILState gil;
+
+    // get the callback
+    PyObject *f = this->Callback.GetObject();
+    if (!f)
+      {
+      PyErr_Format(PyExc_TypeError,
+        "A GetMeshNameCallback was not provided");
+      return -1;
+      }
+
+    // build arguments list and call the callback
+    PyObject *args = Py_BuildValue("(I)", index);
+
+    PyObject *ret = nullptr;
+    if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
+      {
+      SENSEI_PY_CALLBACK_ERROR(GetMeshNameCallback, f)
+      return -1;
+      }
+
+    Py_DECREF(args);
+
+    // convert the return
+    if (!senseiPyObject::CppTT<char*>::IsType(ret))
+      {
+      PyErr_Format(PyExc_TypeError,
+        "Bad return type from GetMeshNameCallback");
+      return -1;
+      }
+
+    meshName = senseiPyObject::CppTT<char*>::Value(ret);
+    return 0;
+    }
+
+private:
+  senseiPyObject::PyCallablePointer Callback;
+};
+
 // a container for the DataAdaptor::GetMesh callable
 class PyGetMeshCallback
 {
@@ -47,8 +151,11 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  vtkDataObject *operator()(bool structure_only)
+  int operator()(const std::string &meshName,
+    bool structureOnly, vtkDataObject *&mesh)
     {
+    mesh = nullptr;
+
     // lock the GIL
     senseiPyGILState gil;
 
@@ -58,33 +165,27 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "A GetMeshCallback was not provided");
-      return nullptr;
+      return -1;
       }
 
     // build arguments list and call the callback
-    PyObject *args = Py_BuildValue("(i)", static_cast<int>(structure_only));
+    PyObject *args = Py_BuildValue("(si)",
+      meshName.c_str(), static_cast<int>(structureOnly));
 
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
       SENSEI_PY_CALLBACK_ERROR(GetMeshCallback, f)
-      return nullptr;
+      return -1;
       }
 
     Py_DECREF(args);
 
     // convert the return
-    vtkDataObject *mesh = static_cast<vtkDataObject*>(
+    mesh = static_cast<vtkDataObject*>(
         vtkPythonUtil::GetPointerFromObject(ret, "vtkDataObject"));
 
-    /*if (!mesh)
-      {
-      PyErr_Format(PyExc_TypeError,
-        "The GetMeshCallback failed to produce data");
-      return nullptr;
-      }*/
-
-    return mesh;
+    return 0;
     }
 
 private:
@@ -103,7 +204,8 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  bool operator()(vtkDataObject *mesh, int association, const std::string &name)
+  int operator()(vtkDataObject* mesh, const std::string &meshName,
+    int association, const std::string &arrayName)
     {
     // lock the GIL
     senseiPyGILState gil;
@@ -114,33 +216,26 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "A AddArrayCallback was not provided");
-      return false;
+      return -1;
       }
 
     // build arguments list and call the callback
     PyObject *pyMesh = vtkPythonUtil::GetObjectFromPointer(
       static_cast<vtkObjectBase*>(mesh));
 
-    PyObject *args = Py_BuildValue("Nis", pyMesh, association, name.c_str());
+    PyObject *args = Py_BuildValue("Nsis", pyMesh, meshName.c_str(),
+      association, arrayName.c_str());
 
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
       SENSEI_PY_CALLBACK_ERROR(AddArrayCallback, f)
-      return false;
+      return -1;
       }
 
     Py_DECREF(args);
 
-    // convert the return
-    if (!senseiPyObject::CppTT<bool>::IsType(ret))
-      {
-      PyErr_Format(PyExc_TypeError,
-        "Bad return type from AddArrayCallback (not a bool).");
-      return false;
-      }
-
-    return senseiPyObject::CppTT<bool>::Value(ret);
+    return 0;
     }
 
 private:
@@ -159,7 +254,8 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  unsigned int operator()(int association)
+  int operator()(const std::string &meshName, int association,
+    unsigned int &numberOfArrays)
     {
     // lock the GIL
     senseiPyGILState gil;
@@ -170,17 +266,17 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "A GetNumberOfArraysCallback was not provided");
-      return 0;
+      return -1;
       }
 
     // build arguments list and call the callback
-    PyObject *args = Py_BuildValue("(i)", association);
+    PyObject *args = Py_BuildValue("si", meshName.c_str(), association);
 
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
       SENSEI_PY_CALLBACK_ERROR(GetNumberOfArraysCallback, f)
-      return 0;
+      return -1;
       }
 
     Py_DECREF(args);
@@ -190,10 +286,11 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "Bad return type from GetNumberOfArraysCallback (not an int)");
-      return 0;
+      return -1;
       }
 
-    return senseiPyObject::CppTT<int>::Value(ret);
+    numberOfArrays = senseiPyObject::CppTT<int>::Value(ret);
+    return 0;
     }
 
 private:
@@ -212,7 +309,8 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  std::string operator()(int association, unsigned int id)
+  int operator()(const std::string &meshName, int association,
+    unsigned int index, std::string &arrayName)
     {
     // lock the GIL
     senseiPyGILState gil;
@@ -223,17 +321,18 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "A GetArrayNameCallback was not provided");
-      return std::string();
+      return -1;
       }
 
     // build arguments list and call the callback
-    PyObject *args = Py_BuildValue("iI", association, id);
+    PyObject *args =
+      Py_BuildValue("siI", meshName.c_str(), association, index);
 
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
       SENSEI_PY_CALLBACK_ERROR(GetArrayNameCallback, f)
-      return std::string();
+      return -1;
       }
 
     Py_DECREF(args);
@@ -243,10 +342,11 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "Bad return type from GetArrayNameCallback");
-      return std::string();
+      return -1;
       }
 
-    return senseiPyObject::CppTT<char*>::Value(ret);
+    arrayName = senseiPyObject::CppTT<char*>::Value(ret);
+    return 0;
     }
 
 private:
@@ -265,7 +365,7 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  void operator()()
+  int operator()()
     {
     // lock the GIL
     senseiPyGILState gil;
@@ -276,7 +376,7 @@ public:
       {
       PyErr_Format(PyExc_TypeError,
         "A ReleaseDataCallback was not provided");
-      return;
+      return -1;
       }
 
     // build arguments list and call the callback
@@ -285,6 +385,8 @@ public:
       {
       SENSEI_PY_CALLBACK_ERROR(ReleaseDataCallback, f)
       }
+
+    return 0;
     }
 
 private:
