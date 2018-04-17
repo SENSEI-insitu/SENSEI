@@ -12,3 +12,10 @@ else()
   message(STATUS "Disabled: Oscillators miniapp.")
 endif()
 
+if(ENABLE_MANDELBROT)
+  message(STATUS "Enabled: Mandelbrot miniapp.")
+  add_subdirectory(mandelbrot)
+else()
+  message(STATUS "Disabled: Mandelbrot miniapp.")
+endif()
+
