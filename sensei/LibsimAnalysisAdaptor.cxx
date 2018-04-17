@@ -20,6 +20,10 @@
 #include <vtkRectilinearGrid.h>
 #include <vtkStructuredGrid.h>
 #include <vtkUnstructuredGrid.h>
+#include <vtkAMRBox.h>
+#include <vtkAMRInformation.h>
+#include <vtkOverlappingAMR.h>
+#include <vtkUniformGrid.h>
 
 #include <VisItControlInterface_V2.h>
 #include <VisItDataInterface_V2.h>
@@ -225,6 +229,7 @@ private:
     static visit_handle GetMesh(int dom, const char *name, void *cbdata);
     static visit_handle GetVariable(int dom, const char *name, void *cbdata);
     static visit_handle GetDomainList(const char *name, void *cbdata);
+    static visit_handle GetDomainNesting(const char *name, void *cbdata);
 
     int ProcessVisItCommand(int rank);
     bool Execute_Batch(int rank);
@@ -499,6 +504,7 @@ LibsimAnalysisAdaptor::PrivateData::Initialize()
                 VisItSetGetMesh(GetMesh, (void*)this);
                 VisItSetGetVariable(GetVariable, (void*)this);
                 VisItSetGetDomainList(GetDomainList, (void*)this);
+                VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
 
                 initialized = true;
             }
@@ -866,6 +872,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
                 VisItSetGetMesh(GetMesh, (void*)this);
                 VisItSetGetVariable(GetVariable, (void*)this);
                 VisItSetGetDomainList(GetDomainList, (void*)this);
+                VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
 
                 // Pause when we connect.
                 this->paused = true;
@@ -1787,6 +1794,10 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             SENSEI_ERROR("The data object is not supported data type. Skipping it.")
             continue;
         }
+
+        // See if the dataset is vtkOverlappingAMR.
+        vtkOverlappingAMR *overlappingAMR = vtkOverlappingAMR::SafeDownCast(obj);
+
 #ifdef VISIT_DEBUG_LOG
         VisItDebug5("SENSEI: datasets.size() = %d\n", (int)datasets.size());
 #endif
@@ -1833,16 +1844,15 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
             if (vtkImageData *igrid = vtkImageData::SafeDownCast(ds))
             {
-// TODO: if cds != nullptr, can we get some AMR properties?
                 igrid->GetDimensions(dims);
-                iMesh[0] = VISIT_MESHTYPE_RECTILINEAR;
+                iMesh[0] = (overlappingAMR != nullptr) ? 
+                            VISIT_MESHTYPE_AMR : VISIT_MESHTYPE_RECTILINEAR;
                 iMesh[1] = dims[0];
                 iMesh[2] = dims[1];
                 iMesh[3] = dims[2];
             }
             else if (vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds))
             {
-// TODO: if cds != nullptr, can we get some AMR properties?
                 rgrid->GetDimensions(dims);
                 iMesh[0] = VISIT_MESHTYPE_RECTILINEAR;
                 iMesh[1] = dims[0];
@@ -1922,6 +1932,33 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             VisIt_MeshMetaData_setMeshType(mmd, VISIT_MESHTYPE_POINT);
             VisIt_MeshMetaData_setTopologicalDimension(mmd, iMesh[1]);
             VisIt_MeshMetaData_setSpatialDimension(mmd, iMesh[2]);
+            break;
+        case VISIT_MESHTYPE_AMR:
+            {
+            dims[0] = iMesh[1];
+            dims[1] = iMesh[2];
+            dims[2] = iMesh[3];
+            VisIt_MeshMetaData_setTopologicalDimension(mmd, This->TopologicalDimension(dims));
+            VisIt_MeshMetaData_setMeshType(mmd, VISIT_MESHTYPE_AMR);
+            VisIt_MeshMetaData_setSpatialDimension(mmd, This->TopologicalDimension(dims));
+
+            VisIt_MeshMetaData_setDomainTitle(mmd, "Patches");
+            VisIt_MeshMetaData_setDomainPieceName(mmd, "patch");
+
+            VisIt_MeshMetaData_setNumGroups(mmd, overlappingAMR->GetNumberOfLevels());
+            VisIt_MeshMetaData_setGroupTitle(mmd, "Levels");
+            VisIt_MeshMetaData_setGroupPieceName(mmd, "level");
+
+            // The overall overlappingAMR dataset is the same on all ranks but not
+            // all of the patches are filled in. Okay for indexing. We want to be 
+            // able to tell VisIt which level each patch belongs to.
+            for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
+              {
+              unsigned int mylevel, mypatch;
+              overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
+              VisIt_MeshMetaData_addGroupId(mmd, mylevel);
+              }
+            }
             break;
         default:
             supported = false;
@@ -2185,6 +2222,214 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *name, void *cbdata
         VisIt_VariableData_setDataI(hdl, VISIT_OWNER_VISIT, 1, size, iptr);
         VisIt_DomainList_setDomains(h, This->GetTotalDomains(meshName), hdl);
     }
+    return h;
+}
+
+
+inline bool
+in_range(int value, int v0, int v1)
+{
+    return value >= v0 && value <= v1;
+}
+
+inline bool
+box_intersect(const int *ext, const int *extChild, int ratio)
+{
+    // box is low,high, low,high, low,high
+    int parent[6];
+    parent[0] = ext[0]*ratio;
+    parent[1] = ext[1]*ratio;
+    parent[2] = ext[2]*ratio;
+    parent[3] = ext[3]*ratio;
+    parent[4] = ext[4]*ratio;
+    parent[5] = ext[5]*ratio;
+
+    bool inX = in_range(extChild[0], parent[0], parent[1]) ||
+               in_range(extChild[1], parent[0], parent[1]);
+    bool inY = in_range(extChild[2], parent[2], parent[3]) ||
+               in_range(extChild[3], parent[2], parent[3]);
+    bool inZ = in_range(extChild[4], parent[4], parent[5]) ||
+               in_range(extChild[5], parent[4], parent[5]);
+    return inX || inY || inZ;
+}
+
+// --------------------------------------------------------------------------
+// NOTE: VisIt's domain nesting structure needs to include all of the patches
+//       in the dataset across all ranks. This is may somewhat limit scalability
+//       since we have to deduce that stuff from the distributed VTK dataset.
+//       On the other hand, we don't even have to do this if we ghost the data
+//       ourselves.
+visit_handle
+LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbdata)
+{
+    PrivateData *This = (PrivateData *)cbdata;
+    visit_handle h = VISIT_INVALID_HANDLE;
+    std::string meshName(name);
+    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
+    if(VisIt_DomainNesting_alloc(&h) == VISIT_ERROR)
+    {
+        VisItDebug5("failed to allocate DomainNesting object.\n");
+        return VISIT_INVALID_HANDLE;
+    }
+
+    std::map<std::string, MeshInfo *>::const_iterator it;
+    it = This->meshData.find(meshName);
+    if(it == This->meshData.end())
+    {
+        VisItDebug5("failed to locate mesh entry for %s\n", name);
+        return VISIT_INVALID_HANDLE;
+    }
+
+    // We might have made a mesh entry with nothing in it.
+    if(it->second->dataObj == nullptr)
+    {
+        VisItDebug5("Trying to fetch actual mesh for %s\n", meshName.c_str());
+        This->FetchMesh(meshName);
+        it = This->meshData.find(meshName);
+    }
+
+    vtkOverlappingAMR *overlappingAMR = vtkOverlappingAMR::SafeDownCast(it->second->dataObj);
+    if(overlappingAMR == nullptr)
+    {
+        VisItDebug5("The VTK dataset was not a vtkOverlappingAMR dataset.");
+        return VISIT_INVALID_HANDLE;
+    }
+
+    int rank, size;
+    MPI_Comm_rank(This->comm, &rank);
+    MPI_Comm_size(This->comm, &size);
+
+    // Now, we need the AMR box information for each patch. We don't have
+    // all data on each rank so we need to allreduce.
+    int sz = 6 * overlappingAMR->GetTotalNumberOfBlocks();
+    int *allext = new int[sz];
+    for(int i = 0; i < sz; ++i)
+        allext[i] = -1;
+    for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
+    {
+        unsigned int mylevel, mypatch;
+        overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
+        const vtkAMRBox &box = overlappingAMR->GetAMRBox(mylevel, mypatch);
+        if(!box.Empty())
+        {
+            box.GetDimensions(&allext[6*i]);
+        }
+    }
+    MPI_Allreduce(MPI_IN_PLACE, allext, sz, MPI_INT, MPI_MAX, This->comm);
+#ifdef DEBUG_GETDOMAINNESTING
+    for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
+    {
+        unsigned int mylevel, mypatch;
+        overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
+        std::stringstream ss;
+        if(i == 0)
+            ss << "TotalNumberOfBlocks = " << overlappingAMR->GetTotalNumberOfBlocks() << endl;
+        ss << "patch " << i << ": level=" << mylevel << ", id=" << mypatch
+                 << ",  box={"
+                 << allext[6*i+0] << ", "
+                 << allext[6*i+1] << ", "
+                 << allext[6*i+2] << ", "
+                 << allext[6*i+3] << ", "
+                 << allext[6*i+4] << ", "
+                 << allext[6*i+5] << "}"
+                 << endl;
+        VisItDebug5(ss.str().c_str());
+    }
+#endif
+    int topdim = ((allext[5] - allext[4]) > 1) ? 3 : 2;
+
+    // Populate the domain nesting structure.
+    VisIt_DomainNesting_set_dimensions(h, 
+        overlappingAMR->GetTotalNumberOfBlocks(), 
+        overlappingAMR->GetNumberOfLevels(), 
+        topdim);
+
+    // Set the refinement ratios.
+    for(unsigned int i = 0; i < overlappingAMR->GetNumberOfLevels(); ++i)
+    {
+        int ratios[3] = {1,1,1};
+        ratios[0] = overlappingAMR->GetRefinementRatio(i);
+        ratios[1] = ratios[0];
+        ratios[2] = (topdim > 2) ? ratios[0] : 1;
+        VisIt_DomainNesting_set_levelRefinement(h, i, ratios);
+    }
+
+    // We don't have perfect parent/child data in the VTK AMR dataset. Maybe VTK 
+    // isn't happy computing it when only some of the ranks have data. We have 
+    // gathered the boxes for all patches in the dataset at this point. 
+    // We can use that to determine parent/child.
+    for(unsigned int level = 0; level < overlappingAMR->GetNumberOfLevels(); ++level)
+    {
+        unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
+        if(level == overlappingAMR->GetNumberOfLevels() - 1)
+        {
+            // There are no child patches here and the most patches should
+            // live here.
+            int children[2] ={0,0};
+            for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
+            {
+                unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
+                int *ext = &allext[6*dom];
+                int logicalExt[6];
+                logicalExt[0] = ext[0];
+                logicalExt[1] = ext[2];
+                logicalExt[2] = ext[4];
+                logicalExt[3] = ext[1];
+                logicalExt[4] = ext[3];
+                logicalExt[5] = ext[5];
+                VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
+                    children, 0, logicalExt);
+#ifdef DEBUG_GETDOMAINNESTING
+                if(rank == 0)
+                {
+                    cout << "patch " << dom << ": level=" << level << ", id=" << i << ": children = {}" << endl;
+                }
+#endif
+            }
+        }
+        else
+        {
+            // TODO: divide up this work among ranks...
+            std::vector<int> children;
+            unsigned int nDataSetsNextLevel = overlappingAMR->GetNumberOfDataSets(level+1);
+            int ratio = overlappingAMR->GetRefinementRatio(level);
+            for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
+            {
+                // Search for children.
+                children.clear();
+                unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
+                int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
+                for(unsigned int j = 0; j < nDataSetsNextLevel; ++j)
+                {
+                    unsigned int childDom = overlappingAMR->GetCompositeIndex(level+1, j);
+                    const int *extChild = &allext[6*childDom]; // lowi highi lowj highj lowk highk
+                    if(box_intersect(ext, extChild, ratio))
+                        children.push_back(static_cast<int>(childDom));
+                }
+#ifdef DEBUG_GETDOMAINNESTING
+                if(rank == 0)
+                {
+                    cout << "patch " << dom << ": level=" << level << ", id=" << i << ": children = {";
+                    for(size_t r = 0; r < children.size(); ++r)
+                        cout << children[r] << ", ";
+                    cout << "}" << endl;
+                }
+#endif
+                int logicalExt[6];
+                logicalExt[0] = ext[0];
+                logicalExt[1] = ext[2];
+                logicalExt[2] = ext[4];
+                logicalExt[3] = ext[1];
+                logicalExt[4] = ext[3];
+                logicalExt[5] = ext[5];
+                VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
+                    &children[0], children.size(), logicalExt);
+            }
+        }
+    }
+
+    delete [] allext;
+
     return h;
 }
 

@@ -19,10 +19,16 @@ else()
   message(STATUS "Disabled: Oscillators miniapp.")
 endif()
 
-
 if(ENABLE_KRIPKE)
   message(STATUS "Enabled: Kripke miniapp")
   add_subdirectory(kripke)
 else()
   message(STATUS "Disabled: Kripke miniapp")
+endif()
+
+if(ENABLE_MANDELBROT)
+  message(STATUS "Enabled: Mandelbrot miniapp.")
+  add_subdirectory(mandelbrot)
+else()
+  message(STATUS "Disabled: Mandelbrot miniapp.")
 endif()

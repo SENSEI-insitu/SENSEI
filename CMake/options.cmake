@@ -56,6 +56,7 @@ option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 option(ENABLE_CONDUITTEST "Enable Conduit miniapp" OFF)
 option(ENABLE_KRIPKE "Enable Kripke miniapp" OFF)
+option(ENABLE_MANDELBROT "Enable Mandelbrot miniapp" ON)
 
 message(STATUS "ENABLE_SENSEI=${ENABLE_SENSEI}")
 message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
