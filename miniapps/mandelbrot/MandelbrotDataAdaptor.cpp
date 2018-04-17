@@ -57,7 +57,6 @@ void MandelbrotDataAdaptor::Initialize(simulation_data *sim)
   this->ReleaseData();
 }
 
-#ifdef REPRESENT_VTK_AMR
 //-----------------------------------------------------------------------------
 int MandelbrotDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly*/,
     vtkDataObject *&mesh)
@@ -72,7 +71,7 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName, bool /*structure
   DInternals& internals = (*this->Internals);
   if (!internals.Mesh)
     {
-#define DEBUG_GET_MESH
+//#define DEBUG_GET_MESH
 #ifdef DEBUG_GET_MESH
     char filename[100];
     sprintf(filename, "getmesh.%04d.txt", internals.sim->par_rank);
@@ -288,189 +287,6 @@ int MandelbrotDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &mesh
   FREE(patches_this_rank);
   return retVal;
 }
-#else
-//-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly*/,
-    vtkDataObject *&mesh)
-{
-  if (meshName != "AMR_mesh")
-    {
-    SENSEI_ERROR("the miniapp provides meshes named \"AMR_mesh\"" 
-       " you requested \"" << meshName << "\"")
-    return -1;
-    }
-
-  DInternals& internals = (*this->Internals);
-  if (!internals.Mesh)
-    {
-    internals.Mesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-
-    /* Compute the global number of patches. */
-    int npatches = 0;
-    for(int i = 0; i < internals.sim->par_size; ++i)
-        npatches += internals.sim->npatches_per_rank[i];
-
-    /* Create a multiblock dataset with the total number of patches. */
-    internals.Mesh->SetNumberOfBlocks(npatches);
-//    for (int domain=0; domain < npatches; ++domain)
-//      internals.Mesh->SetBlock(domain, nullptr);
-
-    /* Create meshes for just the local patches */
-    int np = 0;
-    patch_t **patches_this_rank = patch_flat_array(&internals.sim->patch, &np);
-    for(int i = 0; i < np; ++i)
-      {
-      // Skip any duplicate patches not owned by this rank.
-      if(patches_this_rank[i]->nowners > 1)
-        {
-        if(patches_this_rank[i]->owners[0] != internals.sim->par_rank)
-          continue;
-        }
-      int domain = patches_this_rank[i]->id;
-      patch_t *patch = patch_get_patch(&internals.sim->patch, domain);
-      if(patch)
-        {
-#if 1
-        vtkFloatArray *xc, *yc, *zc;
-        xc = vtkFloatArray::New();
-        yc = vtkFloatArray::New();
-        zc = vtkFloatArray::New();
-        xc->SetNumberOfTuples(patch->nx + 1);
-        yc->SetNumberOfTuples(patch->ny + 1);
-        zc->SetNumberOfTuples(1);
-        /* Initialize X coords. */
-        float width  = internals.sim->patch.window[1] - internals.sim->patch.window[0];
-        float x0 = (patch->window[0] - internals.sim->patch.window[0]) / width;
-        float x1 = (patch->window[1] - internals.sim->patch.window[0]) / width;
-        for(int i = 0; i < (patch->nx+1); ++i)
-        {
-            float t = float(i) / float(patch->nx);
-            xc->SetTuple1(i, (1.f-t)*x0 + t*x1);
-        }
-        /* Initialize Y coords. */
-        float height = internals.sim->patch.window[3] - internals.sim->patch.window[2];
-        float y0 = (patch->window[2] - internals.sim->patch.window[2]) / height;
-        float y1 = (patch->window[3] - internals.sim->patch.window[2]) / height;
-        for(int i = 0; i < (patch->ny+1); ++i)
-        {
-            float t = float(i) / float(patch->ny);
-            yc->SetTuple1(i, (1.f-t)*y0 + t*y1);
-        }
-        /* Z coords*/
-        zc->SetTuple1(0, 0.);
-
-        vtkRectilinearGrid *block = vtkRectilinearGrid::New();
-        int dims[3];
-        dims[0] = xc->GetNumberOfTuples();
-        dims[1] = yc->GetNumberOfTuples();
-        dims[2] = 1;
-        block->SetDimensions(dims);
-        block->SetXCoordinates(xc);
-        block->SetYCoordinates(yc);
-        block->SetZCoordinates(zc);
-        xc->Delete();
-        yc->Delete();
-        zc->Delete();
-
-        internals.Mesh->SetBlock(domain, block);
-        block->Delete();
-#else
-// NOTE: this overall looks right but when VisIt gets this, the data shrink
-//       in the window instead of causing it to zoom. It must be a problem in
-//       the Libsim adaptor's handling of vtkImageData.
-        vtkImageData *blockMesh = vtkImageData::New();
-        blockMesh->SetExtent(
-          0, patch->nx,
-          0, patch->ny,
-          0, 0);
-
-        double origin[3];
-        origin[0] = patch->window[0];
-        origin[1] = patch->window[2];
-        origin[2] = 0.f;
-        blockMesh->SetOrigin(origin);
-
-        double spacing[3];
-        spacing[0] = (patch->window[1] - patch->window[0]) / patch->nx;
-        spacing[1] = (patch->window[3] - patch->window[2]) / patch->ny;
-        spacing[2] = 0.f;
-        blockMesh->SetSpacing(spacing);
-
-        internals.Mesh->SetBlock(domain, blockMesh);
-        blockMesh->Delete();
-/*cellExts.min[0], cellExts.max[0]+1,
-          cellExts.min[1], cellExts.max[1]+1,
-          cellExts.min[2], cellExts.max[2]+1);*/
-#endif
-        }
-      }
-    FREE(patches_this_rank);
-    }
-
-  mesh = internals.Mesh;
-  return 0;
-}
-
-//-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::string &arrayName)
-{
-#ifndef NDEBUG
-  if ((association != vtkDataObject::FIELD_ASSOCIATION_CELLS) ||
-    (arrayName != "mandelbrot") || (meshName != "AMR_mesh"))
-    {
-    SENSEI_ERROR("the miniapp provides a cell centered array named \"mandelbrot\" "
-      " on a mesh named \"AMR_mesh\"")
-    return 1;
-    }
-#else
-  (void)meshName;
-  (void)association;
-  (void)arrayName;
-#endif
-  int retVal = 1;
-  DInternals& internals = (*this->Internals);
-  vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
-  /* Set the arrays for the local domains. */
-  int np = 0;
-  patch_t **patches_this_rank = patch_flat_array(&internals.sim->patch, &np);
-  for(int i = 0; i < np; ++i)
-    {
-    // Skip any duplicate patches not owned by this rank.
-    if(patches_this_rank[i]->nowners > 1)
-      {
-      if(patches_this_rank[i]->owners[0] != internals.sim->par_rank)
-        continue;
-      }
-    int domain = patches_this_rank[i]->id;
-    vtkDataSet *block = vtkDataSet::SafeDownCast(md->GetBlock(domain));
-    if(block)
-      {
-      vtkDataArray *m = block->GetCellData()->GetArray("mandelbrot");
-      if(m == nullptr)
-        {
-        patch_t *patch = patch_get_patch(&internals.sim->patch, domain);
-        if(patch)
-          {
-          vtkUnsignedCharArray *arr = vtkUnsignedCharArray::New();
-          arr->SetName("mandelbrot");
-          arr->SetArray(patch->data, patch->nx*patch->ny, 1);
-          block->GetCellData()->SetScalars(arr);
-          block->GetCellData()->SetActiveScalars("mandelbrot");
-          arr->FastDelete();
-          retVal = 0;
-          }
-        }
-       else
-        {
-        retVal = 0; // we already had it.
-        }
-      }
-    }
-  FREE(patches_this_rank);
-  return retVal;
-}
-#endif
 
 //-----------------------------------------------------------------------------
 int MandelbrotDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
