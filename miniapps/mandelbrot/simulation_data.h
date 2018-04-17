@@ -18,7 +18,8 @@ public:
     double  time;
     int     max_levels;
     int     refinement_ratio;
-    int     balance;
+    bool    balance;
+    bool    log;
 
     patch_t patch;
 
