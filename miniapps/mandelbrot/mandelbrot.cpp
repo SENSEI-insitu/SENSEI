@@ -522,7 +522,11 @@ handle_command_line(int argc, char **argv, simulation_data *sim,
         else if((strcmp(argv[i], "-b") == 0 ||
                  strcmp(argv[i], "-balance") == 0))
         {
-            sim->balance = 1;
+            sim->balance = true;
+        }
+        else if(strcmp(argv[i], "-log") == 0)
+        {
+            sim->log = true;
         }
     }
 }
@@ -579,7 +583,16 @@ int main(int argc, char **argv)
     analysisAdaptor->Initialize(MPI_COMM_WORLD, config_file);
     timer::MarkStartEvent("mandelbrot::finalize");
 #endif
-    pause();
+    //pause();
+
+    ofstream log;
+    if(sim.log && sim.par_rank == 0)
+    {
+        log.open("mandelbrot.log");
+        for(int i = 0; i < argc; ++i)
+           log << argv[i] << " ";
+        log << endl;
+    }
 
     // Patch 0 is owned by all ranks. This will be freed by the simulation_data's
     // patch at the end of the run.
@@ -633,14 +646,12 @@ int main(int argc, char **argv)
 #endif
         calculate_amr(MPI_COMM_WORLD, &sim);
 
-#if 1
-        if(sim.par_rank == 0)
+        if(sim.log && sim.par_rank == 0)
         {
-            std::cout << "patches_per_rank:" << endl;
+            log << "# patches_per_rank" << sim.cycle << endl;
             for(int i = 0; i < sim.par_size; ++i)
-               std::cout << "\t" << i << ": " << sim.npatches_per_rank[i] << std::endl;
+                log << i << " " << sim.npatches_per_rank[i] << std::endl;
         }
-#endif
 
 #ifdef ENABLE_SENSEI
         timer::MarkEndEvent("mandelbrot::compute");
@@ -662,6 +673,8 @@ int main(int argc, char **argv)
     }
 
     // Cleanup
+    if(sim.log && sim.par_rank == 0)
+        log.close();
 #ifdef ENABLE_SENSEI
     timer::MarkStartEvent("mandelbrot::finalize");
     analysisAdaptor->Finalize();
