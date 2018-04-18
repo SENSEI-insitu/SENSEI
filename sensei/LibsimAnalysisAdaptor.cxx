@@ -2099,9 +2099,14 @@ box_intersect(const int *ext, const int *extChild, int ratio)
                in_range(extChild[1], parent[0], parent[1]);
     bool inY = in_range(extChild[2], parent[2], parent[3]) ||
                in_range(extChild[3], parent[2], parent[3]);
-    bool inZ = in_range(extChild[4], parent[4], parent[5]) ||
-               in_range(extChild[5], parent[4], parent[5]);
-    return inX || inY || inZ;
+    // Ignore Z if 2D.
+    bool inZ = true;
+    if(parent[4] != parent[5] || parent[4] != 0)
+    {
+        inZ = in_range(extChild[4], parent[4], parent[5]) ||
+              in_range(extChild[5], parent[4], parent[5]);
+    }
+    return inX && inY && inZ;
 }
 
 // --------------------------------------------------------------------------
@@ -2167,6 +2172,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
         }
     }
     MPI_Allreduce(MPI_IN_PLACE, allext, sz, MPI_INT, MPI_MAX, This->comm);
+#define DEBUG_GETDOMAINNESTING
 #ifdef DEBUG_GETDOMAINNESTING
     for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
     {
@@ -2208,7 +2214,10 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
     // We don't have perfect parent/child data in the VTK AMR dataset. Maybe VTK 
     // isn't happy computing it when only some of the ranks have data. We have 
     // gathered the boxes for all patches in the dataset at this point. 
-    // We can use that to determine parent/child.
+    // We can use that to determine parent/child. For all leaf patches, set
+    // the domain nesting information for VisIt. For all others, make a list
+    // of work we can divide among ranks.
+    std::vector<unsigned int> work;
     for(unsigned int level = 0; level < overlappingAMR->GetNumberOfLevels(); ++level)
     {
         unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
@@ -2231,55 +2240,150 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
                 VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
                     children, 0, logicalExt);
 #ifdef DEBUG_GETDOMAINNESTING
-                if(rank == 0)
-                {
-                    cout << "patch " << dom << ": level=" << level << ", id=" << i << ": children = {}" << endl;
-                }
+                std::stringstream ss;
+                ss << "patch " << dom << ": level=" << level << ", id=" << i
+                   << ": children = {}, logicalExt={";
+                for(int r = 0; r < 6; ++r)
+                    ss << logicalExt[r] << ", ";
+                ss << "}" << endl;
+                VisItDebug5(ss.str().c_str());
 #endif
             }
         }
         else
         {
-            // TODO: divide up this work among ranks...
-            std::vector<int> children;
-            unsigned int nDataSetsNextLevel = overlappingAMR->GetNumberOfDataSets(level+1);
-            int ratio = overlappingAMR->GetRefinementRatio(level);
             for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
-            {
-                // Search for children.
-                children.clear();
-                unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
-                int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
-                for(unsigned int j = 0; j < nDataSetsNextLevel; ++j)
-                {
-                    unsigned int childDom = overlappingAMR->GetCompositeIndex(level+1, j);
-                    const int *extChild = &allext[6*childDom]; // lowi highi lowj highj lowk highk
-                    if(box_intersect(ext, extChild, ratio))
-                        children.push_back(static_cast<int>(childDom));
-                }
-#ifdef DEBUG_GETDOMAINNESTING
-                if(rank == 0)
-                {
-                    cout << "patch " << dom << ": level=" << level << ", id=" << i << ": children = {";
-                    for(size_t r = 0; r < children.size(); ++r)
-                        cout << children[r] << ", ";
-                    cout << "}" << endl;
-                }
-#endif
-                int logicalExt[6];
-                logicalExt[0] = ext[0];
-                logicalExt[1] = ext[2];
-                logicalExt[2] = ext[4];
-                logicalExt[3] = ext[1];
-                logicalExt[4] = ext[3];
-                logicalExt[5] = ext[5];
-                VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
-                    &children[0], children.size(), logicalExt);
-            }
+                work.push_back(overlappingAMR->GetCompositeIndex(level, i));
         }
     }
 
+    // Now, there were a bunch of patches for which we need to compute the children.
+    // Figure out which ranks do which patches.
+    std::vector<unsigned int> mywork;
+    int ws = static_cast<int>(work.size());
+    int n = std::max(ws, size);
+    for(int i = 0; i < n; ++i)
+    {
+        int r = i % size;
+        if(r == rank)
+        {
+            if(i < ws)
+                mywork.push_back(work[i % work.size()]);
+        }
+    }
+
+    // Compute the children. We'll store them as {compositeIndex nChildren c0 c1 ...}...
+    std::vector<int> childData;
+    for(size_t i = 0; i < mywork.size(); ++i)
+    {
+        unsigned int dom = mywork[i];
+        int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
+
+        size_t start = childData.size();
+        childData.push_back(static_cast<int>(dom));
+        childData.push_back(0);
+
+        unsigned int level, patch;
+        overlappingAMR->GetLevelAndIndex(dom, level, patch);
+        unsigned int nextLevel = level+1;
+        int ratio = overlappingAMR->GetRefinementRatio(level);
+        unsigned int nDataSetsNextLevel = overlappingAMR->GetNumberOfDataSets(nextLevel);
+#ifdef DEBUG_GETDOMAINNESTING
+        std::stringstream ss;
+        ss << "Finding children of patch " << dom << ": level=" << level
+           << ", id=" << patch << ", start=" << start 
+           << ", nextLevel=" << nextLevel << ", ndsnextlevel=" << nDataSetsNextLevel
+           << ", childData={";
+#endif
+        for(unsigned int j = 0; j < nDataSetsNextLevel; ++j)
+        {
+            unsigned int childDom = overlappingAMR->GetCompositeIndex(nextLevel, j);
+            const int *extChild = &allext[6*childDom]; // lowi highi lowj highj lowk highk
+            if(box_intersect(ext, extChild, ratio))
+            {
+                childData.push_back(static_cast<int>(childDom));
+                childData[start+1]++;
+            }
+        }
+#ifdef DEBUG_GETDOMAINNESTING
+        for(size_t j = start; j < childData.size(); ++j)
+            ss << childData[j] << ", ";
+        ss << "}" << endl;
+        VisItDebug5(ss.str().c_str());
+#endif
+    }
+
+    // Get the work sizes on each rank.
+    int *worksize = new int[size];
+    memset(worksize, 0, sizeof(int)*size);
+    worksize[rank] = static_cast<int>(childData.size());
+    MPI_Allreduce(MPI_IN_PLACE, worksize, size, MPI_INT, MPI_MAX, This->comm);
+
+    // Get the work results from each rank.
+    n = 0;
+    for(int i =0; i < size; ++i)
+        n += worksize[i];
+    int *displs = new int[size];
+    displs[0] = 0;
+    for(int i = 1; i < size; ++i)
+        displs[i] = displs[i-1] + worksize[i-1];
+#ifdef DEBUG_GETDOMAINNESTING
+    std::stringstream ss;
+    ss << "\nworksize={";
+    for(int i = 0; i < size; ++i)
+        ss << worksize[i] << ", ";
+    ss << "}" << endl;
+    ss << "n=" << n << ", displs={";
+    for(int i = 0; i < size; ++i)
+        ss << displs[i] << ", ";
+    ss << "}\n" << endl;
+    VisItDebug5(ss.str().c_str());
+#endif
+    int *workresults = new int[n];
+    childData.push_back(0); // make sure that childData has at least 1 element now.
+    MPI_Allgatherv(&childData[0], worksize[rank], MPI_INT,
+                   workresults, worksize, displs, MPI_INT, This->comm);
+    delete [] worksize;
+    delete [] displs;
+
+    // Now we have the work results, use them.
+    int *w = workresults;
+    int *end = workresults + n;
+    while(w < end)
+    {
+        unsigned int dom = static_cast<unsigned int>(w[0]);
+        int nChildren = w[1];
+        int *children = &w[2];
+        
+        int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
+        int logicalExt[6]; // lowi lowj lowk highi highj highk
+        logicalExt[0] = ext[0];
+        logicalExt[1] = ext[2];
+        logicalExt[2] = ext[4];
+        logicalExt[3] = ext[1];
+        logicalExt[4] = ext[3];
+        logicalExt[5] = ext[5];
+
+        unsigned int level, patch;
+        overlappingAMR->GetLevelAndIndex(dom, level, patch);
+        VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
+            children, nChildren, logicalExt);
+#ifdef DEBUG_GETDOMAINNESTING
+        std::stringstream ss;
+        ss << "patch " << dom << ": level=" << level << ", id=" << patch << ": children = {";
+        for(int r = 0; r < nChildren; ++r)
+            ss << children[r] << ", ";
+        ss << "}, ext={";
+        for(int r = 0; r < 6; ++r)
+            ss << logicalExt[r] << ", ";
+        ss << "}" << endl;
+        VisItDebug5(ss.str().c_str());
+#endif
+        w += (nChildren + 2);
+    }
+
     delete [] allext;
+    delete [] workresults;
 
     return h;
 }
