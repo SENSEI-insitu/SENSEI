@@ -581,7 +581,7 @@ int main(int argc, char **argv)
     vtkSmartPointer<sensei::ConfigurableAnalysis> analysisAdaptor;
     analysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
     analysisAdaptor->Initialize(MPI_COMM_WORLD, config_file);
-    timer::MarkStartEvent("mandelbrot::finalize");
+    timer::MarkEndEvent("mandelbrot::initialize");
 #endif
     //pause();
 

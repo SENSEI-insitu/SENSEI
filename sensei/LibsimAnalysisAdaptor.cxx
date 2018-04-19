@@ -34,7 +34,7 @@
 
 #include <mpi.h>
 
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
 
 #define VISIT_COMMAND_PROCESS 0
 #define VISIT_COMMAND_SUCCESS 1
@@ -120,15 +120,12 @@ std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
 ///////////////////////////////////////////////////////////////////////////////
 struct MeshInfo
 {
-    MeshInfo() : dataObj(nullptr), datasets(), doms_per_rank(nullptr), size(1)
+    MeshInfo() : dataObj(nullptr), datasets(), ndoms_per_rank(), doms_this_rank()
     {
     }
 
     ~MeshInfo()
     {
-        if(doms_per_rank != nullptr)
-            delete [] doms_per_rank;
-
         if(dataObj != nullptr)
         {
             dataObj->Delete();
@@ -174,8 +171,8 @@ struct MeshInfo
 
     vtkDataObject            *dataObj;       // The data object returned from SENSEI.
     std::vector<vtkDataSet *> datasets;      // The leaf datasets of dataObj or dataObj itself if it was a simple vtkDataSet.
-    int                      *doms_per_rank;
-    int                       size;
+    std::vector<int>          ndoms_per_rank;
+    std::vector<unsigned int> doms_this_rank;
 };
 
 std::ostream &operator << (std::ostream &os, const MeshInfo &obj)
@@ -183,9 +180,12 @@ std::ostream &operator << (std::ostream &os, const MeshInfo &obj)
     os <<"{dataObj=" << (void*)obj.dataObj << ", datasets=[";
     for(size_t i = 0; i < obj.datasets.size(); ++i)
         os << (void*)obj.datasets[i] << ", ";
-    os << "], doms_per_rank=[";
-    for(int i = 0; i < obj.size; ++i)
-        os << obj.doms_per_rank[i] << ", ";
+    os << "], ndoms_per_rank=[";
+    for(size_t i = 0; i < obj.ndoms_per_rank.size(); ++i)
+        os << obj.ndoms_per_rank[i] << ", ";
+    os << "], doms_this_rank=[";
+    for(size_t i = 0; i < obj.doms_this_rank.size(); ++i)
+        os << obj.doms_this_rank[i] << ", ";
     os << "]}";
     return os;
 }
@@ -233,7 +233,8 @@ private:
     bool Execute_Interactive(int rank);
 
     void ClearMeshDataCache();
-    MeshInfo *AddMeshDataCacheEntry(const std::string &meshName, int ndatasets);
+    MeshInfo *AddMeshDataCacheEntry(const std::string &meshName,
+                                    const std::vector<unsigned int> &datasetIds);
 
     void FetchMesh(const std::string &meshName);
     int  AddArray(const std::string &meshName, int association, const std::string &arrayName);
@@ -816,7 +817,7 @@ LibsimAnalysisAdaptor::PrivateData::ClearMeshDataCache()
 // --------------------------------------------------------------------------
 MeshInfo *
 LibsimAnalysisAdaptor::PrivateData::AddMeshDataCacheEntry(const std::string &meshName,
-    int ndatasets)
+    const std::vector<unsigned int> &datasetIds)
 {
     MeshInfo *mInfo = new MeshInfo;
 
@@ -836,31 +837,38 @@ LibsimAnalysisAdaptor::PrivateData::AddMeshDataCacheEntry(const std::string &mes
 
     // We'll insert nullptr pointers for the datasets since we don't have their
     // complete definitions yet.
-    for(int i = 0; i < ndatasets; ++i)
-        mInfo->datasets.push_back(nullptr);
+    mInfo->datasets.resize(datasetIds.size(), nullptr);
+
+    // Save the dataset ids for this rank.
+    mInfo->doms_this_rank = datasetIds;
 
     // Determine the number of domains on each rank so we can
     // make the right metadata and later do the domain list right.
     int rank = 0, size = 1;
     MPI_Comm_rank(this->comm, &rank);
     MPI_Comm_size(this->comm, &size);
-    mInfo->size = size;
-    mInfo->doms_per_rank = new int[size];
-    memset(mInfo->doms_per_rank, 0, sizeof(int) * size);
-    int ndoms = ndatasets;
+    mInfo->ndoms_per_rank.resize(size, 0);
+    int ndoms = static_cast<int>(datasetIds.size());
 #ifdef DEDBUG_PRINT
     char tmp[100];
     sprintf(tmp, "Rank %d has %d domains.\n", rank, ndoms);
     VisItDebug5(tmp);
 #endif
     MPI_Allgather(&ndoms, 1, MPI_INT,
-                  mInfo->doms_per_rank, 1, MPI_INT, this->comm);
+                  &mInfo->ndoms_per_rank[0], 1, MPI_INT, this->comm);
 
 #ifdef DEDBUG_PRINT
-    VisItDebug5("doms_per_rank = {");
+    VisItDebug5("ndoms_per_rank = {");
     for(int i = 0; i < size; ++i)
     {
-        sprintf(tmp, "%d, ", mInfo->doms_per_rank[i]);
+        sprintf(tmp, "%d, ", mInfo->ndoms_per_rank[i]);
+        VisItDebug5(tmp);
+    }
+    VisItDebug5("}\n");
+    VisItDebug5("doms_this_rank = {");
+    for(size_t i = 0; i < datasetIds.size(); ++i)
+    {
+        sprintf(tmp, "%u, ", datasetIds[i]);
         VisItDebug5(tmp);
     }
     VisItDebug5("}\n");
@@ -879,7 +887,7 @@ LibsimAnalysisAdaptor::PrivateData::GetTotalDomains(const std::string &meshName)
         int size = 1;
         MPI_Comm_size(comm, &size);
         for(int i = 0; i < size; ++i)
-            total += it->second->doms_per_rank[i];
+            total += it->second->ndoms_per_rank[i];
     }
     return total;
 }
@@ -893,21 +901,14 @@ LibsimAnalysisAdaptor::PrivateData::GetDomains(const std::string &meshName, int 
     std::map<std::string, MeshInfo *>::const_iterator it;
     if((it = meshData.find(meshName)) != meshData.end())
     {
-        int rank = 0;
-        MPI_Comm_rank(this->comm, &rank);
-        MPI_Comm_size(this->comm, &size);
-
-        // Compute the offset to this rank's domains.
-        int offset = 0;
-        for(int i = 0; i < rank; ++i)
-            offset += it->second->doms_per_rank[i];
-
         // Make a list of this rank's domains using global domain ids.
-        iptr = (int *)malloc(sizeof(int) * it->second->doms_per_rank[rank]);
-        for(int i = 0; i < it->second->doms_per_rank[rank]; ++i)
-            iptr[i] = offset + i;
-
-        size = it->second->doms_per_rank[rank];
+        size = static_cast<int>(it->second->doms_this_rank.size());
+        if(size > 0)
+        {
+            iptr = (int *)malloc(sizeof(int) * size);
+            for(int i = 0; i < size; ++i)
+                iptr[i] = static_cast<int>(it->second->doms_this_rank[i]);
+        }
     }
     return iptr;
 }
@@ -920,14 +921,16 @@ LibsimAnalysisAdaptor::PrivateData::GetLocalDomain(const std::string &meshName, 
     std::map<std::string, MeshInfo *>::const_iterator it;
     if((it = meshData.find(meshName)) != meshData.end())
     {
-        int rank = 0;
-        MPI_Comm_rank(comm, &rank);
-        int offset = 0;
-        for(int i = 0; i < rank; ++i)
-            offset += it->second->doms_per_rank[i];
-
-        if(globaldomain >= offset && globaldomain < offset+it->second->doms_per_rank[rank])
-            dom = globaldomain - offset;
+        int s = static_cast<int>(it->second->doms_this_rank.size());
+        unsigned int gdom = static_cast<unsigned int>(globaldomain);
+        for(int i = 0; i < s; ++i)
+        {
+            if(gdom == it->second->doms_this_rank[i])
+            {
+                dom = i;
+                break;
+            }
+        }
     }
 
     return dom;
@@ -942,9 +945,7 @@ LibsimAnalysisAdaptor::PrivateData::GetNumDataSets(const std::string &meshName) 
     std::map<std::string, MeshInfo *>::const_iterator it;
     if((it = meshData.find(meshName)) != meshData.end())
     {
-        int rank = 0;
-        MPI_Comm_rank(comm, &rank);
-        ndom = it->second->doms_per_rank[rank];
+        ndom = static_cast<int>(it->second->doms_this_rank.size());
     }
     return ndom;
 }
@@ -989,7 +990,7 @@ LibsimAnalysisAdaptor::PrivateData::FetchMesh(const std::string &meshName)
 
             // Unpack the data object into a vector of vtkDataSets if it is a
             // compound dataset.
-            int dsId = 0;
+            int localId = 0;
             vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
             if(cds != nullptr)
             {
@@ -1000,7 +1001,7 @@ LibsimAnalysisAdaptor::PrivateData::FetchMesh(const std::string &meshName)
                 {
                     vtkDataObject *obj2 = cds->GetDataSet(it);
                     if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
-                        mit->second->SetDataSet(dsId++, vtkDataSet::SafeDownCast(obj2));
+                        mit->second->SetDataSet(localId++, vtkDataSet::SafeDownCast(obj2));
                     it->GoToNextItem();
                 }
             }
@@ -1639,6 +1640,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         // dataset. These datasets will be incomplete and just for the structure 
         // and number of domains only.
         std::vector<vtkDataSet *> datasets;
+        std::vector<unsigned int> datasetIds;
         vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
         if(cds != nullptr)
         {
@@ -1649,7 +1651,10 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             {
                 vtkDataObject *obj2 = cds->GetDataSet(it);
                 if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
+                {
                     datasets.push_back(vtkDataSet::SafeDownCast(obj2));
+                    datasetIds.push_back(it->GetCurrentFlatIndex());
+                }
                 it->GoToNextItem();
             }
         }
@@ -1667,12 +1672,12 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         vtkOverlappingAMR *overlappingAMR = vtkOverlappingAMR::SafeDownCast(obj);
 
 #ifdef DEBUG_PRINT
-        VisItDebug5("datasets.size() = %d\n", (int)datasets.size());
+        VisItDebug5("datasets.size() = %d\n", (int)datasetIds.size());
 #endif
 
         // Let's create a new mesh information object to contain the data object and
         // its sub-datasets.
-        MeshInfo *mInfo = This->AddMeshDataCacheEntry(meshName, (int)datasets.size());
+        MeshInfo *mInfo = This->AddMeshDataCacheEntry(meshName, datasetIds);
 
         // Now, let's create some metadata for the object.
 
@@ -1685,7 +1690,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         int bcast_rank = -1;
         for(int i = 0; i < size; ++i)
         {
-            if(mInfo->doms_per_rank[i] > 0)
+            if(mInfo->ndoms_per_rank[i] > 0)
             {
                 bcast_rank = i;
                 break;
@@ -2151,6 +2156,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
         return VISIT_INVALID_HANDLE;
     }
 
+    timer::MarkEvent mark("libsim::getdomainnesting");
     int rank, size;
     MPI_Comm_rank(This->comm, &rank);
     MPI_Comm_size(This->comm, &size);
@@ -2172,7 +2178,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
         }
     }
     MPI_Allreduce(MPI_IN_PLACE, allext, sz, MPI_INT, MPI_MAX, This->comm);
-#define DEBUG_GETDOMAINNESTING
+//#define DEBUG_GETDOMAINNESTING
 #ifdef DEBUG_GETDOMAINNESTING
     for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
     {
@@ -2214,63 +2220,30 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
     // We don't have perfect parent/child data in the VTK AMR dataset. Maybe VTK 
     // isn't happy computing it when only some of the ranks have data. We have 
     // gathered the boxes for all patches in the dataset at this point. 
-    // We can use that to determine parent/child. For all leaf patches, set
-    // the domain nesting information for VisIt. For all others, make a list
-    // of work we can divide among ranks.
+    // We can use that to determine parent/child. Make a list of all non-leaf
+    // patches that we can divide among ranks for computing parent/child.
     std::vector<unsigned int> work;
-    for(unsigned int level = 0; level < overlappingAMR->GetNumberOfLevels(); ++level)
+    for(unsigned int level = 0; level < overlappingAMR->GetNumberOfLevels()-1; ++level)
     {
         unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
-        if(level == overlappingAMR->GetNumberOfLevels() - 1)
-        {
-            // There are no child patches here and the most patches should
-            // live here.
-            int children[2] ={0,0};
-            for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
-            {
-                unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
-                int *ext = &allext[6*dom];
-                int logicalExt[6];
-                logicalExt[0] = ext[0];
-                logicalExt[1] = ext[2];
-                logicalExt[2] = ext[4];
-                logicalExt[3] = ext[1];
-                logicalExt[4] = ext[3];
-                logicalExt[5] = ext[5];
-                VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
-                    children, 0, logicalExt);
-#ifdef DEBUG_GETDOMAINNESTING
-                std::stringstream ss;
-                ss << "patch " << dom << ": level=" << level << ", id=" << i
-                   << ": children = {}, logicalExt={";
-                for(int r = 0; r < 6; ++r)
-                    ss << logicalExt[r] << ", ";
-                ss << "}" << endl;
-                VisItDebug5(ss.str().c_str());
-#endif
-            }
-        }
-        else
-        {
-            for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
-                work.push_back(overlappingAMR->GetCompositeIndex(level, i));
-        }
+        for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
+            work.push_back(overlappingAMR->GetCompositeIndex(level, i));
     }
 
     // Now, there were a bunch of patches for which we need to compute the children.
     // Figure out which ranks do which patches.
     std::vector<unsigned int> mywork;
     int ws = static_cast<int>(work.size());
-    int n = std::max(ws, size);
-    for(int i = 0; i < n; ++i)
-    {
-        int r = i % size;
-        if(r == rank)
-        {
-            if(i < ws)
-                mywork.push_back(work[i % work.size()]);
-        }
-    }
+    int *rankn = new int[size];
+    memset(rankn, 0, sizeof(int)*size);
+    for(int i = 0; i < ws; ++i)
+        rankn[i % size]++;
+    int offset = 0;
+    for(int i = 0; i < rank; ++i)
+        offset += rankn[i];
+    for(int i = 0; i < rankn[rank]; ++i)
+        mywork.push_back(work[offset + i]);
+    delete [] rankn;
 
     // Compute the children. We'll store them as {compositeIndex nChildren c0 c1 ...}...
     std::vector<int> childData;
@@ -2320,7 +2293,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
     MPI_Allreduce(MPI_IN_PLACE, worksize, size, MPI_INT, MPI_MAX, This->comm);
 
     // Get the work results from each rank.
-    n = 0;
+    int n = 0;
     for(int i =0; i < size; ++i)
         n += worksize[i];
     int *displs = new int[size];
@@ -2353,7 +2326,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
     {
         unsigned int dom = static_cast<unsigned int>(w[0]);
         int nChildren = w[1];
-        int *children = &w[2];
+        int *children = nChildren > 0 ? &w[2] : nullptr;
         
         int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
         int logicalExt[6]; // lowi lowj lowk highi highj highk
@@ -2380,6 +2353,36 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
         VisItDebug5(ss.str().c_str());
 #endif
         w += (nChildren + 2);
+    }
+
+    // Add the leaves.
+    unsigned int level = overlappingAMR->GetNumberOfLevels()-1;
+    unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
+    // There are no child patches here and the most patches should
+    // live here.
+    int children[2] ={0,0};
+    for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
+    {
+        unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
+        int *ext = &allext[6*dom];
+        int logicalExt[6];
+        logicalExt[0] = ext[0];
+        logicalExt[1] = ext[2];
+        logicalExt[2] = ext[4];
+        logicalExt[3] = ext[1];
+        logicalExt[4] = ext[3];
+        logicalExt[5] = ext[5];
+        VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
+                    children, 0, logicalExt);
+#ifdef DEBUG_GETDOMAINNESTING
+        std::stringstream ss;
+        ss << "patch " << dom << ": level=" << level << ", id=" << i
+           << ": children = {}, logicalExt={";
+        for(int r = 0; r < 6; ++r)
+            ss << logicalExt[r] << ", ";
+        ss << "}" << endl;
+        VisItDebug5(ss.str().c_str());
+#endif
     }
 
     delete [] allext;
