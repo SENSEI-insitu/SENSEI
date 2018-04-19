@@ -15,8 +15,31 @@
 #cmakedefine ENABLE_VTK_GENERIC_ARRAYS
 #cmakedefine ENABLE_VTK_XMLP
 
+#if defined(ENABLE_LIBSIM)
+  #include <vtkVersionMacros.h>
+  #if VTK_MAJOR_VERSION < 8
+    // VTK 6.1
+    #define senseiBaseTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
+    #define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
+    #define senseiNewMacro(a1) \
+    a1 *a1::New() \
+    { \
+    vtkObjectBase* ret = vtkObjectFactory::CreateInstance(#a1); \
+    if(ret) \
+      { \
+      return static_cast<a1*>(ret); \
+      } \
+    return new a1; \
+    }
+  #else
+    #define senseiBaseTypeMacro(a1, a2) vtkBaseTypeMacro(a1, a2)
+    #define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
+    #define senseiNewMacro(a1) vtkStandardNewMacro(a1)
+  #endif
+#else
 #define senseiBaseTypeMacro(a1, a2) vtkBaseTypeMacro(a1, a2)
 #define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
 #define senseiNewMacro(a1) vtkStandardNewMacro(a1)
+#endif
 
 #endif
