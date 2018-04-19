@@ -2,6 +2,7 @@
 #include "VTKUtils.h"
 #include "Error.h"
 
+#include <vtkVersionMacros.h>
 #include <vtkCellTypes.h>
 #include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
@@ -32,7 +33,9 @@
 #include <vtkMultiBlockDataSet.h>
 #include <vtkHierarchicalBoxDataSet.h>
 #include <vtkMultiPieceDataSet.h>
+#if VTK_MAJOR_VERSION < 8
 #include <vtkHyperOctree.h>
+#endif
 #include <vtkHyperTreeGrid.h>
 #include <vtkOverlappingAMR.h>
 #include <vtkNonOverlappingAMR.h>
@@ -242,9 +245,11 @@ vtkDataObject *newDataObject(int code)
     case VTK_MULTIPIECE_DATA_SET:
       ret = vtkMultiPieceDataSet::New();
       break;
+#if VTK_MAJOR_VERSION < 8
     case VTK_HYPER_OCTREE:
       ret = vtkHyperOctree::New();
       break;
+#endif
     case VTK_HYPER_TREE_GRID:
       ret = vtkHyperTreeGrid::New();
       break;

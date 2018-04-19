@@ -2,7 +2,13 @@
 #define sensei_DataAdaptor_h
 
 #include "senseiConfig.h"
-#include "vtkObjectBase.h"
+#include <vtkVersionMacros.h>
+#if VTK_MAJOR_VERSION >= 8
+#include <vtkObject.h>
+#else
+#include <vtkObjectBase.h>
+#endif
+
 #include "vtkSetGet.h" // needed for vtkBaseTypeMacro.
 
 #include <vector>
@@ -15,6 +21,11 @@ class vtkInformationIntegerKey;
 
 namespace sensei
 {
+#if VTK_MAJOR_VERSION >= 8
+typedef vtkObject DataAdaptorBase;
+#else
+typedef vtkObjectBase DataAdaptorBase;
+#endif
 
 /// @class DataAdaptor
 /// @brief DataAdaptor is an abstract base class that defines the data interface.
@@ -22,10 +33,10 @@ namespace sensei
 /// DataAdaptor defines the data interface. Any simulation code that interfaces with
 /// Sensei needs to provide an implementation for this interface. Analysis routines
 /// (via AnalysisAdator) use the DataAdaptor implementation to access simulation data.
-class DataAdaptor : public vtkObjectBase
+class DataAdaptor : public DataAdaptorBase
 {
 public:
-  senseiBaseTypeMacro(DataAdaptor, vtkObjectBase);
+  senseiBaseTypeMacro(DataAdaptor, DataAdaptorBase);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /// @brief Gets the number of meshes a simulation can provide
