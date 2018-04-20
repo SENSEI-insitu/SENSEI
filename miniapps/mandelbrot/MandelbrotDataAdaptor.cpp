@@ -190,15 +190,35 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName, bool /*structure
         {
           fprintf(f, "Set domain %d: mylevel=%d, mypatch=%d, "
                      "origin={%lg, %lg, %lg}, spacing={%lg, %lg, %lg}, "
-                     "dims={%d,%d,%d}"
+                     "dims={%d,%d,%d}, patch->nx=%d, patch->ny=%d"
                       "\n",
                   domain, (int)mylevel, (int)mypatch
                   ,origin[0],origin[1],origin[2]
                   ,spacing[0],spacing[1],spacing[2]
-                  ,dims[0], dims[1], dims[2]
+                  ,dims[0], dims[1], dims[2],
+                  patches_this_rank[i]->nx, patches_this_rank[i]->ny
                  );
         }
 #endif
+      // If the patch has children, and blank data then expose that data as
+      // vtkGhostType.
+      vtkUnsignedCharArray *arr = vtkUnsignedCharArray::New();
+      arr->SetName("vtkGhostType");
+      if(patches_this_rank[i]->blank != nullptr)
+        {
+        arr->SetArray(patches_this_rank[i]->blank, 
+                      patches_this_rank[i]->nx*patches_this_rank[i]->ny, 1);
+        }
+      else
+        {
+        // leaf patches won't have a blank array.
+        int sz = patches_this_rank[i]->nx*patches_this_rank[i]->ny;
+        arr->SetNumberOfTuples(sz);
+        memset(arr->GetVoidPointer(0), 0, sz * sizeof(unsigned char));
+        }
+      p->GetCellData()->AddArray(arr);
+      arr->FastDelete();
+
       // Set the vtkUniformGrid into the AMR dataset.
       vtkAMRBox box(low, high);
       internals.Mesh->SetAMRBox(mylevel, mypatch, box);
@@ -343,5 +363,3 @@ int MandelbrotDataAdaptor::ReleaseData()
   internals.Mesh = NULL;
   return 0;
 }
-
-

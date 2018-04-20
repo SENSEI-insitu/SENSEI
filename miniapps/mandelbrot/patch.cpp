@@ -1,7 +1,7 @@
 #include <map>
 #include "patch.h"
 #include <cstring>
-
+#include <iostream>
 // ****************************************************************************
 // Functions: Functions related to the patch object
 //
@@ -56,6 +56,7 @@ patch_dtor(patch_t *patch)
     if(patch != NULL)
     {
         FREE(patch->data);
+        FREE(patch->blank);
         if(patch->nowners > 1)
         {
             FREE(patch->owners);
@@ -83,9 +84,20 @@ patch_alloc_data(patch_t *patch, int nx, int ny)
     patch->data = ALLOC(nx*ny, unsigned char);
 }
 
+void
+patch_alloc_blank(patch_t *patch, int nx, int ny)
+{
+    patch->nx = nx;
+    patch->ny = ny;
+    patch->blank = ALLOC(nx*ny, unsigned char);
+    memset(patch->blank, 0, nx*ny*sizeof(unsigned char));
+}
+
 patch_t *
 patch_add_subpatches(patch_t *patch, int n)
 {
+    if(n == 0)
+        return NULL;
     if(patch->nsubpatches == 0)
     {
         patch->subpatches = ALLOC(n, patch_t);
@@ -624,7 +636,20 @@ patch_refine(patch_t *patch, int refinement_ratio,
     int npatches = 0;
     for(it = patchmap.begin(); it != patchmap.end(); ++it)
         npatches++;
-    patch_t *newpatch = patch_add_subpatches(patch, npatches);
+    patch_t *newpatch = nullptr;
+
+    if(npatches > 0)
+    {
+        newpatch = patch_add_subpatches(patch, npatches);
+
+        // Allocate blank data for the patch we're refining so we can blank
+        // out the cells covered by child patches.
+        patch_alloc_blank(patch, patch->nx, patch->ny);
+    }
+
+    // This is a VisIt-ism used for indicating refinement.
+    const int REFINED_ZONE_IN_AMR_GRID = 3;
+    const unsigned char blank = 1 << REFINED_ZONE_IN_AMR_GRID;
 
     // Now that we have a list of patches, create subpatches based on them.
     for(it = patchmap.begin(); it != patchmap.end(); ++it)
@@ -651,7 +676,12 @@ patch_refine(patch_t *patch, int refinement_ratio,
         newpatch->nx = nx*refinement_ratio;
         newpatch->ny = ny*refinement_ratio;
 
+        // Blank the parent patch where this new patch sits.
+        for(int j = it->second.starty; j <= it->second.endy; ++j)
+        for(int i = it->second.startx; i <= it->second.endx; ++i)
+            patch->blank[j*patch->nx + i] = blank;
+
         // on to the next patch.
         newpatch++;
-    }   
+    }
 }
