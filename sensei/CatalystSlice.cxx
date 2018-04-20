@@ -81,7 +81,8 @@ public:
       if (this->EnableRendering())
         {
         this->RenderView = catalyst::CreateViewProxy("views", "RenderView");
-        vtkSMPropertyHelper(this->RenderView, "ShowAnnotation", true).Set(1);
+        // uncomment below if we want to see the frame rate and other annotation information
+        //vtkSMPropertyHelper(this->RenderView, "ShowAnnotation", true).Set(1);
         vtkSMPropertyHelper(this->RenderView, "ViewTime").Set(time);
         vtkSMPropertyHelper(this->RenderView, "ViewSize").Set(this->ImageSize, 2);
         this->RenderView->UpdateVTKObjects();

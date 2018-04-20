@@ -1,0 +1,5 @@
+<sensei>
+  <analysis type="catalyst" enabled="1"
+            pipeline="slice" array="data" association="cell"
+            image-filename="slice-%ts.png" image-width="1920" image-height="1080" />
+</sensei>
