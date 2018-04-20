@@ -333,6 +333,7 @@ calculate_amr_helper(MPI_Comm comm, simulation_data *sim, patch_t *patch, int le
     patch->level = level;
 
     // Calculate the data on this patch 
+    patch_alloc_data(patch, patch->nx, patch->ny);
     calculate_data(patch);
 
     if(level+1 > sim->max_levels)
@@ -356,7 +357,7 @@ calculate_amr_helper(MPI_Comm comm, simulation_data *sim, patch_t *patch, int le
     for(int i = 0; i < patch->nsubpatches; ++i)
     {
         patch_t *p = &patch->subpatches[i];
-        patch_alloc_data(p, p->nx, p->ny);
+        //patch_alloc_data(p, p->nx, p->ny);
         calculate_amr_helper(comm, sim, p, level+1);
     }
 }
@@ -550,6 +551,8 @@ void pause()
 //   argv : The command line arguments.
 //
 // Modifications:
+//   Brad Whitlock, Thu Apr 19 18:09:16 PDT 2018
+//   Ported to SENSEI, parallelized better.
 //
 // ****************************************************************************
 
@@ -640,7 +643,8 @@ int main(int argc, char **argv)
         sim.patch.logical_extents[1] = NX-1;
         sim.patch.logical_extents[2] = 0;
         sim.patch.logical_extents[3] = NY-1;
-        patch_alloc_data(&sim.patch, NX, NY);
+        sim.patch.nx = NX;
+        sim.patch.ny = NY;
 #ifdef ENABLE_SENSEI
         timer::MarkStartEvent("mandelbrot::compute");
 #endif

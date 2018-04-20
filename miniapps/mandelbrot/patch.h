@@ -24,6 +24,7 @@ struct patch_t
     float          window[4];
 
     unsigned char *data;
+    unsigned char *blank;
     int            nx;
     int            ny;
 
@@ -40,6 +41,7 @@ void      patch_dtor(patch_t *patch);
 void      patch_shallow_copy(patch_t *dest, patch_t *src);
 void      patch_print(FILE *f, patch_t *patch);
 void      patch_alloc_data(patch_t *patch, int nx, int ny);
+void      patch_alloc_blank(patch_t *patch, int nx, int ny);
 patch_t  *patch_add_subpatches(patch_t *patch, int n);
 void      patch_add_owner(patch_t *patch, int owner);
 int       patch_num_patches(patch_t *patch);

@@ -121,7 +121,8 @@ std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
 ///////////////////////////////////////////////////////////////////////////////
 struct MeshInfo
 {
-    MeshInfo() : dataObj(nullptr), datasets(), ndoms_per_rank(), doms_this_rank()
+    MeshInfo() : dataObj(nullptr), datasets(), ndoms_per_rank(), doms_this_rank(),
+        datasetsHaveGhostCells(false)
     {
     }
 
@@ -174,6 +175,7 @@ struct MeshInfo
     std::vector<vtkDataSet *> datasets;      // The leaf datasets of dataObj or dataObj itself if it was a simple vtkDataSet.
     std::vector<int>          ndoms_per_rank;
     std::vector<unsigned int> doms_this_rank;
+    bool                      datasetsHaveGhostCells;
 };
 
 std::ostream &operator << (std::ostream &os, const MeshInfo &obj)
@@ -1130,7 +1132,7 @@ LibsimAnalysisAdaptor::PrivateData::FetchMesh(const std::string &meshName)
 
             // If the data adaptor can provide a ghost cells array, add it to the
             // data object now. The datasets we've registered will then have that
-            // as a point data array.
+            // as a cell data array.
             if(da->GetMeshHasGhostCells(meshName, nLayers) == 0)
             {
                 if(nLayers > 0)
@@ -1423,12 +1425,20 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
                         x[i] = x0[0] + (ext[0] + i)*dx[0];
                     for(int i = 0; i < ny; ++i)
                         y[i] = x0[1] + (ext[2] + i)*dx[1];
-                    for(int i = 0; i < nz; ++i)
-                        z[i] = x0[2] + (ext[4] + i)*dx[2];
                     VisIt_VariableData_setDataF(xc, VISIT_OWNER_VISIT, 1, nx, x);
                     VisIt_VariableData_setDataF(yc, VISIT_OWNER_VISIT, 1, ny, y);
-                    VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
-                    VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+                    if(nz > 1)
+                    {
+                        for(int i = 0; i < nz; ++i)
+                            z[i] = x0[2] + (ext[4] + i)*dx[2];
+                        VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
+                        VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+                    }
+                    else
+                    {
+                        VisIt_VariableData_free(zc); // didn't use it.
+                        VisIt_RectilinearMesh_setCoordsXY(mesh, xc, yc);
+                    }
 
                     // Try and make some ghost nodes.
                     visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
@@ -1855,6 +1865,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 iMesh[1] = dims[0];
                 iMesh[2] = dims[1];
                 iMesh[3] = dims[2];
+                iMesh[4] = (igrid->GetCellData()->GetArray("vtkGhostType") != nullptr)?1:0;
             }
             else if (vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds))
             {
@@ -1963,6 +1974,11 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
               overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
               VisIt_MeshMetaData_addGroupId(mmd, mylevel);
               }
+
+            // When we checked on the domain[0] rank, if the dataset had ghost cells
+            // then we can later skip the domain nesting callback since the data are
+            // already ghosted out.
+            mInfo->datasetsHaveGhostCells = iMesh[4]>0;
             }
             break;
         default:
@@ -2276,12 +2292,8 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
     visit_handle h = VISIT_INVALID_HANDLE;
     std::string meshName(name);
     VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
-    if(VisIt_DomainNesting_alloc(&h) == VISIT_ERROR)
-    {
-        VisItDebug5("failed to allocate DomainNesting object.\n");
-        return VISIT_INVALID_HANDLE;
-    }
 
+    // See if there is a MeshInfo for the mesh.
     std::map<std::string, MeshInfo *>::const_iterator it;
     it = This->meshData.find(meshName);
     if(it == This->meshData.end())
@@ -2290,7 +2302,15 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
         return VISIT_INVALID_HANDLE;
     }
 
-    // We might have made a mesh entry with nothing in it.
+    // See if we know if the mesh datasets already had ghost cells. If so, return.
+    if(it->second->datasetsHaveGhostCells)
+    {
+        VisItDebug5("The mesh %s already had vtkGhostType ghost cells. "
+                    "We can skip creating the domain nesting object.\n", name);
+        return VISIT_INVALID_HANDLE;
+    }
+
+    // We might have made a mesh entry with nothing in it. If so, we need the data.
     if(it->second->dataObj == nullptr)
     {
         VisItDebug5("Trying to fetch actual mesh for %s\n", meshName.c_str());
@@ -2298,10 +2318,18 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name, void *cbd
         it = This->meshData.find(meshName);
     }
 
+    // Make sure that the data were overlappingAMR.
     vtkOverlappingAMR *overlappingAMR = vtkOverlappingAMR::SafeDownCast(it->second->dataObj);
     if(overlappingAMR == nullptr)
     {
         VisItDebug5("The VTK dataset was not a vtkOverlappingAMR dataset.");
+        return VISIT_INVALID_HANDLE;
+    }
+
+    // Try and allocate the domain nesting object.
+    if(VisIt_DomainNesting_alloc(&h) == VISIT_ERROR)
+    {
+        VisItDebug5("failed to allocate DomainNesting object.\n");
         return VISIT_INVALID_HANDLE;
     }
 
