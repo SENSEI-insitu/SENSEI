@@ -14,6 +14,4 @@ target_include_directories(util SYSTEM PUBLIC
 add_executable(oscillator ${sources})
 target_link_libraries(oscillator ${libs})
 
-if (BUILD_TESTING)
-  add_subdirectory(testing)
-endif (BUILD_TESTING)
+#add_subdirectory(testing)
