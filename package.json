@@ -1,0 +1,30 @@
+{
+  "name": "sensei",
+  "version": "0.0.0-semantically-release",
+  "description": "in situ framework",
+  "keywords": [
+    "3d",
+    "visualization",
+    "sensei",
+    "vtk",
+    "graphics"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.kitware.com/sensei/sensei.git"
+  },
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://gitlab.kitware.com/sensei/sensei/issues"
+  },
+  "homepage": "https://gitlab.kitware.com/sensei/sensei",
+  "devDependencies": {
+    "kw-doc": "1.1.3",
+    "kw-web-suite": "6.0.2"
+  },
+  "scripts": {
+    "doc": "kw-doc -c ./doc/config.js",
+    "doc:www": "kw-doc -c ./doc/config.js -s",
+    "doc:publish": "kw-doc -c ./doc/config.js -mp"
+  }
+}
