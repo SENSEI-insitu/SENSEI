@@ -1,7 +1,10 @@
-# CTest Regression Dashboard #
-A number of systems have been confiugured for nightly testing and continuous integration. To view the results of these runs navigate your web browser to [http://cdash.hpcvis.com/index.php?project=SENSEI]().
+# CTest Regression Dashboard
 
-# Running the tests #
+A number of systems have been confiugured for nightly testing and continuous integration.
+To view the results of these runs navigate your web browser to [http://cdash.hpcvis.com/index.php?project=SENSEI]().
+
+# Running the tests
+
 To enable the regression tests one must configure the build with tetsing enabeld.
 ```bash
 cmake -DBUILD_TESTING=ON ...
@@ -16,8 +19,10 @@ To run the tests and submit the results to the web dashboard add the ctest track
 ctest -DExperimental
 ```
 
-# Adding regression tests using CTest #
+# Adding regression tests using CTest
+
 ### senseiAddTest
+
 Tests are added by calling the CMake function *senseiAddTest*. This function
 encapsulates the common scenarios needed to compile, link, and run tests in
 serial, and parallel; and configures CTest to flag absolute test failures
@@ -56,7 +61,9 @@ senseiAddTest(testHistogramParallel
   COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
     ${MPIEXEC_MAX_NUMPROCS} testHistogram)
 ```
+
 #### Python
+
 Here is an example of a Python test.
 ```CMake
 senseiAddTest(testADIOSFlexpath
@@ -67,5 +74,7 @@ senseiAddTest(testADIOSFlexpath
   FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS})
 ```
 
-# Setting up a new test system #
-Examples of setting up nightly and continuous test sites is beyond the scope of this document. However, a few examples runs can be found at [https://github.com/burlen/SENSEI_ctest]().
+# Setting up a new test system
+
+Examples of setting up nightly and continuous test sites is beyond the scope of this document.
+However, a few examples runs can be found at [https://github.com/burlen/SENSEI_ctest]().

@@ -1,0 +1,14 @@
+learn-more:
+  project:
+    overview: /sensei/learn-more/index.html
+    about: /sensei/learn-more/about.html
+    presentations: /sensei/learn-more/presentations.html
+    software: /sensei/learn-more/software.html
+
+develop:
+  using:
+    overview: /sensei/develop/index.html
+    dataset-schema: /sensei/develop/adios-schema.html
+  contributing:
+    overview: /sensei/develop/contribute.html
+    testing: /sensei/develop/testing.html
