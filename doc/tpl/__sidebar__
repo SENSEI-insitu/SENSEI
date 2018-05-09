@@ -1,14 +1,16 @@
 learn-more:
   project:
-    overview: /sensei/learn-more/index.html
-    about: /sensei/learn-more/about.html
-    presentations: /sensei/learn-more/presentations.html
-    software: /sensei/learn-more/software.html
+    overview: index.html
+    about: about.html
+    presentations: presentations.html
+    papers: papers.html
+    software: software.html
+    participants: participants.html
 
 develop:
   using:
-    overview: /sensei/develop/index.html
-    dataset-schema: /sensei/develop/adios-schema.html
+    overview: index.html
+    dataset-schema: adios-schema.html
   contributing:
-    overview: /sensei/develop/contribute.html
-    testing: /sensei/develop/testing.html
+    overview: contribute.html
+    testing: testing.html

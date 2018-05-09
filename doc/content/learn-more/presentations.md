@@ -1,8 +1,7 @@
-title: "Presentations"
 last_modified_at: 2018-04-17T19:35:00-05:00
 toc: true
 ---
-# Talks
+# Presentations
 
 ## 2016
 
