@@ -19,7 +19,7 @@
   },
   "homepage": "https://gitlab.kitware.com/sensei/sensei",
   "devDependencies": {
-    "kw-doc": "1.1.3",
+    "kw-doc": "1.1.5",
     "kw-web-suite": "6.0.2"
   },
   "scripts": {
