@@ -813,7 +813,11 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
 #endif
     }
 
+  std::string outputFileName = node.attribute("outputFileName") ?
+     node.attribute("outputFileName").value() : "";
+
   vtkNew<VTKmSmartContour> adaptor;
+  adaptor->SetCommunicator(comm);
   adaptor->SetScalarField(scalarField);
   adaptor->SetScalarFieldAssociation(association);
   adaptor->SetUseMarchingCubes(useMarchingCubes);
@@ -824,6 +828,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
   adaptor->SetSelectMethod(selectMethod);
   adaptor->SetNumberOfComps(numberOfComps);
   adaptor->SetCatalystScript(catalystScript);
+  adaptor->SetOutputFileName(outputFileName);
+  adaptor->Initialize();
 
   this->Analyses.push_back(adaptor.GetPointer());
 
@@ -831,7 +837,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
    << "scalarField=" << scalarField << " useMarchingCubes=" << useMarchingCubes
    << " numberOfLevels=" << numberOfLevels << " contourType=" << contourType
    << " eps=" << eps << " selectMethod=" << selectMethod
-   << "usePeristenceSorter="<< usePersistenceSorter << " numberOfComps=" << numberOfComps
+   << " usePeristenceSorter="<< usePersistenceSorter << " numberOfComps=" << numberOfComps
    << " catalystScript=" << catalystScript << " outputFileName=" << outputFileName)
 #endif
 

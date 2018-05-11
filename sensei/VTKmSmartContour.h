@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <mpi.h>
 
 namespace sensei
 {
@@ -56,6 +57,7 @@ public:
   /// iteration.
   bool Execute(DataAdaptor* data) override;
 
+  void SetCommunicator(MPI_Comm comm);
   void SetScalarField(const std::string &scalarField);
   void SetScalarFieldAssociation(int association);
   void SetUseMarchingCubes(int useMarchinCubes);
@@ -66,14 +68,14 @@ public:
   void SetSelectMethod(int selectMethod);
   void SetNumberOfComps(int numberOfComps);
   void SetCatalystScript(const std::string &catalystScript);
-  void SetOutputFileName(const std::string &fileName);
+  void SetOutputDir(const std::string &dir);
 
   /// initialize the analysis after setting desired
   /// control parameters and before the first execute.
   int Initialize();
 
   /// finalize the analysis
-  int Finalize() override { return 0; }
+  int Finalize() override;
 
   /// Get the best values to compute iso contours over
   int GetContourValues(std::vector<double> &vals);

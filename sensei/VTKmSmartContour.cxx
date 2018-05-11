@@ -1,14 +1,17 @@
 #include "VTKmSmartContour.h"
 
 #include "DataAdaptor.h"
+#include "VTKDataAdaptor.h"
+#include "CatalystAnalysisAdaptor.h"
+#include "VTKPosthocIO.h"
 #include "Timer.h"
 #include "Error.h"
-#include "senseiConfig.h"
 
 #include <vtkSmartPointer.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
 #include <vtkDataSet.h>
+#include <vtkMultiBlockDataSet.h>
 #include <vtkFieldData.h>
 #include <vtkDataArray.h>
 #include <vtkDataArrayTemplate.h>
@@ -16,6 +19,12 @@
 
 #include <vtkImageData.h>
 #include <vtkDoubleArray.h>
+
+#if defined(USE_VTKM_CONTOUR)
+// TODO
+#else
+#include <vtkContourFilter.h>
+#endif
 
 // Use the TBB parallel backend by default
 #ifndef VTKM_DEVICE_ADAPTER
@@ -59,10 +68,11 @@ namespace sensei
 class VTKmSmartContour::InternalsType
 {
 public:
-  InternalsType() : ScalarField(""),
+  InternalsType() : Comm(MPI_COMM_WORLD), ScalarField(""),
     ScalarFieldAssociation(vtkDataObject::POINT), UseMarchingCubes(0),
-    NumberOfLevels(10), NumberOfComps(11), ContourType(0), Eps(1.0e-5),
-    SelectMethod(0), CatalystScript("") {}
+    UsePersistenceSorter(1), NumberOfLevels(10), NumberOfComps(11),
+    ContourType(0), Eps(1.0e-5), SelectMethod(0), CatalystScript(""),
+    CatalystAdaptor(nullptr), OutputDir(""), IOAdaptor(nullptr) {}
 
   vtkDataArray* GetScalarField(vtkDataObject* dobj);
 
@@ -83,6 +93,7 @@ public:
   { return this->AssociationStr(this->ScalarFieldAssociation); }
 
 public:
+  MPI_Comm Comm;
   std::string ScalarField;
   int ScalarFieldAssociation;
   int UseMarchingCubes;
@@ -93,6 +104,9 @@ public:
   double Eps;
   int SelectMethod;
   std::string CatalystScript;
+  sensei::CatalystAnalysisAdaptor *CatalystAdaptor;
+  std::string OutputDir;
+  sensei::VTKPosthocIO *IOAdaptor;
   std::vector<double> ContourValues;
 };
 
@@ -233,7 +247,7 @@ int VTKmSmartContour::InternalsType::VTKmImage(vtkDataObject *dobj,
         if (this->VTKmImage(dx, x0, nx, ny, nz, data, vtkmds))
           {
           SENSEI_ERROR("Failed to convert array to VTKm")
-          return false;
+          return -1;
           });
       default:
         SENSEI_ERROR("Invalid data type")
@@ -264,6 +278,12 @@ VTKmSmartContour::VTKmSmartContour() : Internals(nullptr)
 VTKmSmartContour::~VTKmSmartContour()
 {
   delete this->Internals;
+}
+
+//----------------------------------------------------------------------------
+void VTKmSmartContour::SetCommunicator(MPI_Comm comm)
+{
+  this->Internals->Comm = comm;
 }
 
 //----------------------------------------------------------------------------
@@ -326,6 +346,61 @@ void VTKmSmartContour::SetCatalystScript(const std::string &catalystScript)
   this->Internals->CatalystScript = catalystScript;
 }
 
+//----------------------------------------------------------------------------
+void VTKmSmartContour::SetOutputDir(const std::string &outputFileName)
+{
+  this->Internals->OutputDir = outputFileName;
+}
+
+//-----------------------------------------------------------------------------
+int VTKmSmartContour::Initialize()
+{
+#if defined(ENABLE_CATALYST)
+  if (!this->Internals->CatalystScript.empty())
+    {
+    if (this->Internals->CatalystAdaptor)
+      this->Internals->CatalystAdaptor->Delete();
+
+    this->Internals->CatalystAdaptor = sensei::CatalystAnalysisAdaptor::New();
+
+    this->Internals->CatalystAdaptor->AddPythonScriptPipeline(
+      this->Internals->CatalystScript);
+    }
+#endif
+
+  if (!this->Internals->OutputDir.empty())
+    {
+    if (this->Internals->IOAdaptor)
+      this->Internals->IOAdaptor->Delete();
+
+    this->Internals->IOAdaptor = sensei::VTKPosthocIO::New();
+    this->Internals->IOAdaptor->SetCommunicator(this->Internals->Comm);
+    this->Internals->IOAdaptor->SetOutputDir(this->Internals->OutputDir);
+    this->Internals->IOAdaptor->SetMode(VTKPosthocIO::MODE_PARAVIEW);
+    }
+
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int VTKmSmartContour::Finalize()
+{
+  if (this->Internals->CatalystAdaptor)
+    {
+    this->Internals->CatalystAdaptor->Delete();
+    this->Internals->CatalystAdaptor = nullptr;
+    }
+
+  if (this->Internals->IOAdaptor)
+    {
+    this->Internals->IOAdaptor->Finalize();
+    this->Internals->IOAdaptor->Delete();
+    this->Internals->IOAdaptor = nullptr;
+    }
+
+  return 0;
+}
+
 //-----------------------------------------------------------------------------
 bool VTKmSmartContour::Execute(DataAdaptor* data)
 {
@@ -343,8 +418,6 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
       "and you are running " << nRanks << " MPI processes")
     return false;
     }
-
-
 
   // Convert the vtk data to VTKM
   // TODO -- sensei 2.0 api
@@ -499,6 +572,65 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   for (double val : this->Internals->ContourValues)
       std::cerr << val << " ";
   std::cerr << std::endl;
+
+  // compute contours
+  using VTKDataAdaptorPtr = vtkSmartPointer<sensei::VTKDataAdaptor>;
+
+  VTKDataAdaptorPtr contourGeometry = VTKDataAdaptorPtr::New();
+
+#if defined(VTKM_CONTOUR)
+  // TODO - use VTKm to compute the contours
+  // TODO - convert the VTKm output into a VTK Object
+#else
+  vtkContourFilter *contour = vtkContourFilter::New();
+
+  contour->SetComputeNormals(1);
+  contour->SetComputeScalars(1);
+
+  contour->SetInputArrayToProcess(0,0,0,
+    this->Internals->ScalarFieldAssociation,
+    this->Internals->ScalarField.c_str());
+
+  int nVals = this->Internals->ContourValues.size();
+  contour->SetNumberOfContours(nVals);
+  for (int i = 0; i < nVals; ++i)
+    contour->SetValue(i, this->Internals->ContourValues[i]);
+
+  contour->SetInputDataObject(mesh);
+
+  contour->Update();
+
+  vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
+  mbds->SetNumberOfBlocks(nRanks);
+  mbds->SetBlock(rank, contour->GetOutputDataObject(0));
+
+  contourGeometry->SetDataObject("mesh", mbds);
+  contourGeometry->SetDataTimeStep(data->GetDataTimeStep());
+  contourGeometry->SetDataTime(data->GetDataTime());
+
+  mbds->Delete();
+  contour->Delete();
+#endif
+
+  // render with catalyst
+  if (this->Internals->CatalystAdaptor)
+    {
+    if (this->Internals->CatalystAdaptor->Execute(contourGeometry.GetPointer()))
+      {
+      SENSEI_ERROR("Catalyst failed")
+      return -1;
+      }
+    }
+
+  // write to disk
+  if (this->Internals->IOAdaptor)
+    {
+    if (this->Internals->IOAdaptor->Execute(contourGeometry.GetPointer()))
+      {
+      SENSEI_ERROR("I/O failed")
+      return -1;
+      }
+    }
 
   return true;
 }

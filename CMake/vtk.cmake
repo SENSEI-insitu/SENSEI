@@ -26,6 +26,10 @@ if (ENABLE_VTK_ACCELERATORS)
     vtkFiltersGeometry vtkImagingCore)
 endif()
 
+if (ENABLE_VTKM)
+  list(APPEND SENSEI_VTK_COMPONENTS  vtkFiltersGeneral)
+endif()
+
 if (NOT ENABLE_CATALYST)
   add_library(sVTK INTERFACE)
 
