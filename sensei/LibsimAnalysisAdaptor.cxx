@@ -1119,25 +1119,6 @@ LibsimAnalysisAdaptor::PrivateData::FetchMesh(const std::string &meshName)
             {
                 mit->second->SetDataSet(0, vtkDataSet::SafeDownCast(obj));
             }
-
-            // If the data adaptor can provide a ghost nodes array, add it to the
-            // data object now. The datasets we've registered will then have that
-            // as a point data array.
-            int nLayers = 0;
-            if(da->GetMeshHasGhostNodes(meshName, nLayers) == 0)
-            {
-                if(nLayers > 0)
-                    da->AddGhostNodesArray(obj, meshName);
-            }
-
-            // If the data adaptor can provide a ghost cells array, add it to the
-            // data object now. The datasets we've registered will then have that
-            // as a cell data array.
-            if(da->GetMeshHasGhostCells(meshName, nLayers) == 0)
-            {
-                if(nLayers > 0)
-                    da->AddGhostCellsArray(obj, meshName);
-            }
         }
     }
 }
@@ -1774,9 +1755,35 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
         if (da->GetMesh(meshName, structureOnly, obj))
         {
-            SENSEI_ERROR("GetMesh request failed. Skipping that mesh.")
+            SENSEI_ERROR("GetMesh request failed. "
+                "Skipping mesh \"" << meshName << "\"")
             continue;
         }
+
+        // If the data adaptor can provide a ghost nodes array, add it to the
+        // data object now.
+        int nLayers = 0;
+        if (da->GetMeshHasGhostNodes(meshName, nLayers))
+        {
+            SENSEI_ERROR("Failed to get number of ghost nodes. "
+                "Skipping mesh \"" << meshName << "\"")
+            continue;
+        }
+
+        if (nLayers > 0)
+            da->AddGhostNodesArray(obj, meshName);
+
+        // If the data adaptor can provide a ghost cells array, add it to the
+        // data object now.
+        if (da->GetMeshHasGhostCells(meshName, nLayers))
+        {
+            SENSEI_ERROR("Failed to get number of ghost cells. "
+                "Skipping mesh \"" << meshName << "\"")
+            continue;
+        }
+
+        if (nLayers > 0)
+            da->AddGhostCellsArray(obj, meshName);
 
         // Unpack the data object into a vector of vtkDataSets if it is a compound 
         // dataset. These datasets will be incomplete and just for the structure 
