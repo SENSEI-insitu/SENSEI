@@ -1631,27 +1631,23 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         // If the data adaptor can provide a ghost nodes array, add it to the
         // data object now.
         int nLayers = 0;
-        if (da->GetMeshHasGhostNodes(meshName, nLayers))
+        if (da->GetMeshHasGhostNodes(meshName, nLayers) ||
+            ((nLayers > 0) && da->AddGhostNodesArray(obj, meshName)))
         {
-            SENSEI_ERROR("Failed to get number of ghost nodes. "
+            SENSEI_ERROR("Failed to get ghost nodes. "
                 "Skipping mesh \"" << meshName << "\"")
             continue;
         }
-
-        if (nLayers > 0)
-            da->AddGhostNodesArray(obj, meshName);
 
         // If the data adaptor can provide a ghost cells array, add it to the
         // data object now.
-        if (da->GetMeshHasGhostCells(meshName, nLayers))
+        if (da->GetMeshHasGhostCells(meshName, nLayers) ||
+            ((nLayers > 0) && (da->AddGhostCellsArray(obj, meshName))))
         {
-            SENSEI_ERROR("Failed to get number of ghost cells. "
+            SENSEI_ERROR("Failed to get ghost cells. "
                 "Skipping mesh \"" << meshName << "\"")
             continue;
         }
-
-        if (nLayers > 0)
-            da->AddGhostCellsArray(obj, meshName);
 
         // Unpack the data object into a vector of vtkDataSets if it is a compound 
         // dataset. These datasets will be incomplete and just for the structure 
