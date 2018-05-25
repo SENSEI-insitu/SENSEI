@@ -1,121 +1,87 @@
-#include "VTKPosthocIO.h"
+#include "VTKAmrWriter.h"
 #include "senseiConfig.h"
 #include "DataAdaptor.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
-#include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkDataArray.h>
-#include <vtkDataArrayTemplate.h>
 #include <vtkDataObject.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkImageData.h>
-#include <vtkPolyData.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkInformation.h>
 #include <vtkObjectFactory.h>
-#include <vtkPointData.h>
 #include <vtkSmartPointer.h>
+#include <vtkOverlappingAMR.h>
+#include <vtkCompositeDataPipeline.h>
+#include <vtkXMLPUniformGridAMRWriter.h>
+#include <vtkAlgorithm.h>
+#include <vtkMultiProcessController.h>
+#include <vtkMPIController.h>
 
 #include <algorithm>
 #include <sstream>
 #include <fstream>
 #include <cassert>
 
-#include <vtkAlgorithm.h>
-#include <vtkCompositeDataPipeline.h>
-#include <vtkXMLDataSetWriter.h>
-
 #include <mpi.h>
 
-using vtkCompositeDataSetPtr = vtkSmartPointer<vtkCompositeDataSet>;
-
-//-----------------------------------------------------------------------------
 static
-std::string getBlockExtension(vtkDataObject *dob)
-{
-  if (dynamic_cast<vtkPolyData*>(dob))
-  {
-    return ".vtp";
-  }
-  else if (dynamic_cast<vtkUnstructuredGrid*>(dob))
-  {
-    return ".vtu";
-  }
-  else if (dynamic_cast<vtkImageData*>(dob))
-  {
-    return ".vti";
-  }
-  else if (dynamic_cast<vtkRectilinearGrid*>(dob))
-  {
-    return ".vtr";
-  }
-  else if (dynamic_cast<vtkStructuredGrid*>(dob))
-  {
-    return ".vts";
-  }
-  else if (dynamic_cast<vtkMultiBlockDataSet*>(dob))
-  {
-    return ".vtm";
-  }
-
-  SENSEI_ERROR("Failed to determine file extension for \""
-    << dob->GetClassName() << "\"")
-  return "";
-}
-
-//-----------------------------------------------------------------------------
-static
-std::string getBlockFileName(const std::string &outputDir,
-  const std::string &meshName, long blockId, long fileId,
+std::string getFileName(const std::string &outputDir,
+  const std::string &meshName, unsigned long fileId,
   const std::string &blockExt)
 {
-  std::ostringstream oss;
-
-  oss << outputDir << "/" << meshName << "_"
-    << std::setw(6) << std::setfill('0') << blockId << "_"
+  std::ostringstream fss;
+  fss << outputDir << "/" << meshName << "_"
     << std::setw(6) << std::setfill('0') << fileId << blockExt;
-
-  return oss.str();
+  return fss.str();
 }
+
 
 namespace sensei
 {
 //-----------------------------------------------------------------------------
-senseiNewMacro(VTKPosthocIO);
+senseiNewMacro(VTKAmrWriter);
 
 //-----------------------------------------------------------------------------
-VTKPosthocIO::VTKPosthocIO() : Comm(MPI_COMM_WORLD),
+VTKAmrWriter::VTKAmrWriter() : Comm(MPI_COMM_WORLD),
   OutputDir("./"), Mode(MODE_PARAVIEW)
 {}
 
 //-----------------------------------------------------------------------------
-VTKPosthocIO::~VTKPosthocIO()
+VTKAmrWriter::~VTKAmrWriter()
 {}
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::SetCommunicator(MPI_Comm comm)
+int VTKAmrWriter::SetCommunicator(MPI_Comm comm)
 {
   this->Comm = comm;
+
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::SetOutputDir(const std::string &outputDir)
+int VTKAmrWriter::Initialize()
+{
+  vtkMPIController *controller=vtkMPIController::New();
+  controller->Initialize(0,0,1);
+  vtkMultiProcessController::SetGlobalController(controller);
+
+  vtkCompositeDataPipeline* cexec=vtkCompositeDataPipeline::New();
+  vtkAlgorithm::SetDefaultExecutivePrototype(cexec);
+  cexec->Delete();
+
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int VTKAmrWriter::SetOutputDir(const std::string &outputDir)
 {
   this->OutputDir = outputDir;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::SetMode(int mode)
+int VTKAmrWriter::SetMode(int mode)
 {
-  if (!(mode == VTKPosthocIO::MODE_VISIT) ||
-    (mode == VTKPosthocIO::MODE_PARAVIEW))
+  if (!(mode == VTKAmrWriter::MODE_VISIT) ||
+    (mode == VTKAmrWriter::MODE_PARAVIEW))
     {
     SENSEI_ERROR("Invalid mode " << mode)
     return -1;
@@ -126,7 +92,7 @@ int VTKPosthocIO::SetMode(int mode)
 }
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::SetMode(std::string modeStr)
+int VTKAmrWriter::SetMode(std::string modeStr)
 {
   unsigned int n = modeStr.size();
   for (unsigned int i = 0; i < n; ++i)
@@ -135,11 +101,11 @@ int VTKPosthocIO::SetMode(std::string modeStr)
   int mode = 0;
   if (modeStr == "visit")
     {
-    mode = VTKPosthocIO::MODE_VISIT;
+    mode = VTKAmrWriter::MODE_VISIT;
     }
   else if (modeStr == "paraview")
     {
-    mode = VTKPosthocIO::MODE_PARAVIEW;
+    mode = VTKAmrWriter::MODE_PARAVIEW;
     }
   else
     {
@@ -152,24 +118,26 @@ int VTKPosthocIO::SetMode(std::string modeStr)
 }
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::SetDataRequirements(const DataRequirements &reqs)
+int VTKAmrWriter::SetDataRequirements(const DataRequirements &reqs)
 {
   this->Requirements = reqs;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
+int VTKAmrWriter::AddDataRequirement(const std::string &meshName,
   int association, const std::vector<std::string> &arrays)
 {
   this->Requirements.AddRequirement(meshName, association, arrays);
   return 0;
 }
 
-
 //-----------------------------------------------------------------------------
-bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
+bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
 {
+  int rank = 0;
+  MPI_Comm_rank(this->Comm, &rank);
+
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
@@ -193,6 +161,13 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+      return false;
+      }
+
+    // make sure we have amr dataset
+    if (!dynamic_cast<vtkOverlappingAMR*>(dobj))
+      {
+      SENSEI_ERROR("Data \"" << dobj->GetClassName() << "\" is not an AMR data set")
       return false;
       }
 
@@ -238,73 +213,27 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
         }
       }
 
-    // This class does not use VTK's parallel writers because at this
-    // time those writers gather some data to rank 0 and this results
-    // in OOM crashes when run with 45k cores on Cori.
-
-    // make sure we have composite dataset if not create one
-    int rank = 0;
-    int nRanks = 1;
-
-    MPI_Comm_rank(this->Comm, &rank);
-    MPI_Comm_size(this->Comm, &nRanks);
-
-    vtkCompositeDataSetPtr cd;
-    if (dynamic_cast<vtkCompositeDataSet*>(dobj))
+    // initialize file id and time and step records
+    if (this->HaveBlockInfo.count(meshName) == 0)
       {
-      cd = static_cast<vtkCompositeDataSet*>(dobj);
-      }
-    else
-      {
-      vtkMultiBlockDataSet *mb = vtkMultiBlockDataSet::New();
-      mb->SetNumberOfBlocks(nRanks);
-      mb->SetBlock(rank, dobj);
-      cd.TakeReference(mb);
-      }
-
-    vtkCompositeDataIterator *it = cd->NewIterator();
-    it->SetSkipEmptyNodes(1);
-
-    // figure out block distribution, assume that it does not change, and
-    // that block types are homgeneous
-    if (!this->HaveBlockInfo[meshName])
-      {
-      if (!it->IsDoneWithTraversal())
-        this->BlockExt[meshName] = getBlockExtension(it->GetCurrentDataObject());
-
-      this->FileId[meshName] = 0;
       this->HaveBlockInfo[meshName] = 1;
+      this->FileId[meshName] = 0;
       }
 
-    // compute the number of blocks, this could change in time
-    long nBlocks = 0;
-    it->SetSkipEmptyNodes(0);
-    for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
-      ++nBlocks;
-    it->SetSkipEmptyNodes(1);
+    // write to disk
+    std::string fileName =
+      getFileName(this->OutputDir, meshName, this->FileId[meshName], ".vth");
 
-    // write the blocks
-    vtkXMLDataSetWriter *writer = vtkXMLDataSetWriter::New();
-    for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
-      {
-      long blockId = std::max(0u, it->GetCurrentFlatIndex() - 1);
+    vtkXMLPUniformGridAMRWriter *w = vtkXMLPUniformGridAMRWriter::New();
+    w->SetInputData(dobj);
+    w->SetFileName(fileName.c_str());
+    w->Write();
+    w->Delete();
 
-      std::string fileName =
-        getBlockFileName(this->OutputDir, meshName, blockId,
-          this->FileId[meshName], this->BlockExt[meshName]);
-
-      writer->SetInputData(it->GetCurrentDataObject());
-      writer->SetDataModeToAppended();
-      writer->EncodeAppendedDataOff();
-      writer->SetCompressorTypeToNone();
-      writer->SetFileName(fileName.c_str());
-      writer->Write();
-      }
-    writer->Delete();
-
+    // update file id
     this->FileId[meshName] += 1;
 
-    // rank 0 keeps track of time info for meta file
+    // record time and step info for meta files
     if (rank == 0)
       {
       double time = dataAdaptor->GetDataTime();
@@ -312,25 +241,32 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
       long step = dataAdaptor->GetDataTimeStep();
       this->TimeStep[meshName].push_back(step);
-
-      this->NumBlocks[meshName].push_back(nBlocks);
       }
+
     }
 
   return true;
 }
 
 //-----------------------------------------------------------------------------
-int VTKPosthocIO::Finalize()
+int VTKAmrWriter::Finalize()
 {
   int rank = 0;
   MPI_Comm_rank(this->Comm, &rank);
 
+  // clean up VTK
+  vtkMultiProcessController *controller =
+    vtkMultiProcessController::GetGlobalController();
+
+  vtkMultiProcessController::SetGlobalController(nullptr);
+  vtkAlgorithm::SetDefaultExecutivePrototype(nullptr);
+
+  controller->Finalize(1);
+  controller->Delete();
+
+  // rank 0 will write meta files
   if (rank != 0)
     return 0;
-
-  int nRanks = 1;
-  MPI_Comm_size(this->Comm, &nRanks);
 
   std::vector<std::string> meshNames;
   this->Requirements.GetRequiredMeshes(meshNames);
@@ -347,14 +283,10 @@ int VTKPosthocIO::Finalize()
       return -1;
       }
 
-    const std::vector<long> &numBlocks = this->NumBlocks[meshName];
-
     std::vector<double> &times = this->Time[meshName];
     long nSteps = times.size();
 
-    std::string &blockExt = this->BlockExt[meshName];
-
-    if (this->Mode == VTKPosthocIO::MODE_PARAVIEW)
+    if (this->Mode == VTKAmrWriter::MODE_PARAVIEW)
       {
       std::string pvdFileName = this->OutputDir + "/" + meshName + ".pvd";
       ofstream pvdFile(pvdFileName);
@@ -366,30 +298,24 @@ int VTKPosthocIO::Finalize()
         }
 
       pvdFile << "<?xml version=\"1.0\"?>" << endl
-        << "<VTKFile type=\"Collection\" version=\"0.1\""
-           " byte_order=\"LittleEndian\" compressor=\"\">" << endl
+        << "<VTKFile type=\"Collection\" version=\"0.1\"" << endl
+        << "  byte_order=\"LittleEndian\" compressor=\"\">" << endl
         << "<Collection>" << endl;
 
       for (long i = 0; i < nSteps; ++i)
         {
-        long nBlocks = numBlocks[i];
-        for (long j = 0; j < nBlocks; ++j)
-          {
-          std::string fileName =
-            getBlockFileName(this->OutputDir, meshName, j, i, blockExt);
+        std::string fileName =
+          getFileName(this->OutputDir, meshName, i, ".vth");
 
-          pvdFile << "<DataSet timestep=\"" << times[i]
-            << "\" group=\"\" part=\"" << j << "\" file=\"" << fileName
-            << "\"/>" << endl;
-          }
+        pvdFile << "<DataSet timestep=\"" << times[i]
+          << "\" group=\"\" part=\"\" file=\"" << fileName
+          << "\"/>" << endl;
         }
 
       pvdFile << "</Collection>" << endl
         << "</VTKFile>" << endl;
-
-      return 0;
       }
-    else if (this->Mode == VTKPosthocIO::MODE_VISIT)
+    else if (this->Mode == VTKAmrWriter::MODE_VISIT)
       {
       std::string visitFileName = this->OutputDir + "/" + meshName + ".visit";
       ofstream visitFile(visitFileName);
@@ -400,9 +326,7 @@ int VTKPosthocIO::Finalize()
         return -1;
         }
 
-      // TODO -- does .visit file support a changing number of blocks?
-      long nBlocks = numBlocks[0];
-      visitFile << "!NBLOCKS " << nBlocks << endl;
+      visitFile << "!NBLOCKS " << 1 << endl;
 
       for (long i = 0; i < nSteps; ++i)
         {
@@ -411,15 +335,11 @@ int VTKPosthocIO::Finalize()
 
       for (long i = 0; i < nSteps; ++i)
         {
-        for (long j = 0; j < nBlocks; ++j)
-          {
-          std::string fileName =
-            getBlockFileName(this->OutputDir, meshName, j, i, blockExt);
+        std::string fileName =
+          getFileName(this->OutputDir, meshName, i, ".vth");
 
-          visitFile << fileName << endl;
-          }
+        visitFile << fileName << endl;
         }
-
       }
     else
       {
@@ -427,6 +347,7 @@ int VTKPosthocIO::Finalize()
       return -1;
       }
     }
+
   return 0;
 }
 
