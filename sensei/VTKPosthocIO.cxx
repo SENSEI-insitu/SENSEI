@@ -177,7 +177,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     if (this->Requirements.Initialize(dataAdaptor))
       {
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
-      return -1;
+      return false;
       }
     SENSEI_WARNING("No subset specified. Writing all available data")
     }
@@ -193,7 +193,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
-      return -1;
+      return false;
       }
 
     // get ghost cell/node metadata always provide this information as
@@ -204,21 +204,21 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
       {
       SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
-      return -1;
+      return false;
       }
 
     // add the ghost cell arrays to the mesh
     if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
-      return -1;
+      return false;
       }
 
     // add the ghost node arrays to the mesh
     if ((nGhostNodeLayers > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
-      return -1;
+      return false;
       }
 
     // add the required arrays
@@ -234,9 +234,13 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
           << VTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << ait.Array() << "\" to mesh \""
           << meshName << "\"")
-        return -1;
+        return false;
         }
       }
+
+    // This class does not use VTK's parallel writers because at this
+    // time those writers gather some data to rank 0 and this results
+    // in OOM crashes when run with 45k cores on Cori.
 
     // make sure we have composite dataset if not create one
     int rank = 0;
@@ -266,46 +270,25 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     if (!this->HaveBlockInfo[meshName])
       {
       if (!it->IsDoneWithTraversal())
-        {
         this->BlockExt[meshName] = getBlockExtension(it->GetCurrentDataObject());
-        }
 
-      long numLocal = 0;
-      for (; !it->IsDoneWithTraversal(); it->GoToNextItem())
-        {
-        numLocal += 1;
-        }
-
-      int nRanks = 1;
-      MPI_Comm_size(this->Comm, &nRanks);
-
-      std::vector<long> numBlocks;
-      numBlocks.resize(nRanks);
-      numBlocks[rank] = numLocal;
-
-      MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-        numBlocks.data(), 1, MPI_LONG, this->Comm);
-
-      std::vector<long> blockStarts(nRanks, 0);
-      for (int i = 1; i < nRanks; ++i)
-        {
-        int ii = i - 1;
-        blockStarts[i] = blockStarts[ii] + numBlocks[ii];
-        }
-
-      this->NumBlocks[meshName] = numBlocks;
-      this->BlockStarts[meshName] = blockStarts;
-      this->HaveBlockInfo[meshName] = 1;
       this->FileId[meshName] = 0;
-      this->Time[meshName] = std::vector<double>();
-      this->TimeStep[meshName] = std::vector<long>();
+      this->HaveBlockInfo[meshName] = 1;
       }
+
+    // compute the number of blocks, this could change in time
+    long nBlocks = 0;
+    it->SetSkipEmptyNodes(0);
+    for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
+      ++nBlocks;
+    it->SetSkipEmptyNodes(1);
 
     // write the blocks
     vtkXMLDataSetWriter *writer = vtkXMLDataSetWriter::New();
-    long blockId = this->BlockStarts[meshName][rank];
     for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
       {
+      long blockId = std::max(0u, it->GetCurrentFlatIndex() - 1);
+
       std::string fileName =
         getBlockFileName(this->OutputDir, meshName, blockId,
           this->FileId[meshName], this->BlockExt[meshName]);
@@ -316,8 +299,6 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       writer->SetCompressorTypeToNone();
       writer->SetFileName(fileName.c_str());
       writer->Write();
-
-      blockId += 1;
       }
     writer->Delete();
 
@@ -331,6 +312,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
       long step = dataAdaptor->GetDataTimeStep();
       this->TimeStep[meshName].push_back(step);
+
+      this->NumBlocks[meshName].push_back(nBlocks);
       }
     }
 
@@ -365,9 +348,6 @@ int VTKPosthocIO::Finalize()
       }
 
     const std::vector<long> &numBlocks = this->NumBlocks[meshName];
-    long nBlocks = 0;
-    for (int i = 0; i < nRanks; ++i)
-      nBlocks += numBlocks[i];
 
     std::vector<double> &times = this->Time[meshName];
     long nSteps = times.size();
@@ -375,7 +355,7 @@ int VTKPosthocIO::Finalize()
     std::string &blockExt = this->BlockExt[meshName];
 
     if (this->Mode == VTKPosthocIO::MODE_PARAVIEW)
-    {
+      {
       std::string pvdFileName = this->OutputDir + "/" + meshName + ".pvd";
       ofstream pvdFile(pvdFileName);
 
@@ -386,12 +366,13 @@ int VTKPosthocIO::Finalize()
         }
 
       pvdFile << "<?xml version=\"1.0\"?>" << endl
-        << "<VTKFile type=\"Collection\" version=\"0.1\"" << endl
-        << "  byte_order=\"LittleEndian\" compressor=\"\">" << endl
+        << "<VTKFile type=\"Collection\" version=\"0.1\""
+           " byte_order=\"LittleEndian\" compressor=\"\">" << endl
         << "<Collection>" << endl;
 
       for (long i = 0; i < nSteps; ++i)
         {
+        long nBlocks = numBlocks[i];
         for (long j = 0; j < nBlocks; ++j)
           {
           std::string fileName =
@@ -407,9 +388,9 @@ int VTKPosthocIO::Finalize()
         << "</VTKFile>" << endl;
 
       return 0;
-    }
+      }
     else if (this->Mode == VTKPosthocIO::MODE_VISIT)
-    {
+      {
       std::string visitFileName = this->OutputDir + "/" + meshName + ".visit";
       ofstream visitFile(visitFileName);
 
@@ -419,6 +400,8 @@ int VTKPosthocIO::Finalize()
         return -1;
         }
 
+      // TODO -- does .visit file support a changing number of blocks?
+      long nBlocks = numBlocks[0];
       visitFile << "!NBLOCKS " << nBlocks << endl;
 
       for (long i = 0; i < nSteps; ++i)
@@ -437,13 +420,14 @@ int VTKPosthocIO::Finalize()
           }
         }
 
+      }
+    else
+      {
+      SENSEI_ERROR("Invalid mode \"" << this->Mode << "\"")
+      return -1;
+      }
     }
-
-    return 0;
-  }
-
-  SENSEI_ERROR("Invalid mode \"" << this->Mode << "\"")
-  return -1;
+  return 0;
 }
 
 }

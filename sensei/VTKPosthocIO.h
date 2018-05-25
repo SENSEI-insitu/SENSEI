@@ -18,8 +18,8 @@ namespace sensei
 /// data to disk. This can be useful for generating preview datasets
 /// that allow configuration of Catalyst and/or Libsim scripts, or
 /// for staging data on resources such as burst buffers. This adaptor
-/// supports writing to a VTK(PXML), VisIt(.visit) or ParaView(.pvd)
-/// compatible format. One must provide a set of data requirments,
+/// supports writing to VisIt(.visit) or ParaView(.pvd) compatible
+/// format. One must provide a set of data requirments,
 /// consisting of a list of meshes and the arrays to write from
 /// each mesh. File names are derived using the output directory,
 /// the mesh name, and the mode.
@@ -69,7 +69,6 @@ private:
   NameMap<std::vector<double>> Time;
   NameMap<std::vector<long>> TimeStep;
   NameMap<std::vector<long>> NumBlocks;
-  NameMap<std::vector<long>> BlockStarts;
   NameMap<std::string> BlockExt;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;
