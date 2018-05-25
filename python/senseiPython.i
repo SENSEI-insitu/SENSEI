@@ -320,3 +320,10 @@ SENSEI_DATA_ADAPTOR(ADIOSDataAdaptor)
 #ifdef ENABLE_VTK_XMLP
 VTK_DERIVED(VTKPosthocIO)
 #endif
+
+/****************************************************************************
+ * VTKAmrWriter
+ ***************************************************************************/
+#ifdef ENABLE_VTK_XMLP
+VTK_DERIVED(VTKAmrWriter)
+#endif

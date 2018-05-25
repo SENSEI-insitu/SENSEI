@@ -5,10 +5,13 @@
 #include "DataRequirements.h"
 
 #include "Autocorrelation.h"
-#include "VTKPosthocIO.h"
 #include "Histogram.h"
+#ifdef ENABLE_VTK_XMLP
+#include "VTKPosthocIO.h"
+#include "VTKAmrWriter.h"
+#endif
 #ifdef ENABLE_VTK_M
-# include "VTKmContourAnalysis.h"
+#include "VTKmContourAnalysis.h"
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
@@ -137,6 +140,9 @@ public:
 
   // adds the post hoc I/O analysis
   int AddPosthocIO(MPI_Comm comm, pugi::xml_node node);
+
+  // adds the VTK AMR writer
+  int AddVTKAmrWriter(MPI_Comm comm, pugi::xml_node node);
 
 public:
   AnalysisAdaptorVector Analyses;
@@ -533,6 +539,49 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
 #endif
 }
 
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(MPI_Comm comm,
+  pugi::xml_node node)
+{
+#ifndef ENABLE_VTK_XMLP
+  (void)comm;
+  (void)node;
+  SENSEI_ERROR("VTK AMR Writer was requested but is disabled in this build")
+  return -1;
+#else
+  DataRequirements req;
+
+  if (req.Initialize(node) ||
+    (req.GetNumberOfRequiredMeshes() < 1))
+    {
+    SENSEI_ERROR("Failed to initialize VTKAmrWriter. "
+      "At least one mesh is required")
+    return -1;
+    }
+
+  std::string outputDir = node.attribute("output_dir").as_string("./");
+  std::string fileName = node.attribute("file_name").as_string("data");
+  std::string mode = node.attribute("mode").as_string("visit");
+
+  vtkNew<VTKAmrWriter> adapter;
+
+  if (adapter->SetCommunicator(comm) ||
+    adapter->SetOutputDir(outputDir) ||
+    adapter->SetMode(mode) ||
+    adapter->SetDataRequirements(req) ||
+    adapter->Initialize())
+    {
+    SENSEI_ERROR("Failed to initialize the VTKAmrWriter analysis")
+    return -1;
+    }
+
+  this->Analyses.push_back(adapter.GetPointer());
+
+  SENSEI_STATUS("Configured VTKAmrWriter")
+
+  return 0;
+#endif
+}
 
 
 
@@ -578,6 +627,7 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
       || ((type == "catalyst") && !this->Internals->AddCatalyst(comm, node))
       || ((type == "libsim") && !this->Internals->AddLibsim(comm, node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))
+      || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(comm, node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))))
       {
       if (rank == 0)

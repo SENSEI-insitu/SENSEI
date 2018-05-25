@@ -32,7 +32,7 @@ if (ENABLE_SENSEI)
   endif()
 
   if(ENABLE_VTK_XMLP)
-    list(APPEND sensei_sources VTKPosthocIO.cxx)
+    list(APPEND sensei_sources VTKPosthocIO.cxx VTKAmrWriter.cxx)
   endif()
 
   add_library(sensei ${sensei_sources})

@@ -1,5 +1,5 @@
-#ifndef sensei_VTKPosthocIO_h
-#define sensei_VTKPosthocIO_h
+#ifndef sensei_VTKAmrWriter_h
+#define sensei_VTKAmrWriter_h
 
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
@@ -13,21 +13,21 @@ class vtkCompositeDataSet;
 
 namespace sensei
 {
-/// @class VTKPosthocIO
-/// brief sensei::VTKPosthocIO is a AnalysisAdaptor that writes
-/// data to disk. This can be useful for generating preview datasets
+/// @class VTKAmrWriter
+/// brief sensei::VTKAmrWriter is a AnalysisAdaptor that writes
+/// AMR data to disk. This can be useful for generating preview datasets
 /// that allow configuration of Catalyst and/or Libsim scripts, or
 /// for staging data on resources such as burst buffers. This adaptor
-/// supports writing to VisIt(.visit) or ParaView(.pvd) compatible
-/// format. One must provide a set of data requirments,
+/// supports writing to a VTK(PXML), VisIt(.visit) or ParaView(.pvd)
+/// compatible format. One must provide a set of data requirments,
 /// consisting of a list of meshes and the arrays to write from
 /// each mesh. File names are derived using the output directory,
 /// the mesh name, and the mode.
-class VTKPosthocIO : public AnalysisAdaptor
+class VTKAmrWriter : public AnalysisAdaptor
 {
 public:
-  static VTKPosthocIO* New();
-  senseiTypeMacro(VTKPosthocIO, AnalysisAdaptor);
+  static VTKAmrWriter* New();
+  senseiTypeMacro(VTKAmrWriter, AnalysisAdaptor);
 
   // Run time configuration
   int SetCommunicator(MPI_Comm comm);
@@ -45,13 +45,15 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
+  int Initialize();
+
   // SENSEI API
   bool Execute(DataAdaptor* data) override;
   int Finalize() override;
 
 protected:
-  VTKPosthocIO();
-  ~VTKPosthocIO();
+  VTKAmrWriter();
+  ~VTKAmrWriter();
 
 private:
   MPI_Comm Comm;
@@ -64,14 +66,12 @@ private:
 
   NameMap<std::vector<double>> Time;
   NameMap<std::vector<long>> TimeStep;
-  NameMap<std::vector<long>> NumBlocks;
-  NameMap<std::string> BlockExt;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;
 
 private:
-  VTKPosthocIO(const VTKPosthocIO&) = delete;
-  void operator=(const VTKPosthocIO&) = delete;
+  VTKAmrWriter(const VTKAmrWriter&) = delete;
+  void operator=(const VTKAmrWriter&) = delete;
 };
 
 }
