@@ -25,7 +25,6 @@ public:
   void SetTraceFile(const std::string &traceFile);
   void SetOptions(const std::string &options);
   void SetVisItDirectory(const std::string &dir);
-  void SetComm(MPI_Comm comm);
   void SetMode(const std::string &mode);
 
   // Let the caller explicitly initialize.

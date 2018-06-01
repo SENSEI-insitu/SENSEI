@@ -22,7 +22,7 @@ namespace sensei
 senseiNewMacro(Histogram);
 
 //-----------------------------------------------------------------------------
-Histogram::Histogram() : Communicator(MPI_COMM_WORLD), Bins(0),
+Histogram::Histogram() : Bins(0),
   Association(vtkDataObject::FIELD_ASSOCIATION_POINTS), Internals(nullptr)
 {
 }
@@ -34,11 +34,10 @@ Histogram::~Histogram()
 }
 
 //-----------------------------------------------------------------------------
-void Histogram::Initialize(MPI_Comm comm, int bins,
+void Histogram::Initialize(int bins,
   const std::string &meshName, int association,
   const std::string& arrayName)
 {
-  this->Communicator = comm;
   this->Bins = bins;
   this->MeshName = meshName;
   this->ArrayName = arrayName;
@@ -48,6 +47,8 @@ void Histogram::Initialize(MPI_Comm comm, int bins,
 //-----------------------------------------------------------------------------
 const char *Histogram::GetGhostArrayName()
 {
+// TODO -- fix the version logic below, what rev was
+// vtkDataSetAttributes::GhostArrayName introduced in?
 #if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
     return "vtkGhostType";
 #else
@@ -73,8 +74,11 @@ bool Histogram::Execute(DataAdaptor* data)
     {
     // it is not an necessarilly an error if all ranks do not have
     // a dataset to process
-    this->Internals->PreCompute(this->Communicator, this->Bins);
-    this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
+
+    this->Internals->PostCompute(this->GetCommunicator(),
+      this->Bins, this->ArrayName);
+
     return true;
     }
 
@@ -86,8 +90,10 @@ bool Histogram::Execute(DataAdaptor* data)
       << (this->Association == vtkDataObject::POINT ? "point" : "cell")
       << " data array \""  << this->ArrayName << "\"")
 
-    this->Internals->PreCompute(this->Communicator, this->Bins);
-    this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
+
+    this->Internals->PostCompute(this->GetCommunicator(),
+      this->Bins, this->ArrayName);
 
     return false;
     }
@@ -135,7 +141,7 @@ bool Histogram::Execute(DataAdaptor* data)
       }
 
     // compute global histogram range
-    this->Internals->PreCompute(this->Communicator, this->Bins);
+    this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
 
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
       {
@@ -159,7 +165,8 @@ bool Histogram::Execute(DataAdaptor* data)
       }
 
     // compute the global histogram
-    this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
+    this->Internals->PostCompute(this->GetCommunicator(),
+      this->Bins, this->ArrayName);
     }
   else
     {
@@ -167,20 +174,27 @@ bool Histogram::Execute(DataAdaptor* data)
     if (!array)
       {
       int rank = 0;
-      MPI_Comm_rank(this->Communicator, &rank);
+      MPI_Comm_rank(this->GetCommunicator(), &rank);
+
       SENSEI_WARNING("Dataset " << rank << " has no array named \""
         << this->ArrayName << "\"")
-      this->Internals->PreCompute(this->Communicator, this->Bins);
-      this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
+
+      this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
+
+      this->Internals->PostCompute(this->GetCommunicator(),
+        this->Bins, this->ArrayName);
       }
     else
       {
       vtkUnsignedCharArray *ghostArray = dynamic_cast<vtkUnsignedCharArray*>(
         this->GetArray(mesh, this->GetGhostArrayName()));
+
       this->Internals->AddRange(array, ghostArray);
-      this->Internals->PreCompute(this->Communicator, this->Bins);
+      this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
       this->Internals->Compute(array, ghostArray);
-      this->Internals->PostCompute(this->Communicator, this->Bins, this->ArrayName);
+
+      this->Internals->PostCompute(this->GetCommunicator(),
+        this->Bins, this->ArrayName);
       }
     }
   return true;
@@ -203,7 +217,7 @@ int Histogram::GetHistogram(double &min, double &max,
   if (!this->Internals)
     return -1;
 
-  return this->Internals->GetHistogram(this->Communicator, min, max, bins);
+  return this->Internals->GetHistogram(this->GetCommunicator(), min, max, bins);
 }
 
 //-----------------------------------------------------------------------------

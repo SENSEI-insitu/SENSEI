@@ -3,7 +3,7 @@
 
 #include "senseiConfig.h"
 #include <vtkObjectBase.h>
-#include <vtkSetGet.h>
+#include <mpi.h>
 
 namespace sensei
 {
@@ -20,6 +20,14 @@ class AnalysisAdaptor : public vtkObjectBase
 public:
   senseiBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
   void PrintSelf(ostream& os, vtkIndent indent) override;
+
+  /// @brief Set the communicator used by the adaptor.
+  /// The default communicator is a duplicate of MPI_COMMM_WORLD, giving
+  /// each adaptor a unique communication space. Users wishing to override
+  /// this should set the communicator before doing anything else. Derived
+  /// classes should use the communicator returned by GetCommunicator.
+  virtual int SetCommunicator(MPI_Comm comm);
+  MPI_Comm GetCommunicator() { return this->Comm; }
 
   /// @brief Execute the analysis routine.
   ///
@@ -42,9 +50,10 @@ protected:
   AnalysisAdaptor();
   ~AnalysisAdaptor();
 
-private:
-  AnalysisAdaptor(const AnalysisAdaptor&); // Not implemented.
-  void operator=(const AnalysisAdaptor&); // Not implemented.
+  AnalysisAdaptor(const AnalysisAdaptor&) = delete;
+  void operator=(const AnalysisAdaptor&) = delete;
+
+  MPI_Comm Comm;
 };
 
 }

@@ -89,20 +89,12 @@ namespace sensei
 senseiNewMacro(VTKPosthocIO);
 
 //-----------------------------------------------------------------------------
-VTKPosthocIO::VTKPosthocIO() : Comm(MPI_COMM_WORLD),
-  OutputDir("./"), Mode(MODE_PARAVIEW)
+VTKPosthocIO::VTKPosthocIO() : OutputDir("./"), Mode(MODE_PARAVIEW)
 {}
 
 //-----------------------------------------------------------------------------
 VTKPosthocIO::~VTKPosthocIO()
 {}
-
-//-----------------------------------------------------------------------------
-int VTKPosthocIO::SetCommunicator(MPI_Comm comm)
-{
-  this->Comm = comm;
-  return 0;
-}
 
 //-----------------------------------------------------------------------------
 int VTKPosthocIO::SetOutputDir(const std::string &outputDir)
@@ -246,8 +238,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     int rank = 0;
     int nRanks = 1;
 
-    MPI_Comm_rank(this->Comm, &rank);
-    MPI_Comm_size(this->Comm, &nRanks);
+    MPI_Comm_rank(this->GetCommunicator(), &rank);
+    MPI_Comm_size(this->GetCommunicator(), &nRanks);
 
     vtkCompositeDataSetPtr cd;
     if (dynamic_cast<vtkCompositeDataSet*>(dobj))
@@ -324,13 +316,13 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 int VTKPosthocIO::Finalize()
 {
   int rank = 0;
-  MPI_Comm_rank(this->Comm, &rank);
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   if (rank != 0)
     return 0;
 
   int nRanks = 1;
-  MPI_Comm_size(this->Comm, &nRanks);
+  MPI_Comm_size(this->GetCommunicator(), &nRanks);
 
   std::vector<std::string> meshNames;
   this->Requirements.GetRequiredMeshes(meshNames);

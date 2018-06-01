@@ -25,7 +25,7 @@
 
 #include <ArrayIO.h>
 
-#if defined(ENABLE_VTK_XMLP)
+#if defined(ENABLE_VTK_IO)
 #include <vtkAlgorithm.h>
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLMultiBlockDataWriter.h>

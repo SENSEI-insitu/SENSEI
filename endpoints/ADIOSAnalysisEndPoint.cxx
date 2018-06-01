@@ -73,7 +73,8 @@ int main(int argc, char **argv)
 
   // open the ADIOS stream using the ADIOS adaptor
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
-  if (dataAdaptor->Open(comm, readmethod, input))
+  dataAdaptor->SetCommunicator(comm);
+  if (dataAdaptor->Open(readmethod, input))
     {
     SENSEI_ERROR("Failed to open \"" << input << "\"")
     MPI_Abort(comm, 1);
@@ -83,7 +84,12 @@ int main(int argc, char **argv)
   SENSEI_STATUS("Loading configurable analysis \"" << config_file << "\"")
 
   AnalysisAdaptorPtr analysisAdaptor = AnalysisAdaptorPtr::New();
-  analysisAdaptor->Initialize(comm, config_file);
+  analysisAdaptor->SetCommunicator(comm);
+  if (analysisAdaptor->Initialize(config_file))
+    {
+    SENSEI_ERROR("Failed to initialize analysis")
+    MPI_Abort(comm, 1);
+    }
 
   // read from the ADIOS stream until all steps have been
   // processed

@@ -31,8 +31,11 @@ if (ENABLE_SENSEI)
     list(APPEND sensei_libs libsim)
   endif()
 
-  if(ENABLE_VTK_XMLP)
-    list(APPEND sensei_sources VTKPosthocIO.cxx VTKAmrWriter.cxx)
+  if(ENABLE_VTK_IO)
+    list(APPEND sensei_sources VTKPosthocIO.cxx)
+    if (ENABLE_VTK_MPI)
+      list(APPEND sensei_sources VTKAmrWriter.cxx)
+    endif()
   endif()
 
   add_library(sensei ${sensei_sources})
@@ -42,10 +45,6 @@ if (ENABLE_SENSEI)
     $<INSTALL_INTERFACE:include>)
 
   target_link_libraries(sensei PUBLIC ${sensei_libs})
-
-  if (ENABLE_VTK_M)
-    target_compile_definitions(sensei PUBLIC ENABLE_VTK_M)
-  endif()
 
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
     DESTINATION include FILES_MATCHING PATTERN "*.h")

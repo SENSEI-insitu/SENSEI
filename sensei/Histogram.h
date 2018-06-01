@@ -14,17 +14,14 @@ namespace sensei
 class VTKHistogram;
 
 /// @class Histogram
-/// @brief sensei::Histogram is a AnalysisAdaptor specialization for histogram analysis.
-///
-/// This class demonstrates how a custom analysis code may be written within the
-/// Sensei infrastructure.
+/// @brief Computes a parallel histogram
 class Histogram : public AnalysisAdaptor
 {
 public:
   static Histogram* New();
   senseiTypeMacro(Histogram, AnalysisAdaptor);
 
-  void Initialize(MPI_Comm comm, int bins, const std::string &meshName,
+  void Initialize(int bins, const std::string &meshName,
     int association, const std::string& arrayname);
 
   bool Execute(DataAdaptor* data) override;
@@ -39,10 +36,12 @@ protected:
   Histogram();
   ~Histogram();
 
+  Histogram(const Histogram&) = delete;
+  void operator=(const Histogram&) = delete;
+
   static const char *GetGhostArrayName();
   vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
 
-  MPI_Comm Communicator;
   int Bins;
   std::string MeshName;
   std::string ArrayName;
@@ -50,9 +49,6 @@ protected:
 
   VTKHistogram *Internals;
 
-private:
-  Histogram(const Histogram&);
-  void operator=(const Histogram&);
 };
 
 }

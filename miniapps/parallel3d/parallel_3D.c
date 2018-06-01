@@ -56,11 +56,10 @@ int main(int argc, char **argv)
 {
   int nprocs, rank;
   int ret;
-  uint64_t  index, slice;
+  uint64_t  slice;
   int tot_blocks_x, tot_blocks_y, tot_blocks_z, tot_blocks;
   uint64_t start_extents_z, start_extents_y, start_extents_x;
   int block_id_x, block_id_y, block_id_z;
-  int i,j,k;
 
 
   // The buffers/ variables
@@ -251,8 +250,7 @@ int main(int argc, char **argv)
   /////////////////////////////
 
 #ifdef ENABLE_SENSEI
-
-  bridge_finalize();
+  bridge_finalize(MPI_COMM_WORLD);
 
   if (config_file) {
     free(config_file);
@@ -374,14 +372,12 @@ static void usage(void)
 
 
 static void gen_data_global_index (double* volume,
-                     long long my_off_z, long long my_off_y, long long my_off_x)
+  long long my_off_z, long long my_off_y, long long my_off_x)
 {
-  unsigned long long i,j,k, index;
-
-  for(k=0; k<l_z; k++){
-    for(j=0; j<l_y; j++){
-      for(i=0; i<l_x; i++){
-        index = (l_x * l_y * k) + (l_x*j) + i;
+  for(long long k=0; k<l_z; k++){
+    for(long long j=0; j<l_y; j++){
+      for(long long i=0; i<l_x; i++){
+         long long index = (l_x * l_y * k) + (l_x*j) + i;
 
         volume[index] = (g_x * g_y * (my_off_z + k)) +  \
                         (g_x * (my_off_y + j)) + my_off_x + i;
@@ -396,24 +392,23 @@ static void gen_data_global_index (double* volume,
 
 /* generate a data set */
 static void gen_data(double* volume,
-                     long long my_off_z, long long my_off_y, long long my_off_x)
+  long long my_off_z, long long my_off_y, long long my_off_x)
 {
-  unsigned long long i,j,k;
   double center[3];
   center[0] = g_x / 2.;
   center[1] = g_y / 2.;
   center[2] = g_z / 2.;
 
     //printf("l_x: %d, l_y: %d, l_z: %d\n", l_x, l_y, l_z);
-  for(i = 0; i < l_z; i++)
+  for(long long i = 0; i < l_z; i++)
   {
     double zdist = sin((i + my_off_z - center[2])/5.0)*center[2];
     //      float zdist = sinf((i + my_off_z - center[2])/g_y);
-    for(j = 0; j < l_y; j++)
+    for(long long j = 0; j < l_y; j++)
     {
       double ydist = sin((j + my_off_y - center[1])/3.0)*center[1];
         //      float ydist = sinf((j + my_off_y - center[1])/g_x);
-      for(k = 0; k < l_x; k++)
+      for(long long k = 0; k < l_x; k++)
       {
         double xdist = sin((k + my_off_x - center[0])/2.0)*center[0];
           //            float xdist = sinf((k + my_off_x - center[0])/g_z);
@@ -426,22 +421,21 @@ static void gen_data(double* volume,
 }
 
 static void gen_data_sparse(double* volume,
-                            long long my_off_z, long long my_off_y, long long my_off_x)
+  long long my_off_z, long long my_off_y, long long my_off_x)
 {
-  unsigned long long i,j,k;
   double center[3];
   center[0] = g_x / 2.;
   center[1] = g_y / 2.;
   center[2] = g_z / 2.;
 
     //printf("l_x: %d, l_y: %d, l_z: %d\n", l_x, l_y, l_z);
-  for(i = 0; i < l_z; i++)
+  for(long long i = 0; i < l_z; i++)
   {
     double zdist = i + my_off_z - center[2];
-    for(j = 0; j < l_y; j++)
+    for(long long j = 0; j < l_y; j++)
     {
       double ydist = j + my_off_y - center[1];
-      for(k = 0; k < l_x; k++)
+      for(long long k = 0; k < l_x; k++)
       {
         double xdist = k + my_off_x - center[0];
 
@@ -453,7 +447,3 @@ static void gen_data_sparse(double* volume,
 
 
 }
-
-
-
-

@@ -18,8 +18,15 @@ public:
   senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
+  /// @brief Set the communicator used by the adaptor.
+  /// The default communicator is a duplicate of MPI_COMMM_WORLD, giving
+  /// each adaptor a unique communication space. Users wishing to override
+  /// this should set the communicator before doing anything else. Derived
+  /// classes should use the communicator returned by GetCommunicator.
+  int SetCommunicator(MPI_Comm comm) override;
+
   /// @brief Initialize the adaptor using the configuration specified.
-  bool Initialize(MPI_Comm world, const std::string& filename);
+  int Initialize(const std::string& filename);
 
   bool Execute(DataAdaptor* data) override;
 
@@ -29,11 +36,11 @@ protected:
   ConfigurableAnalysis();
   ~ConfigurableAnalysis();
 
-private:
-  ConfigurableAnalysis(const ConfigurableAnalysis&); // Not implemented.
-  void operator=(const ConfigurableAnalysis&); // Not implemented.
+  ConfigurableAnalysis(const ConfigurableAnalysis&) = delete;
+  void operator=(const ConfigurableAnalysis&) = delete;
 
-  class InternalsType;
+private:
+  struct InternalsType;
   InternalsType* Internals;
 };
 

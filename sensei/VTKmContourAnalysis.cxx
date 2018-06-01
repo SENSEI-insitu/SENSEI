@@ -46,8 +46,7 @@ vtkStandardNewMacro(VTKmContourAnalysis);
 #endif
 
 //-----------------------------------------------------------------------------
-VTKmContourAnalysis::VTKmContourAnalysis() :
-  Communicator(MPI_COMM_WORLD)
+VTKmContourAnalysis::VTKmContourAnalysis()
 {
 }
 
@@ -57,11 +56,9 @@ VTKmContourAnalysis::~VTKmContourAnalysis()
 }
 
 //-----------------------------------------------------------------------------
-void VTKmContourAnalysis::Initialize(MPI_Comm comm,
-  const std::string &meshName, const std::string &arrayName,
-  double value, bool writeOutput)
+void VTKmContourAnalysis::Initialize(const std::string &meshName,
+  const std::string &arrayName, double value, bool writeOutput)
 {
-  this->Communicator = comm;
   this->MeshName = meshName;
   this->ArrayName = arrayname;
   this->Value = value;
@@ -321,7 +318,7 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
     contr->GetCommunicator());
   diy::mpi::communicator comm(*vtkcomm->GetMPIComm()->GetHandle());
 
-  diy::Master               master(comm);
+  diy::Master master(comm);
 
   std::vector<Block> blocks;
   blocks.reserve(nblocks);
@@ -386,7 +383,7 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
     }
 
   vtkNew<vtkMPICommunicator> vtkComm;
-  vtkMPICommunicatorOpaqueComm h(&this->Communicator);
+  vtkMPICommunicatorOpaqueComm h(&this->GetCommunicator());
   vtkComm->InitializeExternal(&h);
 
   vtkNew<vtkMPIController> con;

@@ -3,10 +3,10 @@
 
 #include "senseiConfig.h"
 #include "vtkObjectBase.h"
-#include "vtkSetGet.h" // needed for vtkBaseTypeMacro.
 
 #include <vector>
 #include <string>
+#include <mpi.h>
 
 class vtkAbstractArray;
 class vtkDataObject;
@@ -27,6 +27,14 @@ class DataAdaptor : public vtkObjectBase
 public:
   senseiBaseTypeMacro(DataAdaptor, vtkObjectBase);
   void PrintSelf(ostream& os, vtkIndent indent) override;
+
+  /// @brief Set the communicator used by the adaptor.
+  /// The default communicator is a duplicate of MPI_COMMM_WORLD, giving
+  /// each adaptor a unique communication space. Users wishing to override
+  /// this should set the communicator before doing anything else. Derived
+  /// classes should use the communicator returned by GetCommunicator.
+  virtual int SetCommunicator(MPI_Comm comm);
+  MPI_Comm GetCommunicator() { return this->Comm; }
 
   /// @brief Gets the number of meshes a simulation can provide
   ///
@@ -248,12 +256,13 @@ protected:
   DataAdaptor();
   ~DataAdaptor();
 
+  DataAdaptor(const DataAdaptor&) = delete;
+  void operator=(const DataAdaptor&) = delete;
+
   struct InternalsType;
   InternalsType *Internals;
 
-private:
-  DataAdaptor(const DataAdaptor&); // Not implemented.
-  void operator=(const DataAdaptor&); // Not implemented.
+  MPI_Comm Comm;
 };
 
 }

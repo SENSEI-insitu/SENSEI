@@ -2075,12 +2075,6 @@ void LibsimAnalysisAdaptor::SetVisItDirectory(const std::string &s)
 }
 
 //-----------------------------------------------------------------------------
-void LibsimAnalysisAdaptor::SetComm(MPI_Comm c)
-{
-    internals->SetComm(c);
-}
-
-//-----------------------------------------------------------------------------
 void LibsimAnalysisAdaptor::SetMode(const std::string &mode)
 {
     internals->SetMode(mode);
@@ -2111,6 +2105,7 @@ bool LibsimAnalysisAdaptor::AddExport(int frequency, const std::string &plots,
 //-----------------------------------------------------------------------------
 void LibsimAnalysisAdaptor::Initialize()
 {
+    internals->SetComm(this->GetCommunicator());
     internals->Initialize();
 }
 
