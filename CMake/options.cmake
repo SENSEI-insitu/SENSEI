@@ -24,13 +24,17 @@ cmake_dependent_option(ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
   "ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_XMLP
-  "Enable use of vtk parallel I/O" OFF
+cmake_dependent_option(ENABLE_VTK_IO
+  "Enable use of vtk I/O" OFF
+  "ENABLE_SENSEI" OFF)
+
+cmake_dependent_option(ENABLE_VTK_MPI
+  "Enable use of parallel vtk" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_M
   "Enable analysis methods that use VTK-m" OFF
-  "ENABLE_SENSEI" OFF)
+  "ENABLE_VTK_MPI" OFF)
 
 
 option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
@@ -43,6 +47,7 @@ message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_ADIOS=${ENABLE_ADIOS}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
-message(STATUS "ENABLE_VTK_XMLP=${ENABLE_VTK_XMLP}")
+message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
+message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
 message(STATUS "ENABLE_PARALLEL3D=${ENABLE_PARALLEL3D}")
 message(STATUS "ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")

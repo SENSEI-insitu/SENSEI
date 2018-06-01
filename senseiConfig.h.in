@@ -13,8 +13,13 @@
 #cmakedefine ENABLE_LIBSIM
 #cmakedefine ENABLE_ADIOS
 #cmakedefine ENABLE_VTK_GENERIC_ARRAYS
-#cmakedefine ENABLE_VTK_XMLP
+#cmakedefine ENABLE_VTK_MPI
+#cmakedefine ENABLE_VTK_IO
+#cmakedefine ENABLE_VTK_M
 
+#ifdef __cplusplus
+// hide some differences betweem VisIt's VTK and more modern versions
+#include <vtkSetGet.h>
 #if defined(ENABLE_LIBSIM)
 #define senseiBaseTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
 #define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
@@ -32,6 +37,7 @@ a1 *a1::New() \
 #define senseiBaseTypeMacro(a1, a2) vtkBaseTypeMacro(a1, a2)
 #define senseiTypeMacro(a1, a2) vtkTypeMacro(a1, a2)
 #define senseiNewMacro(a1) vtkStandardNewMacro(a1)
+#endif
 #endif
 
 #endif

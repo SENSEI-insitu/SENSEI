@@ -52,10 +52,6 @@ public:
   std::string GetFileName() const
   { return this->FileName; }
 
-  /// Set the communicator to use for MPI calls
-  void SetCommunicator(MPI_Comm comm)
-  { this->Comm = comm; }
-
   /// data requirements tell the adaptor what to push
   /// if none are given then all data is pushed.
   int SetDataRequirements(const DataRequirements &reqs);
@@ -83,7 +79,6 @@ protected:
   // shuts down ADIOS
   int FinalizeADIOS();
 
-  MPI_Comm Comm;
   unsigned int MaxBufferSize;
   senseiADIOS::DataObjectCollectionSchema *Schema;
   sensei::DataRequirements Requirements;

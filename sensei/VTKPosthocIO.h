@@ -30,7 +30,6 @@ public:
   senseiTypeMacro(VTKPosthocIO, AnalysisAdaptor);
 
   // Run time configuration
-  int SetCommunicator(MPI_Comm comm);
   int SetOutputDir(const std::string &outputDir);
 
   enum {MODE_PARAVIEW=0, MODE_VISIT=1};
@@ -53,8 +52,10 @@ protected:
   VTKPosthocIO();
   ~VTKPosthocIO();
 
+  VTKPosthocIO(const VTKPosthocIO&) = delete;
+  void operator=(const VTKPosthocIO&) = delete;
+
 private:
-  MPI_Comm Comm;
   std::string OutputDir;
   DataRequirements Requirements;
   int Mode;
@@ -68,10 +69,6 @@ private:
   NameMap<std::string> BlockExt;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;
-
-private:
-  VTKPosthocIO(const VTKPosthocIO&) = delete;
-  void operator=(const VTKPosthocIO&) = delete;
 };
 
 }

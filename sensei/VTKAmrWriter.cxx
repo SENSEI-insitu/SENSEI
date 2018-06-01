@@ -14,6 +14,8 @@
 #include <vtkAlgorithm.h>
 #include <vtkMultiProcessController.h>
 #include <vtkMPIController.h>
+#include <vtkMPICommunicator.h>
+#include <vtkMPI.h>
 
 #include <algorithm>
 #include <sstream>
@@ -40,8 +42,7 @@ namespace sensei
 senseiNewMacro(VTKAmrWriter);
 
 //-----------------------------------------------------------------------------
-VTKAmrWriter::VTKAmrWriter() : Comm(MPI_COMM_WORLD),
-  OutputDir("./"), Mode(MODE_PARAVIEW)
+VTKAmrWriter::VTKAmrWriter() : OutputDir("./"), Mode(MODE_PARAVIEW)
 {}
 
 //-----------------------------------------------------------------------------
@@ -49,18 +50,19 @@ VTKAmrWriter::~VTKAmrWriter()
 {}
 
 //-----------------------------------------------------------------------------
-int VTKAmrWriter::SetCommunicator(MPI_Comm comm)
-{
-  this->Comm = comm;
-
-  return 0;
-}
-
-//-----------------------------------------------------------------------------
 int VTKAmrWriter::Initialize()
 {
-  vtkMPIController *controller=vtkMPIController::New();
+  MPI_Comm comm = this->GetCommunicator();
+  vtkMPICommunicatorOpaqueComm ocomm(&comm);
+
+  vtkMPICommunicator *vcomm = vtkMPICommunicator::New();
+  vcomm->InitializeExternal(&ocomm);
+
+  vtkMPIController *controller = vtkMPIController::New();
   controller->Initialize(0,0,1);
+  controller->SetCommunicator(vcomm);
+  vcomm->Delete();
+
   vtkMultiProcessController::SetGlobalController(controller);
 
   vtkCompositeDataPipeline* cexec=vtkCompositeDataPipeline::New();
@@ -136,7 +138,7 @@ int VTKAmrWriter::AddDataRequirement(const std::string &meshName,
 bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
 {
   int rank = 0;
-  MPI_Comm_rank(this->Comm, &rank);
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
@@ -252,17 +254,17 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
 int VTKAmrWriter::Finalize()
 {
   int rank = 0;
-  MPI_Comm_rank(this->Comm, &rank);
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   // clean up VTK
   vtkMultiProcessController *controller =
     vtkMultiProcessController::GetGlobalController();
 
-  vtkMultiProcessController::SetGlobalController(nullptr);
-  vtkAlgorithm::SetDefaultExecutivePrototype(nullptr);
-
   controller->Finalize(1);
   controller->Delete();
+
+  vtkMultiProcessController::SetGlobalController(nullptr);
+  vtkAlgorithm::SetDefaultExecutivePrototype(nullptr);
 
   // rank 0 will write meta files
   if (rank != 0)

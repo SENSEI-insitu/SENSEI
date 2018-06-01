@@ -110,7 +110,8 @@ $ make install
 | ENABLE_CATALYST_PYTHON | OFF | Enables Python features of the Catalyst analysis adaptor.  |
 | ENABLE_ADIOS | OFF | Enables ADIOS adaptors and endpoints. Set ADIOS_DIR. |
 | ENABLE_LIBSIM | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set VTK_DIR and LIBSIM_DIR. |
-| ENABLE_VTK_XMLP | OFF | Enables PosthocIO adaptors to write to VTK XML format. |
+| ENABLE_VTK_IO | OFF | Enables adaptors to write to VTK XML format. |
+| ENABLE_VTK_MPI | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
 | ENABLE_PARALLEL3D | ON | Enables the parallel 3D mini-app. |
 | ENABLE_OSCILLATORS | ON | Enables the oscillators mini-app. |
 | VTK_DIR | | Set to the directory containing VTKConfig.cmake. |
@@ -140,7 +141,7 @@ Optionally, `-DENABLE_CATALYST_PYTHON=ON` will enable Catalyst Python scripts.
 
 ### Enable writing to Visit ".visit" format or ParaView ".pvd" format
 ```bash
-cmake -DENABLE_SENSEI=ON -DENABLE_VTK_XMLP=ON  -DVTK_DIR=[your path] ..
+cmake -DENABLE_SENSEI=ON -DENABLE_VTK_IO=ON  -DVTK_DIR=[your path] ..
 ```
 Can be used with either `ParaView_DIR` or `VTK_DIR`.
 

@@ -16,8 +16,6 @@
 
 #include <sstream>
 
-
-
 namespace sensei
 {
 // associate the mesh name to a data object and mesh metadata
@@ -51,9 +49,8 @@ static bool good(ObjectMapType &objMap, const ObjectMapIterType &it)
 
 struct ADIOSDataAdaptor::InternalsType
 {
-  InternalsType() : Comm(MPI_COMM_WORLD), Stream() {}
+  InternalsType() : Stream() {}
 
-  MPI_Comm Comm;
   senseiADIOS::InputStream Stream;
   senseiADIOS::DataObjectCollectionSchema Schema;
   ObjectMapType ObjectMap;
@@ -82,8 +79,8 @@ void ADIOSDataAdaptor::EnableDynamicMesh(const std::string &meshName, int val)
 }
 
 //----------------------------------------------------------------------------
-int ADIOSDataAdaptor::Open(MPI_Comm comm,
-  const std::string &method, const std::string& filename)
+int ADIOSDataAdaptor::Open(const std::string &method,
+  const std::string& filename)
 {
   size_t n = method.size();
   std::string lcase_method(n, ' ');
@@ -106,18 +103,15 @@ int ADIOSDataAdaptor::Open(MPI_Comm comm,
     return -1;
     }
 
-  return this->Open(comm, it->second, filename);
+  return this->Open(it->second, filename);
 }
 
 //----------------------------------------------------------------------------
-int ADIOSDataAdaptor::Open(MPI_Comm comm,
-  ADIOS_READ_METHOD method, const std::string& fileName)
+int ADIOSDataAdaptor::Open(ADIOS_READ_METHOD method, const std::string& fileName)
 {
   timer::MarkEvent mark("ADIOSDataAdaptor::Open");
 
-  this->Internals->Comm = comm;
-
-  if (this->Internals->Stream.Open(comm, method, fileName))
+  if (this->Internals->Stream.Open(this->GetCommunicator(), method, fileName))
     {
     SENSEI_ERROR("Failed to open \"" << fileName << "\"")
     return -1;
@@ -164,7 +158,7 @@ int ADIOSDataAdaptor::UpdateTimeStep()
   unsigned long timeStep = 0;
   double time = 0.0;
 
-  if (this->Internals->Schema.ReadTimeStep(this->Internals->Comm,
+  if (this->Internals->Schema.ReadTimeStep(this->GetCommunicator(),
     this->Internals->Stream, timeStep, time))
     {
     SENSEI_ERROR("Failed to update time step")
@@ -176,7 +170,7 @@ int ADIOSDataAdaptor::UpdateTimeStep()
 
   // update the available meshes
   std::vector<std::string> names;
-  if (this->Internals->Schema.ReadObjectNames(this->Internals->Comm,
+  if (this->Internals->Schema.ReadObjectNames(this->GetCommunicator(),
     this->Internals->Stream, names))
     {
     SENSEI_ERROR("Failed to update object names")
@@ -252,7 +246,7 @@ int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
     }
 
   // other wise we need to read the mesh at the current time step
-  if (this->Internals->Schema.ReadObject(this->Internals->Comm,
+  if (this->Internals->Schema.ReadObject(this->GetCommunicator(),
     this->Internals->Stream, meshName, mesh, structureOnly))
     {
     SENSEI_ERROR("Failed to read mesh \"" << meshName << "\"")
@@ -275,7 +269,7 @@ int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
   // cell data arrays
   std::set<std::string> cellArrays;
 
-  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
+  if (this->Internals->Schema.ReadArrayNames(this->GetCommunicator(),
     this->Internals->Stream, meshName, mesh, vtkDataObject::CELL, cellArrays))
     {
     SENSEI_ERROR("Failed to read cell associated array names")
@@ -284,7 +278,7 @@ int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
 
   // point data arrays
   std::set<std::string> pointArrays;
-  if (this->Internals->Schema.ReadArrayNames(this->Internals->Comm,
+  if (this->Internals->Schema.ReadArrayNames(this->GetCommunicator(),
     this->Internals->Stream, meshName, mesh, vtkDataObject::POINT, pointArrays))
     {
     SENSEI_ERROR("Failed to read point associated array names")
@@ -390,7 +384,7 @@ int ADIOSDataAdaptor::AddArray(vtkDataObject* mesh,
     return -1;
     }
 
-  if (this->Internals->Schema.ReadArray(this->Internals->Comm,
+  if (this->Internals->Schema.ReadArray(this->GetCommunicator(),
     this->Internals->Stream, meshName, mesh, association, arrayName))
     {
     SENSEI_ERROR("Failed to read " << VTKUtils::GetAttributesName(association)

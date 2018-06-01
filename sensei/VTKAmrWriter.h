@@ -30,7 +30,6 @@ public:
   senseiTypeMacro(VTKAmrWriter, AnalysisAdaptor);
 
   // Run time configuration
-  int SetCommunicator(MPI_Comm comm);
   int SetOutputDir(const std::string &outputDir);
 
   enum {MODE_PARAVIEW=0, MODE_VISIT=1};
@@ -56,7 +55,6 @@ protected:
   ~VTKAmrWriter();
 
 private:
-  MPI_Comm Comm;
   std::string OutputDir;
   DataRequirements Requirements;
   int Mode;

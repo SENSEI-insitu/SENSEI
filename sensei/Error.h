@@ -31,7 +31,7 @@ int ioEnabled(int active_rank);
 #define END_HL (sensei::haveTty()?ANSI_OFF:"")
 
 #define SENSEI_MESSAGE(Rank, Head, HeadColor, Msg)                              \
-if (sensei::ioEnabled(Rank))                                                            \
+if (sensei::ioEnabled(Rank))                                                    \
 {                                                                               \
   std::cerr << BEGIN_HL(HeadColor) << Head << END_HL << " ["                    \
     << sensei::parallelId() << "][" << __FILE__ << ":" << __LINE__              \
