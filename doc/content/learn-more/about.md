@@ -26,7 +26,7 @@ To identify needs and evaluate solutions, we are using several science-facing pr
 
 ## _In Situ_ Infrastructure
 
-The in situ infrastructure thrust focuses on four in situ frameworks, namely Catalyst, Libsim, ADIOS, and GLEAN. While these infrastructures provide the means for performing various types of processing, analysis, and visualization operations from a live-running simulation, they differ in their approach to interfacing with the simulation, with how they are configured, and how they are extended by user-supplied code.
+The in situ infrastructure thrust focuses on four in situ frameworks, namely Catalyst, Libsim, and ADIOS. While these infrastructures provide the means for performing various types of processing, analysis, and visualization operations from a live-running simulation, they differ in their approach to interfacing with the simulation, with how they are configured, and how they are extended by user-supplied code.
 
 An infrastructure-based goal of the project is:
 
