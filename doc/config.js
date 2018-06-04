@@ -1,8 +1,8 @@
 module.exports = {
   baseUrl: '',
+  cname: 'sensei-insitu.org',
   work: './build-tmp',
   config: {
-    cname: 'sensei-insitu.org',
     title: 'sensei',
     description: '"Scalable in situ visualization and analysis."',
     subtitle: '"Lightweight, zero-copy simulation adaptor."',
