@@ -1,7 +1,9 @@
-#ifndef sensei_CatalystAnalysisAdaptor_h
-#define sensei_CatalystAnalysisAdaptor_h
+#ifndef CatalystAnalysisAdaptor_h
+#define CatalystAnalysisAdaptor_h
 
 #include <AnalysisAdaptor.h>
+#include <memory>
+#include <vector>
 
 class vtkCPDataDescription;
 class vtkCPInputDataDescription;
@@ -10,7 +12,8 @@ class vtkDataObject;
 
 namespace sensei
 {
-class DataRequirements;
+struct MeshMetadata;
+using MeshMetadataPtr = std::shared_ptr<MeshMetadata>;
 
 /// @brief Analysis adaptor for Catalyst-based analysis pipelines.
 ///
@@ -42,10 +45,10 @@ protected:
   void Initialize();
 
   int DescribeData(int timeStep, double time,
-    const DataRequirements &reqs, vtkCPDataDescription *dataDesc);
+    const std::vector<MeshMetadataPtr> &metadata, vtkCPDataDescription *dataDesc);
 
   int SelectData(DataAdaptor *dataAdaptor,
-    const DataRequirements &reqs, vtkCPDataDescription *dataDesc);
+    const std::vector<MeshMetadataPtr> &reqs, vtkCPDataDescription *dataDesc);
 
   int SetWholeExtent(vtkDataObject *dobj, vtkCPInputDataDescription *desc);
 

@@ -1,4 +1,5 @@
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "Error.h"
 
 #include <vtkCellData.h>
@@ -18,19 +19,20 @@ senseiNewMacro(DataAdaptor);
 //-----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor()
 {
-  this->CellExtent[0] = std::numeric_limits<int>::max();
-  this->CellExtent[1] = std::numeric_limits<int>::min();
-  this->CellExtent[2] = std::numeric_limits<int>::max();
-  this->CellExtent[3] = std::numeric_limits<int>::min();
-  this->CellExtent[4] = std::numeric_limits<int>::max();
-  this->CellExtent[5] = std::numeric_limits<int>::min();
+  for (int i = 0; i < 3; ++i)
+    this->Origin[i] = 0.0;
 
-  this->WholeExtent[0] = std::numeric_limits<int>::max();
-  this->WholeExtent[1] = std::numeric_limits<int>::min();
-  this->WholeExtent[2] = std::numeric_limits<int>::max();
-  this->WholeExtent[3] = std::numeric_limits<int>::min();
-  this->WholeExtent[4] = std::numeric_limits<int>::max();
-  this->WholeExtent[5] = std::numeric_limits<int>::min();
+  for (int i = 0; i < 3; ++i)
+    this->Spacing[i] = 0.0;
+
+  for (int i = 0; i < 6; ++i)
+    this->LocalExtent[i] = 0;
+
+  for (int i = 0; i < 6; ++i)
+    this->GlobalExtent[i] = 0;
+
+  for (int i = 0; i < 3; ++i)
+    this->Arrays[i] = nullptr;
 }
 
 //-----------------------------------------------------------------------------
@@ -39,113 +41,40 @@ DataAdaptor::~DataAdaptor()
 }
 
 //-----------------------------------------------------------------------------
-void DataAdaptor::Initialize(int g_x, int g_y, int g_z, int l_x, int l_y, int l_z,
-  uint64_t start_extents_x, uint64_t start_extents_y, uint64_t start_extents_z,
-  int tot_blocks_x, int tot_blocks_y, int tot_blocks_z, int block_id_x,
-  int block_id_y, int block_id_z)
+void DataAdaptor::UpdateGeometry(double x_0, double y_0, double z_0,
+  double dx, double dy, double dz, long g_nx, long g_ny, long g_nz,
+  long offs_x, long offs_y, long offs_z, long l_nx, long l_ny, long l_nz)
 {
-  (void)tot_blocks_x;
-  (void)tot_blocks_y;
-  (void)tot_blocks_z;
-  (void)block_id_x;
-  (void)block_id_y;
-  (void)block_id_z;
+  this->Origin[0] = x_0;
+  this->Origin[1] = y_0;
+  this->Origin[2] = z_0;
 
-  // we only really need to save the local extents for our current example. So
-  // we'll just save that.
-  this->CellExtent[0] = start_extents_x;
-  this->CellExtent[1] = start_extents_x + l_x - 1;
-  this->CellExtent[2] = start_extents_y;
-  this->CellExtent[3] = start_extents_y + l_y - 1;
-  this->CellExtent[4] = start_extents_z;
-  this->CellExtent[5] = start_extents_z + l_z - 1;
+  this->Spacing[0] = dx;
+  this->Spacing[1] = dy;
+  this->Spacing[2] = dz;
 
-  // This is point-based.
-  this->WholeExtent[0] = 0;
-  this->WholeExtent[1] = g_x;
-  this->WholeExtent[2] = 0;
-  this->WholeExtent[3] = g_y;
-  this->WholeExtent[4] = 0;
-  this->WholeExtent[5] = g_z;
+  this->LocalExtent[0] = offs_x;
+  this->LocalExtent[1] = offs_x + l_nx - 1;
+  this->LocalExtent[2] = offs_y;
+  this->LocalExtent[3] = offs_y + l_ny - 1;
+  this->LocalExtent[4] = offs_z;
+  this->LocalExtent[5] = offs_z + l_nz - 1;
 
-  this->GetInformation()->Set(vtkDataObject::DATA_EXTENT(),
-    this->WholeExtent, 6);
+  this->GlobalExtent[0] = 0;
+  this->GlobalExtent[1] = g_nx - 1;
+  this->GlobalExtent[2] = 0;
+  this->GlobalExtent[3] = g_ny - 1;
+  this->GlobalExtent[4] = 0;
+  this->GlobalExtent[5] = g_nz - 1;
 }
 
 //-----------------------------------------------------------------------------
-void DataAdaptor::AddArray(const std::string& name, double* data)
+void DataAdaptor::UpdateArrays(double *pressure, double *temperature,
+  double *density)
 {
-  if (this->Variables[name] != data)
-    {
-    this->Variables[name] = data;
-    this->Arrays.erase(name);
-    }
-}
-
-//-----------------------------------------------------------------------------
-void DataAdaptor::ClearArrays()
-{
-  this->Variables.clear();
-  this->Arrays.clear();
-}
-
-//-----------------------------------------------------------------------------
-int DataAdaptor::GetNumberOfArrays(const std::string &meshName,
-  int association, unsigned int &numberOfArrays)
-{
-  numberOfArrays = 0;
-
-  if (meshName != "mesh")
-    {
-    SENSEI_ERROR("No mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  if (association == vtkDataObject::FIELD_ASSOCIATION_CELLS)
-    {
-    numberOfArrays = this->Variables.size();
-    }
-
-  return 0;
-}
-
-//-----------------------------------------------------------------------------
-int DataAdaptor::GetArrayName(const std::string &meshName, int association,
-  unsigned int index, std::string &arrayName)
-{
-  arrayName = "";
-
-  if (meshName != "mesh")
-    {
-    SENSEI_ERROR("No mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS)
-    {
-    SENSEI_ERROR("No point data on mesh")
-    return -1;
-    }
-
-  if (index >= this->Variables.size())
-    {
-    SENSEI_ERROR("Index out of bounds")
-    return -1;
-    }
-
-  unsigned int count = 0;
-  VariablesType::iterator end = this->Variables.end();
-  VariablesType::iterator iter = this->Variables.begin();
-  for (; iter != end; ++iter, ++count)
-    {
-    if (count == index)
-      {
-      arrayName = iter->first;
-      return 0;
-      }
-    }
-
-  return 0;
+  this->Arrays[0] = pressure;
+  this->Arrays[1] = temperature;
+  this->Arrays[2] = density;
 }
 
 //-----------------------------------------------------------------------------
@@ -156,38 +85,104 @@ int DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 }
 
 //-----------------------------------------------------------------------------
-int DataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
+int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata)
 {
-  if (id != 0)
+  if (id !=0 )
     {
-    SENSEI_ERROR("Mesh id is out of range. 1 mesh available.")
+    SENSEI_ERROR("dataset index " << id << " is out of bounds")
     return -1;
     }
-  meshName = "mesh";
+
+  int rank = 0;
+  int nRanks = 1;
+
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+  MPI_Comm_size(this->GetCommunicator(), &nRanks);
+
+  metadata->MeshName = "mesh";
+  metadata->NumBlocks = nRanks;
+  metadata->NumBlocksLocal = {1};
+  metadata->MeshType = VTK_IMAGE_DATA;
+  metadata->BlockType = VTK_IMAGE_DATA;
+  metadata->NumArrays = 3;
+  metadata->ArrayName = {"pressure", "temperature", "density"};
+  metadata->ArrayCentering = {vtkDataObject::CELL, vtkDataObject::CELL, vtkDataObject::CELL};
+  metadata->ArrayComponents = {1, 1, 1};
+
+  if (metadata->Flags.BlockDecompSet())
+    {
+    metadata->BlockOwner = {rank};
+    metadata->BlockIds = {rank};
+    }
+
+  if (metadata->Flags.BlockSizeSet())
+    {
+    metadata->BlockNumPoints = {(this->LocalExtent[1] - this->LocalExtent[0] + 2)*
+      (this->LocalExtent[3] - this->LocalExtent[2] + 2)*
+      (this->LocalExtent[5] - this->LocalExtent[4] + 2)};
+
+    metadata->BlockNumCells = {(this->LocalExtent[1] - this->LocalExtent[0] + 1)*
+      (this->LocalExtent[3] - this->LocalExtent[2] + 1)*
+      (this->LocalExtent[5] - this->LocalExtent[4] + 1)};
+    }
+
+  if (metadata->Flags.BlockExtentsSet())
+    {
+    //metadata->Extent = std::vector<int>(this->GlobalExtent, this->GlobalExtent+6);
+    metadata->BlockExtents.emplace_back(
+      std::array<int,6>{{this->LocalExtent[0], this->LocalExtent[1],
+        this->LocalExtent[2], this->LocalExtent[3],
+        this->LocalExtent[4], this->LocalExtent[5]}});
+    }
+
+  if (metadata->Flags.BlockBoundsSet())
+    {
+    metadata->BlockBounds.emplace_back(std::move(std::array<double,6>{{
+      this->Origin[0] + this->Spacing[0]*this->LocalExtent[0],
+      this->Origin[0] + this->Spacing[0]*(this->LocalExtent[1] + 1),
+      this->Origin[1] + this->Spacing[1]*this->LocalExtent[2],
+      this->Origin[1] + this->Spacing[1]*(this->LocalExtent[3] + 1),
+      this->Origin[2] + this->Spacing[2]*this->LocalExtent[4],
+      this->Origin[2] + this->Spacing[2]*(this->LocalExtent[5] + 1)}}));
+    }
+
   return 0;
 }
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
   vtkDataObject *&mesh)
 {
-  (void)structureOnly;
+  mesh = nullptr;
+
   if (meshName != "mesh")
     {
     SENSEI_ERROR("No mesh \"" << meshName << "\"")
     return -1;
     }
 
-  if (!this->Mesh)
-    {
-    this->Mesh = vtkSmartPointer<vtkImageData>::New();
+  // create the Cartesian mesh. this is the legacy approach to
+  // parallel data used by ParaView. When each rank has only 1 block
+  vtkImageData *id = vtkImageData::New();
 
-    this->Mesh->SetExtent(
-      this->CellExtent[0], this->CellExtent[1] + 1,
-      this->CellExtent[2], this->CellExtent[3] + 1,
-      this->CellExtent[4], this->CellExtent[5] + 1);
+  // structure only says the analysis doesn't need the mesh geometry.
+  // it's more important with unstructured meshes, shown here for
+  // illustrative purposes
+  if (!structureOnly)
+    {
+    id->SetOrigin(this->Origin);
+    id->SetSpacing(this->Spacing);
+
+    // pass in the local extents thta describe the positioning of
+    // this rank's data within the global domain.
+    // +1 because we have cell based extent but vtk wants point based
+    id->SetExtent(this->LocalExtent[0], this->LocalExtent[1] + 1,
+      this->LocalExtent[2], this->LocalExtent[3] + 1, this->LocalExtent[4],
+      this->LocalExtent[5] + 1);
     }
 
-  mesh = this->Mesh;
+  // return the dataset, note that the analysis takes ownership
+  mesh = id;
+
   return 0;
 }
 
@@ -201,35 +196,52 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     return -1;
     }
 
-  if (association != vtkDataObject::FIELD_ASSOCIATION_CELLS)
+  if (association != vtkDataObject::CELL)
     {
     SENSEI_ERROR("No point data on mesh")
     return -1;
     }
 
-  VariablesType::iterator iterV = this->Variables.find(arrayName);
-
-  if (iterV == this->Variables.end())
+  // figure out which array is being requested
+  double *data = nullptr;
+  if (!strcmp("pressure", arrayName.c_str()))
     {
-    SENSEI_ERROR("no array named \"" << arrayName << "\"")
+    data = this->Arrays[0];
+    }
+  else if (!strcmp("temperature", arrayName.c_str()))
+    {
+    data = this->Arrays[1];
+    }
+  else if (!strcmp("density", arrayName.c_str()))
+    {
+    data = this->Arrays[2];
+    }
+  else
+    {
+    SENSEI_ERROR("No array named \"" << arrayName << "\"")
     return -1;
     }
 
-  vtkDoubleArrayPtr vtkarray = vtkDoubleArrayPtr::New();
-  vtkarray->SetName(arrayName.c_str());
+  long nCells = (this->LocalExtent[1] - this->LocalExtent[0] + 1) *
+    (this->LocalExtent[3] - this->LocalExtent[2] + 1) *
+    (this->LocalExtent[5] - this->LocalExtent[4] + 1);
 
-  const vtkIdType size =
-    (this->CellExtent[1] - this->CellExtent[0] + 1) *
-    (this->CellExtent[3] - this->CellExtent[2] + 1) *
-    (this->CellExtent[5] - this->CellExtent[4] + 1);
+  // pass the array by zero copy into a vtk data array
+  vtkDoubleArray *da = vtkDoubleArray::New();
+  da->SetName(arrayName.c_str());
+  da->SetArray(data, nCells, 1);
 
-  vtkarray->SetArray(iterV->second, size, 1);
+  // put the vtk data array into the mesh's cell data
+  vtkImageData *id = dynamic_cast<vtkImageData*>(mesh);
+  if (!id)
+    {
+    SENSEI_ERROR("invalid mesh "
+      << (mesh ? mesh->GetClassName() : "nullptr"))
+    return -1;
+    }
 
-  vtkImageData* image = vtkImageData::SafeDownCast(mesh);
-  image->GetCellData()->AddArray(vtkarray);
-
-  assert(image);
-  assert(size == image->GetNumberOfCells());
+  id->GetCellData()->AddArray(da);
+  da->Delete();
 
   return 0;
 }
@@ -237,8 +249,6 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
 //-----------------------------------------------------------------------------
 int DataAdaptor::ReleaseData()
 {
-  this->ClearArrays();
-  this->Mesh = NULL;
   return 0;
 }
 

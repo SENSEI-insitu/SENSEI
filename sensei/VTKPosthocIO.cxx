@@ -1,6 +1,7 @@
 #include "VTKPosthocIO.h"
 #include "senseiConfig.h"
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -38,7 +39,6 @@
 
 #include <mpi.h>
 
-using vtkCompositeDataSetPtr = vtkSmartPointer<vtkCompositeDataSet>;
 
 //-----------------------------------------------------------------------------
 static
@@ -249,7 +249,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
     {
-    if (this->Requirements.Initialize(dataAdaptor))
+    if (this->Requirements.Initialize(dataAdaptor, false))
       {
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
       return false;
@@ -262,35 +262,33 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
   for (; mit; ++mit)
     {
+    std::string meshName = mit.MeshName();
+
+    // get the metadta
+    MeshMetadataPtr mmd;
+    if (dataAdaptor->GetMeshMetadata(meshName, mmd))
+      {
+      SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"")
+      return false;
+      }
+
     // get the mesh
     vtkDataObject* dobj = nullptr;
-    std::string meshName = mit.MeshName();
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
       return false;
       }
 
-    // get ghost cell/node metadata always provide this information as
-    // it is essential to process the data objects
-    int nGhostCellLayers = 0;
-    int nGhostNodeLayers = 0;
-    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
-      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
-      {
-      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
-      return false;
-      }
-
     // add the ghost cell arrays to the mesh
-    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if ((mmd->NumGhostCells > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if ((nGhostNodeLayers > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if ((mmd->NumGhostNodes > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -321,24 +319,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     // in OOM crashes when run with 45k cores on Cori.
 
     // make sure we have composite dataset if not create one
-    int rank = 0;
-    int nRanks = 1;
-
-    MPI_Comm_rank(this->GetCommunicator(), &rank);
-    MPI_Comm_size(this->GetCommunicator(), &nRanks);
-
-    vtkCompositeDataSetPtr cd;
-    if (dynamic_cast<vtkCompositeDataSet*>(dobj))
-      {
-      cd = static_cast<vtkCompositeDataSet*>(dobj);
-      }
-    else
-      {
-      vtkMultiBlockDataSet *mb = vtkMultiBlockDataSet::New();
-      mb->SetNumberOfBlocks(nRanks);
-      mb->SetBlock(rank, dobj);
-      cd.TakeReference(mb);
-      }
+    vtkCompositeDataSetPtr cd =
+      VTKUtils::AsCompositeData(this->GetCommunicator(), dobj);
 
     vtkCompositeDataIterator *it = cd->NewIterator();
     it->SetSkipEmptyNodes(1);
@@ -415,12 +397,14 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
         writer->Delete();
         }
       }
-
     it->Delete();
 
     this->FileId[meshName] += 1;
 
     // rank 0 keeps track of time info for meta file
+    int rank = 0;
+    MPI_Comm_rank(this->GetCommunicator(), &rank);
+
     if (rank == 0)
       {
       double time = dataAdaptor->GetDataTime();

@@ -1,4 +1,5 @@
 #include "MandelbrotDataAdaptor.h"
+#include "MeshMetadata.h"
 #include "Error.h"
 
 #include <vtkCellArray.h>
@@ -71,7 +72,6 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName, bool /*structure
   DInternals& internals = (*this->Internals);
   if (!internals.Mesh)
     {
-//#define DEBUG_GET_MESH
 #ifdef DEBUG_GET_MESH
     char filename[100];
     sprintf(filename, "getmesh.%04d.txt", internals.sim->par_rank);
@@ -316,43 +316,60 @@ int MandelbrotDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 }
 
 //-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
+int MandelbrotDataAdaptor::GetMeshMetadata(unsigned int id,
+  sensei::MeshMetadataPtr &metadata)
 {
   if (id == 0)
     {
-    meshName = "AMR_mesh";
+    metadata->MeshName = "AMR_mesh";
+    metadata->GlobalView = true;
+    metadata->MeshType = VTK_OVERLAPPING_AMR;
+    metadata->BlockType = VTK_IMAGE_DATA;
+
+    // TODO -- fill these in
+    /*
+    metadata->NumBlocks = ; // total number of patches
+    metadata->NumBlocksLocal = ; // num pacthes on this rank
+
+    metadata->NumLevels = ;
+    metadata->RefRatio = ; // refinement on each level (use amrex convention)
+
+    if (metadata->Flags.BlockExtentsSet())
+      {
+      metadata->Extent = ; // level zero index space bounding box
+      metadata->BlockExtents = ; // index space bounds of all blocks on all ranks
+      }
+
+    if (metadata->Flags.BlockBoundsSet())
+      {
+      metadata->Bounds = ; // level zero bounding box
+      metadata->BlockBounds = ; // index space bounds of all blocks on all ranks
+      }
+
+    if (metadata->Flags.BlockSizesSet())
+      {
+      metadata->NumPoints = ; // total num points all blocks
+      metadata->NumCells = ; // total num cells all bocks
+      metadata->BlockNumPoints = ; // num points each block
+      metadata->BlockNumCells = ; // num cells each blocks
+      }
+
+    if (metadata->Flags.BlockOwnerSet())
+      {
+      metadata->BlockOwner = ; // rank for each block
+      }
+    */
+
+    metadata->NumArrays = 1;
+    metadata->ArrayName = {"mandelbrot"};
+    metadata->ArrayCentering = {vtkDataObject::CELL};
+    metadata->ArrayType = {VTK_UNSIGNED_CHAR};
+    metadata->ArrayComponents = {1};
+
     return 0;
     }
 
-  SENSEI_ERROR("Failed to get mesh name")
-  return -1;
-}
-
-//-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays)
-{
-  numberOfArrays = 0;
-  if ((meshName == "AMR_mesh") && (association == vtkDataObject::CELL))
-    {
-    numberOfArrays = 1;
-    return 0;
-    }
-  return 0;
-}
-
-//-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName)
-{
-  if ((meshName == "AMR_mesh") &&
-    (association == vtkDataObject::CELL) && (index == 0))
-    {
-    arrayName = "mandelbrot";
-    return 0;
-    }
-
-  SENSEI_ERROR("Failed to get array name")
+  SENSEI_ERROR("Failed to get metadata no mesh at " << id)
   return -1;
 }
 

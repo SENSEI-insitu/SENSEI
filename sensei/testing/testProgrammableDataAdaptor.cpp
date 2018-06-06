@@ -1,4 +1,5 @@
 #include "ProgrammableDataAdaptor.h"
+#include "MeshMetadata.h"
 #include "Histogram.h"
 
 #include <vtkDataObject.h>
@@ -40,12 +41,21 @@ int main(int argc, char **argv)
     };
 
   // get mesh name callback
-  auto getMeshName = [](unsigned int id, std::string &meshName) -> int
+  auto getMeshMetadata = [](unsigned int id, sensei::MeshMetadataPtr &metadata) -> int
     {
-    cerr << "===getMeshName" << endl;
+    cerr << "===getMeshMetadata" << endl;
     if (id == 0)
       {
-      meshName = "image";
+      metadata->MeshName = "image";
+      metadata->MeshType = VTK_IMAGE_DATA;
+      metadata->BlockType = VTK_IMAGE_DATA;
+      metadata->NumBlocks = 1;
+      metadata->NumBlocksLocal = {1};
+      metadata->NumArrays = 1;
+      metadata->ArrayName = {"data"};
+      metadata->ArrayCentering = {vtkDataObject::POINT};
+      metadata->ArrayType = {VTK_DOUBLE};
+      metadata->ArrayComponents = {1};
       return 0;
       }
     return -1;
@@ -84,33 +94,6 @@ int main(int argc, char **argv)
     return -1;
     };
 
-  // number of arrays callback
-  auto getNumArrays = [](const std::string &meshName, int assoc,
-    unsigned int &num) -> int
-    {
-    cerr << "===getNumArrays" << endl;
-    if ((meshName == "image") && (assoc == vtkDataObject::POINT))
-      {
-      num = 1;
-      return 0;
-      }
-    return -1;
-    };
-
-  // array name callback
-  auto getArrayName = [](const std::string &meshName, int assoc,
-    unsigned int id, std::string &arrayName) -> int
-    {
-    cerr << "===getArrayName" << endl;
-    if ((meshName == "image") &&
-      (assoc == vtkDataObject::POINT) && (id == 0))
-      {
-      arrayName = "data";
-      return 0;
-      }
-    return -1;
-    };
-
   // release data callback
   auto releaseData = []() -> int
     {
@@ -120,40 +103,32 @@ int main(int argc, char **argv)
 
   sensei::ProgrammableDataAdaptor *pda = sensei::ProgrammableDataAdaptor::New();
   pda->SetGetNumberOfMeshesCallback(getNumberOfMeshes);
-  pda->SetGetMeshNameCallback(getMeshName);
+  pda->SetGetMeshMetadataCallback(getMeshMetadata);
   pda->SetGetMeshCallback(getMesh);
   pda->SetAddArrayCallback(addArray);
-  pda->SetGetNumberOfArraysCallback(getNumArrays);
-  pda->SetGetArrayNameCallback(getArrayName);
   pda->SetReleaseDataCallback(releaseData);
 
 
-  unsigned int nArrays = 0;
-  pda->GetNumberOfArrays("image", vtkDataObject::POINT, nArrays);
+  sensei::MeshMetadataPtr mmd = sensei::MeshMetadata::New();
+  pda->GetMeshMetadata(0, mmd);
+
+  sensei::Histogram *ha = sensei::Histogram::New();
+  ha->Initialize(7, mmd->MeshName, mmd->ArrayCentering[0], mmd->ArrayName[0], "");
+  ha->Execute(pda);
+
+  pda->ReleaseData();
+
+  double min = 0.0;
+  double max = 0.0;
+  std::vector<unsigned int> hist;
+  ha->GetHistogram(min, max, hist);
 
   int result = -1;
-  if (nArrays > 0)
-    {
-    std::string arrayName;
-    pda->GetArrayName("image", vtkDataObject::POINT, 0, arrayName);
+  if (hist == baselineHist)
+    result = 0;
 
-    sensei::Histogram *ha = sensei::Histogram::New();
-    ha->Initialize(7, "image", vtkDataObject::POINT, arrayName, "");
-    ha->Execute(pda);
-
-    pda->ReleaseData();
-
-    double min = 0.0;
-    double max = 0.0;
-    std::vector<unsigned int> hist;
-    ha->GetHistogram(min, max, hist);
-
-    if (hist == baselineHist)
-      result = 0;
-
-    pda->Delete();
-    ha->Delete();
-    }
+  pda->Delete();
+  ha->Delete();
 
   MPI_Finalize();
 

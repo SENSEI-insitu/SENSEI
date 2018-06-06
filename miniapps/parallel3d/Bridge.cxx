@@ -8,51 +8,71 @@
 
 #include "Timer.h"
 
-namespace BridgeInternals
+namespace bridge
 {
-  static vtkSmartPointer<parallel3d::DataAdaptor> GlobalDataAdaptor;
-  static vtkSmartPointer<sensei::ConfigurableAnalysis> GlobalAnalysisAdaptor;
+  static parallel3d::DataAdaptor *DataAdaptor = nullptr;
+  static sensei::ConfigurableAnalysis *AnalysisAdaptor = nullptr;
 }
 
 //-----------------------------------------------------------------------------
-void bridge_initialize(MPI_Comm comm, int g_x, int g_y, int g_z,
-  int l_x, int l_y, int l_z, uint64_t start_extents_x, uint64_t start_extents_y,
-  uint64_t start_extents_z, int tot_blocks_x, int tot_blocks_y, int tot_blocks_z,
-  int block_id_x, int block_id_y, int block_id_z, const char* config_file)
+int bridge_initialize(const char* config_file, int g_nx, int g_ny, int g_nz,
+  uint64_t offs_x, uint64_t offs_y, uint64_t offs_z, int l_nx, int l_ny, int l_nz,
+  double *pressure, double* temperature, double* density)
 {
   timer::Initialize();
 
-  BridgeInternals::GlobalDataAdaptor = vtkSmartPointer<parallel3d::DataAdaptor>::New();
-  BridgeInternals::GlobalDataAdaptor->SetCommunicator(comm);
+  // configure the analysis. this can be an expensive operation
+  // hence we only want to do it once per run
+  bridge::AnalysisAdaptor = sensei::ConfigurableAnalysis::New();
 
-  BridgeInternals::GlobalDataAdaptor->Initialize(g_x, g_y, g_z, l_x, l_y, l_z,
-    start_extents_x, start_extents_y, start_extents_z, tot_blocks_x,
-    tot_blocks_y, tot_blocks_z, block_id_x, block_id_y, block_id_z);
+  if (bridge::AnalysisAdaptor->Initialize(config_file))
+    {
+    std::cerr << "Failed to initialize the analysis using \""
+      << config_file << "\"" << std::endl;
+    return -1;
+    }
 
-  BridgeInternals::GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-  BridgeInternals::GlobalAnalysisAdaptor->SetCommunicator(comm);
-  BridgeInternals::GlobalAnalysisAdaptor->Initialize(config_file);
+  // we can do mesh construction here because in this mini-app niether
+  // the mesh geometry nor domain decomposition evolves in time and we
+  // are going to use zero copy for arrays. in a simulation that has time
+  // evolving geometry or domain decomposition, or where you are not using
+  // zero copy, this code would be in bridge_update and be called before
+  // every analysis.
+  bridge::DataAdaptor = parallel3d::DataAdaptor::New();
+
+  bridge::DataAdaptor->UpdateGeometry(0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+    g_nx, g_ny, g_nz, offs_x, offs_y, offs_z, l_nx, l_ny, l_nz);
+
+  bridge::DataAdaptor->UpdateArrays(pressure, temperature, density);
+
+  return 0;
 }
 
 //-----------------------------------------------------------------------------
-void bridge_update(int tstep, double time, double *pressure, double* temperature, double* density)
+void bridge_update(int tstep, double time)
 {
-  BridgeInternals::GlobalDataAdaptor->SetDataTime(time);
-  BridgeInternals::GlobalDataAdaptor->SetDataTimeStep(tstep);
-  BridgeInternals::GlobalDataAdaptor->AddArray("pressure", pressure);
-  BridgeInternals::GlobalDataAdaptor->AddArray("temperature", temperature);
-  BridgeInternals::GlobalDataAdaptor->AddArray("density", density);
-  BridgeInternals::GlobalAnalysisAdaptor->Execute(BridgeInternals::GlobalDataAdaptor);
-  BridgeInternals::GlobalDataAdaptor->ReleaseData();
+  // we've cached our data adaptor because niether our mesh nor domain decomp
+  // evolves in time, and we are using zero copy to pass data. here, all we
+  // need to do is update the time and step
+  bridge::DataAdaptor->SetDataTime(time);
+  bridge::DataAdaptor->SetDataTimeStep(tstep);
+
+  // invoke the analysis
+  bridge::AnalysisAdaptor->Execute(bridge::DataAdaptor);
+
+  bridge::DataAdaptor->ReleaseData();
 }
 
 //-----------------------------------------------------------------------------
 void bridge_finalize()
 {
-  BridgeInternals::GlobalAnalysisAdaptor->Finalize();
+  // tear down the analysis. this is especially important for the larger
+  // infrastructures who might make MPI calls in their tear down.
+  bridge::AnalysisAdaptor->Finalize();
 
-  BridgeInternals::GlobalAnalysisAdaptor = nullptr;
-  BridgeInternals::GlobalDataAdaptor = nullptr;
+  // release our memory
+  bridge::AnalysisAdaptor->Delete();
+  bridge::DataAdaptor->Delete();
 
   timer::Finalize();
 }

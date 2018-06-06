@@ -27,14 +27,9 @@ PyEval_InitThreads();
 import_array();
 %}
 
-%include <std_string.i>
-%include <std_vector.i>
-%include <std_map.i>
-%template(vector_string) std::vector<std::string>;
-%template(map_string_bool) std::map<std::string, bool>;
-%template(map_int_vector_string) std::map<int, std::vector<std::string>>;
 %include <mpi4py/mpi4py.i>
 %include "vtk.i"
+%include "senseiSTL.i"
 
 %mpi4py_typemap(Comm, MPI_Comm);
 

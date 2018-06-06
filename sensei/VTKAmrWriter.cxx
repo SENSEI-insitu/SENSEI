@@ -1,6 +1,7 @@
 #include "VTKAmrWriter.h"
 #include "senseiConfig.h"
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -144,7 +145,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
     {
-    if (this->Requirements.Initialize(dataAdaptor))
+    if (this->Requirements.Initialize(dataAdaptor, false))
       {
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
       return false;
@@ -173,26 +174,25 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       return false;
       }
 
-    // get ghost cell/node metadata always provide this information as
-    // it is essential to process the data objects
-    int nGhostCellLayers = 0;
-    int nGhostNodeLayers = 0;
-    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
-      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
+
+    MeshMetadataPtr metadata = MeshMetadata::New();
+    if (dataAdaptor->GetMeshMetadata(mit.MeshName(), metadata))
       {
-      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
+      SENSEI_ERROR("Failed to get metadata for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost cell arrays to the mesh
-    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if ((metadata->NumGhostCells > 0) &&
+      dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if ((nGhostNodeLayers > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if ((metadata->NumGhostNodes > 0) &&
+      dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;

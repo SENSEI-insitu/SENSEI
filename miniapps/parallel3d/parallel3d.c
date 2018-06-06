@@ -1,11 +1,3 @@
-//
-// Parallel_3D_Volume.c
-//
-//
-//  Created by Venkatram Vishwanath on 12/17/14.
-//
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -18,267 +10,161 @@
 #include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
 #include "Bridge.h"
-#endif
+#else
 #include "histogram.h"
-
-int dim = 3;
-
-// global dimensions of 2D volume
-static int g_x = 0;
-static int g_y = 0;
-static int g_z = 0;
-
-// per-process dimensions of each sub-block
-static int l_x = 0;
-static int l_y = 0;
-static int l_z = 0;
-
-static int bins = 10;
+#endif
 
 static int parse_args(int argc, char **argv);
 static void usage(void);
 
-// Assigns value based on global index
 static void gen_data_global_index (double* volume,
-                     long long my_off_z, long long my_off_y, long long my_off_x);
+  long long my_off_z, long long my_off_y, long long my_off_x);
 
 static void gen_data (double* volume,
-                     long long my_off_z, long long my_off_y, long long my_off_x);
+  long long my_off_z, long long my_off_y, long long my_off_x);
 
 static void gen_data_sparse (double* volume,
-                     long long my_off_z, long long my_off_y, long long my_off_x);
+  long long my_off_z, long long my_off_y, long long my_off_x);
+
+// global dimensions of volume
+static int g_nx = 0;
+static int g_ny = 0;
+static int g_nz = 0;
+
+// per-process dimensions of each sub-block
+static int l_nx = 0;
+static int l_ny = 0;
+static int l_nz = 0;
 
 #ifdef ENABLE_SENSEI
-char* config_file = 0;
+static char *config_file = 0;
+#else
+static int bins = 10;
 #endif
 
 int main(int argc, char **argv)
 {
-  int nprocs, rank;
-  int ret;
-  uint64_t  slice;
-  int tot_blocks_x, tot_blocks_y, tot_blocks_z, tot_blocks;
-  uint64_t start_extents_z, start_extents_y, start_extents_x;
-  int block_id_x, block_id_y, block_id_z;
-
+  uint64_t slice;
+  int tot_blocks_x, tot_blocks_y, tot_blocks_z;
+  uint64_t offs_z, offs_y, offs_x;
 
   // The buffers/ variables
-  // Let's have Pressure, Temperature, Density
-  // TODO: Make the num of variables a command line argument
-  double* pressure = 0;
-  double* temperature = 0;
-  double* density = 0;
-
+  double *pressure = NULL;
+  double *temperature = NULL;
+  double *density = NULL;
 
   // Initialize MPI
   MPI_Init(&argc, &argv);
+
+  int nprocs = 1;
+  int rank = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  ////////////////////////////
   // parse args on rank 0
-  ////////////////////////////
-  if(rank == 0){
-
-      ret = parse_args(argc, argv);
-      if(ret < 0){
-          usage();
-          MPI_Abort(MPI_COMM_WORLD, -1);
-      }
-
-      // check if the num procs is appropriate
-      tot_blocks = (g_z/l_z) * (g_y/l_y) * (g_x/l_x);
-
-      if(tot_blocks != nprocs){
-          printf("Error: number of blocks (%d) doesn't match   \
-                 number of procs (%d)\n", tot_blocks, nprocs);
-          MPI_Abort(MPI_COMM_WORLD, -1);
-      }
-  }
-
-  /////////////////////////////
-  // share the command line args and other params
-  /////////////////////////////
-
-  MPI_Bcast(&g_z, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&g_y, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&g_x, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&l_z, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&l_y, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&l_x, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&tot_blocks, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&bins, 1, MPI_INT, 0, MPI_COMM_WORLD);
-#ifdef ENABLE_SENSEI
+  int ret = parse_args(argc, argv);
+  if ((rank == 0) && (ret < 0))
   {
-      char buf[2048];
-      memset(buf, 0, 2048 * sizeof(char));
-      if(rank == 0)
-          strcpy(buf, config_file);
-      MPI_Bcast(buf, 2048, MPI_CHAR, 0, MPI_COMM_WORLD);
-      /* Copy the string on other ranks so config_file is not empty! */
-      if(rank != 0)
-          config_file = strdup(buf);
+    usage();
+    MPI_Abort(MPI_COMM_WORLD, -1);
   }
-#endif
+
+  // check if the num procs is appropriate
+  int tot_blocks = (g_nz/l_nz) * (g_ny/l_ny) * (g_nx/l_nx);
+  if ((rank == 0) && (tot_blocks != nprocs))
+  {
+    printf("Error: number of blocks (%d) doesn't match "
+      "number of procs (%d)\n", tot_blocks, nprocs);
+    MPI_Abort(MPI_COMM_WORLD, -1);
+  }
+
+  // check block size. histogram will segv if it is given
+  // a constant array
+  int local_block_size = l_nx*l_ny*l_nz;
+  if ((rank == 0) && (local_block_size < 2))
+  {
+    printf("Error: local block must have more than 1 cell\n");
+    MPI_Abort(MPI_COMM_WORLD, -1);
+  }
 
   // figure out some kind of block distribution
-  tot_blocks_z = (g_z/l_z);
-  tot_blocks_y = (g_y/l_y);
-  tot_blocks_x = (g_x/l_x);
-
+  tot_blocks_z = (g_nz/l_nz);
+  tot_blocks_y = (g_ny/l_ny);
+  tot_blocks_x = (g_nx/l_nx);
 
   // start extents in Z, Y, X for my block
   if (nprocs == 1)
   {
-    start_extents_z = 0; start_extents_y = 0; start_extents_x = 0;
+    offs_z = 0; offs_y = 0; offs_x = 0;
   }
   else
   {
-    start_extents_z = (rank / (tot_blocks_y * tot_blocks_x)) * l_z;
+    offs_z = (rank / (tot_blocks_y * tot_blocks_x)) * l_nz;
     slice = rank % (tot_blocks_y * tot_blocks_x);
-    start_extents_y = (slice / tot_blocks_x) * l_y;
-    start_extents_x = (slice % tot_blocks_x) * l_x;
+    offs_y = (slice / tot_blocks_x) * l_ny;
+    offs_x = (slice % tot_blocks_x) * l_nx;
   }
-
-
-  block_id_z = start_extents_z / l_z;
-  block_id_y = start_extents_y / l_y;
-  block_id_x = start_extents_x / l_x;
 
   // Print Info
-  if (0 == rank){
-    printf("Global Dimensions %dX%dX%d: Local Dimensions %dX%dX%d \n", \
-          g_z, g_y, g_x, l_z, l_y, l_x);
-    printf("Total Blocks are %dX%dX%d \n", tot_blocks_z, tot_blocks_y, tot_blocks_x);
+  if (0 == rank)
+  {
+    printf("Global Dimensions %dX%dX%d: Local Dimensions %dX%dX%d \n",
+      g_nz, g_ny, g_nx, l_nz, l_ny, l_nx);
+
+    printf("Total Blocks are %dX%dX%d \n",
+      tot_blocks_z, tot_blocks_y, tot_blocks_x);
   }
 
+  // Allocate the variables
+  long nbytes = sizeof(double)*l_nz*l_ny*l_nx;
+
+  pressure = (double*)malloc(nbytes);
+  temperature = (double*)malloc(nbytes);
+  density = (double*)malloc(nbytes);
+
 #ifdef ENABLE_SENSEI
-  bridge_initialize(MPI_COMM_WORLD,
-    g_x, g_y, g_z,
-    l_x, l_y, l_z,
-    start_extents_x, start_extents_y, start_extents_z,
-    tot_blocks_x, tot_blocks_y, tot_blocks_z,
-    block_id_x, block_id_y, block_id_z,
-    config_file);
+  // Initialize sensei adaptors
+  if (bridge_initialize(config_file, g_nx, g_ny, g_nz,
+    offs_x, offs_y, offs_z, l_nx, l_ny, l_nz, pressure,
+    temperature, density))
+  {
+    printf("Error: failed to initialize sensei\n");
+    MPI_Abort(MPI_COMM_WORLD, -1);
+  }
 #endif
 
-  //////////////////////////////////
-  // allocate the variables and
-  // intialize to a pattern
-  //////////////////////////////////
+  // Intialize the variables
+  gen_data_global_index(pressure, offs_z, offs_y, offs_x);
+  gen_data(temperature, offs_z, offs_y, offs_x);
+  gen_data_sparse(density, offs_z, offs_y, offs_x);
 
-  // Variable allocation
-  pressure = (double*) malloc (sizeof(double) * l_z * l_y *l_x);
-  if(!pressure){
-      perror("malloc");
-      MPI_Abort(MPI_COMM_WORLD, -1);
-  }
-
-  temperature = (double*) malloc (sizeof(double) * l_z * l_y *l_x);
-  if(!temperature){
-    perror("malloc");
-    MPI_Abort(MPI_COMM_WORLD, -1);
-  }
-
-  density = (double*) malloc (sizeof(double) * l_z * l_y *l_x);
-  if(!density){
-    perror("malloc");
-    MPI_Abort(MPI_COMM_WORLD, -1);
-  }
-
-
-  // Initialize Variables to a value for testing
-  // Note: Currently Set this to the Global Index Value
- /*
-  for(k=0; k<l_z; k++){
-    for(j=0; j<l_y; j++){
-      for(i=0; i<l_x; i++){
-        index = (l_x * l_y * k) + (l_x*j) + i;
-        pressure[index] = (g_x * g_y * (start_extents_z + k))
-                       + (g_x * (start_extents_y + j)) + start_extents_x + i;
-
-        temperature[index] = (g_x * g_y * (start_extents_z + k))
-                          + (g_x * (start_extents_y + j)) + start_extents_x + i;
-
-        density[index] = (g_x * g_y * (start_extents_z + k))
-                        + (g_x * (start_extents_y + j)) + start_extents_x + i;
-
-      }
-    }
-  }
- */
-
-  // Intialize the variables to the values of the global index
-  gen_data_global_index (pressure, start_extents_z, start_extents_y, start_extents_x);
-  /*gen_data_global_index (temperature, start_extents_z, start_extents_y, start_extents_x);*/
-  gen_data (temperature, start_extents_z, start_extents_y, start_extents_x);
-  /*gen_data_global_index (density, start_extents_z, start_extents_y, start_extents_x);*/
-  gen_data_sparse (density, start_extents_z, start_extents_y, start_extents_x);
-
-  // DEBUG: Print the values of the variables..
-
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-
-  /////////////////////////////
-  // Iterate over multiple timesteps?
-  // Compute several analyses?
-  /////////////////////////////
-
+  // Iterate over multiple timesteps
+  for (int i = 0; i < 5; ++i)
+  {
 #ifdef ENABLE_SENSEI
-
-    {
-    int cc=0;
-    for (cc=0; cc < 5; cc++)
-      {
-      bridge_update(cc, cc*10.0, pressure, temperature, density);
-      }
-    }
-
+    // use sensei to do the analysis
+    bridge_update(i, i*10.0);
 #else
-  // "Analysis" routine
-  histogram(MPI_COMM_WORLD, pressure, l_z*l_y*l_x, bins);
-  histogram(MPI_COMM_WORLD, temperature, l_z*l_y*l_x, bins);
-  histogram(MPI_COMM_WORLD, density, l_z*l_y*l_x, bins);
+    // compute a histogram directly
+    histogram(MPI_COMM_WORLD, pressure, l_nz*l_ny*l_nx, bins);
+    histogram(MPI_COMM_WORLD, temperature, l_nz*l_ny*l_nx, bins);
+    histogram(MPI_COMM_WORLD, density, l_nz*l_ny*l_nx, bins);
 #endif
+  }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  /////////////////////////////
   // Clean up heap variables
-  /////////////////////////////
-
 #ifdef ENABLE_SENSEI
   bridge_finalize();
-
-  if (config_file) {
-    free(config_file);
-    config_file = 0;
-  }
+  free(config_file);
 #endif
-
-  if (pressure){
-    free(pressure);
-    pressure = 0;
-  }
-
-  if (temperature){
-    free(temperature);
-    temperature = 0;
-  }
-
-  if (density){
-    free(density);
-    density = 0;
-  }
+  free(pressure);
+  free(temperature);
+  free(density);
 
   MPI_Finalize();
 
   return(0);
-
 }
-
 
 
 /* parse_args()
@@ -301,10 +187,10 @@ static int parse_args(int argc, char **argv)
   // postpone error checking for after while loop */
     switch(one_opt){
         case('g'):
-            sscanf(optarg, "%dx%dx%d", &g_z, &g_y, &g_x);
+            sscanf(optarg, "%dx%dx%d", &g_nz, &g_ny, &g_nx);
             break;
         case('l'):
-            sscanf(optarg, "%dx%dx%d", &l_z, &l_y, &l_x);
+            sscanf(optarg, "%dx%dx%d", &l_nz, &l_ny, &l_nx);
             break;
 #ifdef ENABLE_SENSEI
         case('f'):
@@ -321,18 +207,18 @@ static int parse_args(int argc, char **argv)
     }
   }
 
-    //printf ("Global Values : %d %d %d \n", g_z, g_y, g_x );
-    //printf ("Local Values : %d %d %d \n", l_z, l_y, l_x );
+    //printf ("Global Values : %d %d %d \n", g_nz, g_ny, g_nx );
+    //printf ("Local Values : %d %d %d \n", l_nz, l_ny, l_nx );
 
 
   // need positive dimensions
-  if(g_z < 1 || g_y < 1 || g_x < 1 ||l_z < 1 || l_y < 1 || l_x < 1 ) {
+  if(g_nz < 1 || g_ny < 1 || g_nx < 1 ||l_nz < 1 || l_ny < 1 || l_nx < 1 ) {
       printf("Error: bad dimension specification.\n");
       return(-1);
   }
 
   // need everything to be divisible
-  if((g_z % l_z) || (g_y % l_y) || (g_x % l_x)){
+  if((g_nz % l_nz) || (g_ny % l_ny) || (g_nx % l_nx)){
       printf("Error: global dimensions and local dimensions aren't evenly divisible\n");
       return(-1);
   }
@@ -346,8 +232,6 @@ static int parse_args(int argc, char **argv)
   return 0;
 }
 
-
-
 // prints usage instructions
 static void usage(void)
 {
@@ -356,94 +240,90 @@ static void usage(void)
 #else
   printf("Usage: <exec> -g 4x4x4 -l 2x2x2 -b 10 \n");
 #endif
-  printf("  -g global dimensions\n");
-  printf("  -l local (per-process) dimensions\n");
+  printf("  -g global mesh dimensions in number of cells\n");
+  printf("  -l number of cells in a local block, must divide the global space into number of MPI Comm size blocks\n");
 #ifdef ENABLE_SENSEI
   printf("  -f Sensei xml configuration file for analysis\n");
 #else
   printf("  -b histogram bins\n");
 #endif
   printf("\n");
-  printf("  test-one-side generates a 3D volume in parallel\n");
-
+  printf("generates a 3D volume in parallel\n");
   return;
 }
-
-
 
 static void gen_data_global_index (double* volume,
   long long my_off_z, long long my_off_y, long long my_off_x)
 {
-  for(long long k=0; k<l_z; k++){
-    for(long long j=0; j<l_y; j++){
-      for(long long i=0; i<l_x; i++){
-         long long index = (l_x * l_y * k) + (l_x*j) + i;
+  for(long long k = 0; k < l_nz; ++k)
+  {
+    for(long long j = 0; j < l_ny; ++j)
+    {
+      for(long long i = 0; i < l_nx; ++i)
+      {
+        long long index = (l_nx * l_ny * k) + (l_nx*j) + i;
 
-        volume[index] = (g_x * g_y * (my_off_z + k)) +  \
-                        (g_x * (my_off_y + j)) + my_off_x + i;
+        volume[index] = (g_nx * g_ny * (my_off_z + k)) +
+                        (g_nx * (my_off_y + j)) + my_off_x + i;
 
       }
     }
   }
 
 }
-
-
 
 /* generate a data set */
 static void gen_data(double* volume,
-  long long my_off_z, long long my_off_y, long long my_off_x)
+  long long off_z, long long off_y, long long off_x)
 {
-  double center[3];
-  center[0] = g_x / 2.;
-  center[1] = g_y / 2.;
-  center[2] = g_z / 2.;
+  double center[3] = {g_nx/2.0, g_ny/2.0, g_nz/2.0};
 
-    //printf("l_x: %d, l_y: %d, l_z: %d\n", l_x, l_y, l_z);
-  for(long long i = 0; i < l_z; i++)
+  for(long long k = 0; k < l_nz; ++k)
   {
-    double zdist = sin((i + my_off_z - center[2])/5.0)*center[2];
-    //      float zdist = sinf((i + my_off_z - center[2])/g_y);
-    for(long long j = 0; j < l_y; j++)
-    {
-      double ydist = sin((j + my_off_y - center[1])/3.0)*center[1];
-        //      float ydist = sinf((j + my_off_y - center[1])/g_x);
-      for(long long k = 0; k < l_x; k++)
-      {
-        double xdist = sin((k + my_off_x - center[0])/2.0)*center[0];
-          //            float xdist = sinf((k + my_off_x - center[0])/g_z);
-        volume[i * l_x * l_y + j * l_x + k] = sqrt(xdist * xdist + ydist *ydist + zdist * zdist);
+    double zdist = sin((k + off_z - center[2])/5.0)*center[2];
+    zdist *= zdist;
 
+    for(long long j = 0; j < l_ny; ++j)
+    {
+      double ydist = sin((j + off_y - center[1])/3.0)*center[1];
+      ydist *= ydist;
+
+      for(long long i = 0; i < l_nx; ++i)
+      {
+        double xdist = sin((i + off_x - center[0])/2.0)*center[0];
+        xdist *= xdist;
+
+        long long index = (l_nx * l_ny * k) + (l_nx*j) + i;
+
+        volume[index] = sqrt(xdist + ydist + zdist);
       }
     }
   }
-
 }
 
 static void gen_data_sparse(double* volume,
-  long long my_off_z, long long my_off_y, long long my_off_x)
+  long long off_z, long long off_y, long long off_x)
 {
-  double center[3];
-  center[0] = g_x / 2.;
-  center[1] = g_y / 2.;
-  center[2] = g_z / 2.;
+  double center[3] = {g_nx/2.0, g_ny/2.0, g_nz/2.0};
 
-    //printf("l_x: %d, l_y: %d, l_z: %d\n", l_x, l_y, l_z);
-  for(long long i = 0; i < l_z; i++)
+  for(long long k = 0; k < l_nz; ++k)
   {
-    double zdist = i + my_off_z - center[2];
-    for(long long j = 0; j < l_y; j++)
+    double zdist = k + off_z - center[2];
+    zdist *= zdist;
+
+    for(long long j = 0; j < l_ny; ++j)
     {
-      double ydist = j + my_off_y - center[1];
-      for(long long k = 0; k < l_x; k++)
+      double ydist = j + off_y - center[1];
+      ydist *= ydist;
+
+      for(long long i = 0; i < l_nx; ++i)
       {
-        double xdist = k + my_off_x - center[0];
+        double xdist = i + off_x - center[0];
+        xdist *= xdist;
 
-        volume[i * l_x * l_y + j * l_x + k] = sqrt(xdist * xdist + ydist *ydist + zdist * zdist);
-
+        long long index = (l_nx * l_ny * k) + (l_nx*j) + i;
+        volume[index] = sqrt(xdist + ydist + zdist);
       }
     }
   }
-
-
 }

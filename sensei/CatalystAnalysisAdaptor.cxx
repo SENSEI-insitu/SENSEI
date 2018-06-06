@@ -1,10 +1,11 @@
 #include "CatalystAnalysisAdaptor.h"
 
 #include "DataAdaptor.h"
-#include "DataRequirements.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
 #include "Timer.h"
+
 
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
@@ -81,44 +82,37 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
 
 // ---------------------------------------------------------------------------
 int CatalystAnalysisAdaptor::DescribeData(int timeStep, double time,
-  const DataRequirements &reqs, vtkCPDataDescription *dataDesc)
+  const std::vector<MeshMetadataPtr> &metadata, vtkCPDataDescription *dataDesc)
 {
   dataDesc->SetTimeData(time, timeStep);
 
-  // pass metadata from sim into Catalyst
-  MeshRequirementsIterator mit =
-    reqs.GetMeshRequirementsIterator();
-
-  for (; mit; ++mit)
+  unsigned int nMeshes = metadata.size();
+  for (unsigned int i = 0; i < nMeshes; ++i)
     {
     // add the mesh
-    std::string meshName = mit.MeshName();
+    const char *meshName = metadata[i]->MeshName.c_str();
 
-    dataDesc->AddInput(meshName.c_str());
+    dataDesc->AddInput(meshName);
 
     vtkCPInputDataDescription *inDesc =
-      dataDesc->GetInputDescriptionByName(meshName.c_str());
+      dataDesc->GetInputDescriptionByName(meshName);
 
-    // add the available arrays
-    ArrayRequirementsIterator ait =
-      reqs.GetArrayRequirementsIterator(meshName);
-
-    for (; ait; ++ait)
+    // add the arrays
+    for (int j = 0; j < metadata[i]->NumArrays; ++j)
       {
-      int assoc = ait.Association();
+      int assoc = metadata[i]->ArrayCentering[j];
+      const char *arrayName = metadata[i]->ArrayName[j].c_str();
+
 #if (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 6) || PARAVIEW_VERSION_MAJOR > 5
-      if (assoc == vtkDataObject::POINT)
-        inDesc->AddField(ait.Array().c_str(), vtkDataObject::POINT);
-      else if (assoc == vtkDataObject::CELL)
-        inDesc->AddField(ait.Array().c_str(), vtkDataObject::CELL);
+      inDesc->AddField(arrayName, assoc);
 #else
       if (assoc == vtkDataObject::POINT)
-        inDesc->AddPointField(ait.Array().c_str());
+        inDesc->AddPointField(arrayName);
       else if (assoc == vtkDataObject::CELL)
-        inDesc->AddCellField(ait.Array().c_str());
-#endif
+        inDesc->AddCellField(arrayName);
       else
         SENSEI_WARNING("Unknown association " << assoc)
+#endif
       }
 
     // let Catalyst tell us which arrays are needed
@@ -130,39 +124,37 @@ int CatalystAnalysisAdaptor::DescribeData(int timeStep, double time,
 
 // ---------------------------------------------------------------------------
 int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
-  const DataRequirements &reqs, vtkCPDataDescription *dataDesc)
+  const std::vector<MeshMetadataPtr> &metadata, vtkCPDataDescription *dataDesc)
 {
-  MeshRequirementsIterator mit = reqs.GetMeshRequirementsIterator();
-  for (; mit; ++mit)
+  unsigned int nMeshes = metadata.size();
+  for (unsigned int i = 0; i < nMeshes; ++i)
     {
-    std::string meshName = mit.MeshName();
+    // add the mesh
+    const char *meshName = metadata[i]->MeshName.c_str();
 
     vtkCPInputDataDescription *inDesc =
-      dataDesc->GetInputDescriptionByName(meshName.c_str());
+      dataDesc->GetInputDescriptionByName(meshName);
 
     if (inDesc->GetIfGridIsNecessary())
       {
       // get the mesh
       vtkDataObject* dobj = nullptr;
-      if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
+      if (dataAdaptor->GetMesh(meshName, false, dobj))
         {
-        SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+        SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
         return -1;
         }
 
       // add the requested arrays
-      ArrayRequirementsIterator ait =
-        reqs.GetArrayRequirementsIterator(meshName);
-
-      for (; ait; ++ait)
+      for (int j = 0; j < metadata[i]->NumArrays; ++j)
         {
-        int assoc = ait.Association();
-        std::string arrayName = ait.Array();
+        int assoc = metadata[i]->ArrayCentering[j];
+        const char *arrayName = metadata[i]->ArrayName[j].c_str();
 
 #if (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 6) || PARAVIEW_VERSION_MAJOR > 5
-        if (inDesc->IsFieldNeeded(arrayName.c_str(), assoc))
+        if (inDesc->IsFieldNeeded(arrayName, assoc))
 #else
-        if (inDesc->IsFieldNeeded(arrayName.c_str()))
+        if (inDesc->IsFieldNeeded(arrayName))
 #endif
           {
           if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
@@ -175,41 +167,31 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
             }
           }
         }
-      int numGhostCellLayers = 0;
-      if (dataAdaptor->GetMeshHasGhostNodes(meshName, numGhostCellLayers) == 0)
-      {
-        if (numGhostCellLayers > 0)
-        {
-          if (dataAdaptor->AddGhostNodesArray(dobj, meshName))
-          {
-            SENSEI_ERROR("Failed to get ghost points for mesh \"" << mit.MeshName() << "\"")
-          }
-        }
-      }
-      else
-      {
-        SENSEI_ERROR("Failed to get ghost point information for \"" << mit.MeshName() << "\"")
-      }
 
-      if (dataAdaptor->GetMeshHasGhostCells(meshName, numGhostCellLayers) == 0)
-      {
-        if (numGhostCellLayers > 0)
+      // add ghost zones
+      if ((metadata[i]->NumGhostNodes > 0) &&
+        dataAdaptor->AddGhostNodesArray(dobj, meshName))
         {
-          if (dataAdaptor->AddGhostCellsArray(dobj, meshName))
-          {
-            SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
-          }
+        SENSEI_ERROR("Failed to get ghost nodes array for mesh \""
+          << meshName << "\"")
         }
-      }
-      else
-      {
-        SENSEI_ERROR("Failed to get ghost cell information for \"" << mit.MeshName() << "\"")
-      }
+
+      if ((metadata[i]->NumGhostCells > 0) &&
+        dataAdaptor->AddGhostCellsArray(dobj, meshName))
+        {
+        SENSEI_ERROR("Failed to get ghost nodes array for mesh \""
+          << meshName << "\"")
+        }
 
       inDesc->SetGrid(dobj);
+
+      // we could get this info from metadata, however if there
+      // is not advantage to doing so we might as well get it
+      // from the data itself
       this->SetWholeExtent(dobj, inDesc);
       }
     }
+
   return 0;
 }
 
@@ -248,18 +230,34 @@ int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
   return 0;
 }
 
-
 //----------------------------------------------------------------------------
 bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   timer::MarkEvent mark("CatalystAnalysisAdaptor::Execute");
 
   // Get a description of the simulation metadata
-  DataRequirements reqs;
-  if (reqs.Initialize(dataAdaptor))
+  unsigned int nMeshes = 0;
+  if (dataAdaptor->GetNumberOfMeshes(nMeshes))
     {
-    SENSEI_ERROR("Failed to initialze data requirements")
+    SENSEI_ERROR("Failed to get the number of meshes")
     return false;
+    }
+
+  std::vector<MeshMetadataPtr> metadata(nMeshes);
+  for (unsigned int i = 0; i < nMeshes; ++i)
+    {
+    MeshMetadataPtr mmd = MeshMetadata::New();
+
+    // for now, rather than querry metadata for whole extent
+    // use data object itself
+    //mmd->Flags.SetBlockExtents();
+
+    if (dataAdaptor->GetMeshMetadata(i, mmd))
+      {
+      SENSEI_ERROR("Failed to get metadata for mesh " << i << " of " << nMeshes)
+      return false;
+      }
+    metadata[i] = mmd;
     }
 
   double time = dataAdaptor->GetDataTime();
@@ -268,7 +266,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   vtkSmartPointer<vtkCPDataDescription> dataDesc =
     vtkSmartPointer<vtkCPDataDescription>::New();
 
-  if (this->DescribeData(timeStep, time, reqs, dataDesc.GetPointer()))
+  if (this->DescribeData(timeStep, time, metadata, dataDesc.GetPointer()))
     {
     SENSEI_ERROR("Failed to describe simulation data")
     return false;
@@ -278,7 +276,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   if (proc->RequestDataDescription(dataDesc.GetPointer()))
     {
     // Querry Catalyst for what data is required, fetch from the sim
-    if (this->SelectData(dataAdaptor, reqs, dataDesc.GetPointer()))
+    if (this->SelectData(dataAdaptor, metadata, dataDesc.GetPointer()))
       {
       SENSEI_ERROR("Failed to selct data")
       return false;

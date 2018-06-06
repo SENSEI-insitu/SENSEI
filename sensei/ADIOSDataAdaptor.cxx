@@ -75,7 +75,9 @@ ADIOSDataAdaptor::~ADIOSDataAdaptor()
 //----------------------------------------------------------------------------
 void ADIOSDataAdaptor::EnableDynamicMesh(const std::string &meshName, int val)
 {
-  getMetadata(this->Internals->ObjectMap[meshName]).StaticMesh = val;
+// TODO
+   SENSEI_ERROR("TODO -- update to new metadata")
+//  getMetadata(this->Internals->ObjectMap[meshName]).StaticMesh = val;
 }
 
 //----------------------------------------------------------------------------
@@ -177,6 +179,9 @@ int ADIOSDataAdaptor::UpdateTimeStep()
     return -1;
     }
 
+   SENSEI_ERROR("TODO -- update to new metadata")
+// TODO
+/*
   // try to add new object, if one exists nothing changes, preserving metadata
   // this is necessary since static flag can be set before mesh names are read
   unsigned int nNames = names.size();
@@ -185,6 +190,7 @@ int ADIOSDataAdaptor::UpdateTimeStep()
     this->Internals->ObjectMap.insert(std::make_pair(names[i],
       ObjectType(vtkDataObjectPtr(), MeshMetadata(names[i]))));
     }
+*/
 
   return 0;
 }
@@ -197,8 +203,11 @@ int ADIOSDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 }
 
 //----------------------------------------------------------------------------
-int ADIOSDataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
+int ADIOSDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 {
+   SENSEI_ERROR("TODO -- update to new metadata")
+// TODO
+/*
   meshName = "";
 
   if (id >= this->Internals->ObjectMap.size())
@@ -215,6 +224,7 @@ int ADIOSDataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
     ++it;
 
   meshName = getObjectName(it);
+*/
 
   return 0;
 }
@@ -239,11 +249,15 @@ int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
   vtkDataObjectPtr &pmesh = getObjectPtr(it);
   MeshMetadata &metadata = getMetadata(it);
 
+// TODO
+   SENSEI_ERROR("TODO -- update to new metadata")
+/*
   if (pmesh && metadata.StaticMesh && (structureOnly == metadata.StructureOnly))
     {
     mesh = pmesh.GetPointer();
     return 0;
     }
+*/
 
   // other wise we need to read the mesh at the current time step
   if (this->Internals->Schema.ReadObject(this->GetCommunicator(),
@@ -285,6 +299,9 @@ int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
     return -1;
     }
 
+// TODO
+   SENSEI_ERROR("TODO -- update to new metadata")
+/*
   // update the metadata
   metadata.MeshName = meshName;
   metadata.StructureOnly = structureOnly;
@@ -292,10 +309,11 @@ int ADIOSDataAdaptor::GetMesh(const std::string &meshName,
   metadata.NumberOfGhostNodeLayers = nGhostNodeLayers;
   metadata.SetArrayNames(vtkDataObject::CELL, cellArrays);
   metadata.SetArrayNames(vtkDataObject::POINT, pointArrays);
-
+*/
   return 0;
 }
-
+// TODO
+/*
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::GetMeshHasGhostNodes(const std::string &meshName,
     int &nGhostNodeLayers)
@@ -357,6 +375,7 @@ int ADIOSDataAdaptor::GetMeshHasGhostCells(const std::string &meshName,
 
   return 0;
 }
+*/
 
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::AddGhostNodesArray(vtkDataObject *mesh, const std::string &meshName)
@@ -395,6 +414,8 @@ int ADIOSDataAdaptor::AddArray(vtkDataObject* mesh,
   return 0;
 }
 
+// TODO
+/*
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::GetNumberOfArrays(const std::string &meshName,
   int association, unsigned int &numberOfArrays)
@@ -480,6 +501,7 @@ int ADIOSDataAdaptor::GetArrayName(const std::string &meshName,
 
   return 0;
 }
+*/
 
 //----------------------------------------------------------------------------
 int ADIOSDataAdaptor::ReleaseData()

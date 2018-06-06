@@ -571,8 +571,7 @@ int main(int argc, char **argv)
     handle_command_line(argc, argv, &sim, max_iter, config_file);
 
 #ifdef ENABLE_SENSEI
-    timer::SetLogging(true);
-    timer::SetTrackSummariesOverTime(false);
+    timer::Initialize();
 
     timer::MarkStartEvent("mandelbrot::initialize");
     // Initialize in situ
@@ -686,7 +685,8 @@ int main(int argc, char **argv)
     analysisAdaptor = NULL;
     dataAdaptor = NULL;
     timer::MarkEndEvent("mandelbrot::finalize");
-    timer::PrintLog(std::cout, MPI_COMM_WORLD);
+
+    timer::Finalize();
 #endif
     MPI_Finalize();
 
