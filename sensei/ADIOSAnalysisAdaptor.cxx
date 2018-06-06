@@ -74,7 +74,7 @@ bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
     {
-    if (this->Requirements.Initialize(dataAdaptor))
+    if (this->Requirements.Initialize(dataAdaptor, false))
       {
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
       return -1;
@@ -99,18 +99,19 @@ bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
       return -1;
       }
-
+// TODO
     // get ghost cell/node metadata always provide this information as
     // it is essential to process the data objects
     int nGhostCellLayers = 0;
     int nGhostNodeLayers = 0;
+/*
     if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
       dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
       {
       SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
       return -1;
       }
-
+*/
     // pass ghost layer metadata in field data.
     vtkIntArray *glmd = vtkIntArray::New();
     glmd->SetName("senseiGhostLayers");

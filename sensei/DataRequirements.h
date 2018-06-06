@@ -57,8 +57,10 @@ public:
   /// all of data that the data adaptor makes avaialable.
   ///
   /// @param[in] adaptor a DataAdaptor instance
+  /// @param[in] structureOnly true if mesh geometry
+  //             and topology are not needed
   /// @returns zero if successful, non zero if an error occurred
-  int Initialize(DataAdaptor *adaptor);
+  int Initialize(DataAdaptor *adaptor, bool structureOnly);
 
   /// Adds a mesh
   /// The requirement consists of a mesh name and weather it is structure only
@@ -75,6 +77,9 @@ public:
   /// @returns zero if successful
   int AddRequirement(const std::string &meshName, int association,
     const std::vector<std::string> &arrays);
+
+  int AddRequirement(const std::string &meshName, int association,
+    const std::string &array);
 
   /// Get the list of meshes
   /// @param[out] meshes a vector where mesh names will be stored

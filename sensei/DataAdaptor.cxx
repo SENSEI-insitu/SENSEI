@@ -1,4 +1,5 @@
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -15,9 +16,6 @@
 namespace sensei
 {
 
-using AssocArrayMapType = std::map<int, std::vector<std::string>>;
-using MeshArrayMapType = std::map<std::string, AssocArrayMapType>;
-
 struct DataAdaptor::InternalsType
 {
   InternalsType() : Information(vtkInformation::New()) {}
@@ -27,12 +25,10 @@ struct DataAdaptor::InternalsType
   {
     this->Information->Delete();
     this->Information = vtkInformation::New();
-    this->MeshNames.clear();
-    this->MeshArrayMap.clear();
   }
 
-  std::vector<std::string> MeshNames;
-  MeshArrayMapType MeshArrayMap;
+  MeshMetadataFlags Flags;
+  std::vector<MeshMetadataPtr> Metadata;
   vtkInformation *Information;
 };
 
@@ -118,81 +114,6 @@ void DataAdaptor::SetDataTimeStep(vtkInformation* info, int index)
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::GetMeshNames(std::vector<std::string> &meshNames)
-{
-  if (!this->Internals->MeshNames.empty())
-    {
-    meshNames = this->Internals->MeshNames;
-    return 0;
-    }
-
-  unsigned int nMeshes = 0;
-  if (this->GetNumberOfMeshes(nMeshes))
-    {
-    SENSEI_ERROR("Failed to get the number of meshes")
-    return -1;
-    }
-
-  for (unsigned int i = 0; i < nMeshes; ++i)
-    {
-    std::string meshName;
-    if (this->GetMeshName(i, meshName))
-      {
-      SENSEI_ERROR("Failed to get the mesh name at " << i)
-      return -1;
-      }
-    this->Internals->MeshNames.push_back(meshName);
-    }
-
-  meshNames = this->Internals->MeshNames;
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-int DataAdaptor::GetArrayNames(const std::string &meshName, int association,
-    std::vector<std::string> &arrayNames)
-{
-  MeshArrayMapType::iterator it =
-    this->Internals->MeshArrayMap.find(meshName);
-
-  if (it != this->Internals->MeshArrayMap.end())
-    {
-    AssocArrayMapType::iterator ait = it->second.find(association);
-    if (ait != it->second.end())
-      {
-      arrayNames = ait->second;
-      return 0;
-      }
-    }
-
-  unsigned int nArrays = 0;
-  if (this->GetNumberOfArrays(meshName, association, nArrays))
-    {
-    SENSEI_ERROR("Failed to get number of "
-      << VTKUtils::GetAttributesName(association)
-      << " data arrays for mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  for (unsigned int i = 0; i < nArrays; ++i)
-    {
-    std::string arrayName;
-    if (this->GetArrayName(meshName, association, i, arrayName))
-      {
-      SENSEI_ERROR("Failed to get the name of "
-        << VTKUtils::GetAttributesName(association)
-        << " data array " << i << " on mesh \"" << meshName << "\"")
-      return -1;
-      }
-    arrayNames.push_back(arrayName);
-    }
-
-  // cache the list
-  this->Internals->MeshArrayMap[meshName][association] = arrayNames;
-  return 0;
-}
-
-//----------------------------------------------------------------------------
 int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::vector<std::string> &arrayNames)
 {
@@ -211,6 +132,46 @@ int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
+int DataAdaptor::GetMeshMetadata(const std::string &meshName,
+  MeshMetadataPtr &metadata)
+{
+  unsigned int n = 0;
+  if (this->GetNumberOfMeshes(n))
+    {
+    SENSEI_ERROR("Failed to get number of meshes")
+    return -1;
+    }
+
+  MeshMetadataPtr tmp;
+  for (unsigned int i = 0; i < n; ++i)
+    {
+    tmp = MeshMetadata::New();
+
+    if (this->GetMeshMetadata(i, tmp))
+      {
+      SENSEI_ERROR("Failed to get metadata for mesh " << i << " of " << n)
+      return -1;
+      }
+
+    if (tmp->MeshName == meshName)
+      break;
+    else
+      tmp = nullptr;
+    }
+
+  if (!tmp)
+    {
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+    return -1;
+    }
+
+  metadata = tmp;
+  return 0;
+}
+
+// TODO
+/*
+//----------------------------------------------------------------------------
 int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
     int association)
 {
@@ -228,7 +189,9 @@ int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
 
   return 0;
 }
-
+*/
+// TODO
+/*
 //----------------------------------------------------------------------------
 int DataAdaptor::GetCompleteMesh(const std::string &meshName,
   bool structureOnly, vtkDataObject *&mesh)
@@ -285,26 +248,12 @@ int DataAdaptor::GetCompleteMesh(const std::string &meshName,
 
   return 0;
 }
+*/
 
-//----------------------------------------------------------------------------
-int DataAdaptor::GetMeshHasGhostNodes(const std::string &/*meshName*/, 
-  int &nLayers)
-{
-  nLayers = 0;
-  return 0;
-}
 
 //----------------------------------------------------------------------------
 int DataAdaptor::AddGhostNodesArray(vtkDataObject*, const std::string &)
 {
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/, 
-  int &nLayers)
-{
-  nLayers = 0;
   return 0;
 }
 

@@ -14,7 +14,10 @@
 #include "senseiPyDataAdaptor.h"
 #include "LibsimImageProperties.h"
 #include "DataRequirements.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
+#include <sstream>
+using sensei::MeshMetadataPtr;
 %}
 
 %init %{
@@ -22,15 +25,11 @@ PyEval_InitThreads();
 import_array();
 %}
 
-%include <std_string.i>
-%include <std_vector.i>
-%include <std_map.i>
-%template(vector_string) std::vector<std::string>;
-%template(map_string_bool) std::map<std::string, bool>;
-%template(map_int_vector_string) std::map<int, std::vector<std::string>>;
+
 %include <mpi4py/mpi4py.i>
 %include "vtk.i"
 %include "senseiTypeMaps.i"
+%include "senseiSTL.i"
 
 %mpi4py_typemap(Comm, MPI_Comm);
 
@@ -113,10 +112,10 @@ SENSEI_DATA_ADAPTOR(VTKDataAdaptor)
       senseiPyDataAdaptor::PyGetNumberOfMeshesCallback(f));
   }
 
-  void SetGetMeshNameCallback(PyObject *f)
+  void SetGetMeshMetadataCallback(PyObject *f)
   {
-    self->SetGetMeshNameCallback(
-      senseiPyDataAdaptor::PyGetMeshNameCallback(f));
+    self->SetGetMeshMetadataCallback(
+      senseiPyDataAdaptor::PyGetMeshMetadataCallback(f));
   }
 
   void SetGetMeshCallback(PyObject *f)
@@ -131,18 +130,6 @@ SENSEI_DATA_ADAPTOR(VTKDataAdaptor)
       senseiPyDataAdaptor::PyAddArrayCallback(f));
   }
 
-  void SetGetNumberOfArraysCallback(PyObject *f)
-  {
-    self->SetGetNumberOfArraysCallback(
-      senseiPyDataAdaptor::PyGetNumberOfArraysCallback(f));
-  }
-
-  void SetGetArrayNameCallback(PyObject *f)
-  {
-    self->SetGetArrayNameCallback(
-      senseiPyDataAdaptor::PyGetArrayNameCallback(f));
-  }
-
   void SetReleaseDataCallback(PyObject *f)
   {
     self->SetReleaseDataCallback(
@@ -150,11 +137,9 @@ SENSEI_DATA_ADAPTOR(VTKDataAdaptor)
   }
 }
 %ignore sensei::ProgrammableDataAdaptor::SetGetNumberOfMeshesCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetMeshNameCallback;
+%ignore sensei::ProgrammableDataAdaptor::SetGetMeshMetadataCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetGetMeshCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetAddArrayCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetNumberOfArraysCallback;
-%ignore sensei::ProgrammableDataAdaptor::SetGetArrayNameCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetReleaseDataCallback;
 SENSEI_DATA_ADAPTOR(ProgrammableDataAdaptor)
 

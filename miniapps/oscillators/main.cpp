@@ -51,8 +51,10 @@ int main(int argc, char** argv)
     float                       t_end     = 10;
     float                       dt        = .01;
     float                       velocity_scale = 50.0f;
+#ifndef ENABLE_SENSEI
     size_t                      window    = 10;
     size_t                      k_max     = 3;
+#endif
     int                         threads   = 1;
     int                         ghostLevels = 0;
     int                         numberOfParticles = -1;
@@ -148,7 +150,8 @@ int main(int argc, char** argv)
         diy::MemoryBuffer bb;
         diy::save(bb, oscillators);
         diy::mpi::broadcast(world, bb.buffer, 0);
-    } else
+    }
+    else
     {
         diy::MemoryBuffer bb;
         diy::mpi::broadcast(world, bb.buffer, 0);
@@ -161,10 +164,11 @@ int main(int argc, char** argv)
               << " radius = " << o.radius << " omega0 = " << o.omega0
               << " zeta = " << o.zeta << std::endl;
 
-    diy::Master               master(world, threads, -1,
-                                     &Block::create,
-                                     &Block::destroy);
-    diy::ContiguousAssigner   assigner(world.size(), nblocks);
+    diy::Master master(world, threads, -1,
+                       &Block::create,
+                       &Block::destroy);
+
+    diy::ContiguousAssigner assigner(world.size(), nblocks);
 
     diy::DiscreteBounds domain;
     domain.min[0] = domain.min[1] = domain.min[2] = 0;
@@ -222,7 +226,7 @@ int main(int argc, char** argv)
 
     timer::MarkStartEvent("oscillators::analysis::initialize");
 #ifdef ENABLE_SENSEI
-    bridge::initialize(world, window, nblocks, gids.size(),
+    bridge::initialize(nblocks, gids.size(),
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
                        &gids[0],
                        &from_x[0], &from_y[0], &from_z[0],
@@ -282,7 +286,7 @@ int main(int argc, char** argv)
                               bridge::set_particles(b->gid, b->particles);
                               });
         // push data to sensei
-        bridge::analyze(t);
+        bridge::execute(t_count, t);
 #else
         // do the analysis without using sensei
         // call the analysis function for each block
@@ -296,6 +300,7 @@ int main(int argc, char** argv)
         if (!out_prefix.empty())
         {
             auto out_start = Time::now();
+
             // Save the corr buffer for debugging
             std::string outfn = fmt::format("{}-{}.bin", out_prefix, t);
             diy::mpi::io::file out(world, outfn, diy::mpi::io::file::wronly | diy::mpi::io::file::create);
@@ -324,7 +329,7 @@ int main(int argc, char** argv)
 
     timer::MarkStartEvent("oscillators::finalize");
 #ifdef ENABLE_SENSEI
-    bridge::finalize(k_max, nblocks);
+    bridge::finalize();
 #else
     analysis_final(k_max, nblocks);
 #endif
@@ -339,4 +344,6 @@ int main(int argc, char** argv)
         std::cerr << "Total run time: " << duration.count() / 1000
             << "." << duration.count() % 1000 << " s" << std::endl;
     }
+
+    return 0;
 }

@@ -13,17 +13,17 @@
   <analysis type="catalyst" pipeline="slice" enabled="0" />
 
   <!-- Libsim Analyses -->
-  <analysis type="libsim" plots="Pseudocolor,Mesh" plotvars="pressure,mesh"
+  <analysis type="libsim" plots="Pseudocolor,Mesh" plotvars="mesh/cell/pressure,mesh"
     image-filename="a%ts" image-width="800" image-height="800" image-format="png"
     enabled="0"/>
 
   <analysis type="libsim" plots="Pseudocolor"
-    plotvars="temperature" slice-origin="20,15,10" slice-normal="1,1,1"
+    plotvars="mesh/cell/temperature" slice-origin="20,15,10" slice-normal="1,1,1"
     image-filename="b%ts" image-width="1200" image-height="1200"
     image-format="png" enabled="0"/>
 
   <analysis type="libsim" plots="Pseudocolor"
-    plotvars="temperature" slice-origin="20,15,10" slice-normal="1,1,1"
+    plotvars="mesh/cell/temperature" slice-origin="20,15,10" slice-normal="1,1,1"
     slice-project="1" image-filename="c%ts" image-width="400" image-height="400"
     image-format="png" enabled="0"/>
 </sensei>

@@ -1,5 +1,6 @@
 #include "Histogram.h"
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "Timer.h"
 #include "VTKHistogram.h"
 #include "Error.h"
@@ -68,11 +69,20 @@ bool Histogram::Execute(DataAdaptor* data)
   int step = data->GetDataTimeStep();
   double time = data->GetDataTime();
 
+  // get the mesh metadata object
+  MeshMetadataPtr mmd;
+  if (data->GetMeshMetadata(this->MeshName, mmd))
+    {
+    SENSEI_ERROR("Failed to get metadata for mesh \"" << this->MeshName << "\"")
+    return false;
+    }
+
   // get the mesh object
   vtkDataObject* mesh = nullptr;
   if (data->GetMesh(this->MeshName, true, mesh))
     {
-    SENSEI_ERROR("GetMesh failed")
+    SENSEI_ERROR("Failed to get mesh \"" << this->MeshName << "\"")
+    return false;
     }
 
   if (!mesh)
@@ -87,6 +97,7 @@ bool Histogram::Execute(DataAdaptor* data)
     return true;
     }
 
+  // add the array
   if (data->AddArray(mesh, this->MeshName, this->Association, this->ArrayName))
     {
     // it is an error if we try to compute a histogram over a non
@@ -103,20 +114,18 @@ bool Histogram::Execute(DataAdaptor* data)
     return false;
     }
 
-  int nLayers = 0;
-  if (data->GetMeshHasGhostCells(this->MeshName, nLayers) == 0)
-   {
-   if (nLayers > 0 && data->AddGhostCellsArray(mesh, this->MeshName))
-     {
-     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
-     return false;
-     }
-   }
-  else
-   {
-   SENSEI_ERROR(<< data->GetClassName() << " failed to query for ghost cells.")
-   return false;
-   }
+  // add the ghost zones
+  if ((mmd->NumGhostCells > 0) && data->AddGhostCellsArray(mesh, this->MeshName))
+    {
+    SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
+    return false;
+    }
+
+  if ((mmd->NumGhostNodes > 0) && data->AddGhostNodesArray(mesh, this->MeshName))
+    {
+    SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost nodes.")
+    return false;
+    }
 
   if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(mesh))
     {

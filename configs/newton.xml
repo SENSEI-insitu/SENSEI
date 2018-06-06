@@ -15,7 +15,7 @@
     filename="../sensei/miniapps/newton/newton_catalyst.py" enabled="1" />
 
   <!-- Available with ENABLE_LIBSIM -->
-  <analysis type="libsim" plots="Pseudocolor" plotvars="ids"
+  <analysis type="libsim" plots="Pseudocolor" plotvars="bodies/point/ids"
     image-filename="newton_%ts" image-width="800" image-height="800"
     slice-project="1" image-format="png" enabled="0"/>
 </sensei>

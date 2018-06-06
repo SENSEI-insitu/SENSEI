@@ -21,19 +21,13 @@ public:
   // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
-  int GetMeshName(unsigned int id, std::string &meshName) override;
+  int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) override;
 
   int GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh) override;
 
   int AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
-
-  int GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays) override;
-
-  int GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName) override;
 
   int ReleaseData() override;
 

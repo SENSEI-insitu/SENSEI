@@ -19,25 +19,33 @@ namespace parallel3d
 class DataAdaptor : public sensei::DataAdaptor
 {
 public:
-  static DataAdaptor* New();
+  static DataAdaptor *New();
   senseiTypeMacro(DataAdaptor, sensei::DataAdaptor);
 
-  /// Initialize the data adaptor.
-  void Initialize(int g_x, int g_y, int g_z, int l_x, int l_y, int l_z,
-    uint64_t start_extents_x, uint64_t start_extents_y, uint64_t start_extents_z,
-    int tot_blocks_x, int tot_blocks_y, int tot_blocks_z,
-    int block_id_x, int block_id_y, int block_id_z);
+  /// Update the mesh geometry.
+  ///
+  /// The mini-app uses a regular Cartesian mesh and each MPI rank
+  /// will have one piece of it.
+  ///
+  /// x_0, y_0, z_0          -- global simulation domain lower left corner
+  /// dx, dy, dz             -- Cartesian mesh spacing
+  /// g_nx, g_ny, g_nz       -- number of cells in the global simulation domain
+  /// offs_x, offs_y, offs_z -- starting indices of the local domain
+  /// l_nx, l_ny, l_nz       -- number of cells in the local domain
+  void UpdateGeometry(double x_0, double y_0, double z_0,
+    double dx, double dy, double dz, long g_nx, long g_ny, long g_nz,
+    long offs_x, long offs_y, long offs_z, long l_nx, long l_ny, long l_nz);
 
-  /// Set the pointers to simulation memory.
-  void AddArray(const std::string& name, double* data);
-
-  /// Clear all arrays.
-  void ClearArrays();
+  /// Update the simulation arrays.
+  //
+  /// The mini-app has 3 state arrays, pressure, temperature, and density
+  /// the adaptor will zero-copy these.
+  void UpdateArrays(double *pressure, double *temperature, double *density);
 
   // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
-  int GetMeshName(unsigned int id, std::string &meshName) override;
+  int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md) override;
 
   int GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh) override;
@@ -45,28 +53,17 @@ public:
   int AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
-  int GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays) override;
-
-  int GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName) override;
-
   int ReleaseData() override;
 
 protected:
   DataAdaptor();
   ~DataAdaptor();
 
-  using VariablesType = std::map<std::string, double*>;
-  using ArraysType = std::map<std::string, vtkSmartPointer<vtkDoubleArray>>;
-  using vtkImageDataPtr = vtkSmartPointer<vtkImageData>;
-  using vtkDoubleArrayPtr = vtkSmartPointer<vtkDoubleArray>;
-
-  VariablesType Variables;
-  ArraysType Arrays;
-  vtkImageDataPtr Mesh;
-  int CellExtent[6];
-  int WholeExtent[6];
+  int LocalExtent[6];  // local block's index space bounds
+  int GlobalExtent[6]; // simulation's global index space bounds
+  double Origin[3];    // lower left corner of the simulation domain
+  double Spacing[3];   // mesh spacing
+  double *Arrays[3];   // pointers to the simulation data
 
 private:
   DataAdaptor(const DataAdaptor&) = delete;

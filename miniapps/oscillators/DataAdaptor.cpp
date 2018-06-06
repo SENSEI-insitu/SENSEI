@@ -1,4 +1,5 @@
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "Error.h"
 
 #include <vtkCellArray.h>
@@ -9,487 +10,257 @@
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
-#include <vtkNew.h>
 #include <vtkObjectFactory.h>
-#include <vtkPointData.h>
 #include <vtkPoints.h>
-#include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
 #include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
+#include <vtkPolyData.h>
+#include <vtkNew.h>
 
 #include <diy/master.hpp>
 
-namespace oscillators
-{
 
-struct DataAdaptor::DInternals
+static
+long getBlockNumCells(const diy::DiscreteBounds &ext)
 {
-  std::vector<diy::DiscreteBounds> CellExtents;
-  std::vector<float*> Data;
-  vtkSmartPointer<vtkMultiBlockDataSet> Mesh;
-  std::vector<vtkSmartPointer<vtkImageData> > BlockMesh;
-  vtkSmartPointer<vtkMultiBlockDataSet> uMesh;
-  std::vector<vtkSmartPointer<vtkUnstructuredGrid> > UnstructuredMesh;
-  std::vector<int> DataExtent;
-  int shape[3];
-  int ghostLevels;
-
-  std::vector<const std::vector<Particle>*> ParticlesData;
-  vtkSmartPointer<vtkMultiBlockDataSet> ParticlesDataSet;
-  std::vector<vtkSmartPointer<vtkPolyData>> ParticleBlocks;
-};
-
-inline bool areBoundsValid(const diy::DiscreteBounds& bds)
-{
-  return ((bds.min[0] <= bds.max[0]) && (bds.min[1] <= bds.max[1])
-    && (bds.min[2] <= bds.max[2]));
+  return (ext.max[0] - ext.min[0] + 1)*
+   (ext.max[1] - ext.min[1] + 1)*(ext.max[2] - ext.min[2] + 1);
 }
 
-//-----------------------------------------------------------------------------
-senseiNewMacro(DataAdaptor);
-
-//-----------------------------------------------------------------------------
-DataAdaptor::DataAdaptor() :
-  Internals(new DataAdaptor::DInternals())
+static
+long getBlockNumPoints(const diy::DiscreteBounds &ext)
 {
+  return (ext.max[0] - ext.min[0] + 2)*
+   (ext.max[1] - ext.min[1] + 2)*(ext.max[2] - ext.min[2] + 2);
 }
 
-//-----------------------------------------------------------------------------
-DataAdaptor::~DataAdaptor()
+static
+void getBlockBounds(const diy::DiscreteBounds &ext,
+  const double x0[3], const double dx[3], double *bounds)
 {
-  delete this->Internals;
+  bounds[0] = x0[0] + dx[0]*ext.min[0];
+  bounds[1] = x0[0] + dx[0]*(ext.max[0] + 1);
+  bounds[2] = x0[1] + dx[1]*ext.min[1];
+  bounds[3] = x0[1] + dx[1]*(ext.max[1] + 1);
+  bounds[4] = x0[2] + dx[2]*ext.min[2];
+  bounds[5] = x0[2] + dx[2]*(ext.max[2] + 1);
 }
 
-//-----------------------------------------------------------------------------
-void DataAdaptor::Initialize(size_t nblocks, const int *shape_, int ghostLevels_)
+static
+void getBlockExtent(const diy::DiscreteBounds &db, int *ext)
 {
-  DInternals& internals = (*this->Internals);
-  internals.CellExtents.resize(nblocks);
-  internals.Data.resize(nblocks);
-  internals.BlockMesh.resize(nblocks);
-  internals.UnstructuredMesh.resize(nblocks);
-  for (size_t cc=0; cc < nblocks; cc++)
+  // converts from DIY layout to VTK
+  ext[0] = db.min[0];
+  ext[1] = db.max[0];
+  ext[2] = db.min[1];
+  ext[3] = db.max[1];
+  ext[4] = db.min[2];
+  ext[5] = db.max[2];
+}
+
+static
+vtkImageData *newCartesianBlock(
+  const diy::DiscreteBounds &cellExts, bool structureOnly)
+{
+  vtkImageData *id = vtkImageData::New();
+
+  if (!structureOnly)
+    id->SetExtent(cellExts.min[0], cellExts.max[0]+1,
+      cellExts.min[1], cellExts.max[1]+1, cellExts.min[2],
+      cellExts.max[2]+1);
+
+  return id;
+}
+
+static
+vtkUnstructuredGrid *newUnstructuredBlock(
+  const diy::DiscreteBounds &cellExts, bool structureOnly)
+{
+  vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
+
+  if (!structureOnly)
     {
-    internals.CellExtents[cc].min[0] = 0;
-    internals.CellExtents[cc].min[1] = 0;
-    internals.CellExtents[cc].min[2] = 0;
-    internals.CellExtents[cc].max[0] = -1;
-    internals.CellExtents[cc].max[1] = -1;
-    internals.CellExtents[cc].max[2] = -1;
-    }
+    // Add points.
+    int nx = cellExts.max[0] - cellExts.min[0] + 1 + 1;
+    int ny = cellExts.max[1] - cellExts.min[1] + 1 + 1;
+    int nz = cellExts.max[2] - cellExts.min[2] + 1 + 1;
 
-  internals.shape[0] = shape_[0];
-  internals.shape[1] = shape_[1];
-  internals.shape[2] = shape_[2];
-  internals.ghostLevels = ghostLevels_;
+    vtkPoints *pts = vtkPoints::New();
+    pts->SetNumberOfPoints(nx*ny*nz);
 
-  internals.ParticlesData.resize(nblocks);
-  internals.ParticleBlocks.resize(nblocks);
+    vtkIdType idx = 0;
 
-  this->ReleaseData();
-}
-
-//-----------------------------------------------------------------------------
-void DataAdaptor::SetBlockExtent(int gid,
-  int xmin, int xmax,
-  int ymin, int ymax,
-  int zmin, int zmax)
-{
-  DInternals& internals = (*this->Internals);
-  internals.CellExtents[gid].min[0] = xmin;
-  internals.CellExtents[gid].min[1] = ymin;
-  internals.CellExtents[gid].min[2] = zmin;
-
-  internals.CellExtents[gid].max[0] = xmax;
-  internals.CellExtents[gid].max[1] = ymax;
-  internals.CellExtents[gid].max[2] = zmax;
-}
-
-//-----------------------------------------------------------------------------
-void DataAdaptor::SetDataExtent(int ext[6])
-{
-  this->Internals->DataExtent.assign(ext, ext+6);
-
-  this->GetInformation()->Set(vtkDataObject::DATA_EXTENT(),
-      this->Internals->DataExtent.data(), 6);
-}
-
-//-----------------------------------------------------------------------------
-void DataAdaptor::SetBlockData(int gid, float* data)
-{
-  DInternals& internals = (*this->Internals);
-  internals.Data[gid] = data;
-}
-
-//-----------------------------------------------------------------------------
-void DataAdaptor::SetParticles(int gid, const std::vector<Particle> &particles)
-{
-  this->Internals->ParticlesData[gid] = &particles;
-}
-
-//-----------------------------------------------------------------------------
-int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
-    vtkDataObject *&mesh)
-{
-  if (meshName != "mesh" && meshName != "ucdmesh" && meshName != "particles")
-    {
-    SENSEI_ERROR("the miniapp provides meshes named \"mesh\", \"ucdmesh\", and \"particles\""
-       " you requested \"" << meshName << "\"")
-    return -1;
-    }
-
-  DInternals& internals = (*this->Internals);
-
-  if (meshName == "ucdmesh")
-    {
-    if (!internals.uMesh)
+    for(int k = cellExts.min[2]; k <= cellExts.max[2]+1; ++k)
+    for(int j = cellExts.min[1]; j <= cellExts.max[1]+1; ++j)
+    for(int i = cellExts.min[0]; i <= cellExts.max[0]+1; ++i)
       {
-      internals.uMesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-      internals.uMesh->SetNumberOfBlocks(static_cast<unsigned int>(internals.CellExtents.size()));
-      for (size_t cc=0; cc < internals.CellExtents.size(); ++cc)
-        internals.uMesh->SetBlock(static_cast<unsigned int>(cc), nullptr);
-      }
-    // Either create empty vtkUnstructuredGrid objects or let us replace
-    // empty ones with new ones that have the right data.
-    for (size_t cc=0; cc < internals.CellExtents.size(); ++cc)
-      {
-      unsigned int bid = static_cast<unsigned int>(cc);
-      vtkUnstructuredGrid *g = vtkUnstructuredGrid::SafeDownCast(
-          internals.uMesh->GetBlock(bid));
-      if(g == nullptr)
-        {
-        g = (vtkUnstructuredGrid *)this->GetUnstructuredMesh(cc, structureOnly);
-        //cout << "Setting uMesh[" << bid << "] structureOnly=" << structureOnly << ", g=" << (void*)g << ", ncells=" << (g ? g->GetNumberOfCells() : 0) << endl;
-        internals.uMesh->SetBlock(bid, g);
-        }
-      else if(!structureOnly && g->GetNumberOfCells() == 0)
-        {
-        g = (vtkUnstructuredGrid *)this->GetUnstructuredMesh(cc, structureOnly);
-        //cout << "Replacing uMesh[" << bid << "] structureOnly=" << structureOnly << ", g=" << (void*)g << ", ncells=" << (g ? g->GetNumberOfCells() : 0) << endl;
-        internals.uMesh->SetBlock(bid, g);
-        }
+      pts->SetPoint(idx++, i,j,k);
       }
 
-    mesh = internals.uMesh;
-    }
-  else if (meshName == "mesh")
-    {
-    if (!internals.Mesh)
-      {
-      internals.Mesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-      internals.Mesh->SetNumberOfBlocks(static_cast<unsigned int>(internals.CellExtents.size()));
-      for (size_t cc=0; cc < internals.CellExtents.size(); ++cc)
-        internals.Mesh->SetBlock(static_cast<unsigned int>(cc), this->GetBlockMesh(cc));
-      }
-      mesh = internals.Mesh;
-    }
-  else if (meshName == "particles")
-    {
-    if (!internals.ParticlesDataSet)
-      {
-      internals.ParticlesDataSet = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-      internals.ParticlesDataSet->SetNumberOfBlocks(static_cast<unsigned int>(internals.ParticlesData.size()));
-      for (size_t cc=0; cc < internals.ParticlesData.size(); ++cc)
-        {
-        internals.ParticlesDataSet->SetBlock(
-          static_cast<unsigned int>(cc),  this->GetParticlesBlock(cc, structureOnly));
-        }
-      }
-      mesh = internals.ParticlesDataSet;
-    }
+    ug->SetPoints(pts);
+    pts->Delete();
 
-  return 0;
-}
+    // Add cells
+    int ncx = nx - 1;
+    int ncy = ny - 1;
+    int ncz = nz - 1;
+    vtkIdType ncells = ncx*ncy*ncz;
+    vtkIdTypeArray *nlist = vtkIdTypeArray::New();
+    nlist->SetNumberOfValues(ncells * 9);
+    vtkUnsignedCharArray *cellTypes = vtkUnsignedCharArray::New();
+    cellTypes->SetNumberOfValues(ncells);
+    vtkIdTypeArray *cellLocations = vtkIdTypeArray::New();
+    cellLocations->SetNumberOfValues(ncells);
 
-//-----------------------------------------------------------------------------
-vtkDataObject* DataAdaptor::GetBlockMesh(int gid)
-{
-  DInternals& internals = (*this->Internals);
-  vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[gid];
-  const diy::DiscreteBounds& cellExts = internals.CellExtents[gid];
-  if (!blockMesh && areBoundsValid(cellExts))
-    {
-    blockMesh = vtkSmartPointer<vtkImageData>::New();
-    blockMesh->SetExtent(
-      cellExts.min[0], cellExts.max[0]+1,
-      cellExts.min[1], cellExts.max[1]+1,
-      cellExts.min[2], cellExts.max[2]+1);
-    }
-  return blockMesh;
-}
-
-//-----------------------------------------------------------------------------
-vtkDataObject* DataAdaptor::GetUnstructuredMesh(int gid, bool structureOnly)
-{
-  DInternals& internals = (*this->Internals);
-  vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[gid];
-  const diy::DiscreteBounds& cellExts = internals.CellExtents[gid];
-  if(areBoundsValid(cellExts))
-  {
-      if (uMesh == nullptr)
+    vtkIdType *nl = nlist->GetPointer(0);
+    unsigned char *ct = cellTypes->GetPointer(0);
+    vtkIdType *cl = cellLocations->GetPointer(0);
+    int nxny = nx*ny;
+    int offset = 0;
+    for(int k = 0; k < ncz; ++k)
+    for(int j = 0; j < ncy; ++j)
+    for(int i = 0; i < ncx; ++i)
       {
-          uMesh = vtkSmartPointer<vtkUnstructuredGrid>::New();
+      *ct++ = VTK_HEXAHEDRON;
+      *cl++ = offset;
+      offset += 9;
+
+      nl[0] = 8;
+      nl[1] = (k) * nxny + j*nx + i;
+      nl[2] = (k+1) * nxny + j*nx + i;
+      nl[3] = (k+1) * nxny + j*nx + i + 1;
+      nl[4] = (k) * nxny + j*nx + i + 1;
+      nl[5] = (k) * nxny + (j+1)*nx + i;
+      nl[6] = (k+1) * nxny + (j+1)*nx + i;
+      nl[7] = (k+1) * nxny + (j+1)*nx + i + 1;
+      nl[8] = (k) * nxny + (j+1)*nx + i + 1;
+      nl += 9;
       }
 
-      if(structureOnly == false &&
-         uMesh != nullptr &&
-         uMesh->GetNumberOfCells() == 0)
-      {
-          // Add points.
-          int nx = cellExts.max[0] - cellExts.min[0] + 1+1;
-          int ny = cellExts.max[1] - cellExts.min[1] + 1+1;
-          int nz = cellExts.max[2] - cellExts.min[2] + 1+1;
-          vtkPoints *pts = vtkPoints::New();
-          pts->SetNumberOfPoints(nx*ny*nz);
-          vtkIdType idx = 0;
-          for(int k = cellExts.min[2]; k <= cellExts.max[2]+1; ++k)
-          for(int j = cellExts.min[1]; j <= cellExts.max[1]+1; ++j)
-          for(int i = cellExts.min[0]; i <= cellExts.max[0]+1; ++i)
-          {
-              pts->SetPoint(idx++, i,j,k);
-          }
-          uMesh->SetPoints(pts);
-          pts->Delete();
-
-          // Add cells
-          vtkIdType ncells = (nx-1)*(ny-1)*(nz-1);
-          vtkIdTypeArray *nlist = vtkIdTypeArray::New();
-          nlist->SetNumberOfValues(ncells * 9);
-          vtkUnsignedCharArray *cellTypes = vtkUnsignedCharArray::New();
-          cellTypes->SetNumberOfValues(ncells);
-          vtkIdTypeArray *cellLocations = vtkIdTypeArray::New();
-          cellLocations->SetNumberOfValues(ncells);
-
-          vtkIdType *nl = nlist->GetPointer(0);
-          unsigned char *ct = cellTypes->GetPointer(0);
-          vtkIdType *cl = cellLocations->GetPointer(0);
-          int nxny = nx*ny;
-
-          int offset = 0;
-          for(int k = 0; k < nz-1; ++k)
-          for(int j = 0; j < ny-1; ++j)
-          for(int i = 0; i < nx-1; ++i)
-          {
-              *ct++ = VTK_HEXAHEDRON;
-              *cl++ = offset;
-              offset += 9;
-
-              nl[0] = 8;
-              nl[1] = (k) * nxny + j*nx + i;
-              nl[2] = (k+1) * nxny + j*nx + i;
-              nl[3] = (k+1) * nxny + j*nx + i + 1;
-              nl[4] = (k) * nxny + j*nx + i + 1;
-              nl[5] = (k) * nxny + (j+1)*nx + i;
-              nl[6] = (k+1) * nxny + (j+1)*nx + i;
-              nl[7] = (k+1) * nxny + (j+1)*nx + i + 1;
-              nl[8] = (k) * nxny + (j+1)*nx + i + 1;
-              nl += 9;
-          }
-          vtkCellArray *cells = vtkCellArray::New();
-          cells->SetCells(ncells, nlist);
-          nlist->Delete();
-          uMesh->SetCells(cellTypes, cellLocations, cells);
-          cellTypes->Delete();
-          cellLocations->Delete();
-          cells->Delete();
-      }
+    vtkCellArray *cells = vtkCellArray::New();
+    cells->SetCells(ncells, nlist);
+    nlist->Delete();
+    ug->SetCells(cellTypes, cellLocations, cells);
+    cellTypes->Delete();
+    cellLocations->Delete();
+    cells->Delete();
   }
-  return uMesh;
+
+  return ug;
 }
 
-vtkDataObject* DataAdaptor::GetParticlesBlock(int gid, bool structureOnly)
+static
+vtkPolyData *newParticleBlock(const std::vector<Particle> *particles,
+  bool structureOnly)
 {
-  DInternals& internals = (*this->Internals);
-  auto particles = internals.ParticlesData[gid];
-  if (!particles)
-    {
-    return NULL;
-    }
+  vtkPolyData *block = vtkPolyData::New();
 
-  vtkSmartPointer<vtkPolyData>& block = internals.ParticleBlocks[gid];
-  if (!block)
-    {
-    block = vtkSmartPointer<vtkPolyData>::New();
-    }
-  if (!structureOnly && block->GetNumberOfCells() == 0 && !particles->empty())
-    {
-    block->Initialize();
+  if (structureOnly)
+    return block;
 
-    vtkNew<vtkPoints> points;
-    vtkNew<vtkCellArray> cells;
-    points->Allocate(particles->size());
-    cells->Allocate(particles->size());
+  vtkNew<vtkPoints> points;
+  vtkNew<vtkCellArray> cells;
+  points->Allocate(particles->size());
+  cells->Allocate(particles->size());
 
-    vtkIdType pointId = 0;
-    for (const auto& p : *particles)
-      {
-      points->InsertNextPoint(p.position[0], p.position[1], p.position[2]);
-      cells->InsertNextCell(1, &pointId);
-      ++pointId;
-      }
-    block->SetPoints(points.Get());
-    block->SetVerts(cells.Get());
+  vtkIdType pointId = 0;
+  for (const auto &p : *particles)
+    {
+    points->InsertNextPoint(p.position[0], p.position[1], p.position[2]);
+    cells->InsertNextCell(1, &pointId);
+    ++pointId;
     }
+  block->SetPoints(points.Get());
+  block->SetVerts(cells.Get());
 
   return block;
 }
 
-//-----------------------------------------------------------------------------
-int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::string &arrayName)
+static
+int newParticleArray(const std::vector<Particle> &particles,
+  const std::string &arrayName, vtkFloatArray *&fa)
 {
-  DInternals& internals = (*this->Internals);
-  vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
+  enum {PID, VEL, VELMAG};
 
-  if ((meshName == "mesh" || meshName == "ucdmesh") && arrayName == "data" &&
-      association == vtkDataObject::FIELD_ASSOCIATION_CELLS)
+  fa = vtkFloatArray::New();
+
+  int aid = PID;
+  if (arrayName == "pid")
     {
-    for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
-      {
-      if (!internals.Data[cc]) // Exclude NULL datasets
-        {
-        continue;
-        }
-      vtkCellData *cd = nullptr;
-      if(meshName == "mesh")
-         {
-         vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
-         cd = (blockMesh? blockMesh->GetCellData() : nullptr);
-         }
-      else if(meshName == "ucdmesh")
-         {
-         vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
-         cd = (uMesh? uMesh->GetCellData() : nullptr);
-         }
-      const diy::DiscreteBounds &ce = internals.CellExtents[cc];
-
-      if (cd && !cd->GetArray(arrayName.c_str()))
-        {
-        vtkIdType ncells = (ce.max[0] - ce.min[0] + 1)*
-          (ce.max[1] - ce.min[1] + 1)*(ce.max[2] - ce.min[2] + 1);
-
-        vtkFloatArray *fa = vtkFloatArray::New();
-        fa->SetName(arrayName.c_str());
-        fa->SetArray(internals.Data[cc], ncells, 1);
-        cd->SetScalars(fa);
-        cd->SetActiveScalars("data");
-        fa->Delete();
-	}
-      }
+    aid = PID;
     }
-  else if (meshName == "particles" && association == vtkDataObject::FIELD_ASSOCIATION_POINTS &&
-           (arrayName == "uniqueGlobalId" || arrayName == "velocity" || arrayName == "velocityMagnitude"))
+  else if (arrayName == "velocity")
     {
-    for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
-      {
-      if (!internals.ParticlesData[cc])
-        {
-        continue;
-        }
-
-      const std::vector<Particle> &particles = *internals.ParticlesData[cc];
-
-      vtkPolyData* block = internals.ParticleBlocks[cc].Get();
-      auto pd = block ? block->GetPointData() : NULL;
-      if (pd && pd->GetArray(arrayName.c_str()) == NULL)
-        {
-        if (arrayName == "uniqueGlobalId")
-          {
-          vtkNew<vtkIdTypeArray> array;
-          array->SetName(arrayName.c_str());
-          array->SetNumberOfComponents(1);
-          array->SetNumberOfTuples(particles.size());
-          for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
-            {
-            vtkIdType ugid = particles[i].id;
-            array->SetValue(i, ugid);
-            }
-          pd->AddArray(array.Get());
-          }
-        else if (arrayName == "velocity")
-          {
-          vtkNew<vtkFloatArray> array;
-          array->SetName(arrayName.c_str());
-          array->SetNumberOfComponents(3);
-          array->SetNumberOfTuples(particles.size());
-          float vel[3] = { 0, 0, 0 };
-          for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
-            {
-            vel[0] = particles[i].velocity[0];
-            vel[1] = particles[i].velocity[1];
-            vel[2] = particles[i].velocity[2];
-            array->SetTuple(i, vel);
-            }
-          pd->SetScalars(array.Get());
-          pd->SetActiveScalars(array->GetName());
-          }
-        else if (arrayName == "velocityMagnitude")
-          {
-          vtkNew<vtkFloatArray> array;
-          array->SetName(arrayName.c_str());
-          array->SetNumberOfComponents(1);
-          array->SetNumberOfTuples(particles.size());
-          for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
-            {
-            float magnitude = std::sqrt(particles[i].velocity.norm());
-            array->SetValue(i, magnitude);
-            }
-          pd->SetScalars(array.Get());
-          pd->SetActiveScalars(array->GetName());
-          }
-        }
-      }
+    aid = VEL;
+    fa->SetNumberOfComponents(3);
     }
-#ifndef NDEBUG
-    else
+  else if (arrayName == "velocityMagnitude")
     {
-    SENSEI_ERROR("the miniapp provides a cell centered array named \"data\" "
-      "on meshes named \"mesh\" or \"ucdmesh\"; or point centered arrays named "
-      "\"uniqueGlobalId\", \"velocity\" and \"velocityMagnitude\" on a mesh named \"particles\"")
+    aid = VELMAG;
+    }
+  else
+    {
+    SENSEI_ERROR("Invalid array name \"" << arrayName << "\"")
     return -1;
     }
-#endif
+
+  unsigned int np = particles.size();
+
+  fa->SetName(arrayName.c_str());
+  fa->SetNumberOfTuples(np);
+
+  float *pfa = fa->GetPointer(0);
+
+  for (unsigned int i = 0; i < np; ++i)
+    {
+    switch (aid)
+      {
+      case PID:
+        pfa[i] = particles[i].id;
+        break;
+      case VEL:
+        pfa[3*i] = particles[i].velocity[0];
+        pfa[3*i+1] = particles[i].velocity[1];
+        pfa[3*i+2] = particles[i].velocity[2];
+        break;
+      case VELMAG:
+        {
+        float vx = particles[i].velocity[0];
+        float vy = particles[i].velocity[1];
+        float vz = particles[i].velocity[2];
+        pfa[i] = sqrt(vx*vx + vy*vy + vz*vz);
+        }
+        break;
+      }
+    }
 
   return 0;
 }
 
-//----------------------------------------------------------------------------
-int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/,
-  int &nLayers)
+static
+vtkUnsignedCharArray *newGhostCellsArray(int *shape,
+  diy::DiscreteBounds &cellExt, int ng)
 {
-  DInternals& internals = (*this->Internals);
-  nLayers = internals.ghostLevels;
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-vtkDataArray *
-DataAdaptor::CreateGhostCellsArray(int cc) const
-{
-    // This sim is always 3D.
-    const DInternals& internals = (*this->Internals);
-    int imin = internals.CellExtents[cc].min[0];
-    int jmin = internals.CellExtents[cc].min[1];
-    int kmin = internals.CellExtents[cc].min[2];
-    int imax = internals.CellExtents[cc].max[0];
-    int jmax = internals.CellExtents[cc].max[1];
-    int kmax = internals.CellExtents[cc].max[2];
+    // This sim is a:lways 3D.
+    int imin = cellExt.min[0];
+    int jmin = cellExt.min[1];
+    int kmin = cellExt.min[2];
+    int imax = cellExt.max[0];
+    int jmax = cellExt.max[1];
+    int kmax = cellExt.max[2];
     int nx = imax - imin + 1;
     int ny = jmax - jmin + 1;
     int nz = kmax - kmin + 1;
     int nxny = nx*ny;
-    int ncells = nx * ny *nz;
-    int ng = internals.ghostLevels;
+    int ncells = nx*ny*nz;
 
-#define GCTYPE unsigned char
-#define GCVTKARRAY vtkUnsignedCharArray
-    GCVTKARRAY *g = GCVTKARRAY::New();
+    vtkUnsignedCharArray *g = vtkUnsignedCharArray::New();
     g->SetNumberOfTuples(ncells);
-    memset(g->GetVoidPointer(0), 0, sizeof(GCTYPE) * ncells);
+    memset(g->GetVoidPointer(0), 0, sizeof(unsigned char) * ncells);
     g->SetName("vtkGhostType");
-    GCTYPE *gptr = (GCTYPE *)g->GetVoidPointer(0);
-    GCTYPE ghost = 1;
+    unsigned char *gptr = (unsigned char *)g->GetVoidPointer(0);
+    unsigned char ghost = 1;
 
     if(imin > 0)
     {
@@ -499,7 +270,7 @@ DataAdaptor::CreateGhostCellsArray(int cc) const
         for(int i = 0; i < ng; ++i)
             gptr[k * nxny + j*nx + i] = ghost;
     }
-    if(imax < internals.shape[0]-1)
+    if(imax < shape[0]-1)
     {
         // Set the high I faces to ghosts.
         for(int k = 0; k < nz; ++k)
@@ -515,7 +286,7 @@ DataAdaptor::CreateGhostCellsArray(int cc) const
         for(int i = 0; i < nx; ++i)
             gptr[k * nxny + j*nx + i] = ghost;
     }
-    if(jmax < internals.shape[1]-1)
+    if(jmax < shape[1]-1)
     {
         // Set the high J faces to ghosts.
         for(int k = 0; k < nz; ++k)
@@ -531,7 +302,7 @@ DataAdaptor::CreateGhostCellsArray(int cc) const
         for(int i = 0; i < nx; ++i)
             gptr[k * nxny + j*nx + i] = ghost;
     }
-    if(kmax < internals.shape[2]-1)
+    if(kmax < shape[2]-1)
     {
         // Set the high K faces to ghosts.
         for(int k = nz-ng; k < nz; ++k)
@@ -542,38 +313,279 @@ DataAdaptor::CreateGhostCellsArray(int cc) const
 
     return g;
 }
+namespace oscillators
+{
+
+struct DataAdaptor::InternalsType
+{
+  InternalsType() : NumBlocks(0), Origin{},
+    Spacing{1,1,1}, Shape{}, NumGhostCells(0) {}
+
+  long NumBlocks;                                   // total number of blocks on all ranks
+  diy::DiscreteBounds DomainExtent;                 // global index space
+  std::map<long, diy::DiscreteBounds> BlockExtents; // local block extents, indexed by global block id
+  std::map<long, float*> BlockData;                 // local data array, indexed by block id
+  std::map<long, const std::vector<Particle>*> ParticleData;
+
+  double Origin[3];                                 // lower left corner of simulation domain
+  double Spacing[3];                                // mesh spacing
+
+  int Shape[3];
+  int NumGhostCells;                                // number of ghost cells
+};
+
+//-----------------------------------------------------------------------------
+senseiNewMacro(DataAdaptor);
+
+//-----------------------------------------------------------------------------
+DataAdaptor::DataAdaptor() :
+  Internals(new DataAdaptor::InternalsType())
+{
+}
+
+//-----------------------------------------------------------------------------
+DataAdaptor::~DataAdaptor()
+{
+  delete this->Internals;
+}
+
+//-----------------------------------------------------------------------------
+void DataAdaptor::Initialize(size_t nblocks, size_t n_local_blocks,
+  int domain_shape_x, int domain_shape_y, int domain_shape_z, int *gid,
+  int *from_x, int *from_y, int *from_z, int *to_x, int *to_y, int *to_z,
+  int *shape, int ghostLevels)
+{
+  this->Internals->NumBlocks = nblocks;
+
+  for (int i = 0; i < 3; ++i)
+    this->Internals->Shape[i] = shape[i];
+
+  this->Internals->NumGhostCells = ghostLevels;
+
+  this->SetDomainExtent(0, domain_shape_x-1, 0,
+    domain_shape_y-1, 0, domain_shape_z-1);
+
+  for (size_t cc=0; cc < n_local_blocks; ++cc)
+    {
+    this->SetBlockExtent(gid[cc],
+      from_x[cc], to_x[cc], from_y[cc], to_y[cc],
+      from_z[cc], to_z[cc]);
+    }
+}
+
+//-----------------------------------------------------------------------------
+void DataAdaptor::SetBlockExtent(int gid, int xmin, int xmax, int ymin,
+   int ymax, int zmin, int zmax)
+{
+  this->Internals->BlockExtents[gid].min[0] = xmin;
+  this->Internals->BlockExtents[gid].min[1] = ymin;
+  this->Internals->BlockExtents[gid].min[2] = zmin;
+
+  this->Internals->BlockExtents[gid].max[0] = xmax;
+  this->Internals->BlockExtents[gid].max[1] = ymax;
+  this->Internals->BlockExtents[gid].max[2] = zmax;
+}
+
+//-----------------------------------------------------------------------------
+void DataAdaptor::SetDomainExtent(int xmin, int xmax, int ymin,
+   int ymax, int zmin, int zmax)
+{
+  this->Internals->DomainExtent.min[0] = xmin;
+  this->Internals->DomainExtent.min[1] = ymin;
+  this->Internals->DomainExtent.min[2] = zmin;
+
+  this->Internals->DomainExtent.max[0] = xmax;
+  this->Internals->DomainExtent.max[1] = ymax;
+  this->Internals->DomainExtent.max[2] = zmax;
+}
+
+//-----------------------------------------------------------------------------
+void DataAdaptor::SetBlockData(int gid, float* data)
+{
+  this->Internals->BlockData[gid] = data;
+}
+
+//-----------------------------------------------------------------------------
+void DataAdaptor::SetParticleData(int gid, const std::vector<Particle> &particles)
+{
+  this->Internals->ParticleData[gid] = &particles;
+}
+
+//-----------------------------------------------------------------------------
+int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
+    vtkDataObject *&mesh)
+{
+  mesh = nullptr;
+
+  if ((meshName != "mesh") && (meshName != "ucdmesh") && (meshName != "particles"))
+    {
+    SENSEI_ERROR("the miniapp provides meshes named \"mesh\", \"ucdmesh\","
+      " and \"particles\". you requested \"" << meshName << "\"")
+    return -1;
+    }
+
+  int particleBlocks = meshName == "particles";
+  int unstructuredBlocks = particleBlocks ? 0 : meshName == "ucdmesh";
+
+  vtkMultiBlockDataSet *mb = vtkMultiBlockDataSet::New();
+  mb->SetNumberOfBlocks(this->Internals->NumBlocks);
+
+  auto it = this->Internals->BlockExtents.begin();
+  auto end = this->Internals->BlockExtents.end();
+  for (; it != end; ++it)
+    {
+    if (particleBlocks)
+      {
+      vtkPolyData *pd =
+        newParticleBlock(this->Internals->ParticleData[it->first],
+        structureOnly);
+
+      mb->SetBlock(it->first, pd);
+      pd->Delete();
+      }
+    else if (unstructuredBlocks)
+      {
+      vtkUnstructuredGrid *ug = newUnstructuredBlock(it->second, structureOnly);
+      mb->SetBlock(it->first, ug);
+      ug->Delete();
+      }
+    else
+      {
+      vtkImageData *id = newCartesianBlock(it->second, structureOnly);
+      mb->SetBlock(it->first, id);
+      id->Delete();
+      }
+    }
+
+  mesh = mb;
+
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
+    int association, const std::string &arrayName)
+{
+  vtkMultiBlockDataSet *mb = dynamic_cast<vtkMultiBlockDataSet*>(mesh);
+  if (!mb)
+    {
+    SENSEI_ERROR("unexpected mesh type "
+      << (mesh ? mesh->GetClassName() : "nullptr"))
+    return -1;
+    }
+
+  enum {BLOCK, PARTICLE};
+  int meshId = BLOCK;
+  if ((meshName == "mesh") || (meshName == "ucdmesh"))
+    {
+    meshId = BLOCK;
+    if ((arrayName != "data") || (association != vtkDataObject::CELL))
+      {
+      SENSEI_ERROR("mesh \"" << meshName
+        << "\" only has cell data array named \"data\"")
+      return -1;
+      }
+    }
+  else if (meshName == "particles")
+    {
+    meshId = PARTICLE;
+    if (association != vtkDataObject::POINT)
+      {
+      SENSEI_ERROR("mesh \"particles\" only has point data")
+      return -1;
+      }
+    if ((arrayName != "velocity") && (arrayName != "velocityMagnitude") &&
+      (arrayName != "id"))
+      {
+      SENSEI_ERROR("Invalid particle mesh array \"" << arrayName << "\"")
+      return -1;
+      }
+    }
+  else
+    {
+    SENSEI_ERROR("Invalid mesh name \"" << meshName << "\"")
+    return -1;
+    }
+
+  auto it = this->Internals->BlockData.begin();
+  auto end = this->Internals->BlockData.end();
+  for (; it != end; ++it)
+    {
+    // this code is the same for the Cartesian and unstructured blocks
+    // because they both have the same number of cells and are in the
+    // same order
+    vtkDataObject *blk = mb->GetBlock(it->first);
+    if (!blk)
+      {
+      SENSEI_ERROR("encountered empty block at index " << it->first)
+      return -1;
+      }
+
+    vtkFloatArray *fa = nullptr;
+    vtkDataSetAttributes *dsa = nullptr;
+
+    if (meshId == BLOCK)
+      {
+      dsa = blk->GetAttributes(vtkDataObject::CELL);
+      vtkIdType nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
+
+      // zero coopy the array
+      fa = vtkFloatArray::New();
+      fa->SetName("data");
+      fa->SetArray(it->second, nCells, 1);
+      }
+    else
+      {
+      dsa = blk->GetAttributes(vtkDataObject::POINT);
+      newParticleArray(*this->Internals->ParticleData[it->first], arrayName, fa);
+      }
+
+    dsa->AddArray(fa);
+    fa->Delete();
+    }
+
+  return 0;
+}
+
 
 //----------------------------------------------------------------------------
 int DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &meshName)
 {
-  if (meshName != "mesh" && meshName != "ucdmesh" && meshName != "particles")
+  if ((meshName != "mesh") && (meshName != "ucdmesh"))
     {
-    SENSEI_ERROR("the miniapp provides meshes \"mesh\", \"ucdmesh\", and \"particles\".")
+    SENSEI_ERROR("the miniapp provides meshes \"mesh\" and \"ucdmesh\".")
     return -1;
     }
 
-  DInternals& internals = (*this->Internals);
-  vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
-  for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
+  vtkMultiBlockDataSet *mb = dynamic_cast<vtkMultiBlockDataSet*>(mesh);
+  if (!mb)
     {
-    vtkCellData *cd = nullptr;
-    if(meshName == "mesh")
-       {
-       vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
-       cd = (blockMesh? blockMesh->GetCellData() : nullptr);
-       }
-    else if(meshName == "ucdmesh")
-       {
-       vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
-       cd = (uMesh? uMesh->GetCellData() : nullptr);
-       }
+    SENSEI_ERROR("unexpected mesh type "
+      << (mesh ? mesh->GetClassName() : "nullptr"))
+    return -1;
+    }
 
-    if (cd && !cd->GetArray("vtkGhostType"))
+  auto it = this->Internals->BlockExtents.begin();
+  auto end = this->Internals->BlockExtents.end();
+  for (; it != end; ++it)
+    {
+    // this code is the same for the Cartesian and unstructured blocks
+    // because they both have the same number of cells and are in the
+    // same order
+    vtkDataObject *blk = mb->GetBlock(it->first);
+    if (!blk)
       {
-      vtkDataArray *g = CreateGhostCellsArray(cc);
-      cd->AddArray(g);
-      g->Delete();
+      SENSEI_ERROR("encountered empty block at index " << it->first)
+      return -1;
       }
+
+    vtkDataSetAttributes *dsa = blk->GetAttributes(vtkDataObject::CELL);
+
+    vtkUnsignedCharArray *ga = newGhostCellsArray(this->Internals->Shape,
+      it->second, this->Internals->NumGhostCells);
+
+    dsa->AddArray(ga);
+    ga->Delete();
     }
 
   return 0;
@@ -582,92 +594,113 @@ int DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &mesh
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
-  numMeshes = 3;
+  numMeshes = 2;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-int DataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
+int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata)
 {
-  if (id == 0)
+  if (id > 1)
     {
-    meshName = "mesh";
-    return 0;
-    }
-  else if (id == 1)
-    {
-    meshName = "ucdmesh";
-    return 0;
-    }
-  else if (id == 2)
-    {
-    meshName = "particles";
-    return 0;
+    SENSEI_ERROR("invalid mesh id " << id)
+    return -1;
     }
 
-  SENSEI_ERROR("Failed to get mesh name")
-  return -1;
-}
+  int rank = 0;
+  int nRanks = 1;
 
-//-----------------------------------------------------------------------------
-int DataAdaptor::GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays)
-{
-  numberOfArrays = 0;
-  if ((meshName == "mesh" || meshName == "ucdmesh") && (association == vtkDataObject::CELL))
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+  MPI_Comm_size(this->GetCommunicator(), &nRanks);
+
+  // this exercises the multimesh api
+  // mesh 0 is a multiblock with uniform Cartesian blocks
+  // mesh 1 is a multiblock with unstructured blocks
+  // otherwise the meshes are identical
+  int nBlocks = this->Internals->BlockData.size();
+
+  metadata->MeshName = (id == 0 ? "mesh" : "ucdmesh");
+  metadata->MeshType = VTK_MULTIBLOCK_DATA_SET;
+  metadata->BlockType = (id == 0 ? VTK_IMAGE_DATA : VTK_UNSTRUCTURED_GRID);
+  metadata->NumBlocksLocal = {nBlocks};
+  metadata->NumGhostCells = this->Internals->NumGhostCells;
+  metadata->NumArrays = 1;
+  metadata->ArrayName = {"data"};
+  metadata->ArrayCentering = {vtkDataObject::CELL};
+  metadata->ArrayComponents = {1};
+  metadata->ArrayType = {VTK_FLOAT};
+
+  if ((id == 0) && metadata->Flags.BlockExtentsSet())
     {
-    numberOfArrays = 1;
-    return 0;
+    std::array<int,6> ext;
+    getBlockExtent(this->Internals->DomainExtent, ext.data());
+    metadata->Extent = std::move(ext);
+
+    metadata->BlockExtents.reserve(nBlocks);
+
+    auto it = this->Internals->BlockExtents.begin();
+    auto end = this->Internals->BlockExtents.end();
+    for (; it != end; ++it)
+      {
+      getBlockExtent(it->second, ext.data());
+      metadata->BlockExtents.emplace_back(std::move(ext));
+      }
     }
-  else if ((meshName == "particles") && (association == vtkDataObject::POINT))
+
+  if (metadata->Flags.BlockBoundsSet())
     {
-    numberOfArrays = 2;
-    return 0;
+    std::array<double,6> bounds;
+    getBlockBounds(this->Internals->DomainExtent,
+      this->Internals->Origin, this->Internals->Spacing,
+      bounds.data());
+    metadata->Bounds = std::move(bounds);
+
+    metadata->BlockBounds.reserve(nBlocks);
+
+    auto it = this->Internals->BlockExtents.begin();
+    auto end = this->Internals->BlockExtents.end();
+    for (; it != end; ++it)
+      {
+      getBlockBounds(it->second, this->Internals->Origin,
+        this->Internals->Spacing, bounds.data());
+      metadata->BlockBounds.emplace_back(std::move(bounds));
+      }
     }
+
+  if (metadata->Flags.BlockSizeSet())
+    {
+    auto it = this->Internals->BlockExtents.begin();
+    auto end = this->Internals->BlockExtents.end();
+    for (; it != end; ++it)
+      {
+      long nCells = getBlockNumCells(it->second);
+      long nPts = getBlockNumPoints(it->second);
+
+      metadata->BlockNumCells.push_back(nCells);
+      metadata->BlockNumPoints.push_back(nPts);
+
+      if (id == 1) // unctructured only
+        metadata->BlockCellArraySize.push_back(9*nCells);
+      }
+    }
+
+  if (metadata->Flags.BlockDecompSet())
+    {
+    auto it = this->Internals->BlockExtents.begin();
+    auto end = this->Internals->BlockExtents.end();
+    for (; it != end; ++it)
+      {
+      metadata->BlockOwner.push_back(rank);
+      metadata->BlockIds.push_back(it->first);
+      }
+    }
+
   return 0;
-}
-
-//-----------------------------------------------------------------------------
-int DataAdaptor::GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName)
-{
-  if ((meshName == "mesh" || meshName == "ucdmesh") &&
-    (association == vtkDataObject::CELL) && (index == 0))
-    {
-    arrayName = "data";
-    return 0;
-    }
-  else if ((meshName == "particles") && (association == vtkDataObject::POINT))
-    {
-    static const char *names[] = { "uniqueGlobalId", "velocity" };
-    arrayName = names[index];
-    return 0;
-    }
-
-  SENSEI_ERROR("Failed to get array name")
-  return -1;
 }
 
 //-----------------------------------------------------------------------------
 int DataAdaptor::ReleaseData()
 {
-  DInternals& internals = (*this->Internals);
-  internals.Mesh = nullptr;
-  internals.uMesh = nullptr;
-  internals.ParticlesDataSet = nullptr;
-  for (auto i : internals.CellExtents)
-    {
-    i.min[0] = i.min[1] = i.min[2] = 0;
-    i.max[0] = i.max[1] = i.max[2] = -1;
-    }
-  for (size_t cc=0, max = internals.Data.size(); cc < max; ++cc)
-    {
-    internals.Data[cc] = nullptr;
-    internals.BlockMesh[cc] = nullptr;
-    internals.UnstructuredMesh[cc] = nullptr;
-    internals.ParticlesData[cc] = nullptr;
-    internals.ParticleBlocks[cc] = nullptr;
-    }
   return 0;
 }
 
