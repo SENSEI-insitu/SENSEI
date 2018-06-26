@@ -54,7 +54,11 @@ protected:
   VTKAmrWriter();
   ~VTKAmrWriter();
 
+  VTKAmrWriter(const VTKAmrWriter&) = delete;
+  void operator=(const VTKAmrWriter&) = delete;
+
 private:
+#if !defined(SWIG)
   std::string OutputDir;
   DataRequirements Requirements;
   int Mode;
@@ -66,10 +70,7 @@ private:
   NameMap<std::vector<long>> TimeStep;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;
-
-private:
-  VTKAmrWriter(const VTKAmrWriter&) = delete;
-  void operator=(const VTKAmrWriter&) = delete;
+#endif
 };
 
 }
