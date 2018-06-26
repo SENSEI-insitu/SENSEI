@@ -170,7 +170,7 @@ int DataAdaptor::GetArrayNames(const std::string &meshName, int association,
     {
     SENSEI_ERROR("Failed to get number of "
       << VTKUtils::GetAttributesName(association)
-      << " data arrays for mesh " << meshName)
+      << " data arrays for mesh \"" << meshName << "\"")
     return -1;
     }
 
