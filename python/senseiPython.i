@@ -317,16 +317,16 @@ VTK_DERIVED(ADIOSAnalysisAdaptor)
 SENSEI_DATA_ADAPTOR(ADIOSDataAdaptor)
 #endif
 
+#ifdef ENABLE_VTK_IO
 /****************************************************************************
  * VTKPosthocIO
  ***************************************************************************/
-#ifdef ENABLE_VTK_IO
 VTK_DERIVED(VTKPosthocIO)
-#endif
 
 /****************************************************************************
  * VTKAmrWriter
  ***************************************************************************/
-#ifdef ENABLE_VTK_IO
+#ifdef ENABLE_VTK_MPI
 VTK_DERIVED(VTKAmrWriter)
+#endif
 #endif
