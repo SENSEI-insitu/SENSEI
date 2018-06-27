@@ -26,6 +26,9 @@
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #endif
+#ifdef ENABLE_PYTHON
+#include "PythonAnalysis.h"
+#endif
 
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
@@ -135,7 +138,9 @@ struct ConfigurableAnalysis::InternalsType
   int AddAutoCorrelation(pugi::xml_node node);
   int AddPosthocIO(pugi::xml_node node);
   int AddVTKAmrWriter(pugi::xml_node node);
+  int AddPythonAnalysis(pugi::xml_node node);
 
+public:
   // list of all analyses. api calls are forwareded to each
   // analysis in the list
   AnalysisAdaptorVector Analyses;
@@ -519,12 +524,9 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   return -1;
 #else
   DataRequirements req;
-
-  if (req.Initialize(node) ||
-    (req.GetNumberOfRequiredMeshes() < 1))
+  if (req.Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize VTKPosthocIO. "
-      "At least one mesh is required")
+    SENSEI_ERROR("Failed to initialize VTKPosthocIO.")
     return -1;
     }
 
@@ -594,6 +596,53 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 #endif
 }
 
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
+{
+
+  if (!node.attribute("script_file") && !node.attribute("script_module"))
+    {
+    SENSEI_ERROR("Failed to initialize PythonAnalysis. Missing "
+      "a required attribute: script_file or script_module");
+    return -1;
+    }
+
+  std::string scriptFile = node.attribute("script_file").value();
+  std::string scriptModule = node.attribute("script_module").value();
+
+  std::string initSource;
+  pugi::xml_node inode = node.child("initialize_source");
+  if (inode)
+      initSource = inode.text().as_string();
+
+  vtkNew<PythonAnalysis> pyAnalysis;
+
+  if (this->Comm != MPI_COMM_NULL)
+    pyAnalysis->SetCommunicator(this->Comm);
+
+  pyAnalysis->SetScriptFile(scriptFile);
+  pyAnalysis->SetScriptModule(scriptModule);
+  pyAnalysis->SetInitializeSource(initSource);
+
+  if (pyAnalysis->Initialize())
+    {
+    SENSEI_ERROR("Failed to initialize PythonAnalysis")
+    return -1;
+    }
+
+  this->Analyses.push_back(pyAnalysis.GetPointer());
+
+  const char *scriptType = scriptFile.empty() ? "module" : "file";
+
+  const char *scriptName =
+    scriptFile.empty() ?  scriptModule.c_str() : scriptFile.c_str();
+
+  SENSEI_STATUS("Configured python with " << scriptType
+    << " \"" << scriptName << "\"")
+
+  return 0;
+}
+
 
 
 //----------------------------------------------------------------------------
@@ -661,7 +710,8 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
-      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))))
+      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
+      || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to add '" << type << "' analysis")

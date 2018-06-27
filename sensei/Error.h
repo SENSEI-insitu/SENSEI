@@ -40,7 +40,7 @@ if (sensei::ioEnabled(Rank))                                                    
 }
 
 #define SENSEI_ERROR(Msg) SENSEI_MESSAGE(-1, "ERROR:", ANSI_RED, Msg)
-#define SENSEI_WARNING(Msg) SENSEI_MESSAGE(-1, "WARNING:", ANSI_YELLOW, Msg)
+#define SENSEI_WARNING(Msg) SENSEI_MESSAGE(0, "WARNING:", ANSI_YELLOW, Msg)
 #define SENSEI_STATUS(Msg) SENSEI_MESSAGE(0, "STATUS:", ANSI_GREEN, Msg)
 
 #endif

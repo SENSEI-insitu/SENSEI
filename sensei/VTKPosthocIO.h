@@ -56,6 +56,7 @@ protected:
   void operator=(const VTKPosthocIO&) = delete;
 
 private:
+#if !defined(SWIG)
   std::string OutputDir;
   DataRequirements Requirements;
   int Mode;
@@ -69,6 +70,7 @@ private:
   NameMap<std::string> BlockExt;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;
+#endif
 };
 
 }
