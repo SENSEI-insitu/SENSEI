@@ -14,7 +14,8 @@ file=$5
 writeMethod=$6
 readMethod=$7
 nits=$8
-delay=1s
+delay=1
+maxDelay=30
 
 trap 'echo $BASH_COMMAND' DEBUG
 
@@ -41,8 +42,13 @@ then
     if [[ -e "${file}_writer_info.txt" ]]
     then
       break
+    elif [[ ${maxDelay} -le 0 ]]
+    then
+      echo "ERROR: max delay exceded"
+      exit -1
     else
-      sleep ${delay}
+      sleep ${delay}s
+      let maxDelay=${maxDelay}-${delay}
     fi
   done
 fi
