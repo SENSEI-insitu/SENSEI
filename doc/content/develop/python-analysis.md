@@ -1,8 +1,7 @@
 ---
 markdown:
-  gfm: false
+  gfm: true
 ---
-
 # PythonAnalysis adaptor
 
 The python analysis adaptor enables the use of a Python scripts as an analysis
