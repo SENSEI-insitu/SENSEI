@@ -10,6 +10,7 @@ learn-more:
 develop:
   using:
     overview: index.html
+    python-analysis: python-analysis.html
     dataset-schema: adios-schema.html
   contributing:
     overview: contribute.html

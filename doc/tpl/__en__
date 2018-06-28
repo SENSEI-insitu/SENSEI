@@ -28,6 +28,7 @@ sidebar:
   develop:
     using: Using
     overview: Overview
+    python-analysis: Python Analysis
     dataset-schema: Dataset schema
     testing: Testing
     contributing: Contributing
