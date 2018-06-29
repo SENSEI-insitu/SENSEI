@@ -1,6 +1,7 @@
 ---
 markdown:
   gfm: true
+  breaks: false
 ---
 # PythonAnalysis adaptor
 
