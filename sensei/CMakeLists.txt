@@ -4,9 +4,9 @@ if (ENABLE_SENSEI)
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
-    DataAdaptor.cxx DataRequirements.cxx Error.cxx Histogram.cxx
-    ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
-    VTKUtils.cxx)
+    BinaryStream.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
+    Histogram.cxx MeshMetadata.cxx ProgrammableDataAdaptor.cxx
+    VTKHistogram.cxx VTKDataAdaptor.cxx VTKUtils.cxx)
 
   set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
 
