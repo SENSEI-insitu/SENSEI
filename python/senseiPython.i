@@ -31,7 +31,6 @@ import_array();
 %include <mpi4py/mpi4py.i>
 %include "vtk.i"
 %include "senseiTypeMaps.i"
-%include "senseiDataAdaptor.i"
 
 %mpi4py_typemap(Comm, MPI_Comm);
 
@@ -43,6 +42,11 @@ import_array();
 VTK_SWIG_INTEROP(vtkObjectBase)
 VTK_SWIG_INTEROP(vtkDataObject)
 VTK_SWIG_INTEROP(vtkInformation)
+
+/****************************************************************************
+ * DataAdaptor
+ ***************************************************************************/
+%include "DataAdaptor.i"
 
 /****************************************************************************
  * DataRequirements
@@ -84,103 +88,6 @@ VTK_SWIG_INTEROP(vtkInformation)
   }
 }
 %include "DataRequirements.h"
-
-/****************************************************************************
- * DataAdaptor
- ***************************************************************************/
-%extend sensei::DataAdaptor
-{
-  /* Modify the DataAdaptor API for Python. Python doesn't
-     support pass by reference. Hence, we need to wrap the
-     core API. Rather than return an error code we will ask
-     that Python codes raise and exception if there is an
-     error and return function results(or void for cases when
-     there are none) instead of using pass by reference/output
-     parameters */
-  // ------------------------------------------------------------------------
-  unsigned int GetNumberOfMeshes()
-  {
-    unsigned int nMeshes = 0;
-    if (self->GetNumberOfMeshes(nMeshes))
-      {
-      SENSEI_ERROR("Failed to get the number of meshes")
-      }
-    return nMeshes;
-  }
-
-  // ------------------------------------------------------------------------
-  std::string GetMeshName(unsigned int id)
-  {
-    std::string meshName;
-    if (self->GetMeshName(id, meshName))
-      {
-      SENSEI_ERROR("Failed to get the mesh name for " << id)
-      }
-    return meshName;
-  }
-
-  // ------------------------------------------------------------------------
-  vtkDataObject *GetMesh(const std::string &meshName, bool structureOnly)
-  {
-    vtkDataObject *mesh = nullptr;
-    if (self->GetMesh(meshName, structureOnly, mesh))
-      {
-      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
-      }
-    return mesh;
-  }
-
-  // ------------------------------------------------------------------------
-  void AddArray(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::string &arrayName)
-  {
-     if (self->AddArray(mesh, meshName, association, arrayName))
-       {
-       SENSEI_ERROR("Failed to add "
-        << sensei::VTKUtils::GetAttributesName(association)
-        << " data array \"" << arrayName << "\" to mesh \""
-        << meshName << "\"")
-       }
-  }
-
-  // ------------------------------------------------------------------------
-  unsigned int GetNumberOfArrays(const std::string &meshName, int association)
-  {
-    unsigned int nArrays = 0;
-    if (self->GetNumberOfArrays(meshName, association, nArrays))
-      {
-      SENSEI_ERROR("Failed to get the number of "
-        << sensei::VTKUtils::GetAttributesName(association)
-        << " arrays on mesh \"" << meshName << "\"")
-      }
-    return nArrays;
-  }
-
-  // ------------------------------------------------------------------------
-  std::string GetArrayName(const std::string &meshName, int association,
-    unsigned int index)
-  {
-    std::string arrayName;
-    if (self->GetArrayName(meshName, association, index, arrayName))
-      {
-      SENSEI_ERROR("Failed to get "
-        << sensei::VTKUtils::GetAttributesName(association)
-        << " data array name " << index << " on mesh \""
-        << meshName << "\"")
-      }
-    return arrayName;
-  }
-
-  // ------------------------------------------------------------------------
-  void ReleaseData()
-  {
-    if (self->ReleaseData())
-      {
-      SENSEI_ERROR("Failed to release data")
-      }
-  }
-}
-SENSEI_DATA_ADAPTOR(DataAdaptor)
 
 /****************************************************************************
  * AnalysisAdaptor
