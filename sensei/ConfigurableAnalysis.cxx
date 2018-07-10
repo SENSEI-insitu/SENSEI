@@ -599,7 +599,11 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
 {
-
+#if !defined(ENABLE_PYTHON)
+  (void)node;
+  SENSEI_ERROR("The PythonAnalysis was requested but is disabled in this build")
+  return -1;
+#else
   if (!node.attribute("script_file") && !node.attribute("script_module"))
     {
     SENSEI_ERROR("Failed to initialize PythonAnalysis. Missing "
@@ -641,6 +645,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
     << " \"" << scriptName << "\"")
 
   return 0;
+#endif
 }
 
 
