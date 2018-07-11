@@ -5,6 +5,13 @@ else()
   message(STATUS "Disabled: Parallel3D miniapp.")
 endif()
 
+if(ENABLE_CONDUITTEST)
+  message(STATUS "Enabled: CONDUIT TEST miniapp.")
+  add_subdirectory(conduit_test)
+else()
+  message(STATUS "Disabled: conduit_test miniapp.")
+endif()
+
 if(ENABLE_OSCILLATORS)
   message(STATUS "Enabled: Oscillators miniapp.")
   add_subdirectory(oscillators)
