@@ -546,7 +546,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
 bool
 LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
 {
-    bool retval = false;
+    bool retval = true;
 
     // NOTE: this executes a set of really simple pipelines prescribed by the
     //       options from the SENSEI config file.
@@ -615,20 +615,20 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
                         VisIt_NameList_addName(vars, plots[i].plotVars[v].c_str());
 
                     // Export the data instead of rendering it.
-                    if(VisItExportDatabase(filename.c_str(), fmt, vars) == VISIT_OKAY)
+                    if(VisItExportDatabase(filename.c_str(), fmt, vars) != VISIT_OKAY)
                     {
-                        retval = true;
-                    }
-                    else if(rank == 0)
-                    {
-                        SENSEI_ERROR("VisItExportDatabase failed.")
+                        if(rank == 0)
+                            SENSEI_ERROR("VisItExportDatabase failed.")
+                        retval = false;
                     }
 
                     VisIt_NameList_free(vars);
                 }
-                else if(rank == 0)
+                else
                 {
-                    SENSEI_ERROR("VisIt_NameList_alloc failed.")
+                    if(rank == 0)
+                        SENSEI_ERROR("VisIt_NameList_alloc failed.")
+                    retval = false;
                 }
             }
             else
@@ -649,19 +649,19 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
                     format = VISIT_IMAGEFORMAT_TIFF;
 
                 // Save an image.
-                if(VisItSaveWindow(filename.c_str(), w, h, format) == VISIT_OKAY)
+                if(VisItSaveWindow(filename.c_str(), w, h, format) != VISIT_OKAY)
                 {
-                    retval = true;
-                }
-                else if(rank == 0)
-                {
-                    SENSEI_ERROR("VisItSaveWindow failed.")
+                    if(rank == 0)
+                        SENSEI_ERROR("VisItSaveWindow failed.")
+                    retval = false;
                 }
             } // doExport
         }
-        else if(rank == 0)
+        else
         {
-            SENSEI_ERROR("VisItDrawPlots failed.")
+            if(rank == 0)
+                SENSEI_ERROR("VisItDrawPlots failed.")
+            retval = false;
         }
 
         // Delete the plots.
