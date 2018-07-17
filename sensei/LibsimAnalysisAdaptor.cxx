@@ -43,7 +43,7 @@ namespace sensei
 class PlotRecord
 {
 public:
-    PlotRecord() : frequency(5), imageProps(), plots(), plotVars(), doExport(false), slice(false), project2d(false)
+    PlotRecord() : frequency(5), imageProps(), session(), plots(), plotVars(), doExport(false), slice(false), project2d(false)
     {
         origin[0] = origin[1] = origin[2] = 0.;
         normal[0] = 1.; normal[1] = normal[2] = 0.;
@@ -68,6 +68,7 @@ public:
 
     int frequency;
     LibsimImageProperties imageProps;
+    std::string           session;
     std::vector<std::string> plots;
     std::vector<std::string> plotVars;
     bool doExport;
@@ -79,7 +80,7 @@ public:
 
 std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
 {
-    os << "{plots=[";
+    os << "{session=\"" << obj.session << "\", plots=[";
     for(size_t i = 0; i < obj.plots.size(); ++i)
     {
         if(i > 0)
@@ -203,12 +204,14 @@ public:
     bool Initialize();
     bool Execute(sensei::DataAdaptor *DataAdaptor);
 
-    bool AddRender(int freq, const std::string &plots,
+    bool AddRender(int freq, const std::string &session,
+                  const std::string &plots,
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
 	          const LibsimImageProperties &imgProps);
-    bool AddExport(int freq, const std::string &plots,
+    bool AddExport(int freq, const std::string &session,
+                  const std::string &plots,
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
@@ -243,6 +246,8 @@ private:
 
     int TopologicalDimension(const int dims[3]) const;
     std::string MakeFileName(const std::string &f, int timestep, double time) const;
+    void DetermineExportFilename(const std::string &f, 
+                                 std::string &fnoext, std::string &fmt) const;
 
     sensei::DataAdaptor              *da;
     std::map<std::string, MeshInfo *> meshData;
@@ -343,7 +348,9 @@ LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddRender(int freq, const std::string &plts,
+LibsimAnalysisAdaptor::PrivateData::AddRender(int freq, 
+    const std::string &session,
+    const std::string &plts,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
@@ -352,6 +359,7 @@ LibsimAnalysisAdaptor::PrivateData::AddRender(int freq, const std::string &plts,
     PlotRecord p;
     p.frequency = freq;
     p.imageProps = imgProps;
+    p.session = session;
     p.plots = PlotRecord::SplitAtCommas(plts);
     p.plotVars = PlotRecord::SplitAtCommas(plotVars);
     p.slice = slice;
@@ -359,16 +367,23 @@ LibsimAnalysisAdaptor::PrivateData::AddRender(int freq, const std::string &plts,
     memcpy(p.origin, origin, 3 * sizeof(double));
     memcpy(p.normal, normal, 3 * sizeof(double));
 
-    bool retval = !p.plots.empty() && (p.plots.size() == p.plotVars.size());
-    if(retval)
-        plots.push_back(p);
+    bool retval = false;
+    if(!p.plots.empty() && (p.plots.size() == p.plotVars.size()))
+      {
+      plots.push_back(p);
+      retval = true;
+      }
+    if(!session.empty())
+      retval = true;
 //    cout << "Libsim Render: " << (retval?"true":"false") << ", " << p << endl;
     return retval;
 }
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddExport(int freq, const std::string &plts,
+LibsimAnalysisAdaptor::PrivateData::AddExport(int freq, 
+    const std::string &session,
+    const std::string &plts,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
@@ -381,6 +396,7 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(int freq, const std::string &plts,
     std::vector<std::string> plotTypes = PlotRecord::SplitAtCommas(plts);
     std::vector<std::string> first;
     first.push_back(plotTypes[0]);
+    p.session = session;
     p.plots = first;
     p.plotVars = PlotRecord::SplitAtCommas(plotVars);
     p.slice = slice;
@@ -388,9 +404,14 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(int freq, const std::string &plts,
     memcpy(p.origin, origin, 3 * sizeof(double));
     memcpy(p.normal, normal, 3 * sizeof(double));
 
-    bool retval = !p.plots.empty() && !p.plotVars.empty();
-    if(retval)
+    bool retval = false;
+    if(!p.plots.empty() && !p.plotVars.empty())
+    {
+        retval = true;
         plots.push_back(p);
+    }
+    if(!session.empty())
+        retval = true;
 //    cout << "Libsim Export: " << (retval?"true":"false") << ", " << p << endl;
 
     return retval;
@@ -514,6 +535,71 @@ LibsimAnalysisAdaptor::PrivateData::MakeFileName(const std::string &f, int times
 }
 
 // --------------------------------------------------------------------------
+static bool EndsWith(const std::string &s, const std::string &ext)
+{
+    bool retval = false;
+    if(s.size() >= ext.size() && !ext.empty())
+    {
+        retval = s.substr(s.size() - ext.size(), ext.size()) == ext;
+    }
+    return retval;
+}
+
+// --------------------------------------------------------------------------
+void
+LibsimAnalysisAdaptor::PrivateData::DetermineExportFilename(const std::string &f,
+    std::string &fnoext, std::string &fmt) const
+{
+    // This is kind of a hack. We don't have a mechanism to interrogate the
+    // format from the filename... Maybe VisIt should be doing this.
+    if(EndsWith(f, ".silo"))
+    {
+        fnoext = f.substr(0, f.size() - 5);
+        fmt = "Silo_1.0";
+    }
+    else if(EndsWith(f, ".xdb"))
+    {
+        fnoext = f;
+        fmt = "FieldViewXDB_1.0";
+    }
+    else if(EndsWith(f, ".raw"))
+    {
+        fnoext = f.substr(0, f.size() - 4);
+        fmt = "RAW_1.0";
+    }
+    else if(EndsWith(f, ".tec") || EndsWith(f, ".plt"))
+    {
+        fnoext = f.substr(0, f.size() - 4);
+        fmt = "Tecplot_1.0";
+    }
+    else if(EndsWith(f, ".ply"))
+    {
+        fnoext = f.substr(0, f.size() - 4);
+        fmt = "PLY_1.0";
+    }
+    else if(EndsWith(f, ".stl"))
+    {
+        fnoext = f.substr(0, f.size() - 4);
+        fmt = "STL_1.0";
+    }
+    else if(EndsWith(f, ".obj"))
+    {
+        fnoext = f.substr(0, f.size() - 4);
+        fmt = "WavefrontOBJ_1.0";
+    }
+    else if(EndsWith(f, ".bov"))
+    {
+        fnoext = f.substr(0, f.size() - 4);
+        fmt = "BOV_1.0";
+    }
+    else
+    {
+        fnoext = f; // The VTK writer makes ok filenames.
+        fmt = "VTK_1.0";
+    }
+}
+
+// --------------------------------------------------------------------------
 bool
 LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
 {
@@ -558,44 +644,55 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
         if(da->GetDataTimeStep() % plots[i].frequency != 0)
             continue;
 
-        // Add all the plots in this group.
-        int *ap = new int[plots[i].plots.size()];
-        int np = 0;
-        for(size_t j = 0; j < plots[i].plots.size(); ++j)
+        // If we have a session file for this plot output, then add it now.
+        if(!plots[i].session.empty())
         {
-           if(VisItAddPlot(plots[i].plots[j].c_str(),plots[i].plotVars[j].c_str()) == VISIT_OKAY)
-           {
-              // Use a better color table.
-              const char *ctName = "hot_desaturated";
-              if(plots[i].plots[j] == "Pseudocolor")
-                 VisItSetPlotOptionsS("colorTableName", ctName);
-              else if(plots[i].plots[j] == "Vector")
-              {
-                 VisItSetPlotOptionsS("colorTableName", ctName);
-                 VisItSetPlotOptionsB("colorByMag", true);
-              }
-
-              ap[np] = np;
-              np++;
-           }
-           else if(rank == 0)
-           {
-               SENSEI_ERROR("VisItAddPlot failed.")
-           }
+            VisItRestoreSession(plots[i].session.c_str());
         }
-
-        // Select all plots.
-        VisItSetActivePlots(ap, np);
-        delete [] ap;
-
-        // Add a slice operator to all plots.
-        if(plots[i].slice)
+        else if(!plots[i].plots.empty())
         {
-            VisItAddOperator("Slice", 1);
-            VisItSetOperatorOptionsI("originType", 0); // point intercept
-            VisItSetOperatorOptionsDv("originPoint", plots[i].origin, 3);
-            VisItSetOperatorOptionsDv("normal", plots[i].normal, 3);
-            VisItSetOperatorOptionsB("project2d", plots[i].project2d ? 1 : 0);
+            // Add all of the plots in this group.
+            // For now, disallow sessions + plots since we are unable to query the number
+            // of plots that were created using the session.
+
+            int *ap = new int[plots[i].plots.size()];
+            int np = 0;
+            for(size_t j = 0; j < plots[i].plots.size(); ++j)
+            {
+                if(VisItAddPlot(plots[i].plots[j].c_str(),plots[i].plotVars[j].c_str()) == VISIT_OKAY)
+                {
+                    // Use a better color table.
+                    const char *ctName = "hot_desaturated";
+                    if(plots[i].plots[j] == "Pseudocolor")
+                        VisItSetPlotOptionsS("colorTableName", ctName);
+                    else if(plots[i].plots[j] == "Vector")
+                    {
+                        VisItSetPlotOptionsS("colorTableName", ctName);
+                        VisItSetPlotOptionsB("colorByMag", true);
+                    }
+
+                   ap[np] = np;
+                   np++;
+                }
+                else if(rank == 0)
+                {
+                    SENSEI_ERROR("VisItAddPlot failed.")
+                }
+            }
+
+            // Select all plots.
+            VisItSetActivePlots(ap, np);
+            delete [] ap;
+
+            // Add a slice operator to all plots (not from session).
+            if(plots[i].slice)
+            {
+                VisItAddOperator("Slice", 1);
+                VisItSetOperatorOptionsI("originType", 0); // point intercept
+                VisItSetOperatorOptionsDv("originPoint", plots[i].origin, 3);
+                VisItSetOperatorOptionsDv("normal", plots[i].normal, 3);
+                VisItSetOperatorOptionsB("project2d", plots[i].project2d ? 1 : 0);
+            }
         }
 
         if(VisItDrawPlots() == VISIT_OKAY)
@@ -607,7 +704,8 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
 
             if(plots[i].doExport)
             {
-                const char *fmt = "VTK_1.0";
+                std::string fmt, filename_no_ext;
+                DetermineExportFilename(filename, filename_no_ext, fmt);
                 visit_handle vars = VISIT_INVALID_HANDLE;
                 if(VisIt_NameList_alloc(&vars))
                 {
@@ -615,7 +713,8 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
                         VisIt_NameList_addName(vars, plots[i].plotVars[v].c_str());
 
                     // Export the data instead of rendering it.
-                    if(VisItExportDatabase(filename.c_str(), fmt, vars) != VISIT_OKAY)
+                    if(VisItExportDatabase(filename_no_ext.c_str(),
+                                           fmt.c_str(), vars) != VISIT_OKAY)
                     {
                         if(rank == 0)
                             SENSEI_ERROR("VisItExportDatabase failed.")
@@ -664,8 +763,11 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
             retval = false;
         }
 
-        // Delete the plots.
-        VisItDeleteActivePlots();
+        // Delete the plots. We don't have a "DeleteAllPlots" so just delete a 
+        // bunch of times in the case of sessions so we are most likely going to
+        // cause all plots to be deleted (after each deletion, plot 0 becomes active)
+        for(int p = 0; p < 10; ++p)
+            VisItDeleteActivePlots();
     }
 
     return retval;
@@ -727,9 +829,11 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
     if(this->paused)
         blocking = 1;
 
-    // If we've connected, we might have plots to update.
     if(VisItIsConnected())
+    {
+        // If we've connected, we might have plots to update.
         VisItUpdatePlots();
+    }
 
     do
     {
@@ -2081,24 +2185,26 @@ void LibsimAnalysisAdaptor::SetMode(const std::string &mode)
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::AddRender(int frequency, const std::string &plots,
+bool LibsimAnalysisAdaptor::AddRender(int frequency, const std::string &session,
+    const std::string &plots,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const LibsimImageProperties &imgProps)
 {
-    return internals->AddRender(frequency, plots, plotVars, slice,
+    return internals->AddRender(frequency, session, plots, plotVars, slice,
       project2d, origin, normal, imgProps);
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::AddExport(int frequency, const std::string &plots,
+bool LibsimAnalysisAdaptor::AddExport(int frequency, const std::string &session,
+    const std::string &plots,
     const std::string &plotVars,
     bool slice, bool project2d,
     const double origin[3], const double normal[3],
     const std::string &filename)
 {
-    return internals->AddExport(frequency, plots, plotVars, slice,
+    return internals->AddExport(frequency, session, plots, plotVars, slice,
       project2d, origin, normal, filename);
 }
 
