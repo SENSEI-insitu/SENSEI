@@ -19,7 +19,7 @@ public:
   static VTKmContourAnalysis* New();
   vtkTypeMacro(VTKmContourAnalysis, AnalysisAdaptor);
 
-  void Initialize(const std::string& arrayname,
+  void Initialize(const std::string& meshName, const std::string& arrayname,
     double value, bool writeOutput);
 
   bool Execute(sensei::DataAdaptor* data) override;
@@ -30,6 +30,7 @@ protected:
   VTKmContourAnalysis();
   virtual ~VTKmContourAnalysis();
 
+  std::string MeshName;
   std::string ArrayName;
   double Value;
   bool WriteOutput;

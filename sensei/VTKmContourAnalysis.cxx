@@ -1,6 +1,7 @@
 #include "VTKmContourAnalysis.h"
 
 #include "DataAdaptor.h"
+#include "Error.h"
 
 #include <vtkObjectFactory.h>
 #include <vtkmAverageToPoints.h>
@@ -56,11 +57,11 @@ VTKmContourAnalysis::~VTKmContourAnalysis()
 }
 
 //-----------------------------------------------------------------------------
-void VTKmContourAnalysis::Initialize(const std::string &meshName,
-  const std::string &arrayName, double value, bool writeOutput)
+void VTKmContourAnalysis::Initialize(const std::string& meshName,
+  const std::string& arrayName, double value, bool writeOutput)
 {
   this->MeshName = meshName;
-  this->ArrayName = arrayname;
+  this->ArrayName = arrayName;
   this->Value = value;
   this->WriteOutput = writeOutput;
 }
@@ -382,9 +383,10 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
     prev->Register(0);
     }
 
+  MPI_Comm comm = this->GetCommunicator();
+  vtkMPICommunicatorOpaqueComm ocomm(&comm);
   vtkNew<vtkMPICommunicator> vtkComm;
-  vtkMPICommunicatorOpaqueComm h(&this->GetCommunicator());
-  vtkComm->InitializeExternal(&h);
+  vtkComm->InitializeExternal(&ocomm);
 
   vtkNew<vtkMPIController> con;
   con->SetCommunicator(vtkComm.GetPointer());
@@ -392,9 +394,9 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
 
   vtkDataObject* mesh = nullptr;
-  if (data->GetMesh(meshName, false, mesh))
+  if (data->GetMesh(this->MeshName, false, mesh))
     {
-    SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+    SENSEI_ERROR("Failed to get mesh \"" << this->MeshName << "\"");
     return false;
     }
 
