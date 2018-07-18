@@ -32,7 +32,6 @@
 #include <vtkMultiBlockDataSet.h>
 #include <vtkHierarchicalBoxDataSet.h>
 #include <vtkMultiPieceDataSet.h>
-#include <vtkHyperOctree.h>
 #include <vtkHyperTreeGrid.h>
 #include <vtkOverlappingAMR.h>
 #include <vtkNonOverlappingAMR.h>
@@ -241,9 +240,6 @@ vtkDataObject *newDataObject(int code)
       break;
     case VTK_MULTIPIECE_DATA_SET:
       ret = vtkMultiPieceDataSet::New();
-      break;
-    case VTK_HYPER_OCTREE:
-      ret = vtkHyperOctree::New();
       break;
     case VTK_HYPER_TREE_GRID:
       ret = vtkHyperTreeGrid::New();
@@ -693,6 +689,20 @@ int Extent3DSchema::DefineVariables(int64_t gh, unsigned int doid,
     adios_define_var(gh, path.c_str(), "", adios_double,
       path_len.c_str(), path_len.c_str(), "0");
     }
+  else if (dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << doid << "/dataset_" << dsid;
+
+    std::string dataset_id = oss.str();
+    std::string path_len = dataset_id + "/extent_len";
+    adios_define_var(gh, path_len.c_str(), "", adios_integer, "", "", "");
+
+    // /data_object_<id>/dataset_<id>/extent
+    std::string path = dataset_id + "/extent";
+    adios_define_var(gh, path.c_str(), "", adios_integer,
+      path_len.c_str(), path_len.c_str(), "0");
+    }
   return 0;
 }
 
@@ -702,7 +712,8 @@ uint64_t Extent3DSchema::GetSize(vtkDataSet *ds)
   if (dynamic_cast<vtkImageData*>(ds))
     return 3*sizeof(unsigned long) + 6*sizeof(int) +
       6*sizeof(double) + 3*sizeof(int);
-
+  else if (dynamic_cast<vtkRectilinearGrid*>(ds))
+    return sizeof(unsigned long) + 6*sizeof(int);
   return 0;
 }
 
@@ -745,6 +756,22 @@ int Extent3DSchema::Write(int64_t fh, unsigned int doid, unsigned int dsid,
     double spacing[3] = {0.0};
     img->GetSpacing(spacing);
     adios_write(fh, path.c_str(), spacing);
+    }
+  else if (vtkRectilinearGrid* rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
+    std::string dataset_id = oss.str();
+
+    // extent
+    int extent_len = 6;
+    std::string path = dataset_id + "extent_len";
+    adios_write(fh, path.c_str(), &extent_len);
+
+    path = dataset_id + "extent";
+    int extent[6] = {0};
+    rg->GetExtent(extent);
+    adios_write(fh, path.c_str(), extent);
     }
   return 0;
 }
@@ -800,6 +827,42 @@ int Extent3DSchema::Read(MPI_Comm comm, InputStream &iStream,
     img->SetOrigin(origin);
     img->SetSpacing(spacing);
     }
+  else if (vtkRectilinearGrid* rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/";
+    std::string dataset_id = oss.str();
+
+    ADIOS_SELECTION *sel = nullptr;
+    if (!streamIsFileBased(iStream.ReadMethod))
+      {
+      int rank = 0;
+      MPI_Comm_rank(comm, &rank);
+      sel = adios_selection_writeblock(rank);
+      if (!sel)
+        {
+        SENSEI_ERROR("Failed to make the selection")
+        return -1;
+        }
+      }
+
+    // extent
+    std::string path = dataset_id + "extent";
+    int extent[6] = {0};
+    adios_schedule_read(iStream.File, sel, path.c_str(), 0, 1, extent);
+
+    if (adios_perform_reads(iStream.File, 1))
+      {
+      SENSEI_ERROR("Failed to read extents")
+      return -1;
+      }
+
+    if (sel)
+      adios_selection_delete(sel);
+
+    rg->SetExtent(extent);
+    }
+
   return 0;
 }
 
@@ -1342,6 +1405,36 @@ int PointsSchema::DefineVariables(int64_t gh, unsigned int doid,
     adios_define_var(gh, path.c_str(), "", adiosType(pts),
       path_len.c_str(), path_len.c_str(), "0");
     }
+  else if (vtkRectilinearGrid* rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/points/";
+    std::string dataset_id = oss.str();
+
+    std::string coords_path[3];
+    coords_path[0] = dataset_id + "x/";
+    coords_path[1] = dataset_id + "y/";
+    coords_path[2] = dataset_id + "z/";
+
+    vtkDataArray* coords_array[3] = {rg->GetXCoordinates(), rg->GetYCoordinates(),
+      rg->GetZCoordinates()};
+
+    for (int cc=0; cc < 3; cc++)
+      {
+      // /data_object_<id>/dataset_<id>/points/<coord>/number_of_elements
+      std::string path_len = coords_path[cc] + "number_of_elements";
+      adios_define_var(gh, path_len.c_str(), "", adios_unsigned_long, "", "", "");
+
+      // /data_object_<id>/dataset_<id>/points/<coord>/elem_type
+      std::string path = coords_path[cc] + "elem_type";
+      adios_define_var(gh, path.c_str(), "", adios_integer, "", "", "");
+
+      // /data_object_<id>/dataset_<id>/points/<coord>/data
+      path = coords_path[cc] + "data";
+      adios_define_var(gh, path.c_str(), "", adiosType(coords_array[cc]),
+          path_len.c_str(), path_len.c_str(), "0");
+      }
+    }
   return 0;
 }
 
@@ -1352,6 +1445,12 @@ uint64_t PointsSchema::GetSize(vtkDataSet *ds)
   if (dynamic_cast<vtkPointSet*>(ds))
     size += sizeof(unsigned long)     // number of points
       + this->GetPointsSize(ds);      // points array
+  else if (dynamic_cast<vtkRectilinearGrid*>(ds))
+  {
+    size += 3*sizeof(unsigned long)    // number_of_elements
+      + 3*sizeof(int)                  // elem_type
+      + this->GetPointsSize(ds);       // points array
+  }
   return size;
 }
 
@@ -1380,6 +1479,36 @@ int PointsSchema::Write(int64_t fh, unsigned int doid, unsigned int dsid,
     // /data_object_<id>/dataset_<id>/points/data
     path = dataset_id + "data";
     adios_write(fh, path.c_str(), pts->GetVoidPointer(0));
+    }
+  else if (vtkRectilinearGrid* rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/points/";
+    std::string dataset_id = oss.str();
+
+    std::string coords_path[3];
+    coords_path[0] = dataset_id + "x/";
+    coords_path[1] = dataset_id + "y/";
+    coords_path[2] = dataset_id + "z/";
+
+    vtkDataArray* coords_array[3] = {rg->GetXCoordinates(), rg->GetYCoordinates(),
+      rg->GetZCoordinates()};
+    for (int cc=0; cc < 3; cc++)
+      {
+      // /data_object_<id>/dataset_<id>/points/<coord>/number_of_elements
+      unsigned long number_of_elements = coords_array[cc]->GetNumberOfTuples();
+      std::string path = coords_path[cc] + "number_of_elements";
+      adios_write(fh, path.c_str(), &number_of_elements);
+
+      // /data_object_<id>/dataset_<id>/points/<coord>/elem_type
+      path = coords_path[cc] + "elem_type";
+      int coords_type = coords_array[cc]->GetDataType();
+      adios_write(fh, path.c_str(), &coords_type);
+
+      // /data_object_<id>/dataset_<id>/points/<coord>/data
+      path = coords_path[cc] + "data";
+      adios_write(fh, path.c_str(), coords_array[cc]->GetVoidPointer(0));
+      }
     }
   return 0;
 }
@@ -1445,6 +1574,79 @@ int PointsSchema::Read(MPI_Comm comm, InputStream &iStream, unsigned int doid,
     ps->SetPoints(points);
     points->Delete();
     }
+  else if (vtkRectilinearGrid* rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    std::ostringstream oss;
+    oss << "data_object_" << doid << "/dataset_" << dsid << "/points/";
+    std::string dataset_id = oss.str();
+
+    std::string coords_path[3];
+    coords_path[0] = dataset_id + "x/";
+    coords_path[1] = dataset_id + "y/";
+    coords_path[2] = dataset_id + "z/";
+
+    std::string array_names[3] = {"x", "y", "z"};
+
+    for (int cc=0; cc < 3; cc++)
+      {
+      // /data_object_<id>/dataset_<id>/points/<coord>/number_of_elements
+      unsigned long number_of_elements = 0;
+      std::string path = coords_path[cc] + "number_of_elements";
+      if (adiosInq(iStream, path, number_of_elements))
+        return -1;
+
+      // /data_object_<id>/dataset_<id>/points/<coord>/data
+      int elem_type = 0;
+      path = coords_path[cc] + "elem_type";
+      if (adiosInq(iStream, path, elem_type))
+        return -1;
+
+      vtkDataArray *coords = vtkDataArray::CreateDataArray(elem_type);
+      coords->SetNumberOfComponents(1);
+      coords->SetNumberOfTuples(number_of_elements);
+      coords->SetName(array_names[cc].c_str());
+
+      ADIOS_SELECTION *sel = nullptr;
+      if (!streamIsFileBased(iStream.ReadMethod))
+        {
+        int rank = 0;
+        MPI_Comm_rank(comm, &rank);
+        sel = adios_selection_writeblock(rank);
+        if (!sel)
+          {
+          SENSEI_ERROR("Failed to make the selction")
+          return -1;
+          }
+        }
+
+      path = coords_path[cc] + "data";
+      adios_schedule_read(iStream.File, sel, path.c_str(),
+        0, 1, coords->GetVoidPointer(0));
+
+      if (adios_perform_reads(iStream.File, 1))
+        {
+        SENSEI_ERROR("Failed to read points")
+        return -1;
+        }
+
+      if (sel)
+        adios_selection_delete(sel);
+
+      switch (cc)
+       {
+        case 0:
+          rg->SetXCoordinates(coords);
+          break;
+        case 1:
+          rg->SetYCoordinates(coords);
+          break;
+        case 2:
+          rg->SetZCoordinates(coords);
+          break;
+        }
+      coords->Delete();
+      }
+    }
   return 0;
 }
 
@@ -1458,6 +1660,12 @@ uint64_t PointsSchema::GetPointsSize(vtkDataSet *ds)
 
     size += pts->GetNumberOfTuples()*
       pts->GetNumberOfComponents()*pts->GetElementComponentSize();
+    }
+  else if (vtkRectilinearGrid* rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    {
+    size += rg->GetXCoordinates()->GetNumberOfTuples() * rg->GetXCoordinates()->GetElementComponentSize();
+    size += rg->GetYCoordinates()->GetNumberOfTuples() * rg->GetYCoordinates()->GetElementComponentSize();
+    size += rg->GetZCoordinates()->GetNumberOfTuples() * rg->GetZCoordinates()->GetElementComponentSize();
     }
   return size;
 }
