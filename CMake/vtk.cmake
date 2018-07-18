@@ -14,6 +14,13 @@ endif()
 if (ENABLE_VTK_M)
   list(APPEND SENSEI_VTK_COMPONENTS vtkAcceleratorsVTKm vtkIOLegacy
     vtkFiltersGeometry vtkImagingCore)
+
+  # Now find VTK-m so it can be used independently of VTK
+  # This makes the vtkm_cont library available as well as
+  # targets vtkm::tbb and vtkm::cuda if they exist (so that
+  # device support can be conditionally compiled) using
+  #    IF (TARGET vtkm::tbb) ... ENDIF()
+  find_package(VTKm REQUIRED QUIET)
 endif()
 
 if (NOT ENABLE_CATALYST)

@@ -215,6 +215,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
     return -1;
     }
 
+  auto mesh = node.attribute("mesh");
+  auto array = node.attribute("array");
+
   double value = node.attribute("value").as_double(0.0);
   bool writeOutput = node.attribute("write_output").as_bool(false);
 
@@ -223,7 +226,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   if (this->Comm != MPI_COMM_NULL)
     contour->SetCommunicator(this->Comm);
 
-  contour->Initialize(mesh.value(),array.value(), value, writeOutput);
+  contour->Initialize(mesh.value(), array.value(), value, writeOutput);
 
   this->Analyses.push_back(contour.GetPointer());
 

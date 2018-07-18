@@ -5,6 +5,11 @@ The included initial condition, initializes an area roughly the size of, the
 solar system with a number of of planets of varying masses at randomly chosen
 locations. A sun sized body is placed at the center of the domain.
 
+Unlike other miniapps, this one requires you to build the project with
+`ENABLE_SENSEI` turned on; the python script must be able to import the
+sensei module. (The other mini-apps will run a fixed, non-configurable
+analysis when `ENABLE_SENSEI` is off.)
+
 ## Command line options
 ```bash
 usage: newton.py [-h] [--analysis ANALYSIS] [--analysis_opts ANALYSIS_OPTS]
@@ -54,8 +59,8 @@ export LD_LIBRARY_PATH=/work/SENSEI/PV/lib/:$LD_LIBRARY_PATH
 export PYTHONPATH=/work/SENSEI/PV/lib/site-packages/:/work/SENSEI/PV/lib/:$PYTHONPATH
 
 # configure the build
-cmake -DENABLE_PYTHON=ON -DENABLE_CATALYST=ON -DENABLE_CATALYST_PYTHON=ON \
-  -DParaView_DIR=/work/SENSEI/PV ../sensei/
+cmake -DENABLE_SENSEI:BOOL=ON -DENABLE_PYTHON:BOOL=ON -DENABLE_CATALYST:BOOL=ON \
+  -DENABLE_CATALYST_PYTHON:BOOL=ON -DParaView_DIR:PATH=/work/SENSEI/PV ../sensei/
 ```
 
 ### Running

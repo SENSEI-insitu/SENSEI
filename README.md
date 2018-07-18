@@ -103,21 +103,22 @@ $ make install
 ### Build Options
 | Build Option | Default | Description                     |
 |--------------|---------|---------------------------------|
-| ENABLE_SENSEI | ON | Enables the core SENSEI library. Requires VTK |
-| ENABLE_PYTHON | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
-| ENABLE_VTK_GENERIC_ARRAYS | OFF | Enables use of VTK's generic array feature.  |
-| ENABLE_CATALYST | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set ParaView_DIR. |
-| ENABLE_CATALYST_PYTHON | OFF | Enables Python features of the Catalyst analysis adaptor.  |
-| ENABLE_ADIOS | OFF | Enables ADIOS adaptors and endpoints. Set ADIOS_DIR. |
-| ENABLE_LIBSIM | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set VTK_DIR and LIBSIM_DIR. |
-| ENABLE_VTK_IO | OFF | Enables adaptors to write to VTK XML format. |
-| ENABLE_VTK_MPI | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
-| ENABLE_PARALLEL3D | ON | Enables the parallel 3D mini-app. |
-| ENABLE_OSCILLATORS | ON | Enables the oscillators mini-app. |
-| VTK_DIR | | Set to the directory containing VTKConfig.cmake. |
-| ParaView_DIR | | Set to the directory containing ParaViewConfig.cmake. |
-| ADIOS_DIR | | Set to the directory containing ADIOSConfig.cmake |
-| LIBSIM_DIR | | Path to libsim install. |
+| `ENABLE_SENSEI` | ON | Enables the core SENSEI library. Requires VTK. When this is disabled, the included mini-apps will run fixed analyses. When enabled, the mini-apps will pass data through SENSEI and the analysis may be configured at run-time. This allows SENSEI overhead to be characterized.|
+| `ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
+| `ENABLE_VTK_GENERIC_ARRAYS` | OFF | Enables use of VTK's generic array feature.  |
+| `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
+| `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
+| `ENABLE_ADIOS` | OFF | Enables ADIOS adaptors and endpoints. Set `ADIOS_DIR`. |
+| `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
+| `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
+| `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
+| `ENABLE_VTK_M` | ON | Enables analyses that use VTKm directly instead of via VTK. |
+| `ENABLE_PARALLEL3D` | ON | Enables the parallel 3D mini-app. |
+| `ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
+| `VTK_DIR` | | Set to the directory containing VTKConfig.cmake. |
+| `ParaView_DIR` | | Set to the directory containing ParaViewConfig.cmake. |
+| `ADIOS_DIR` | | Set to the directory containing ADIOSConfig.cmake |
+| `LIBSIM_DIR` | | Path to libsim install. |
 
 
 ### For use with ADIOS
