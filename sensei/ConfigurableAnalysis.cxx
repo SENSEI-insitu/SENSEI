@@ -398,16 +398,17 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 
   std::string filename;
   LibsimImageProperties imageProps;
-  if(node.attribute("image-filename") != NULL)
-  {
-    imageProps.SetFilename(node.attribute("image-filename").value());
-    filename = node.attribute("image-filename").value();
-  }
   if(node.attribute("filename") != NULL)
   {
     imageProps.SetFilename(node.attribute("filename").value());
     filename = node.attribute("filename").value();
   }
+  if(node.attribute("image-filename") != NULL)
+  {
+    imageProps.SetFilename(node.attribute("image-filename").value());
+    filename = node.attribute("image-filename").value();
+  }
+
   if(node.attribute("image-width") != NULL)
     imageProps.SetWidth(node.attribute("image-width").as_int());
 
@@ -418,6 +419,10 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   double origin[3] = {0.,0.,0.};
   double normal[3] = {1.,0.,0.};
   bool slice = false, project = false;
+
+  std::string session;
+  if(node.attribute("session") != NULL)
+    session = node.attribute("session").value();
 
   if(node.attribute("plots") != NULL)
     plots = node.attribute("plots").value();
@@ -456,7 +461,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   if(doExport)
   {
     // Add the export that we want to make.
-    if(!this->LibsimAdaptor->AddExport(frequency, plots, plotVars,
+    if(!this->LibsimAdaptor->AddExport(frequency, session, plots, plotVars,
       slice, project, origin, normal, filename))
       return -2;
 
@@ -465,7 +470,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   else
   {
     // Add the image that we want to make.
-    if(!this->LibsimAdaptor->AddRender(frequency, plots, plotVars,
+    if(!this->LibsimAdaptor->AddRender(frequency, session, plots, plotVars,
       slice, project, origin, normal, imageProps))
       return -2;
 

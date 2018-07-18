@@ -26,6 +26,14 @@
             color-range="0.0001,1.5" color-log="1"
             enabled="0" />
 
+  <!-- Libsim Batch Analysis using session file -->
+  <analysis type="libsim" visitdir="/Users/bjw/Development/MAIN/trunk/install" 
+            mode="batch" 
+            frequency="10"
+            session="oscillator.session"
+            image-filename="a%ts.png" image-width="800" image-height="800" image-format="png"
+            enabled="0"/>
+
   <!-- ADIOS Analyses -->
   <analysis type="adios" filename="oscillators.bp" method="MPI" enabled="0" />
 </sensei>
