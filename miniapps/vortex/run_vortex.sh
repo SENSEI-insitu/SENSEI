@@ -10,4 +10,4 @@ rm *.bp *.vti
 #mpirun -np 8 ./vortex -f vortex.xml -i 11 -r 2 -l 4 -log
 
 # This happens to make 11 patches
-mpirun -np 8 ./vortex -f vortex.xml -i 11 -r 2 -l 2 
+mpirun -np 2 ./vortex -f vortex.xml -i 11 -r 2 -l 2 

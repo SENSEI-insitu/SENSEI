@@ -15,7 +15,7 @@
   <analysis type="libsim" visitdir="/Users/bjw/Development/MAIN/trunk/build"
             mode="batch" 
             frequency="1" session="vortex_slice.session"
-            image-filename="a%ts" image-width="600" image-height="400" image-format="png"
+            image-filename="a%ts" image-width="1600" image-height="400" image-format="png"
             enabled="1"/>
 
   <!-- idea for changing Libsim adaptor config
