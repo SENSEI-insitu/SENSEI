@@ -2234,17 +2234,20 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *name, void *cbdata
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetDomainList\n");
 #endif
 
-    if(VisIt_DomainList_alloc(&h) != VISIT_ERROR)
+    // Create a list of domains owned by this rank.
+    int *iptr = nullptr, size = 0;
+    iptr = This->GetDomains(name, size);
+
+    if(size > 0)
     {
-        visit_handle hdl;
-        int *iptr = nullptr, size = 0;
+        if(VisIt_DomainList_alloc(&h) != VISIT_ERROR)
+        {
+            visit_handle hdl;
 
-        // Create a list of domains owned by this rank.
-        iptr = This->GetDomains(name, size);
-
-        VisIt_VariableData_alloc(&hdl);
-        VisIt_VariableData_setDataI(hdl, VISIT_OWNER_VISIT, 1, size, iptr);
-        VisIt_DomainList_setDomains(h, This->GetTotalDomains(meshName), hdl);
+            VisIt_VariableData_alloc(&hdl);
+            VisIt_VariableData_setDataI(hdl, VISIT_OWNER_VISIT, 1, size, iptr);
+            VisIt_DomainList_setDomains(h, This->GetTotalDomains(meshName), hdl);
+        }
     }
     return h;
 }

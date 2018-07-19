@@ -62,7 +62,7 @@ simulation_data::simulation_data()
     // Add another. What the heck.
     nVortex++;
     vortices[1] = vortex(5., 0.05, 0.25,
-                         0.02, 0.01, 0., // its velocity
+                         0.02, 0., 0., // its velocity
                          1., // gamma
                          0.02 // radius
                         );
