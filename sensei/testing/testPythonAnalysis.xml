@@ -1,0 +1,12 @@
+<sensei>
+  <analysis type="python" script_module="Histogram" enabled="1">
+    <initialize_source>
+numBins=10
+meshName='mesh'
+arrayName='values'
+arrayCen=1
+     </initialize_source>
+  </analysis>
+
+  <analysis type="PosthocIO" mode="paraview" output_dir="./" enabled="1" />
+</sensei>

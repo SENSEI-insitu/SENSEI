@@ -1,0 +1,28 @@
+#!/bin/bash
+
+SENSEI_INCLUDES=@SENSEI_INCLUDES@
+SENSEI_CFLAGS=`echo ${SENSEI_INCLUDES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d' | sed -s 's/^/-I /g' | tr '\n' ' '`
+SENSEI_INCLUDES=`echo ${SENSEI_INCLUDES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d' | tr '\n' ' '`
+
+SENSEI_LIBRARIES=@SENSEI_LIBRARIES@
+SENSEI_LIBRARIES=`echo ${SENSEI_LIBRARIES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d'  | tr '\n' ' '`
+
+if [[ $# > 0 ]]
+then
+    for a in $@
+    do
+        if [[ "$a" ==  "--libs" ]]
+        then
+            echo -n "${SENSEI_LIBRARIES} "
+        elif [[ "$a" == "--includes" ]]
+        then
+            echo -n "${SENSEI_INCLUDES} "
+        elif [[ "$a" == "--cflags" ]]
+        then
+            echo -n "${SENSEI_CFLAGS} "
+        fi
+    done
+    echo
+fi
+
+export SENSEI_CFLAGS SENSEI_INCLUDES SENSEI_LIBRARIES

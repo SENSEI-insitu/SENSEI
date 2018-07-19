@@ -40,8 +40,8 @@ namespace sensei
 senseiNewMacro(ADIOSAnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOSAnalysisAdaptor::ADIOSAnalysisAdaptor() : Comm(MPI_COMM_WORLD),
-   MaxBufferSize(500), Schema(nullptr), Method("MPI"), FileName("sensei.bp")
+ADIOSAnalysisAdaptor::ADIOSAnalysisAdaptor() : MaxBufferSize(500),
+    Schema(nullptr), Method("MPI"), FileName("sensei.bp")
 {
 }
 
@@ -178,7 +178,7 @@ int ADIOSAnalysisAdaptor::InitializeADIOS(
     timer::MarkEvent mark("ADIOSAnalysisAdaptor::IntializeADIOS");
 
     // initialize adios
-    adios_init_noxml(this->Comm);
+    adios_init_noxml(this->GetCommunicator());
 
     int64_t gHandle = 0;
 
@@ -196,7 +196,7 @@ int ADIOSAnalysisAdaptor::InitializeADIOS(
     // define ADIOS variables
     this->Schema = new senseiADIOS::DataObjectCollectionSchema;
 
-    if (this->Schema->DefineVariables(this->Comm, gHandle, objectNames, objects))
+    if (this->Schema->DefineVariables(this->GetCommunicator(), gHandle, objectNames, objects))
       {
       SENSEI_ERROR("Failed to define variables")
       return -1;
@@ -209,7 +209,7 @@ int ADIOSAnalysisAdaptor::InitializeADIOS(
 int ADIOSAnalysisAdaptor::FinalizeADIOS()
 {
   int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
   adios_finalize(rank);
   return 0;
 }
@@ -238,13 +238,15 @@ int ADIOSAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   int64_t handle = 0;
 
   adios_open(&handle, "sensei", this->FileName.c_str(),
-    timeStep == 0 ? "w" : "a", this->Comm);
+    timeStep == 0 ? "w" : "a", this->GetCommunicator());
 
-  uint64_t group_size = this->Schema->GetSize(this->Comm, objectNames, objects);
+  uint64_t group_size = this->Schema->GetSize(
+    this->GetCommunicator(), objectNames, objects);
+
   adios_group_size(handle, group_size, &group_size);
 
-  if (this->Schema->Write(this->Comm, handle, timeStep, time,
-    objectNames, objects))
+  if (this->Schema->Write(this->GetCommunicator(), handle,
+    timeStep, time, objectNames, objects))
     {
     SENSEI_ERROR("Failed to write step " << timeStep
       << " to \"" << this->FileName << "\"")

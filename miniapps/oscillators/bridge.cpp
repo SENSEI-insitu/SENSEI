@@ -15,19 +15,17 @@ static vtkSmartPointer<oscillators::DataAdaptor> GlobalDataAdaptor;
 static vtkSmartPointer<sensei::ConfigurableAnalysis> GlobalAnalysisAdaptor;
 
 //-----------------------------------------------------------------------------
-void initialize(MPI_Comm world,
-                size_t window,
-                size_t nblocks,
-                size_t n_local_blocks,
-                int domain_shape_x, int domain_shape_y, int domain_shape_z,
-                int* gid,
-                int* from_x, int* from_y, int* from_z,
-                int* to_x,   int* to_y,   int* to_z,
-                int* shape, int ghostLevels,
-                const std::string& config_file)
+void initialize(MPI_Comm comm, size_t window, size_t nblocks,
+  size_t n_local_blocks, int domain_shape_x, int domain_shape_y,
+  int domain_shape_z, int* gid, int* from_x, int* from_y, int* from_z,
+  int* to_x, int* to_y, int* to_z, int* shape, int ghostLevels,
+  const std::string& config_file)
 {
-  (void)window;
   timer::MarkEvent mark("oscillators::bridge::initialize");
+
+  (void)window;
+  (void)comm;
+
   GlobalDataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
   GlobalDataAdaptor->Initialize(nblocks, shape, ghostLevels);
   GlobalDataAdaptor->SetDataTimeStep(-1);
@@ -35,8 +33,7 @@ void initialize(MPI_Comm world,
   for (size_t cc=0; cc < n_local_blocks; ++cc)
     {
     GlobalDataAdaptor->SetBlockExtent(gid[cc],
-      from_x[cc], to_x[cc],
-      from_y[cc], to_y[cc],
+      from_x[cc], to_x[cc], from_y[cc], to_y[cc],
       from_z[cc], to_z[cc]);
     }
 
@@ -44,7 +41,7 @@ void initialize(MPI_Comm world,
   GlobalDataAdaptor->SetDataExtent(dext);
 
   GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-  GlobalAnalysisAdaptor->Initialize(world, config_file);
+  GlobalAnalysisAdaptor->Initialize(config_file);
 }
 
 //-----------------------------------------------------------------------------
@@ -77,8 +74,8 @@ void finalize(size_t k_max, size_t nblocks)
 
   GlobalAnalysisAdaptor->Finalize();
 
-  GlobalAnalysisAdaptor = NULL;
-  GlobalDataAdaptor = NULL;
+  GlobalAnalysisAdaptor = nullptr;
+  GlobalDataAdaptor = nullptr;
 
   timer::MarkEndEvent("oscillators::bridge::finalize");
 }

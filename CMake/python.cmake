@@ -1,4 +1,5 @@
 if (ENABLE_PYTHON)
+  # TODO -- Python 3
   find_package(PythonInterp REQUIRED)
   if(PYTHONINTERP_FOUND)
       find_program(PYTHON_CONFIG_EXECUTABLE python-config)
@@ -41,7 +42,7 @@ if (ENABLE_PYTHON)
           COMMAND ${swig_cmd} -c++ -python -MM
               -I${MPI4PY_INCLUDE_DIR} -I${CMAKE_BINARY_DIR}
               -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}
-              -I${CMAKE_SOURCE_DIR}/sensei
+              -I${CMAKE_SOURCE_DIR}/sensei -I${CMAKE_SOURCE_DIR}/python
               ${input_file} | sed -e 's/[[:space:]\\]\\{1,\\}//g' -e '1,2d' -e '/senseiConfig\\.h/d' > ${output_file}
           MAIN_DEPENDENCY ${input_file}
           COMMENT "Generating dependency file for ${input}...")
@@ -51,13 +52,13 @@ if (ENABLE_PYTHON)
           COMMAND ${swig_cmd} -c++ -python -MM
               -I${MPI4PY_INCLUDE_DIR} -I${CMAKE_BINARY_DIR}
               -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}
-              -I${CMAKE_SOURCE_DIR}/sensei -DSWIG_BOOTSTRAP
-              ${input_file}
+              -I${CMAKE_SOURCE_DIR}/sensei -I${CMAKE_SOURCE_DIR}/python
+              -DSWIG_BOOTSTRAP ${input_file}
          COMMAND sed -e s/[[:space:]\\]\\{1,\\}//g -e 1,2d -e /senseiConfig\\.h/d
          OUTPUT_FILE ${output_file})
   endfunction()
 
-  function(wrap_swig input output depend)
+  function(wrap_swig input output depend ttable)
       set(input_file ${CMAKE_CURRENT_SOURCE_DIR}/${input})
       set(output_file ${CMAKE_CURRENT_BINARY_DIR}/${output})
       set(depend_file ${CMAKE_CURRENT_BINARY_DIR}/${depend})
@@ -65,10 +66,10 @@ if (ENABLE_PYTHON)
       add_custom_command(
           OUTPUT ${output_file}
           COMMAND ${swig_cmd} -c++ -python -w341,325,401,504
-              -DSWIG_TYPE_TABLE=senseiPython
+              -DSWIG_TYPE_TABLE=${ttable}
               -I${MPI4PY_INCLUDE_DIR} -I${CMAKE_BINARY_DIR}
               -I${CMAKE_CURRENT_BINARY_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}
-              -I${CMAKE_SOURCE_DIR}/sensei
+              -I${CMAKE_SOURCE_DIR}/sensei -I${CMAKE_SOURCE_DIR}/python
               -o ${output_file} ${input_file}
           MAIN_DEPENDENCY ${input_file}
           DEPENDS ${depend_file} ${depends}

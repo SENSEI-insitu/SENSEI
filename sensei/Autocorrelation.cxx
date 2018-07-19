@@ -237,14 +237,13 @@ Autocorrelation::~Autocorrelation()
 }
 
 //-----------------------------------------------------------------------------
-void Autocorrelation::Initialize(MPI_Comm world, size_t window,
-  const std::string &meshName, int association, const std::string &arrayname,
-  size_t kmax)
+void Autocorrelation::Initialize(size_t window, const std::string &meshName,
+  int association, const std::string &arrayname, size_t kmax)
 {
   timer::MarkEvent mark("Autocorrelation::Initialize");
 
   AInternals& internals = (*this->Internals);
-  internals.Master = make_unique<diy::Master>(world, -1, -1,
+  internals.Master = make_unique<diy::Master>(this->GetCommunicator(), -1, -1,
                                               &AutocorrelationImpl::create,
                                               &AutocorrelationImpl::destroy);
   internals.MeshName = meshName;
@@ -309,7 +308,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
         vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
           dataObj->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
         vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
-          dataObj->GetCellData()->GetArray("vtkGhostType"));       
+          dataObj->GetCellData()->GetArray("vtkGhostType"));
         if (fa)
           {
           corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);

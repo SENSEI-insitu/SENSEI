@@ -36,7 +36,7 @@ def read_data(file_name, method):
   # initialize the data adaptor
   status_message('initializing ADIOSDataAdaptor %s %s'%(file_name,method))
   da = ADIOSDataAdaptor.New()
-  da.Open(MPI.COMM_WORLD, method, file_name)
+  da.Open(method, file_name)
   # process all time steps
   n_steps = 0
   retval = 0

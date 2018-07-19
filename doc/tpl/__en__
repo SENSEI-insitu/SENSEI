@@ -1,0 +1,34 @@
+menu:
+  learn-more: Learn more
+  develop: Develop
+  news: News
+
+index:
+  learn-more: Learn more
+  develop: Develop
+  news: News
+
+page:
+  contents: Contents
+  back_to_top: Back to Top
+  improve: Improve this doc
+  prev: Prev
+  next: Next
+  last_updated: "Last updated: %s"
+
+sidebar:
+  learn-more:
+    project: Project
+    about: About
+    overview: Overview
+    presentations: Presentations
+    papers: Papers
+    software: Software
+    participants: Participants
+  develop:
+    using: Using
+    overview: Overview
+    python-analysis: Python Analysis
+    dataset-schema: Dataset schema
+    testing: Testing
+    contributing: Contributing

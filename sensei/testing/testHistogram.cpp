@@ -128,8 +128,7 @@ int main(int argc, char **argv)
 
   sensei::Histogram *analysisAdaptor = sensei::Histogram::New();
 
-  analysisAdaptor->Initialize(MPI_COMM_WORLD,
-    gNBins, "mesh", vtkDataObject::POINT, "normal");
+  analysisAdaptor->Initialize(gNBins, "mesh", vtkDataObject::POINT, "normal");
 
   analysisAdaptor->Execute(dataAdaptor);
 

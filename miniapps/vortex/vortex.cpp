@@ -705,7 +705,9 @@ int main(int argc, char **argv)
 
     vtkSmartPointer<sensei::ConfigurableAnalysis> analysisAdaptor;
     analysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-    analysisAdaptor->Initialize(MPI_COMM_WORLD, config_file);
+    analysisAdaptor->SetCommunicator(MPI_COMM_WORLD);
+    analysisAdaptor->Initialize(config_file);
+    
     timer::MarkEndEvent("vortex::initialize");
 #endif
     //pause();

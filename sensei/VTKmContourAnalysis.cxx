@@ -1,6 +1,7 @@
 #include "VTKmContourAnalysis.h"
 
 #include "DataAdaptor.h"
+#include "Error.h"
 
 #include <vtkObjectFactory.h>
 #include <vtkmAverageToPoints.h>
@@ -46,8 +47,7 @@ vtkStandardNewMacro(VTKmContourAnalysis);
 #endif
 
 //-----------------------------------------------------------------------------
-VTKmContourAnalysis::VTKmContourAnalysis() :
-  Communicator(MPI_COMM_WORLD)
+VTKmContourAnalysis::VTKmContourAnalysis()
 {
 }
 
@@ -57,13 +57,11 @@ VTKmContourAnalysis::~VTKmContourAnalysis()
 }
 
 //-----------------------------------------------------------------------------
-void VTKmContourAnalysis::Initialize(MPI_Comm comm,
-  const std::string &meshName, const std::string &arrayName,
-  double value, bool writeOutput)
+void VTKmContourAnalysis::Initialize(const std::string& meshName,
+  const std::string& arrayName, double value, bool writeOutput)
 {
-  this->Communicator = comm;
   this->MeshName = meshName;
-  this->ArrayName = arrayname;
+  this->ArrayName = arrayName;
   this->Value = value;
   this->WriteOutput = writeOutput;
 }
@@ -321,7 +319,7 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
     contr->GetCommunicator());
   diy::mpi::communicator comm(*vtkcomm->GetMPIComm()->GetHandle());
 
-  diy::Master               master(comm);
+  diy::Master master(comm);
 
   std::vector<Block> blocks;
   blocks.reserve(nblocks);
@@ -385,9 +383,10 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
     prev->Register(0);
     }
 
+  MPI_Comm comm = this->GetCommunicator();
+  vtkMPICommunicatorOpaqueComm ocomm(&comm);
   vtkNew<vtkMPICommunicator> vtkComm;
-  vtkMPICommunicatorOpaqueComm h(&this->Communicator);
-  vtkComm->InitializeExternal(&h);
+  vtkComm->InitializeExternal(&ocomm);
 
   vtkNew<vtkMPIController> con;
   con->SetCommunicator(vtkComm.GetPointer());
@@ -395,9 +394,9 @@ bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
 
   vtkDataObject* mesh = nullptr;
-  if (data->GetMesh(meshName, false, mesh))
+  if (data->GetMesh(this->MeshName, false, mesh))
     {
-    SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+    SENSEI_ERROR("Failed to get mesh \"" << this->MeshName << "\"");
     return false;
     }
 

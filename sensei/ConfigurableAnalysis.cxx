@@ -5,10 +5,15 @@
 #include "DataRequirements.h"
 
 #include "Autocorrelation.h"
-#include "VTKPosthocIO.h"
 #include "Histogram.h"
+#ifdef ENABLE_VTK_IO
+#include "VTKPosthocIO.h"
+#ifdef ENABLE_VTK_MPI
+#include "VTKAmrWriter.h"
+#endif
+#endif
 #ifdef ENABLE_VTK_M
-# include "VTKmContourAnalysis.h"
+#include "VTKmContourAnalysis.h"
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
@@ -20,6 +25,9 @@
 #ifdef ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
+#endif
+#ifdef ENABLE_PYTHON
+#include "PythonAnalysis.h"
 #endif
 
 #include <vtkObjectFactory.h>
@@ -114,43 +122,49 @@ static int parse(MPI_Comm comm, int rank,
   return 0;
 }
 
-class ConfigurableAnalysis::InternalsType
+struct ConfigurableAnalysis::InternalsType
 {
-public:
-  // adds the histogram analysis
-  int AddHistogram(MPI_Comm comm, pugi::xml_node node);
+  InternalsType() : Comm(MPI_COMM_NULL) {}
 
-  // adds the VTK-m analysis, if VTK-m features are present
-  int AddVTKmContour(MPI_Comm comm, pugi::xml_node node);
-
-  // adds the ADIOS analysis, if ADIOS features are present
-  int AddAdios(MPI_Comm comm, pugi::xml_node node);
-
-  // adds the Catalyst analysis, if Catalyst features are present
-  int AddCatalyst(MPI_Comm comm, pugi::xml_node node);
-
-  // adds the libsim analysis, if libsim features are present
-  int AddLibsim(MPI_Comm comm, pugi::xml_node node);
-
-  // adds the autocorrelation analysis, if autocorrelation features are present
-  int AddAutoCorrelation(MPI_Comm comm, pugi::xml_node node);
-
-  // adds the post hoc I/O analysis
-  int AddPosthocIO(MPI_Comm comm, pugi::xml_node node);
+  // creates, initializes from xml, and adds the analysis
+  // if it has been compiled into the build and is enabled.
+  // a status message indicating success/failure is printed
+  // by rank 0
+  int AddHistogram(pugi::xml_node node);
+  int AddVTKmContour(pugi::xml_node node);
+  int AddAdios(pugi::xml_node node);
+  int AddCatalyst(pugi::xml_node node);
+  int AddLibsim(pugi::xml_node node);
+  int AddAutoCorrelation(pugi::xml_node node);
+  int AddPosthocIO(pugi::xml_node node);
+  int AddVTKAmrWriter(pugi::xml_node node);
+  int AddPythonAnalysis(pugi::xml_node node);
 
 public:
+  // list of all analyses. api calls are forwareded to each
+  // analysis in the list
   AnalysisAdaptorVector Analyses;
+
+  // special analyses. these apear in the above list, however
+  // they require special treatment which is simplified by
+  // storing an additional pointer.
 #ifdef ENABLE_LIBSIM
   vtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
 #endif
 #ifdef ENABLE_CATALYST
   vtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
 #endif
+
+  // the communicator that is used to initialize new analyses.
+  // When this is MPI_COMM_NULL, the default, each analysis uses
+  // it's default, a duplicate of COMM_WORLD. thus if the user
+  // doesn't set a communicator correct behavior is insured
+  // and superfluous Comm_dup's are avoided.
+  MPI_Comm Comm;
 };
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddHistogram(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 {
   if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
     {
@@ -172,7 +186,10 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(MPI_Comm comm,
 
   vtkNew<Histogram> histogram;
 
-  histogram->Initialize(comm, bins, mesh, association, array);
+  if (this->Comm != MPI_COMM_NULL)
+    histogram->SetCommunicator(this->Comm);
+
+  histogram->Initialize(bins, mesh, association, array);
 
   this->Analyses.push_back(histogram.GetPointer());
 
@@ -184,11 +201,9 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(MPI_Comm comm,
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   {
 #ifndef ENABLE_VTK_M
-  (void)comm;
   (void)node;
   SENSEI_ERROR("VTK-m was requested but is disabled in this build")
   return -1;
@@ -200,13 +215,18 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
     return -1;
     }
 
+  auto mesh = node.attribute("mesh");
+  auto array = node.attribute("array");
+
   double value = node.attribute("value").as_double(0.0);
   bool writeOutput = node.attribute("write_output").as_bool(false);
 
   vtkNew<VTKmContourAnalysis> contour;
 
-  contour->Initialize(comm, mesh.value(),
-    array.value(), value, writeOutput);
+  if (this->Comm != MPI_COMM_NULL)
+    contour->SetCommunicator(this->Comm);
+
+  contour->Initialize(mesh.value(), array.value(), value, writeOutput);
 
   this->Analyses.push_back(contour.GetPointer());
 
@@ -217,10 +237,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(MPI_Comm comm,
   }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddAdios(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
 {
-  (void)comm;
 #ifndef ENABLE_ADIOS
   (void)node;
   SENSEI_ERROR("ADIOS was requested but is disabled in this build")
@@ -228,6 +246,10 @@ int ConfigurableAnalysis::InternalsType::AddAdios(MPI_Comm comm,
 #else
 
   vtkNew<ADIOSAnalysisAdaptor> adios;
+
+  if (this->Comm != MPI_COMM_NULL)
+    adios->SetCommunicator(this->Comm);
+
   pugi::xml_attribute filename = node.attribute("filename");
   if (filename)
     adios->SetFileName(filename.value());
@@ -246,24 +268,29 @@ int ConfigurableAnalysis::InternalsType::AddAdios(MPI_Comm comm,
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 {
 #ifndef ENABLE_CATALYST
-  (void)comm;
   (void)node;
   SENSEI_ERROR("Catalyst was requested but is disabled in this build")
   return -1;
 #else
-  (void)comm;
+  // a single adaptor used with multiple pipelines
   if (!this->CatalystAdaptor)
     {
     this->CatalystAdaptor = vtkSmartPointer<CatalystAnalysisAdaptor>::New();
+
+    if (this->Comm != MPI_COMM_NULL)
+      this->CatalystAdaptor->SetCommunicator(this->Comm);
+
     this->Analyses.push_back(this->CatalystAdaptor);
     }
+
+  // Add the pipelines
   if (strcmp(node.attribute("pipeline").value(), "slice") == 0)
     {
     vtkNew<CatalystSlice> slice;
+
     double tmp[3];
     if (node.attribute("slice-normal") &&
       (std::sscanf(node.attribute("slice-normal").value(),
@@ -335,11 +362,9 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(MPI_Comm comm,
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 {
 #ifndef ENABLE_LIBSIM
-  (void)comm;
   (void)node;
   SENSEI_ERROR("Libsim was requested but is disabled in this build")
   return -1;
@@ -350,7 +375,8 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   if (!this->LibsimAdaptor)
     {
     this->LibsimAdaptor = vtkSmartPointer<LibsimAnalysisAdaptor>::New();
-    this->LibsimAdaptor->SetComm(comm);
+    if (this->Comm != MPI_COMM_NULL)
+      this->LibsimAdaptor->SetCommunicator(this->Comm);
     if(node.attribute("trace"))
       this->LibsimAdaptor->SetTraceFile(node.attribute("trace").value());
     if(node.attribute("options"))
@@ -375,16 +401,17 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
 
   std::string filename;
   LibsimImageProperties imageProps;
-  if(node.attribute("image-filename") != NULL)
-  {
-    imageProps.SetFilename(node.attribute("image-filename").value());
-    filename = node.attribute("image-filename").value();
-  }
   if(node.attribute("filename") != NULL)
   {
     imageProps.SetFilename(node.attribute("filename").value());
     filename = node.attribute("filename").value();
   }
+  if(node.attribute("image-filename") != NULL)
+  {
+    imageProps.SetFilename(node.attribute("image-filename").value());
+    filename = node.attribute("image-filename").value();
+  }
+
   if(node.attribute("image-width") != NULL)
     imageProps.SetWidth(node.attribute("image-width").as_int());
 
@@ -395,6 +422,10 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   double origin[3] = {0.,0.,0.};
   double normal[3] = {1.,0.,0.};
   bool slice = false, project = false;
+
+  std::string session;
+  if(node.attribute("session") != NULL)
+    session = node.attribute("session").value();
 
   if(node.attribute("plots") != NULL)
     plots = node.attribute("plots").value();
@@ -433,7 +464,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   if(doExport)
   {
     // Add the export that we want to make.
-    if(!this->LibsimAdaptor->AddExport(frequency, plots, plotVars,
+    if(!this->LibsimAdaptor->AddExport(frequency, session, plots, plotVars,
       slice, project, origin, normal, filename))
       return -2;
 
@@ -442,7 +473,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
   else
   {
     // Add the image that we want to make.
-    if(!this->LibsimAdaptor->AddRender(frequency, plots, plotVars,
+    if(!this->LibsimAdaptor->AddRender(frequency, session, plots, plotVars,
       slice, project, origin, normal, imageProps))
       return -2;
 
@@ -454,8 +485,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(MPI_Comm comm,
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 {
   if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
     {
@@ -477,9 +507,12 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(MPI_Comm comm,
   int window = node.attribute("window").as_int(10);
   int kMax = node.attribute("k-max").as_int(3);
 
-
   vtkNew<Autocorrelation> adaptor;
-  adaptor->Initialize(comm, window, meshName, assoc, arrayName, kMax);
+
+  if (this->Comm != MPI_COMM_NULL)
+    adaptor->SetCommunicator(this->Comm);
+
+  adaptor->Initialize(window, meshName, assoc, arrayName, kMax);
 
   this->Analyses.push_back(adaptor.GetPointer());
 
@@ -491,22 +524,17 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(MPI_Comm comm,
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
-  pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 {
-#ifndef ENABLE_VTK_XMLP
-  (void)comm;
+#ifndef ENABLE_VTK_IO
   (void)node;
   SENSEI_ERROR("VTK I/O was requested but is disabled in this build")
   return -1;
 #else
   DataRequirements req;
-
-  if (req.Initialize(node) ||
-    (req.GetNumberOfRequiredMeshes() < 1))
+  if (req.Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize VTKPosthocIO. "
-      "At least one mesh is required")
+    SENSEI_ERROR("Failed to initialize VTKPosthocIO.")
     return -1;
     }
 
@@ -516,9 +544,10 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
 
   vtkNew<VTKPosthocIO> adapter;
 
-  if (adapter->SetCommunicator(comm) ||
-    adapter->SetOutputDir(outputDir) ||
-    adapter->SetMode(mode) ||
+  if (this->Comm != MPI_COMM_NULL)
+    adapter->SetCommunicator(this->Comm);
+
+  if (adapter->SetOutputDir(outputDir) || adapter->SetMode(mode) ||
     adapter->SetDataRequirements(req))
     {
     SENSEI_ERROR("Failed to initialize the VTKPosthocIO analysis")
@@ -533,6 +562,99 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(MPI_Comm comm,
 #endif
 }
 
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
+{
+#if !defined(ENABLE_VTK_IO) || !defined(ENABLE_VTK_MPI)
+  (void)node;
+  SENSEI_ERROR("VTK AMR Writer was requested but is disabled in this build")
+  return -1;
+#else
+  DataRequirements req;
+
+  if (req.Initialize(node) ||
+    (req.GetNumberOfRequiredMeshes() < 1))
+    {
+    SENSEI_ERROR("Failed to initialize VTKAmrWriter. "
+      "At least one mesh is required")
+    return -1;
+    }
+
+  std::string outputDir = node.attribute("output_dir").as_string("./");
+  std::string fileName = node.attribute("file_name").as_string("data");
+  std::string mode = node.attribute("mode").as_string("visit");
+
+  vtkNew<VTKAmrWriter> adapter;
+
+  if (this->Comm != MPI_COMM_NULL)
+    adapter->SetCommunicator(this->Comm);
+
+  if (adapter->SetOutputDir(outputDir) || adapter->SetMode(mode) ||
+    adapter->SetDataRequirements(req) || adapter->Initialize())
+    {
+    SENSEI_ERROR("Failed to initialize the VTKAmrWriter analysis")
+    return -1;
+    }
+
+  this->Analyses.push_back(adapter.GetPointer());
+
+  SENSEI_STATUS("Configured VTKAmrWriter")
+
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
+{
+#if !defined(ENABLE_PYTHON)
+  (void)node;
+  SENSEI_ERROR("The PythonAnalysis was requested but is disabled in this build")
+  return -1;
+#else
+  if (!node.attribute("script_file") && !node.attribute("script_module"))
+    {
+    SENSEI_ERROR("Failed to initialize PythonAnalysis. Missing "
+      "a required attribute: script_file or script_module");
+    return -1;
+    }
+
+  std::string scriptFile = node.attribute("script_file").value();
+  std::string scriptModule = node.attribute("script_module").value();
+
+  std::string initSource;
+  pugi::xml_node inode = node.child("initialize_source");
+  if (inode)
+      initSource = inode.text().as_string();
+
+  vtkNew<PythonAnalysis> pyAnalysis;
+
+  if (this->Comm != MPI_COMM_NULL)
+    pyAnalysis->SetCommunicator(this->Comm);
+
+  pyAnalysis->SetScriptFile(scriptFile);
+  pyAnalysis->SetScriptModule(scriptModule);
+  pyAnalysis->SetInitializeSource(initSource);
+
+  if (pyAnalysis->Initialize())
+    {
+    SENSEI_ERROR("Failed to initialize PythonAnalysis")
+    return -1;
+    }
+
+  this->Analyses.push_back(pyAnalysis.GetPointer());
+
+  const char *scriptType = scriptFile.empty() ? "module" : "file";
+
+  const char *scriptName =
+    scriptFile.empty() ?  scriptModule.c_str() : scriptFile.c_str();
+
+  SENSEI_STATUS("Configured python with " << scriptType
+    << " \"" << scriptName << "\"")
+
+  return 0;
+#endif
+}
 
 
 
@@ -551,19 +673,41 @@ ConfigurableAnalysis::~ConfigurableAnalysis()
   delete this->Internals;
 }
 
+//----------------------------------------------------------------------------
+int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
+{
+  this->AnalysisAdaptor::SetCommunicator(comm);
+
+  // save the communicator for use with adaptors created
+  // during XML parsing
+  this->Internals->Comm = comm;
+
+  // set the communicator on existing adaptors, if there are any
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+
+  for (; iter != end; ++iter)
+    (*iter)->SetCommunicator(comm);
+
+  return 0;
+}
+
 
 //----------------------------------------------------------------------------
-bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename)
+int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
   int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
   pugi::xml_document doc;
-  if (parse(comm, rank, filename, doc))
+  if (parse(this->GetCommunicator(), rank, filename, doc))
     {
-    SENSEI_ERROR("failed to parse configuration")
-    return false;
+    if (rank == 0)
+        SENSEI_ERROR("failed to parse configuration")
+    return -1;
     }
 
+  int rv = 0;
   pugi::xml_node root = doc.child("sensei");
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
@@ -572,47 +716,68 @@ bool ConfigurableAnalysis::Initialize(MPI_Comm comm, const std::string& filename
       continue;
 
     std::string type = node.attribute("type").value();
-    if (!(((type == "histogram") && !this->Internals->AddHistogram(comm, node))
-      || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(comm, node))
-      || ((type == "adios") && !this->Internals->AddAdios(comm, node))
-      || ((type == "catalyst") && !this->Internals->AddCatalyst(comm, node))
-      || ((type == "libsim") && !this->Internals->AddLibsim(comm, node))
-      || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(comm, node))
-      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(comm, node))))
+    if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
+      || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
+      || ((type == "adios") && !this->Internals->AddAdios(node))
+      || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
+      || ((type == "libsim") && !this->Internals->AddLibsim(node))
+      || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
+      || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
+      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
+      || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to add '" << type << "' analysis")
+      rv -= 1;
       }
     }
-  return true;
+
+  return rv;
 }
 
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
+  int rv = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter)
     {
-    // TODO -- should we be checking the return value here?
-    // what happens when an analysis errors out? do we keep trying
-    // to execute it?
-    (*iter)->Execute(data);
+    if (!(*iter)->Execute(data))
+      {
+      if (rank == 0)
+        SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
+      rv -= 1;
+      }
     }
-  return true;
+
+  return rv < 0 ? false : true;
 }
 
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Finalize()
 {
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
+  int rv = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter)
     {
-    (*iter)->Finalize();
+    if ((*iter)->Finalize())
+      {
+      SENSEI_ERROR("Failed to finalize " << (*iter)->GetClassName())
+      rv -= 1;
+      }
     }
-  return true;
+
+  return rv;
 }
+
 //----------------------------------------------------------------------------
 void ConfigurableAnalysis::PrintSelf(ostream& os, vtkIndent indent)
 {

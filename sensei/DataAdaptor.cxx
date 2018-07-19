@@ -42,13 +42,23 @@ vtkInformationKeyMacro(DataAdaptor, DATA_TIME_STEP_INDEX, Integer);
 //----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor()
 {
+  MPI_Comm_dup(MPI_COMM_WORLD, &this->Comm);
   this->Internals = new InternalsType;
 }
 
 //----------------------------------------------------------------------------
 DataAdaptor::~DataAdaptor()
 {
+  MPI_Comm_free(&this->Comm);
   delete this->Internals;
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::SetCommunicator(MPI_Comm comm)
+{
+  MPI_Comm_free(&this->Comm);
+  MPI_Comm_dup(comm, &this->Comm);
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -160,7 +170,7 @@ int DataAdaptor::GetArrayNames(const std::string &meshName, int association,
     {
     SENSEI_ERROR("Failed to get number of "
       << VTKUtils::GetAttributesName(association)
-      << " data arrays for mesh " << meshName)
+      << " data arrays for mesh \"" << meshName << "\"")
     return -1;
     }
 

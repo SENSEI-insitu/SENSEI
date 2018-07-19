@@ -25,7 +25,6 @@ public:
   void SetTraceFile(const std::string &traceFile);
   void SetOptions(const std::string &options);
   void SetVisItDirectory(const std::string &dir);
-  void SetComm(MPI_Comm comm);
   void SetMode(const std::string &mode);
 
   // Let the caller explicitly initialize.
@@ -37,13 +36,17 @@ public:
 
   // Simple method to add some VisIt plots and render. The limit is how complex
   // we want to make this.
-  bool AddRender(int frequency, const std::string &plots,
+  bool AddRender(int frequency, 
+            const std::string &session,
+            const std::string &plots,
             const std::string &plotVars,
             bool slice, bool project2d,
             const double origin[3], const double normal[3],
             const LibsimImageProperties &imgProps);
 
-  bool AddExport(int frequency, const std::string &plot, const std::string &plotVars,
+  bool AddExport(int frequency,
+                 const std::string &session,
+                 const std::string &plot, const std::string &plotVars,
                  bool slice, bool project2d,
                  const double origin[3], const double normal[3],
                  const std::string &filename);

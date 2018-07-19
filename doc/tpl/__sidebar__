@@ -1,0 +1,17 @@
+learn-more:
+  project:
+    overview: index.html
+    about: about.html
+    presentations: presentations.html
+    papers: papers.html
+    software: software.html
+    participants: participants.html
+
+develop:
+  using:
+    overview: index.html
+    python-analysis: python-analysis.html
+    dataset-schema: adios-schema.html
+  contributing:
+    overview: contribute.html
+    testing: testing.html

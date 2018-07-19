@@ -55,7 +55,12 @@ int main(int argc, char** argv)
 
   vtkSmartPointer<sensei::ConfigurableAnalysis> analysis =
     vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-  analysis->Initialize(comm, config_file);
+
+  if (analysis->Initialize(comm, config_file))
+    {
+    SENSEI_ERROR("Failed to initialize the analysis")
+    MPI_Abort(comm, 1);
+    }
 
   size_t fname_length = input_pattern.size() + 128;
   char *fname = new char[fname_length];
