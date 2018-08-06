@@ -28,6 +28,10 @@ cmake_dependent_option(ENABLE_CONDUIT
   "Enable analysis methods that use Conduit" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_ASCENT
+  "Enable analysis methods that use ASCENT" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
   "ENABLE_SENSEI" OFF)
@@ -76,6 +80,7 @@ message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_ADIOS1=${ENABLE_ADIOS1}")
 message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
+message(STATUS "ENABLE_ASCENT=${ENABLE_ASCENT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")

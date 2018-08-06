@@ -1,0 +1,8 @@
+if(ENABLE_ASCENT)
+  find_package(ASCENT REQUIRED)
+  add_library(sascent INTERFACE)
+  target_link_libraries(sascent INTERFACE ${ASENT_LIBRARIES})
+  target_include_directories(sascent SYSTEM INTERFACE ${ASCENT_INCLUDE_DIRS} ${CONDUIT_INCLUDE_DIRS})
+  install(TARGETS sascent EXPORT sascent)
+  install(EXPORT sascent DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+endif()
