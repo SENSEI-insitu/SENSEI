@@ -32,6 +32,10 @@ cmake_dependent_option(ENABLE_ASCENT
   "Enable analysis methods that use Ascent" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_ASCENT
+  "Enable analysis methods that use ASCENT" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
   "ENABLE_SENSEI" OFF)
