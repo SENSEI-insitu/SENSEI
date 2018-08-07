@@ -10,6 +10,11 @@ if (ENABLE_SENSEI)
 
   set(senseiCore_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
+  if(ENABLE_CONDUIT)
+    list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
+    list(APPEND senseiCore_libs sconduit)
+  endif()
+
   if(ENABLE_CATALYST)
     list(APPEND senseiCore_sources CatalystAnalysisAdaptor.cxx
       CatalystSlice.cxx CatalystUtilities.cxx)
