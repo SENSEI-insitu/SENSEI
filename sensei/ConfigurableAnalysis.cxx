@@ -44,6 +44,9 @@
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #endif
+#ifdef ENABLE_ASCENT
+#include "AscentAnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
@@ -89,6 +92,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios1(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
+  int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
@@ -305,6 +309,39 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
   return 0;
 #endif
 }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
+{
+#ifndef ENABLE_ASCENT
+  (void)node;
+  SENSEI_ERROR("Ascent was requested but is disabled in this build")
+  return -1;
+#else
+
+  vtkNew<AscentAnalysisAdaptor> ascent;
+  if (this->Comm != MPI_COMM_NULL)
+    ascent->SetCommunicator(this->Comm);
+
+  this->Analyses.push_back(ascent.GetPointer());
+
+  std::string options_file;
+  std::string actions_file;
+
+  // Check if the xml file has the ascent options filename.
+  if(node.attribute("options"))
+    options_file = node.attribute("options").value();
+
+  // Check if the xml file has the ascent actions filename.
+  if(node.attribute("json"))
+    actions_file = node.attribute("json").value();
+
+  ascent->Initialize(actions_file, options_file);
+
+  return 0;
+#endif
+}
+
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
@@ -1089,6 +1126,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))

@@ -19,7 +19,8 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sConduit)
   endif()
 
-  if(ENABLE_CONDUIT)
+  if(ENABLE_ASCENT)
+    list(APPEND senseiCore_sources AscentAnalysisAdaptor.cxx)
     list(APPEND senseiCore_libs sascent)
   endif()
 

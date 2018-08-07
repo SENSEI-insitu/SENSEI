@@ -29,7 +29,7 @@ cmake_dependent_option(ENABLE_CONDUIT
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_ASCENT
-  "Enable analysis methods that use ASCENT" OFF
+  "Enable analysis methods that use Ascent" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_LIBSIM
