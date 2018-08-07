@@ -60,6 +60,7 @@ using namespace conduit;
 
 int main(int argc, char **argv)
 {
+
     std::cout << ascent::about() << std::endl;
     
     Ascent a;
@@ -97,5 +98,6 @@ int main(int argc, char **argv)
 
     // close alpine
     a.close();
+
 }
 
