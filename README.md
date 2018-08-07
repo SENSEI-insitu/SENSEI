@@ -112,7 +112,7 @@ $ make install
 | `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
 | `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
 | `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
-| `ENABLE_VTK_M` | ON | Enables analyses that use VTKm directly instead of via VTK. |
+| `ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
 | `ENABLE_PARALLEL3D` | ON | Enables the parallel 3D mini-app. |
 | `ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
 | `VTK_DIR` | | Set to the directory containing VTKConfig.cmake. |
@@ -139,12 +139,23 @@ cmake -DENABLE_SENSEI=ON -DENABLE_LIBSIM=ON -DVTK_DIR=[your path] -DLIBSIM_DIR=[
 cmake -DENABLE_SENSEI=ON -DENABLE_CATALYST=ON -DParaView_DIR=[your path] ..
 ```
 Optionally, `-DENABLE_CATALYST_PYTHON=ON` will enable Catalyst Python scripts.
+Note that a development version of ParaView is required when building with
+both `ENABLE_CATALYST` and `ENABLE_VTKM` are enabled as released versions of
+ParaView (5.5.2 and earlier) do not include a modern-enough version of vtk-m.
 
 ### Enable writing to Visit ".visit" format or ParaView ".pvd" format
 ```bash
 cmake -DENABLE_SENSEI=ON -DENABLE_VTK_IO=ON  -DVTK_DIR=[your path] ..
 ```
 Can be used with either `ParaView_DIR` or `VTK_DIR`.
+
+### For use with VTK-m
+```bash
+cmake -DENABLE_SENSEI=ON -DENABLE_VTKM=ON -DVTK_DIR=[your path] ..
+```
+Note that a development version of VTK is required when building with
+both `ENABLE_SENSEI` and `ENABLE_VTKM` are enabled as released versions of
+VTK (8.1.1 and earlier) do not include a modern-enough version of vtk-m.
 
 ### Enabling Python bindings
 In essence this is as simple as adding `-DENABLE_PYTHON=ON`. However, VTK (or
@@ -176,9 +187,20 @@ approvals from the U.S. Dept. of Energy).
 * [pugixml](https://github.com/zeux/pugixml), Copyright (c) 2006-2016 Arseny Kapoulkine.
 
 The SENSEI framework makes use of (links to) the following software:
-* [ADIOS](https://www.olcf.ornl.gov/center-projects/adios/), Copyright (c) 2008 - 2009.  UT-BATTELLE, LLC. Copyright (c) 2008 - 2009.  Georgia Institute of Technology.
+* [ADIOS](https://www.olcf.ornl.gov/center-projects/adios/), Copyright (c) 2008 - 2009.
+  UT-BATTELLE, LLC. Copyright (c) 2008 - 2009.  Georgia Institute of Technology.
 * [ParaView/Catalyst](https://gitlab.kitware.com/paraview/paraview), Copyright (c) 2005-2008 Sandia Corporation, Kitware Inc.
+  Sensei requires ParaView v5.5.1 or later when `ENABLE_CATALYST` is on
+  and a development version (v5.6.0 or later) when both `ENABLE_CATALYST` and `ENABLE_VTKM` are on.
 * [VisIt/libsim](http://visit.llnl.gov), Copyright (c) 2000 - 2016, Lawrence Livermore National Security, LLC.
 * [VTK](https://gitlab.kitware.com/vtk/vtk), Copyright (c) 1993-2015 Ken Martin, Will Schroeder, Bill Lorensen.
+  Sensei can use VTK provided separately or the VTK included with
+  VisIt/libSim (VTK v6.1 when `ENABLE_LIBSIM` is on) or
+  ParaView/Catalyst (VTK v8.1 when `ENABLE_CATALYST` is on).
+  If VTK is provided separately and both `ENABLE_VTK` and `ENABLE_VTKM` are on,
+  Sensei requires a development version (VTK v9.0 or later).
+* [VTKm](https://gitlab.kitware.com/vtk/vtkm), Copyright (c) 2014-2018 NTESS, SNL, LANL, UT-Battelle, Kitware, UC Davis.
+  A development version is currently required as packaging infrastructure has recently changed.
 
-For full license information regarding included and used software please refer to the file [THIRDPARTY_SOFTWARE_LICENSES](THIRDPARTY_SOFTWARE_LICENSES).
+For full license information regarding included and used software please refer
+to the file [THIRDPARTY_SOFTWARE_LICENSES](THIRDPARTY_SOFTWARE_LICENSES).

@@ -36,9 +36,25 @@ cmake_dependent_option(ENABLE_VTK_MPI
   "Enable use of parallel vtk" OFF
   "ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_M
+cmake_dependent_option(ENABLE_VTK_ACCELERATORS
+  "Enable analysis methods that use VTK-m via VTK's Accelerators module" OFF
+  "ENABLE_SENSEI" OFF)
+
+# Build with vtk-m support
+# If ENABLE_VTKM is ON, then linking your library/executable to vtkm_cont
+# will add include-directories and preprocessor definitions required by vtk-m.
+# The sensei library will transitively link to vtkm_cont.
+cmake_dependent_option(ENABLE_VTKM
   "Enable analysis methods that use VTK-m" OFF
-  "ENABLE_VTK_MPI" OFF)
+  "ENABLE_SENSEI" OFF)
+
+# If ENABLE_VTKM_RENDERING is ON, then linking your library/executable to
+# vtkm_rendering will add include-directories and preprocessor definitions
+# required by vtk-m.
+# The sensei library will transitively link to vtkm_rendering.
+cmake_dependent_option(ENABLE_VTKM_RENDERING
+  "Enable analysis methods that use VTK-m's rendering library" OFF
+  "ENABLE_VTKM" OFF)
 
 
 option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
@@ -55,6 +71,9 @@ message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
+message(STATUS "ENABLE_VTK_ACCELERATORS=${ENABLE_VTK_ACCELERATORS}")
+message(STATUS "ENABLE_VTKM=${ENABLE_VTKM}")
+message(STATUS "ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")
 message(STATUS "ENABLE_PARALLEL3D=${ENABLE_PARALLEL3D}")
 message(STATUS "ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")
 message(STATUS "ENABLE_CONDUITTEST=${ENABLE_CONDUITTEST}")
