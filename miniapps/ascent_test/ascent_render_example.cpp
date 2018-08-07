@@ -50,9 +50,10 @@
 
 #include <iostream>
 
-#include "ascent.hpp"
+#include <ascent.hpp>
 
-#include "conduit_blueprint.hpp"
+#include <conduit_blueprint.hpp>
+
 
 using namespace ascent;
 using namespace conduit;
@@ -60,6 +61,7 @@ using namespace conduit;
 
 int main(int argc, char **argv)
 {
+
     std::cout << ascent::about() << std::endl;
     
     Ascent a;
@@ -97,6 +99,7 @@ int main(int argc, char **argv)
 
     // close alpine
     a.close();
+
 }
 
 
