@@ -316,7 +316,7 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 #ifndef ENABLE_ASCENT
   (void)node;
   SENSEI_ERROR("Ascent was requested but is disabled in this build")
-  return -1;
+  return( -1 );
 #else
 
   vtkNew<AscentAnalysisAdaptor> ascent;
@@ -338,7 +338,7 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 
   ascent->Initialize(actions_file, options_file);
 
-  return 0;
+  return( 0 );
 #endif
 }
 
