@@ -184,6 +184,7 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
         }
 
       inDesc->SetGrid(dobj);
+      dobj->Delete();
 
       // we could get this info from metadata, however if there
       // is not advantage to doing so we might as well get it

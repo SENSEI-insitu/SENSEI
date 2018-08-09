@@ -211,6 +211,8 @@ bool Histogram::Execute(DataAdaptor* data)
         step, time, this->MeshName, this->ArrayName, this->FileName);
       }
     }
+
+  mesh->Delete();
   return true;
 }
 

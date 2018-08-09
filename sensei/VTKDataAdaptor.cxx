@@ -167,8 +167,12 @@ int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
           }
         }
       cdo->SetDataSet(cdit, dobjo);
+      dobjo->Delete();
+
       cdit->GoToNextItem();
       }
+
+    cdit->Delete();
 
     mesh = cdo;
     return 0;
@@ -182,6 +186,8 @@ int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       dsOut->CopyStructure(ds);
 
     mesh = dsOut;
+    // caller takes ownership
+
     return 0;
     }
 

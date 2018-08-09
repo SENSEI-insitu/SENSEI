@@ -245,6 +245,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       this->TimeStep[meshName].push_back(step);
       }
 
+    dobj->Delete();
     }
 
   return true;

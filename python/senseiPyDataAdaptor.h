@@ -209,6 +209,9 @@ public:
     mesh = static_cast<vtkDataObject*>(
         vtkPythonUtil::GetPointerFromObject(ret, "vtkDataObject"));
 
+    // because VTK's python runtime akes ownership
+    mesh->Register(nullptr);
+
     return 0;
     }
 

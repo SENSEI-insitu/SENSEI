@@ -320,7 +320,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
     // make sure we have composite dataset if not create one
     vtkCompositeDataSetPtr cd =
-      VTKUtils::AsCompositeData(this->GetCommunicator(), dobj);
+      VTKUtils::AsCompositeData(this->GetCommunicator(), dobj, false);
 
     vtkCompositeDataIterator *it = cd->NewIterator();
     it->SetSkipEmptyNodes(1);
@@ -415,6 +415,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
       this->NumBlocks[meshName].push_back(nBlocks);
       }
+
+    dobj->Delete();
     }
 
   dataAdaptor->ReleaseData();
