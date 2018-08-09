@@ -348,6 +348,8 @@ bool Autocorrelation::Execute(DataAdaptor* data)
       }
     }
 
+  mesh->Delete();
+
   return true;
 }
 

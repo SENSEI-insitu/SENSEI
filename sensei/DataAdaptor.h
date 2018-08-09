@@ -72,7 +72,8 @@ public:
   /// If \c structureOnly is set to true, then the geometry and topology
   /// information will not be populated. For data adaptors that produce a
   /// vtkCompositeDataSet subclass, passing \c structureOnly will still produce
-  /// appropriate composite data hierarchy.
+  /// appropriate composite data hierarchy. The caller takes ownership of the
+  /// returned mesh object, and will call Delete when it is no longer needed.
   ///
   /// @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
   /// @param[in] structureOnly When set to true (default; false) the returned mesh

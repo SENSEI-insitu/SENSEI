@@ -125,6 +125,7 @@ int main(int argc, char **argv)
 
   sensei::VTKDataAdaptor *dataAdaptor = sensei::VTKDataAdaptor::New();
   dataAdaptor->SetDataObject("mesh", im);
+  im->Delete();
 
   sensei::Histogram *analysisAdaptor = sensei::Histogram::New();
 
@@ -132,6 +133,7 @@ int main(int argc, char **argv)
      "normal", "");
 
   analysisAdaptor->Execute(dataAdaptor);
+  dataAdaptor->Delete();
 
   double min = 0.0;
   double max = 0.0;
@@ -141,6 +143,7 @@ int main(int argc, char **argv)
   int testResult = validateHistogram(min, max, bins);
 
   analysisAdaptor->Finalize();
+  analysisAdaptor->Delete();
 
   MPI_Finalize();
 
