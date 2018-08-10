@@ -12,8 +12,11 @@
 #include "VTKAmrWriter.h"
 #endif
 #endif
-#ifdef ENABLE_VTK_M
+#ifdef ENABLE_VTK_ACCELERATORS
 #include "VTKmContourAnalysis.h"
+#endif
+#ifdef ENABLE_VTKM
+#include "VTKmVolumeReductionAnalysis.h"
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
@@ -132,6 +135,7 @@ struct ConfigurableAnalysis::InternalsType
   // by rank 0
   int AddHistogram(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
+  int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddAdios(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
@@ -202,10 +206,10 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
-  {
-#ifndef ENABLE_VTK_M
+{
+#ifndef ENABLE_VTK_ACCELERATORS
   (void)node;
-  SENSEI_ERROR("VTK-m was requested but is disabled in this build")
+  SENSEI_ERROR("vtkAcceleratorsVtkm was requested but is disabled in this build")
   return -1;
 #else
 
@@ -234,7 +238,44 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 
   return 0;
 #endif
-  }
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node node)
+{
+#ifndef ENABLE_VTKM
+  (void)node;
+  SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
+  return -1;
+#else
+  if (
+    requireAttribute(node, "mesh") ||
+    requireAttribute(node, "field") ||
+    requireAttribute(node, "association") ||
+    requireAttribute(node, "reduction")
+    )
+    {
+    SENSEI_ERROR("Failed to initialize VTKmVolumeReductionAnalysis");
+    return -1;
+    }
+
+  auto mesh = node.attribute("mesh").as_string();
+  auto field = node.attribute("field").as_string();
+  auto assoc = node.attribute("association").as_string();
+  auto reduction = node.attribute("reduction").as_int();
+
+  bool haveWorkDir = !!node.attribute("working-directory");
+  std::string workDir =  haveWorkDir ? node.attribute("working-directory").as_string() : ".";
+
+  vtkNew<VTKmVolumeReductionAnalysis> reducer;
+  reducer->Initialize(mesh, field, assoc, workDir, reduction, this->Comm);
+  this->Analyses.push_back(reducer.GetPointer());
+
+  SENSEI_STATUS("Configured VTKmVolumeReductionAnalysis " << mesh << "/" << field)
+
+  return 0;
+#endif
+}
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
@@ -724,6 +765,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
+      || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
       {
       if (rank == 0)

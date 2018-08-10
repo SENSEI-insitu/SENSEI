@@ -106,9 +106,9 @@ int CatalystAnalysisAdaptor::DescribeData(int timeStep, double time,
       {
       int assoc = ait.Association();
       if (assoc == vtkDataObject::POINT)
-        inDesc->AddPointField(ait.Array().c_str());
+        inDesc->AddField(ait.Array().c_str(), vtkDataObject::POINT);
       else if (assoc == vtkDataObject::CELL)
-        inDesc->AddCellField(ait.Array().c_str());
+        inDesc->AddField(ait.Array().c_str(), vtkDataObject::CELL);
       else
         SENSEI_WARNING("Unknown association " << assoc)
       }
@@ -151,7 +151,7 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
         int assoc = ait.Association();
         std::string arrayName = ait.Array();
 
-        if (inDesc->IsFieldNeeded(arrayName.c_str()))
+        if (inDesc->IsFieldNeeded(arrayName.c_str(), assoc))
           {
           if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
             {
