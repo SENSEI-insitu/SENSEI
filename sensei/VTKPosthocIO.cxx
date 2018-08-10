@@ -324,6 +324,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
     vtkCompositeDataIterator *it = cd->NewIterator();
     it->SetSkipEmptyNodes(1);
+    it->InitTraversal();
 
     // figure out block distribution, assume that it does not change, and
     // that block types are homgeneous
