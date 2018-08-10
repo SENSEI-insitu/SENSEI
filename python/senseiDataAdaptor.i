@@ -12,6 +12,10 @@
 %ignore sensei::DA::AddArray;
 %ignore sensei::DA::GetNumberOfArrays;
 %ignore sensei::DA::GetArrayName;
+%ignore sensei::DA::GetMehsHasGhostNodes;
+%ignore sensei::DA::GetMehsHasGhostCells;
+%ignore sensei::DA::AddGhostNodesArray;
+%ignore sensei::DA::AddGhostCellsArray;
 %ignore sensei::DA::ReleaseData;
 /* memory management */
 VTK_DERIVED(DA)
