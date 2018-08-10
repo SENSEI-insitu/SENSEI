@@ -1,0 +1,9 @@
+<sensei>
+  <analysis type="python" script_file="./AMReXYtAnalysis.py" enabled="1">
+    <initialize_source>
+meshName='mesh'
+arrayName='comp_0'
+arrayCen=vtkDataObject.CELL
+     </initialize_source>
+  </analysis>
+</sensei>
