@@ -21,6 +21,7 @@
 #include <vtkStructuredGrid.h>
 #ifdef ENABLE_CATALYST_PYTHON
 #include <vtkCPPythonScriptPipeline.h>
+#include <vtkPVConfig.h>
 #endif
 
 namespace sensei
@@ -105,10 +106,17 @@ int CatalystAnalysisAdaptor::DescribeData(int timeStep, double time,
     for (; ait; ++ait)
       {
       int assoc = ait.Association();
+#if (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 6) || PARAVIEW_VERSION_MAJOR > 5
       if (assoc == vtkDataObject::POINT)
         inDesc->AddField(ait.Array().c_str(), vtkDataObject::POINT);
       else if (assoc == vtkDataObject::CELL)
         inDesc->AddField(ait.Array().c_str(), vtkDataObject::CELL);
+#else
+      if (assoc == vtkDataObject::POINT)
+        inDesc->AddPointField(ait.Array().c_str());
+      else if (assoc == vtkDataObject::CELL)
+        inDesc->AddCellField(ait.Array().c_str());
+#endif
       else
         SENSEI_WARNING("Unknown association " << assoc)
       }
@@ -151,7 +159,11 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
         int assoc = ait.Association();
         std::string arrayName = ait.Array();
 
+#if (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 6) || PARAVIEW_VERSION_MAJOR > 5
         if (inDesc->IsFieldNeeded(arrayName.c_str(), assoc))
+#else
+        if (inDesc->IsFieldNeeded(arrayName.c_str()))
+#endif
           {
           if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
             {
