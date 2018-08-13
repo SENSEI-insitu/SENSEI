@@ -10,7 +10,7 @@
 
 struct Oscillator
 {
-    using Vertex = grid::Point<int,3>;
+    using Vertex = grid::Point<float,3>;
 
     static constexpr float pi = 3.14159265358979323846;
 
@@ -39,6 +39,15 @@ struct Oscillator
             return val * dist_damp;
         } else
             return 0;       // impossible
+    }
+
+    inline Vertex evaluateGradient(const Vertex& x, float t) const     {
+        // let f(x, t) = this->evaluate(x,t) = o(t) * g(x)
+        // where o = oscillator, g = gaussian
+        // therefore, df/dx = o * dg/dx
+        // given g = e^u(t), so dg/dx = e^u * du/dx
+        // therefore, df/dx = o * e^u * du/dx = f * du/dx
+        return evaluate(x, t) * ((center - x)/(radius * radius));
     }
 
     Vertex  center;

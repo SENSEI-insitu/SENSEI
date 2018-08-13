@@ -45,7 +45,7 @@ inline bool IsVertexInsideBounds(const Vertex& v, const Bounds& b)
 
 struct Block
 {
-        Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators* oscillators_):
+        Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators& oscillators_):
                 gid(gid_),
                 bounds(bounds_),
                 domain(domain_),
@@ -69,12 +69,9 @@ struct Block
         for (auto& particle : particles)
         {
             particle.velocity = { 0, 0, 0 };
-            if (oscillators)
+            for (auto& o : oscillators)
             {
-                for (auto& o : *oscillators)
-                {
-                    particle.velocity += o.evaluateGradient(particle.position, t);
-                }
+                particle.velocity += o.evaluateGradient(particle.position, t);
             }
             // normalize
             particle.velocity /= std::sqrt(particle.velocity.norm());
@@ -165,7 +162,7 @@ struct Block
     Bounds                          domain;
     Grid                            grid;
     Particles                       particles;
-    const Oscillators*              oscillators;
+    Oscillators                     oscillators;
 
     private:
         Block() {}      // for create; to let Master manage the blocks
@@ -295,7 +292,7 @@ int main(int argc, char** argv)
     diy::decompose(3, world.rank(), domain, assigner,
                    [&](int gid, const Bounds&, const Bounds& bounds, const Bounds& domain, const Link& link)
                    {
-                      auto b = new Block(gid, bounds, domain, &oscillators);
+                      auto b = new Block(gid, bounds, domain, oscillators);
 
                       // generate particles
                       int start = particlesPerBlock * gid;
