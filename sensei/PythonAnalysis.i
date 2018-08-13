@@ -177,6 +177,44 @@ VTK_SWIG_INTEROP(vtkInformation)
   }
 
   // ------------------------------------------------------------------------
+  int GetMeshHasGhostCells(const std::string &meshName)
+  {
+    int nLayers = 0;
+    if (self->GetMeshHasGhostCells(meshName, nLayers))
+      {
+      SENSEI_ERROR("Failed to get number of ghost cells for mesh \""
+        << meshName << "\"")
+      }
+    return nLayers;
+  }
+
+  // ------------------------------------------------------------------------
+  void AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName)
+  {
+    if (self->AddGhostCellsArray(mesh, meshName))
+      SENSEI_ERROR("Failed to add ghost cells to mesh \"" << meshName << "\"")
+  }
+
+  // ------------------------------------------------------------------------
+  int GetMeshHasGhostNodes(const std::string &meshName)
+  {
+    int nLayers = 0;
+    if (self->GetMeshHasGhostNodes(meshName, nLayers))
+      {
+      SENSEI_ERROR("Failed to get number of ghost nodes for mesh \""
+        << meshName << "\"")
+      }
+    return nLayers;
+  }
+
+  // ------------------------------------------------------------------------
+  void AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName)
+  {
+    if (self->AddGhostNodesArray(mesh, meshName))
+      SENSEI_ERROR("Failed to add ghost nodes to mesh \"" << meshName << "\"")
+  }
+
+  // ------------------------------------------------------------------------
   void ReleaseData()
   {
     if (self->ReleaseData())
