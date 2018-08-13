@@ -51,6 +51,12 @@ void set_data(int gid, float* data)
 }
 
 //-----------------------------------------------------------------------------
+void set_particles(int gid, const Particles& particles)
+{
+  GlobalDataAdaptor->SetParticles(gid, particles);
+}
+
+//-----------------------------------------------------------------------------
 void analyze(float time)
 {
   GlobalDataAdaptor->SetDataTime(time);

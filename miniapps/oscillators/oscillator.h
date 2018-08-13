@@ -79,7 +79,7 @@ Oscillators read_oscillators(std::string fn)
         else if (stype == "decaying")
             type = Oscillator::decaying;
 
-        int x,y,z;
+        float x,y,z;
         iss >> x >> y >> z;
 
         float r, omega0, zeta=0.0f;

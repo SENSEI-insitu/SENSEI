@@ -3,6 +3,8 @@
 
 #include <sensei/DataAdaptor.h>
 
+#include "particles.h"
+
 class vtkDataArray;
 
 namespace oscillators
@@ -29,6 +31,9 @@ public:
 
   /// Set data for a specific block.
   void SetBlockData(int gid, float* data);
+
+  /// Set particles for a specific block
+  void SetParticles(int gid, const Particles& particles);
 
   // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
@@ -60,6 +65,8 @@ protected:
   vtkDataObject* GetBlockMesh(int gid);
   vtkDataObject* GetUnstructuredMesh(int gid, bool structureOnly);
   vtkDataArray*  CreateGhostCellsArray(int cc) const;
+
+  vtkDataObject* GetParticlesBlock(int gid, bool structureOnly);
 
 private:
   DataAdaptor(const DataAdaptor&); // not implemented.

@@ -10,7 +10,9 @@
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
+#include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
 #include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
@@ -31,6 +33,10 @@ struct DataAdaptor::DInternals
   std::vector<int> DataExtent;
   int shape[3];
   int ghostLevels;
+
+  std::vector<const Particles*> ParticlesData;
+  vtkSmartPointer<vtkMultiBlockDataSet> ParticlesDataSet;
+  std::vector<vtkSmartPointer<vtkPolyData>> ParticleBlocks;
 };
 
 inline bool areBoundsValid(const diy::DiscreteBounds& bds)
@@ -77,6 +83,9 @@ void DataAdaptor::Initialize(size_t nblocks, const int *shape_, int ghostLevels_
   internals.shape[2] = shape_[2];
   internals.ghostLevels = ghostLevels_;
 
+  internals.ParticlesData.resize(nblocks);
+  internals.ParticleBlocks.resize(nblocks);
+
   this->ReleaseData();
 }
 
@@ -113,19 +122,25 @@ void DataAdaptor::SetBlockData(int gid, float* data)
 }
 
 //-----------------------------------------------------------------------------
+void DataAdaptor::SetParticles(int gid, const Particles& particles)
+{
+  this->Internals->ParticlesData[gid] = &particles;
+}
+
+//-----------------------------------------------------------------------------
 int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh)
 {
-  if (meshName != "mesh" && meshName != "ucdmesh")
+  if (meshName != "mesh" && meshName != "ucdmesh" && meshName != "particles")
     {
-    SENSEI_ERROR("the miniapp provides meshes named \"mesh\" and \"ucdmesh\"" 
+    SENSEI_ERROR("the miniapp provides meshes named \"mesh\", \"ucdmesh\", and \"particles\""
        " you requested \"" << meshName << "\"")
     return -1;
     }
 
   DInternals& internals = (*this->Internals);
 
-  if(meshName == "ucdmesh")
+  if (meshName == "ucdmesh")
     {
     if (!internals.uMesh)
       {
@@ -157,7 +172,7 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 
     mesh = internals.uMesh;
     }
-  else
+  else if (meshName == "mesh")
     {
     if (!internals.Mesh)
       {
@@ -167,6 +182,20 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
         internals.Mesh->SetBlock(static_cast<unsigned int>(cc), this->GetBlockMesh(cc));
       }
       mesh = internals.Mesh;
+    }
+  else if (meshName == "particles")
+    {
+    if (!internals.ParticlesDataSet)
+      {
+      internals.ParticlesDataSet = vtkSmartPointer<vtkMultiBlockDataSet>::New();
+      internals.ParticlesDataSet->SetNumberOfBlocks(static_cast<unsigned int>(internals.ParticlesData.size()));
+      for (size_t cc=0; cc < internals.ParticlesData.size(); ++cc)
+        {
+        internals.ParticlesDataSet->SetBlock(
+          static_cast<unsigned int>(cc),  this->GetParticlesBlock(cc, structureOnly));
+        }
+      }
+      mesh = internals.ParticlesDataSet;
     }
 
   return 0;
@@ -203,7 +232,7 @@ vtkDataObject* DataAdaptor::GetUnstructuredMesh(int gid, bool structureOnly)
       }
 
       if(structureOnly == false &&
-         uMesh != nullptr && 
+         uMesh != nullptr &&
          uMesh->GetNumberOfCells() == 0)
       {
           // Add points.
@@ -268,58 +297,152 @@ vtkDataObject* DataAdaptor::GetUnstructuredMesh(int gid, bool structureOnly)
   return uMesh;
 }
 
+vtkDataObject* DataAdaptor::GetParticlesBlock(int gid, bool structureOnly)
+{
+  DInternals& internals = (*this->Internals);
+  auto particles = internals.ParticlesData[gid];
+  if (!particles)
+  {
+    return NULL;
+  }
+
+  vtkSmartPointer<vtkPolyData>& block = internals.ParticleBlocks[gid];
+  if (!block)
+  {
+    block = vtkSmartPointer<vtkPolyData>::New();
+  }
+  if (!structureOnly && block->GetNumberOfCells() == 0 && !particles->empty())
+  {
+    block->Initialize();
+
+    vtkNew<vtkPoints> points;
+    vtkNew<vtkCellArray> cells;
+    points->Allocate(particles->size());
+    cells->Allocate(particles->size());
+
+    vtkIdType pointId = 0;
+    for (const auto& p : *particles)
+    {
+      points->InsertNextPoint(p.position[0], p.position[1], p.position[2]);
+      cells->InsertNextCell(1, &pointId);
+      ++pointId;
+    }
+    block->SetPoints(points.Get());
+    block->SetVerts(cells.Get());
+  }
+
+  return block;
+}
+
 //-----------------------------------------------------------------------------
 int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
-  if ((association != vtkDataObject::FIELD_ASSOCIATION_CELLS) ||
-    (arrayName != "data") || (meshName != "mesh" && meshName != "ucdmesh"))
-    {
-    SENSEI_ERROR("the miniapp provides a cell centered array named \"data\" "
-      " on a mesh named \"mesh\"")
-    return -1;
-    }
-
+  int retVal = 1;
   DInternals& internals = (*this->Internals);
   vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
-  for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
+
+  if ((meshName == "mesh" || meshName == "ucdmesh") && arrayName == "data" &&
+      association == vtkDataObject::FIELD_ASSOCIATION_CELLS)
     {
-    if (!internals.Data[cc]) // Exclude nullptr datasets
-      continue;
-
-    vtkCellData *cd = nullptr;
-    if(meshName == "mesh")
-       {
-       vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
-       cd = (blockMesh? blockMesh->GetCellData() : nullptr);
-       }
-    else if(meshName == "ucdmesh")
-       {
-       vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
-       cd = (uMesh? uMesh->GetCellData() : nullptr);
-       }
-
-    if (cd && !cd->GetArray(arrayName.c_str()))
+    for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
       {
+      if (!internals.Data[cc]) // Exclude NULL datasets
+        {
+        continue;
+        }
+      vtkCellData *cd = nullptr;
+      if(meshName == "mesh")
+         {
+         vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
+         cd = (blockMesh? blockMesh->GetCellData() : nullptr);
+         }
+      else if(meshName == "ucdmesh")
+         {
+         vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
+         cd = (uMesh? uMesh->GetCellData() : nullptr);
+         }
       const diy::DiscreteBounds &ce = internals.CellExtents[cc];
 
-      vtkIdType ncells = (ce.max[0] - ce.min[0] + 1)*
-        (ce.max[1] - ce.min[1] + 1)*(ce.max[2] - ce.min[2] + 1);
+      if (cd && !cd->GetArray(arrayName.c_str()))
+        {
+        vtkIdType ncells = (ce.max[0] - ce.min[0] + 1)*
+          (ce.max[1] - ce.min[1] + 1)*(ce.max[2] - ce.min[2] + 1);
 
-      vtkFloatArray *fa = vtkFloatArray::New();
-      fa->SetName(arrayName.c_str());
-      fa->SetArray(internals.Data[cc], ncells, 1);
-      cd->SetScalars(fa);
-      cd->SetActiveScalars("data");
-      fa->Delete();
+        vtkFloatArray *fa = vtkFloatArray::New();
+        fa->SetName(arrayName.c_str());
+        fa->SetArray(internals.Data[cc], ncells, 1);
+        cd->SetScalars(fa);
+        cd->SetActiveScalars("data");
+        fa->Delete();
+	}
       }
     }
+  else if (meshName == "particles" && association == vtkDataObject::FIELD_ASSOCIATION_POINTS &&
+           (arrayName == "uniqueGlobalId" || arrayName == "velocity"))
+  {
+    for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
+    {
+      if (!internals.ParticlesData[cc])
+      {
+        continue;
+      }
 
-  return 0;
+      const Particles& particles = *internals.ParticlesData[cc];
+
+      vtkPolyData* block = internals.ParticleBlocks[cc].Get();
+      auto pd = block ? block->GetPointData() : NULL;
+      if (pd && pd->GetArray(arrayName.c_str()) == NULL)
+      {
+        if (arrayName == "uniqueGlobalId")
+        {
+          vtkNew<vtkIdTypeArray> array;
+          array->SetName(arrayName.c_str());
+          array->SetNumberOfComponents(1);
+          array->SetNumberOfTuples(block->GetNumberOfPoints());
+          for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
+          {
+            vtkIdType ugid = particles[i].id;
+            array->SetTypedTuple(i, &ugid);
+          }
+          pd->AddArray(array.Get());
+        }
+        else if (arrayName == "velocity")
+        {
+          vtkNew<vtkFloatArray> array;
+          array->SetName(arrayName.c_str());
+          array->SetNumberOfComponents(3);
+          array->SetNumberOfTuples(block->GetNumberOfPoints());
+          float vel[3] = { 0, 0, 0 };
+          for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
+          {
+            vel[0] = particles[i].velocity[0];
+            vel[1] = particles[i].velocity[1];
+            vel[2] = particles[i].velocity[2];
+            array->SetTypedTuple(i, vel);
+          }
+          pd->SetScalars(array.Get());
+          pd->SetActiveScalars(array->GetName());
+        }
+      }
+      retVal = pd ? 0 : 1;
+    }
+  }
+#ifndef NDEBUG
+  else
+  {
+    SENSEI_ERROR("the miniapp provides a cell centered array named \"data\" "
+      "on meshes named \"mesh\" or \"ucdmesh\"; or point centered arrays named "
+      "\"uniqueGlobalId\" and \"velocity\" on a mesh named \"particles\"")
+    return 1;
+  }
+#endif
+
+  return retVal;
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/, 
+int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/,
   int &nLayers)
 {
   DInternals& internals = (*this->Internals);
@@ -446,7 +569,7 @@ int DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &mesh
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
-  numMeshes = 2;
+  numMeshes = 3;
   return 0;
 }
 
@@ -461,6 +584,11 @@ int DataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
   else if (id == 1)
     {
     meshName = "ucdmesh";
+    return 0;
+    }
+  else if (id == 2)
+    {
+    meshName = "particles";
     return 0;
     }
 
@@ -478,6 +606,11 @@ int DataAdaptor::GetNumberOfArrays(const std::string &meshName, int association,
     numberOfArrays = 1;
     return 0;
     }
+  else if ((meshName == "particles") && (association == vtkDataObject::POINT))
+    {
+    numberOfArrays = 2;
+    return 0;
+    }
   return 0;
 }
 
@@ -491,6 +624,12 @@ int DataAdaptor::GetArrayName(const std::string &meshName, int association,
     arrayName = "data";
     return 0;
     }
+  else if ((meshName == "particles") && (association == vtkDataObject::POINT))
+    {
+    static const char *names[] = { "uniqueGlobalId", "velocity" };
+    arrayName = names[index];
+    return 0;
+    }
 
   SENSEI_ERROR("Failed to get array name")
   return -1;
@@ -500,8 +639,14 @@ int DataAdaptor::GetArrayName(const std::string &meshName, int association,
 int DataAdaptor::ReleaseData()
 {
   DInternals& internals = (*this->Internals);
+<<<<<<< HEAD
   internals.Mesh = nullptr;
   internals.uMesh = nullptr;
+=======
+  internals.Mesh = NULL;
+  internals.uMesh = NULL;
+  internals.ParticlesDataSet = NULL;
+>>>>>>> Add particles to oscillators
   for (auto i : internals.CellExtents)
     {
     i.min[0] = i.min[1] = i.min[2] = 0;
@@ -509,9 +654,17 @@ int DataAdaptor::ReleaseData()
     }
   for (size_t cc=0, max = internals.Data.size(); cc < max; ++cc)
     {
+<<<<<<< HEAD
     internals.Data[cc] = nullptr;
     internals.BlockMesh[cc] = nullptr;
     internals.UnstructuredMesh[cc] = nullptr;
+=======
+    internals.Data[cc] = NULL;
+    internals.BlockMesh[cc] = NULL;
+    internals.UnstructuredMesh[cc] = NULL;
+    internals.ParticlesData[cc] = NULL;
+    internals.ParticleBlocks[cc] = NULL;
+>>>>>>> Add particles to oscillators
     }
   return 0;
 }
