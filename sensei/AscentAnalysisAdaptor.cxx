@@ -125,12 +125,78 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   }
   else if(structured != nullptr)
   {
+    node["coordsets/coords/type"] = "explicit";
+
+    int numPoints = structured->GetPoints()->GetNumberOfPoints();
+    double point[3] = {0,0,0};
+    std::vector<conduit::float64> x(numPoints,0.0); 
+    std::vector<conduit::float64> y(numPoints,0.0); 
+    std::vector<conduit::float64> z(numPoints,0.0); 
+    for(int i = 0; i < numPoints; i++)
+    {
+      structured->GetPoints()->GetPoint(i, point);
+      x[i] = point[0];
+      y[i] = point[1];
+      z[i] = point[2]; 
+    }
+    node["coordsets/coords/values/x"].set(x);
+    node["coordsets/coords/values/y"].set(y);
+    node["coordsets/coords/values/z"].set(z);
 
     return 1;
   }
   else if(unstructured != nullptr)
   {
+    node["coordsets/coords/type"] = "explicit";
 
+    int numPoints = unstructured->GetPoints()->GetNumberOfPoints();
+    double point[3] = {0,0,0};
+    std::vector<conduit::float64> x(numPoints,0.0); 
+    std::vector<conduit::float64> y(numPoints,0.0); 
+    std::vector<conduit::float64> z(numPoints,0.0); 
+    for(int i = 0; i < numPoints; i++)
+    {
+      unstructured->GetPoints()->GetPoint(i, point);
+      x[i] = point[0];
+      y[i] = point[1];
+      z[i] = point[2]; 
+    }
+    node["coordsets/coords/values/x"].set(x);
+    node["coordsets/coords/values/y"].set(y);
+    node["coordsets/coords/values/z"].set(z);
+  /*  node["coordsets/coords/type"] = "explicit";
+
+    vtkDataArray *x = unstructured->GetXCoordinates();
+    vtkDataArray *y = unstructured->GetYCoordinates();
+    vtkDataArray *z = unstructured->GetZCoordinates();
+    if(x != nullptr)
+    {
+      int size = x->GetNumberOfTuples();
+      double *ptr  = (double *)x->GetVoidPointer(0);
+      std::vector<conduit::float64> vals(size, 0.0);
+      for(int i = 0; i < size; i++)
+        vals[i] = ptr[i];
+      node["coordsets/coords/values/x"].set(vals);
+    }
+    if(y != nullptr)
+    {
+      int size = y->GetNumberOfTuples();
+      double *ptr  = (double *)y->GetVoidPointer(0);
+      std::vector<conduit::float64> vals(size, 0.0);
+      for(int i = 0; i < size; i++)
+        vals[i] = ptr[i];
+      node["coordsets/coords/values/y"].set(vals);
+    }
+    if(z != nullptr)
+    {
+      int size = z->GetNumberOfTuples();
+      double *ptr  = (double *)z->GetVoidPointer(0);
+      std::vector<conduit::float64> vals(size, 0.0);
+      for(int i = 0; i < size; i++)
+        vals[i] = ptr[i];
+      node["coordsets/coords/values/z"].set(vals);
+    }
+*/
     return 1;
   }
   else
@@ -168,7 +234,7 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   std::string arrayName;
   dataAdaptor->GetArrayName("mesh", 1, 0, arrayName);
   std::cout << "ArrayName " << arrayName <<std::endl;
-  dataAdaptor->AddArray(obj, "mesh", 1, "dist");
+  dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
   obj->Print(std::cout);
   conduit::Node temp_node;
   int count = 0;
@@ -203,6 +269,12 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   else if(vtkDataSet::SafeDownCast(obj) != nullptr)
   {
     vtkDataSet::SafeDownCast(obj)->Print(std::cout);
+    temp_node.reset();
+    vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
+    VTK_To_Coordsets(ds, temp_node);
+    temp_node.print();
+    conduit::Node& build = node.append();
+    build.set(temp_node);
   }
   else
   {
