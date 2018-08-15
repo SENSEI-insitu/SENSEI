@@ -9,6 +9,7 @@
 #include <vtkDataArray.h>
 #include <vtkFieldData.h>
 #include <vtkDataSet.h>
+#include <vtkDataSetAttributes.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
 #include <vtkImageData.h>
@@ -38,18 +39,600 @@ AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
 
 
 //------------------------------------------------------------------------------
-void VTK_To_Fields(DataAdaptor* dataAdaptor, conduit::Node& node)
+int
+VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDataObject *obj)
 {
+  vtkImageData *uniform             = vtkImageData::SafeDownCast(ds);
+  vtkRectilinearGrid *rectilinear   = vtkRectilinearGrid::SafeDownCast(ds);
+  vtkStructuredGrid *structured     = vtkStructuredGrid::SafeDownCast(ds);
+  vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(ds);
 
-return;
+  std::stringstream ss;
+  ss << "fields/" << arrayName << "/association";
+  std::string assocPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/volume_dependent";
+  std::string volPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/topology";
+  std::string topoPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/values";
+  std::string valPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/values/u";
+  std::string uValPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/values/v";
+  std::string vValPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/values/w";
+  std::string wValPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/grid_function";
+  std::string gridPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/matset";
+  std::string matPath = ss.str();
+  ss.str(std::string());
+
+  ss << "fields/" << arrayName << "/matset_values";
+  std::string matValPath = ss.str();
+  ss.str(std::string());
+
+
+  if(uniform != nullptr)
+  {
+    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
+    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
+    vtkDataArray *point = attrP->GetArray(0);
+    vtkDataArray *cell = attrC->GetArray(0);
+
+    if(point)
+    {
+      node[assocPath] = "vertex";
+
+      int components = point->GetNumberOfComponents();
+      int tuples     = point->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+        {
+          double tuple[1] = {0.0};
+          point->GetTuple(i, tuple);
+          vals[i] = tuple[0];
+        }
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+          wVals[i] = *point->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else if(cell)
+    {
+      node[assocPath] = "element";
+
+      int components = cell->GetNumberOfComponents();
+      int tuples     = cell->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+          vals[i] = *cell->GetTuple(i);
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+          wVals[i] = *cell->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else
+    {
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      return -1;
+    }
+    node[topoPath] = "mesh";
+  }
+  else if(rectilinear != nullptr)
+  {
+    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
+    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
+    vtkDataArray *point = attrP->GetArray(0);
+    vtkDataArray *cell = attrC->GetArray(0);
+
+    if(point)
+    {
+      node[assocPath] = "vertex";
+
+      int components = point->GetNumberOfComponents();
+      int tuples     = point->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+        {
+          double tuple[1] = {0.0};
+          point->GetTuple(i, tuple);
+          vals[i] = tuple[0];
+        }
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+          wVals[i] = *point->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else if(cell)
+    {
+      node[assocPath] = "element";
+
+      int components = cell->GetNumberOfComponents();
+      int tuples     = cell->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+          vals[i] = *cell->GetTuple(i);
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+          wVals[i] = *cell->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else
+    {
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      return -1;
+    }
+    node[topoPath] = "mesh";
+
+  }
+  else if(structured != nullptr)
+  {
+    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
+    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
+    vtkDataArray *point = attrP->GetArray(0);
+    vtkDataArray *cell = attrC->GetArray(0);
+
+    if(point)
+    {
+      node[assocPath] = "vertex";
+
+      int components = point->GetNumberOfComponents();
+      int tuples     = point->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+        {
+          double tuple[1] = {0.0};
+          point->GetTuple(i, tuple);
+          vals[i] = tuple[0];
+        }
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+          wVals[i] = *point->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else if(cell)
+    {
+      node[assocPath] = "element";
+
+      int components = cell->GetNumberOfComponents();
+      int tuples     = cell->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+          vals[i] = *cell->GetTuple(i);
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+          wVals[i] = *cell->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else
+    {
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      return -1;
+    }
+    node[topoPath] = "mesh";
+
+  }
+  else if(unstructured != nullptr)
+  {
+    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
+    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
+    vtkDataArray *point = attrP->GetArray(0);
+    vtkDataArray *cell = attrC->GetArray(0);
+
+    if(point)
+    {
+      node[assocPath] = "vertex";
+
+      int components = point->GetNumberOfComponents();
+      int tuples     = point->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+        {
+          double tuple[1] = {0.0};
+          point->GetTuple(i, tuple);
+          vals[i] = tuple[0];
+        }
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *point->GetTuple(i);
+          vVals[i] = *point->GetTuple(i + size);
+          wVals[i] = *point->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else if(cell)
+    {
+      node[assocPath] = "element";
+
+      int components = cell->GetNumberOfComponents();
+      int tuples     = cell->GetNumberOfTuples();
+
+      if(components == 1)
+      {
+        std::vector<conduit::float64> vals(tuples,0.0);
+        for(int i = 0; i < tuples; i++)
+          vals[i] = *cell->GetTuple(i);
+        node[valPath].set(vals);
+      }
+      else if(components == 2)
+      {
+        int size = tuples/2;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+      }
+      else if(components == 3)
+      {
+        int size = tuples/3;
+        std::vector<conduit::float64> uVals(size, 0.0);
+        std::vector<conduit::float64> vVals(size, 0.0);
+        std::vector<conduit::float64> wVals(size, 0.0);
+        for(int i = 0; i < size; i++)
+        {
+          uVals[i] = *cell->GetTuple(i);
+          vVals[i] = *cell->GetTuple(i + size);
+          wVals[i] = *cell->GetTuple(i + 2*size);
+        }
+        node[uValPath].set(uVals);
+        node[vValPath].set(vVals);
+        node[wValPath].set(wVals);
+
+      }
+      else
+      {
+        SENSEI_ERROR("Too many components associated with " << arrayName)
+        return -1;
+      }
+    }
+    else
+    {
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      return -1;
+    }
+    node[topoPath] = "mesh";
+  }
+  else
+  {
+    SENSEI_ERROR("Mesh structure not supported")
+    return -1;
+  }
+
+
+
+  return 1;
 }
 
 //------------------------------------------------------------------------------
 
-void VTK_To_Topology(DataAdaptor* dataAdaptor, conduit::Node& node)
+int
+VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
 {
+  vtkImageData *uniform             = vtkImageData::SafeDownCast(ds);
+  vtkRectilinearGrid *rectilinear   = vtkRectilinearGrid::SafeDownCast(ds);
+  vtkStructuredGrid *structured     = vtkStructuredGrid::SafeDownCast(ds);
+  vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(ds);
 
-return;
+  if(uniform != nullptr)
+  {
+    node["topologies/topo/type"]     = "uniform";
+    node["topologies/topo/coordset"] = "coords";
+
+    int dims[3] = {0,0,0};
+    uniform->GetDimensions(dims);
+    double origin[3] = {0.0,0.0,0.0};
+    uniform->GetOrigin(origin);
+
+    node["topologies/topo/elements/origin/i0"] = origin[0];
+    node["topologies/topo/elements/origin/j0"] = origin[1];
+    if(dims[2] != 0 && dims[2] != 1)
+      node["topologies/topo/elements/origin/k0"] = origin[2];
+  }
+  else if(rectilinear != nullptr)
+  {
+    node["topologies/topo/type"]     = "rectilinear";
+    node["topologies/topo/coordset"] = "coords";
+
+  }
+  else if(structured != nullptr)
+  {
+    node["topologies/topo/type"]     = "structured";
+    node["topologies/topo/coordset"] = "coords";
+
+    int dims[3] = {0,0,0};
+    structured->GetDimensions(dims);
+
+    node["topologies/topo/elements/dims/i"] = dims[0] - 1;
+    node["topologies/topo/elements/dims/j"] = dims[1] - 1;
+    if(dims[2] != 0 && dims[2] != 1)
+      node["topologies/topo/elements/dims/k"] = dims[2] - 1;
+  }
+  else if(unstructured != nullptr)
+  {
+    node["topologies/topo/type"]     = "unstructured";
+    node["topologies/topo/coordset"] = "coords";
+    //TODO
+    node["topologies/topo/elements/shape"] = "?";
+    node["topologies/topo/elements/connectivity"] = "?";
+  }
+  else
+  {
+    SENSEI_ERROR("Mesh structure not supported")
+    return -1;
+  }
+
+return 1;
 }
 
 
@@ -84,12 +667,14 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     node["coordsets/coords/spacing/dx"] = spacing[0];
     node["coordsets/coords/spacing/dy"] = spacing[1];
     node["coordsets/coords/spacing/dz"] = spacing[2];
-
-    return 1;
   }
   else if(rectilinear != nullptr)
   {
     node["coordsets/coords/type"] = "rectilinear";
+
+    int dims[3] = {0,0,0};
+    rectilinear->GetDimensions(dims);
+    std::cout << "dims " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
 
     vtkDataArray *x = rectilinear->GetXCoordinates();
     vtkDataArray *y = rectilinear->GetYCoordinates();
@@ -112,7 +697,7 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
         vals[i] = ptr[i];
       node["coordsets/coords/values/y"].set(vals);
     }
-    if(z != nullptr)
+    if(z != nullptr && dims[2] != 0 && dims[2] != 1)
     {
       int size = z->GetNumberOfTuples();
       double *ptr  = (double *)z->GetVoidPointer(0);
@@ -121,11 +706,13 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
         vals[i] = ptr[i];
       node["coordsets/coords/values/z"].set(vals);
     }
-    return 1;
   }
   else if(structured != nullptr)
   {
     node["coordsets/coords/type"] = "explicit";
+
+    int dims[3] = {0,0,0};
+    structured->GetDimensions(dims);
 
     int numPoints = structured->GetPoints()->GetNumberOfPoints();
     double point[3] = {0,0,0};
@@ -141,9 +728,8 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     }
     node["coordsets/coords/values/x"].set(x);
     node["coordsets/coords/values/y"].set(y);
-    node["coordsets/coords/values/z"].set(z);
-
-    return 1;
+    if(dims[2] != 0 && dims[2] != 1)
+      node["coordsets/coords/values/z"].set(z);
   }
   else if(unstructured != nullptr)
   {
@@ -164,46 +750,13 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     node["coordsets/coords/values/x"].set(x);
     node["coordsets/coords/values/y"].set(y);
     node["coordsets/coords/values/z"].set(z);
-  /*  node["coordsets/coords/type"] = "explicit";
-
-    vtkDataArray *x = unstructured->GetXCoordinates();
-    vtkDataArray *y = unstructured->GetYCoordinates();
-    vtkDataArray *z = unstructured->GetZCoordinates();
-    if(x != nullptr)
-    {
-      int size = x->GetNumberOfTuples();
-      double *ptr  = (double *)x->GetVoidPointer(0);
-      std::vector<conduit::float64> vals(size, 0.0);
-      for(int i = 0; i < size; i++)
-        vals[i] = ptr[i];
-      node["coordsets/coords/values/x"].set(vals);
-    }
-    if(y != nullptr)
-    {
-      int size = y->GetNumberOfTuples();
-      double *ptr  = (double *)y->GetVoidPointer(0);
-      std::vector<conduit::float64> vals(size, 0.0);
-      for(int i = 0; i < size; i++)
-        vals[i] = ptr[i];
-      node["coordsets/coords/values/y"].set(vals);
-    }
-    if(z != nullptr)
-    {
-      int size = z->GetNumberOfTuples();
-      double *ptr  = (double *)z->GetVoidPointer(0);
-      std::vector<conduit::float64> vals(size, 0.0);
-      for(int i = 0; i < size; i++)
-        vals[i] = ptr[i];
-      node["coordsets/coords/values/z"].set(vals);
-    }
-*/
-    return 1;
   }
   else
   {
     SENSEI_ERROR("Mesh type not supported")
     return -1;
   }
+  return 1;
 }
 
 //------------------------------------------------------------------------------
@@ -258,6 +811,8 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         count++;
         vtkDataSet *ds = vtkDataSet::SafeDownCast(obj2);
         VTK_To_Coordsets(ds, temp_node);
+        VTK_To_Topology(ds, temp_node);
+        VTK_To_Fields(ds, temp_node, arrayName, obj2);
         temp_node.print();
         conduit::Node& build = node[domain].append();
         build.set(temp_node);
@@ -272,6 +827,8 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     temp_node.reset();
     vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
     VTK_To_Coordsets(ds, temp_node);
+    VTK_To_Topology(ds, temp_node);
+    VTK_To_Fields(ds, temp_node, arrayName, obj);
     temp_node.print();
     conduit::Node& build = node.append();
     build.set(temp_node);
