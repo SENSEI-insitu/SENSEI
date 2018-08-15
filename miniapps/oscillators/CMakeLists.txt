@@ -14,4 +14,7 @@ target_include_directories(util SYSTEM PUBLIC
 add_executable(oscillator ${sources})
 target_link_libraries(oscillator ${libs})
 
+install(TARGETS oscillator
+  RUNTIME DESTINATION bin)
+
 #add_subdirectory(testing)
