@@ -1,4 +1,4 @@
-set(sources parallel_3D.c histogram.cpp)
+set(sources parallel3d.c histogram.cpp)
 set(libs m mpi timer)
 
 if (ENABLE_SENSEI)
@@ -6,6 +6,11 @@ if (ENABLE_SENSEI)
   list(APPEND libs sensei)
 endif()
 
-add_executable(3D_Grid ${sources})
-target_compile_definitions(3D_Grid PRIVATE _FILE_OFFSET_BITS=64 _LARGEFILE64_SOURCE)
-target_link_libraries(3D_Grid PRIVATE ${libs})
+add_executable(parallel3d ${sources})
+target_link_libraries(parallel3d PRIVATE ${libs})
+
+target_compile_definitions(parallel3d PRIVATE
+  _FILE_OFFSET_BITS=64 _LARGEFILE64_SOURCE)
+
+install(TARGETS parallel3d
+  RUNTIME DESTINATION bin)
