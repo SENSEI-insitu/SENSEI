@@ -132,7 +132,7 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       internals.uMesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
       internals.uMesh->SetNumberOfBlocks(static_cast<unsigned int>(internals.CellExtents.size()));
       for (size_t cc=0; cc < internals.CellExtents.size(); ++cc)
-        internals.uMesh->SetBlock(static_cast<unsigned int>(cc), NULL);
+        internals.uMesh->SetBlock(static_cast<unsigned int>(cc), nullptr);
       }
     // Either create empty vtkUnstructuredGrid objects or let us replace
     // empty ones with new ones that have the right data.
@@ -141,7 +141,7 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       unsigned int bid = static_cast<unsigned int>(cc);
       vtkUnstructuredGrid *g = vtkUnstructuredGrid::SafeDownCast(
           internals.uMesh->GetBlock(bid));
-      if(g == NULL)
+      if(g == nullptr)
         {
         g = (vtkUnstructuredGrid *)this->GetUnstructuredMesh(cc, structureOnly);
         //cout << "Setting uMesh[" << bid << "] structureOnly=" << structureOnly << ", g=" << (void*)g << ", ncells=" << (g ? g->GetNumberOfCells() : 0) << endl;
@@ -272,57 +272,48 @@ vtkDataObject* DataAdaptor::GetUnstructuredMesh(int gid, bool structureOnly)
 int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
-#ifndef NDEBUG
   if ((association != vtkDataObject::FIELD_ASSOCIATION_CELLS) ||
     (arrayName != "data") || (meshName != "mesh" && meshName != "ucdmesh"))
     {
     SENSEI_ERROR("the miniapp provides a cell centered array named \"data\" "
       " on a mesh named \"mesh\"")
-    return 1;
+    return -1;
     }
-#else
-  (void)meshName;
-  (void)association;
-  (void)arrayName;
-#endif
-  int retVal = 1;
+
   DInternals& internals = (*this->Internals);
   vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
   for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
     {
-    if (!internals.Data[cc]) // Exclude NULL datasets
-      {
+    if (!internals.Data[cc]) // Exclude nullptr datasets
       continue;
-      }
-    vtkCellData *cd = NULL;
+
+    vtkCellData *cd = nullptr;
     vtkIdType ncells = 0;
     if(meshName == "mesh")
        {
        vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
-       cd = (blockMesh? blockMesh->GetCellData() : NULL);
+       cd = (blockMesh? blockMesh->GetCellData() : nullptr);
        ncells = (blockMesh? blockMesh->GetNumberOfCells() : 0);
        }
     else if(meshName == "ucdmesh")
        {
        vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
-       cd = (uMesh? uMesh->GetCellData() : NULL);
+       cd = (uMesh? uMesh->GetCellData() : nullptr);
        ncells = (uMesh? uMesh->GetNumberOfCells() : 0);
        }
-    if (cd != NULL)
+
+    if (cd && !cd->GetArray(arrayName.c_str()))
       {
-      if (cd->GetArray(arrayName.c_str()) == NULL)
-        {
-        vtkFloatArray* fa = vtkFloatArray::New();
-        fa->SetName(arrayName.c_str());
-        fa->SetArray(internals.Data[cc], ncells, 1);
-        cd->SetScalars(fa);
-        cd->SetActiveScalars("data");
-        fa->FastDelete();
-        }
-      retVal = 0;
+      vtkFloatArray *fa = vtkFloatArray::New();
+      fa->SetName(arrayName.c_str());
+      fa->SetArray(internals.Data[cc], ncells, 1);
+      cd->SetScalars(fa);
+      cd->SetActiveScalars("data");
+      fa->Delete();
       }
     }
-  return retVal;
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -417,48 +408,37 @@ DataAdaptor::CreateGhostCellsArray(int cc) const
 //----------------------------------------------------------------------------
 int DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &meshName)
 {
-#ifndef NDEBUG
   if (meshName != "mesh" && meshName != "ucdmesh")
     {
     SENSEI_ERROR("the miniapp provides meshes \"mesh\" and \"ucdmesh\".")
-    return 1;
+    return -1;
     }
-#else
-  (void)mesh;
-  (void)meshName;
-#endif
-  int retVal = 1;
+
   DInternals& internals = (*this->Internals);
   vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
   for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
     {
-    vtkCellData *cd = NULL;
+    vtkCellData *cd = nullptr;
     if(meshName == "mesh")
        {
        vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
-       cd = (blockMesh? blockMesh->GetCellData() : NULL);
+       cd = (blockMesh? blockMesh->GetCellData() : nullptr);
        }
     else if(meshName == "ucdmesh")
        {
        vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
-       cd = (uMesh? uMesh->GetCellData() : NULL);
+       cd = (uMesh? uMesh->GetCellData() : nullptr);
        }
 
-    // NOTE: we could end up with a NULL cd if we encounter an empty mesh slot
-    //       since the vtkMultiBlockDataSet is mostly empty.
-
-    if (cd != NULL)
+    if (cd && !cd->GetArray("vtkGhostType"))
       {
-      if (cd->GetArray("vtkGhostType") == NULL)
-        {
-        vtkDataArray *g = CreateGhostCellsArray(cc);
-        cd->AddArray(g);
-        g->Delete();
-        }
-      retVal = 0;
+      vtkDataArray *g = CreateGhostCellsArray(cc);
+      cd->AddArray(g);
+      g->Delete();
       }
     }
-  return retVal;
+
+  return 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -518,8 +498,8 @@ int DataAdaptor::GetArrayName(const std::string &meshName, int association,
 int DataAdaptor::ReleaseData()
 {
   DInternals& internals = (*this->Internals);
-  internals.Mesh = NULL;
-  internals.uMesh = NULL;
+  internals.Mesh = nullptr;
+  internals.uMesh = nullptr;
   for (auto i : internals.CellExtents)
     {
     i.min[0] = i.min[1] = i.min[2] = 0;
@@ -527,9 +507,9 @@ int DataAdaptor::ReleaseData()
     }
   for (size_t cc=0, max = internals.Data.size(); cc < max; ++cc)
     {
-    internals.Data[cc] = NULL;
-    internals.BlockMesh[cc] = NULL;
-    internals.UnstructuredMesh[cc] = NULL;
+    internals.Data[cc] = nullptr;
+    internals.BlockMesh[cc] = nullptr;
+    internals.UnstructuredMesh[cc] = nullptr;
     }
   return 0;
 }
