@@ -2,6 +2,8 @@
 #define sensei_AscentAnalysisAdaptor_h
 
 #include "AnalysisAdaptor.h"
+#include "conduit.hpp"
+#include "ascent.hpp"
 #include <string>
 #include <mpi.h>
 
@@ -19,7 +21,7 @@ public:
   senseiTypeMacro(AscentAnalysisAdaptor, AnalysisAdaptor);
 
   // Let the caller explicitly initialize.
-  void Initialize();
+  void Initialize(conduit::Node actionNode);
 
   bool Execute(DataAdaptor* data) override;
 
@@ -32,7 +34,8 @@ protected:
 private:
   AscentAnalysisAdaptor(const AscentAnalysisAdaptor&)=delete; // Not implemented.
   void operator=(const AscentAnalysisAdaptor&)=delete; // Not implemented.
-
+  ascent::Ascent a;
+  conduit::Node actionNode;
 };
 
 }

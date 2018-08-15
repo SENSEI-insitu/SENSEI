@@ -761,8 +761,10 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 
 //------------------------------------------------------------------------------
 void
-AscentAnalysisAdaptor::Initialize()
+AscentAnalysisAdaptor::Initialize(conduit::Node actions)
 {
+ this->a.open();
+ this->actionNode = actions; 
 
 return;
 }
@@ -838,6 +840,16 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     SENSEI_ERROR("Data object is not supported.")
   }
   node.print();
+  conduit::Node actions;
+  conduit::Node &add_actions = actions.append();
+  add_actions["action"] = "add_scenes";
+  add_actions["scenes"] = this->actionNode["scenes"];
+  actions.append()["action"] = "execute";
+
+
+  this->a.publish(node);
+  actions.print();
+  this->a.execute(actions);
 return true;
 }
 
@@ -846,7 +858,7 @@ return true;
 int
 AscentAnalysisAdaptor::Finalize()
 {
-
+this->a.close();
 return 0;
 }
 
