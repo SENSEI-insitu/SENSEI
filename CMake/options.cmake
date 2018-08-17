@@ -36,6 +36,10 @@ cmake_dependent_option(ENABLE_VTK_MPI
   "Enable use of parallel vtk" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_VTK_RENDERING
+  "Enable use of VTK's rendering libraries" ON
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_VTK_ACCELERATORS
   "Enable analysis methods that use VTK-m via VTK's Accelerators module" OFF
   "ENABLE_SENSEI" OFF)
@@ -71,6 +75,7 @@ message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
+message(STATUS "ENABLE_VTK_RENDERING=${ENABLE_VTK_RENDERING}")
 message(STATUS "ENABLE_VTK_ACCELERATORS=${ENABLE_VTK_ACCELERATORS}")
 message(STATUS "ENABLE_VTKM=${ENABLE_VTKM}")
 message(STATUS "ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")

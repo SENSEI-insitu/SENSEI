@@ -1,5 +1,4 @@
 #include "CinemaHelper.h"
-#include "senseiConfig.h"
 #include <Timer.h>
 
 #include <vector>
@@ -14,24 +13,32 @@
 #include <vtkImageData.h>
 #include <vtkPointData.h>
 #include <vtkCellData.h>
-#include <vtkMultiProcessController.h>
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_MPI)
+#  include <vtkMultiProcessController.h>
+#endif
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
-#include <vtkSMPropertyHelper.h>
-#include <vtkSMRenderViewProxy.h>
-#include <vtkSMRepresentationProxy.h>
-#include <vtkSMViewProxy.h>
+#ifdef ENABLE_CATALYST
+#  include <vtkSMPropertyHelper.h>
+#  include <vtkSMRenderViewProxy.h>
+#  include <vtkSMRepresentationProxy.h>
+#  include <vtkSMViewProxy.h>
+#endif
 #include <vtkUnsignedCharArray.h>
 
-#include <vtkCamera.h>
-#include <vtkActor.h>
-#include <vtkRenderWindow.h>
-#include <vtkIceTCompositePass.h>
-#include <vtkCameraPass.h>
-#include <vtkLightingMapPass.h>
-#include <vtkRenderer.h>
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#  include <vtkCamera.h>
+#  include <vtkActor.h>
+#  include <vtkRenderWindow.h>
+#  include <vtkRenderer.h>
+#  include <vtkWindowToImageFilter.h>
+#endif
+#ifdef ENABLE_CATALYST
+#  include <vtkIceTCompositePass.h>
+#  include <vtkCameraPass.h>
+#  include <vtkLightingMapPass.h>
+#endif
 
-#include <vtkWindowToImageFilter.h>
 
 #if !defined(_WIN32) || defined(__CYGWIN__)
 # include <unistd.h> /* unlink */
@@ -236,6 +243,7 @@ struct CinemaHelper::Internals
 {
   double ImageSize[2];
   int NumberOfTimeSteps;
+  int SampleSize;
   std::string WorkingDirectory;
   int NumberOfCameraPositions;
   double* CameraPositions; // (focalPoint[3], position[3], viewUp[3]) * NumberOfCameraPositions
@@ -244,9 +252,14 @@ struct CinemaHelper::Internals
   bool IsRoot;
   int PID;
   int CurrentCameraPosition;
+#ifdef ENABLE_CATALYST
   std::vector<vtkSmartPointer<vtkSMRepresentationProxy>> Representations;
+#endif
   std::vector<vtkSmartPointer<vtkActor>> Actors;
   std::string CaptureMethod;
+  // Scalars
+  std::string ScalarName;
+  std::string ScalarAssociation;
   // Contours
   std::vector<double> Contours;
   // JSON metadata handling
@@ -256,6 +269,7 @@ struct CinemaHelper::Internals
   std::string JSONCameraArgs;
   std::string JSONCameraPattern;
   std::map<std::string, std::string> JSONData;
+  std::string JSONExtraMetadata;
   std::vector<std::string> JSONPipeline;
   std::vector<std::string> JSONCompositePipeline;
 
@@ -263,9 +277,15 @@ struct CinemaHelper::Internals
   Internals() : NumberOfTimeSteps(0), NumberOfCameraPositions(0), CameraPositions(nullptr), NumberOfCameraArgs(0), CameraArgs(nullptr), CurrentCameraPosition(0), LAYER_CODES("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
   {
     this->ImageSize[0] = this->ImageSize[1] = 512;
+    this->SampleSize = 1024;
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_MPI)
     vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
     this->IsRoot = (controller->GetLocalProcessId() == 0);
     this->PID = controller->GetLocalProcessId();
+#else
+    this->IsRoot = true;
+    this->PID = 0;
+#endif
   }
 
   ~Internals()
@@ -467,6 +487,12 @@ void CinemaHelper::SetWorkingDirectory(const std::string& path)
 }
 
 // --------------------------------------------------------------------------
+void CinemaHelper::SetSampleSize(int ssz)
+{
+  this->Data->SampleSize = ssz;
+}
+
+// --------------------------------------------------------------------------
 void CinemaHelper::AddTimeEntry()
 {
   this->Data->NumberOfTimeSteps++;
@@ -492,16 +518,33 @@ void CinemaHelper::WriteMetadata()
     {
     fp
       << "{"                                << endl
-      << "  \"metadata\": {\"backgroundColor\": \"#000000\"},"<< endl
+      << "  \"metadata\": {"                << endl
+      << "    \"backgroundColor\": \"#ffffff\"" << endl;
+    if (!this->Data->JSONExtraMetadata.empty())
+    {
+      fp << this->Data->JSONExtraMetadata << endl;
+    }
+    fp
+      << "  },"                             << endl
       << "  \"type\": ["                    << endl
       << "       " << this->Data->JSONTypes << endl
       << "   ],"                            << endl
       << "  \"arguments_order\": ["         << endl
-      << this->Data->JSONCameraArgsOrder    << endl
+      ;
+    if (this->Data->NumberOfCameraArgs > 0)
+    {
+      fp << this->Data->JSONCameraArgsOrder    << endl;
+    }
+    fp
       << "     \"time\""                    << endl
       << "  ],"                             << endl
       << "  \"arguments\": {"               << endl
-      << this->Data->JSONCameraArgs         << endl
+      ;
+    if (this->Data->NumberOfCameraArgs > 0)
+    {
+      fp << this->Data->JSONCameraArgs      << endl;
+    }
+    fp
       << "     \"time\": {"                 << endl
       << "        \"loop\": \"modulo\","    << endl
       << "        \"ui\": \"slider\","      << endl
@@ -681,6 +724,9 @@ void CinemaHelper::SetCameraConfig(const std::string& config)
       delete[] phiAngles;
       delete[] thetaAngles;
     }
+  else if (args[0] == "none")
+    {
+    }
 }
 // --------------------------------------------------------------------------
 void CinemaHelper::SetExportType(const std::string& exportType)
@@ -700,6 +746,10 @@ void CinemaHelper::SetExportType(const std::string& exportType)
     {
     this->Data->JSONTypes = "\"tonic-query-data-model\", \"vtk-volume\"";
     this->Data->JSONData["scene"] = "{ \"pattern\": \"{time}/volume.json\", \"rootFile\": true, \"name\": \"scene\", \"type\": \"json\" }";
+    }
+  else if (exportType == "cdf")
+    {
+    this->Data->JSONTypes = "\"tonic-query-data-model\", \"cdf\"";
     }
   else
     {
@@ -743,6 +793,7 @@ int CinemaHelper::GetNumberOfCameraPositions()
 }
 
 // --------------------------------------------------------------------------
+#ifdef ENABLE_CATALYST
 void CinemaHelper::ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionIndex)
 {
   if (cameraPositionIndex < this->Data->NumberOfCameraPositions && this->Data->CameraPositions)
@@ -762,7 +813,9 @@ void CinemaHelper::ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionI
     view->UpdateVTKObjects();
     }
 }
+#endif // ENABLE_CATALYST
 
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
 // --------------------------------------------------------------------------
 void CinemaHelper::ApplyCameraPosition(vtkCamera *camera, int cameraPositionIndex)
 {
@@ -782,8 +835,34 @@ void CinemaHelper::ApplyCameraPosition(vtkCamera *camera, int cameraPositionInde
     camera->SetViewUp(&cameraPosition[6]);
     }
 }
+#endif
 
 // --------------------------------------------------------------------------
+void CinemaHelper::SetScalarAssociation(const std::string& assoc)
+{
+  this->Data->ScalarAssociation = assoc;
+}
+
+// --------------------------------------------------------------------------
+std::string CinemaHelper::GetScalarAssociation() const
+{
+  return this->Data->ScalarAssociation;
+}
+
+// --------------------------------------------------------------------------
+void CinemaHelper::SetScalarName(const std::string& name)
+{
+  this->Data->ScalarName = name;
+}
+
+// --------------------------------------------------------------------------
+std::string CinemaHelper::GetScalarName() const
+{
+  return this->Data->ScalarName;
+}
+
+// --------------------------------------------------------------------------
+#ifdef ENABLE_CATALYST
 int CinemaHelper::RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue)
 {
   this->Data->Representations.push_back(representation);
@@ -819,7 +898,9 @@ int CinemaHelper::RegisterLayer(const std::string& name, vtkSMRepresentationProx
   this->Data->JSONCompositePipeline.push_back(jsonContent2.str());
   return 1;
 }
+#endif // ENABLE_CATALYST
 
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
 // --------------------------------------------------------------------------
 int CinemaHelper::RegisterLayer(const std::string& name, vtkActor* actor, double scalarValue)
 {
@@ -856,7 +937,9 @@ int CinemaHelper::RegisterLayer(const std::string& name, vtkActor* actor, double
   this->Data->JSONCompositePipeline.push_back(jsonContent2.str());
   return 1;
 }
+#endif
 
+#ifdef ENABLE_CATALYST
 // --------------------------------------------------------------------------
 void CinemaHelper::Capture(vtkSMViewProxy* view)
 {
@@ -1043,11 +1126,14 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
     fpItensity.close();
     }
 }
+#endif // ENABLE_CATALYST
 
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
 // --------------------------------------------------------------------------
 void CinemaHelper::Render(vtkRenderWindow* renderWindow)
 {
   renderWindow->SetSize(this->Data->ImageSize[0], this->Data->ImageSize[1]);
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_MPI)
   vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
   if (controller->GetLocalProcessId() == 0)
     {
@@ -1060,8 +1146,13 @@ void CinemaHelper::Render(vtkRenderWindow* renderWindow)
     controller->ProcessRMIs();
     controller->Barrier();
     }
+#else
+  renderWindow->Render();
+#endif
 }
+#endif
 
+#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
 vtkImageData* CinemaHelper::CaptureWindow(vtkRenderWindow* renderWindow)
 {
   int swapBuffers = renderWindow->GetSwapBuffers();
@@ -1087,7 +1178,9 @@ vtkImageData* CinemaHelper::CaptureWindow(vtkRenderWindow* renderWindow)
   capture->ShallowCopy(w2i->GetOutput());
   return capture;
 }
+#endif
 
+#ifdef ENABLE_CATALYST
 // --------------------------------------------------------------------------
 void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer,
   vtkIceTCompositePass* compositePass)
@@ -1269,6 +1362,7 @@ void CinemaHelper::CaptureImage(vtkSMViewProxy* view, const std::string fileName
 {
   view->WriteImage(this->Data->getDataAbsoluteFilePath(fileName, createDirectory).c_str(), writerName.c_str(), scale);
 }
+#endif // ENABLE_CATALYST
 
 // --------------------------------------------------------------------------
 void CinemaHelper::WriteVolume(vtkImageData* image)
@@ -1352,6 +1446,49 @@ void CinemaHelper::WriteVolume(vtkImageData* image)
     filePointer.flush();
     filePointer.close();
     }
+}
+
+void CinemaHelper::WriteCDF(long long totalArraySize, const double* cdfValues)
+{
+  if (!this->Data->IsRoot)
+  {
+    return;
+  }
+  std::string dataName = "cdf.float32";
+  std::string dataFilePath = this->Data->getDataAbsoluteFilePath(dataName, true);
+  std::ofstream dataFilePathPointer(dataFilePath.c_str(), std::ios::out | std::ios::binary);
+  if (dataFilePathPointer.fail())
+  {
+    std::cout << "Unable to open file: " << dataFilePath.c_str() << std::endl;
+  }
+  else
+  {
+    long long stackSize = this->Data->SampleSize * 4;
+    std::vector<float> cdfFloats(cdfValues, cdfValues + this->Data->SampleSize);
+    /*
+    float* cdfFloats = new float[cdfSize];
+    for (int i = 0; i < cdfSize; i++)
+    {
+    cdfFloats[i] = (float)cdfValues[i];
+    }
+
+    dataFilePathPointer.write((char*)cdfFloats, stackSize);
+    */
+    dataFilePathPointer.write((char*)&cdfFloats[0], stackSize);
+    dataFilePathPointer.flush();
+    dataFilePathPointer.close();
+    this->Data->JSONData["cdf"] =
+      "{\n"
+      "    \"pattern\": \"{time}/cdf.float32\",\n"
+      "    \"name\": \"cdf\",\n"
+      "    \"type\": \"arraybuffer\"\n"
+      "}\n"
+      ;
+    std::ostringstream xmeta;
+    xmeta << "   ,\"totalCount\": " << totalArraySize;
+    this->Data->JSONExtraMetadata = xmeta.str();
+    //delete[] cdfFloats;
+  }
 }
 
 }

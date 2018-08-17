@@ -15,6 +15,7 @@
 #cmakedefine ENABLE_VTK_GENERIC_ARRAYS
 #cmakedefine ENABLE_VTK_MPI
 #cmakedefine ENABLE_VTK_IO
+#cmakedefine ENABLE_VTK_RENDERING
 #cmakedefine ENABLE_VTK_ACCELERATORS
 #cmakedefine ENABLE_VTKM
 

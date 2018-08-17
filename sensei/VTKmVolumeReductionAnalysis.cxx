@@ -7,8 +7,10 @@
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
-#include <vtkMPICommunicator.h>
-#include <vtkMPIController.h>
+#ifdef ENABLE_VTK_MPI
+#  include <vtkMPICommunicator.h>
+#  include <vtkMPIController.h>
+#endif
 #include <vtkMultiBlockDataSet.h>
 #include <vtkNew.h>
 #include <vtkObjectFactory.h>
@@ -215,10 +217,12 @@ void VTKmVolumeReductionAnalysis::Initialize(
   this->Communicator = comm;
   this->Reduction = reductionFactor;
 
+#ifdef ENABLE_VTK_MPI
   vtkNew<vtkMPIController> con;
   con->Initialize(0, 0, 1); // initialized externally
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
   con->Register(NULL); // Keep ref
+#endif
 
   this->Helper = new CinemaHelper();
   this->Helper->SetWorkingDirectory(workingDirectory);
