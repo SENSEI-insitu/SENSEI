@@ -288,22 +288,24 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
       continue;
 
     vtkCellData *cd = nullptr;
-    vtkIdType ncells = 0;
     if(meshName == "mesh")
        {
        vtkSmartPointer<vtkImageData>& blockMesh = internals.BlockMesh[cc];
        cd = (blockMesh? blockMesh->GetCellData() : nullptr);
-       ncells = (blockMesh? blockMesh->GetNumberOfCells() : 0);
        }
     else if(meshName == "ucdmesh")
        {
        vtkSmartPointer<vtkUnstructuredGrid>& uMesh = internals.UnstructuredMesh[cc];
        cd = (uMesh? uMesh->GetCellData() : nullptr);
-       ncells = (uMesh? uMesh->GetNumberOfCells() : 0);
        }
 
     if (cd && !cd->GetArray(arrayName.c_str()))
       {
+      const diy::DiscreteBounds &ce = internals.CellExtents[cc];
+
+      vtkIdType ncells = (ce.max[0] - ce.min[0] + 1)*
+        (ce.max[1] - ce.min[1] + 1)*(ce.max[2] - ce.min[2] + 1);
+
       vtkFloatArray *fa = vtkFloatArray::New();
       fa->SetName(arrayName.c_str());
       fa->SetArray(internals.Data[cc], ncells, 1);
