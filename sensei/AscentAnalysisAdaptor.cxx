@@ -586,23 +586,23 @@ VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
 
   if(uniform != nullptr)
   {
-    node["topologies/topo/type"]     = "uniform";
-    node["topologies/topo/coordset"] = "coords";
+    node["topologies/mesh/type"]     = "uniform";
+    node["topologies/mesh/coordset"] = "coords";
 
     int dims[3] = {0,0,0};
     uniform->GetDimensions(dims);
     double origin[3] = {0.0,0.0,0.0};
     uniform->GetOrigin(origin);
 
-    node["topologies/topo/elements/origin/i0"] = origin[0];
-    node["topologies/topo/elements/origin/j0"] = origin[1];
+    node["topologies/mesh/elements/origin/i0"] = origin[0];
+    node["topologies/mesh/elements/origin/j0"] = origin[1];
     if(dims[2] != 0 && dims[2] != 1)
-      node["topologies/topo/elements/origin/k0"] = origin[2];
+      node["topologies/mesh/elements/origin/k0"] = origin[2];
   }
   else if(rectilinear != nullptr)
   {
-    node["topologies/topo/type"]     = "rectilinear";
-    node["topologies/topo/coordset"] = "coords";
+    node["topologies/mesh/type"]     = "rectilinear";
+    node["topologies/mesh/coordset"] = "coords";
 
   }
   else if(structured != nullptr)
@@ -797,7 +797,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
   if(cds != nullptr)
   {
-//    conduit::blueprint::mesh::to_multi_domain(node, node);
     vtkCompositeDataIterator *itr = cds->NewIterator();
     itr->SkipEmptyNodesOn();
     itr->InitTraversal();
@@ -806,17 +805,15 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       vtkDataObject *obj2 = cds->GetDataSet(itr);
       if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
       {
-        temp_node.reset();
-        std::stringstream ss;
-        ss << "domain_00000" << count;
-        std::string domain = ss.str();
-        count++;
         vtkDataSet *ds = vtkDataSet::SafeDownCast(obj2);
+
+        temp_node.reset();
         VTK_To_Coordsets(ds, temp_node);
         VTK_To_Topology(ds, temp_node);
         VTK_To_Fields(ds, temp_node, arrayName, obj2);
         temp_node.print();
-        conduit::Node& build = node[domain].append();
+
+        conduit::Node& build = node.append();
         build.set(temp_node);
 
       }
@@ -826,12 +823,14 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   else if(vtkDataSet::SafeDownCast(obj) != nullptr)
   {
     vtkDataSet::SafeDownCast(obj)->Print(std::cout);
-    temp_node.reset();
     vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
+
+    temp_node.reset();
     VTK_To_Coordsets(ds, temp_node);
     VTK_To_Topology(ds, temp_node);
     VTK_To_Fields(ds, temp_node, arrayName, obj);
-    temp_node.print();
+//    temp_node.print();
+
     conduit::Node& build = node.append();
     build.set(temp_node);
   }
@@ -839,18 +838,20 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   {
     SENSEI_ERROR("Data object is not supported.")
   }
-  node.print();
   conduit::Node actions;
   conduit::Node &add_actions = actions.append();
   add_actions["action"] = "add_scenes";
   add_actions["scenes"] = this->actionNode["scenes"];
   actions.append()["action"] = "execute";
 
+  std::cout << "NODE PRINT" << std::endl;
+  node.print();
+          std::cout << "multi dom: " << conduit::blueprint::mesh::is_multi_domain(node) << std::endl;;
 
   this->a.publish(node);
-  actions.print();
   this->a.execute(actions);
-return true;
+
+  return true;
 }
 
 
