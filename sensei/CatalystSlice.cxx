@@ -1,6 +1,7 @@
 #include "CatalystSlice.h"
 #include "CatalystUtilities.h"
 #include <Timer.h>
+#include <Error.h>
 
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
@@ -41,6 +42,7 @@ public:
   std::string ColorArrayName;
   bool AutoCenter;
   bool UseLogScale;
+  std::string Mesh;
 
   double ColorRange[2];
   bool AutoColorRange;
@@ -220,6 +222,13 @@ CatalystSlice::~CatalystSlice()
 }
 
 //----------------------------------------------------------------------------
+void CatalystSlice::SetInputMesh(const std::string& meshName)
+{
+  vtkInternals& internals = (*this->Internals);
+  internals.Mesh = meshName;
+}
+
+//----------------------------------------------------------------------------
 void CatalystSlice::SetSliceOrigin(double x, double y, double z)
 {
   vtkInternals& internals = (*this->Internals);
@@ -264,9 +273,25 @@ void CatalystSlice::SetImageParameters(const std::string& filename, int width, i
 //----------------------------------------------------------------------------
 int CatalystSlice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 {
-  dataDesc->GetInputDescription(0)->GenerateMeshOn();
-  dataDesc->GetInputDescription(0)->AllFieldsOn();
-  return 1;
+  vtkInternals& internals = (*this->Internals);
+  auto dd = internals.Mesh.empty() ?
+    dataDesc->GetInputDescription(0) :
+    dataDesc->GetInputDescriptionByName(internals.Mesh.c_str());
+  if (dd)
+  {
+    dd->GenerateMeshOn();
+    dd->AllFieldsOn();
+    return 1;
+  }
+  if (internals.Mesh.empty())
+  {
+    SENSEI_ERROR("Unable to obtain default dataset");
+  }
+  else
+  {
+    SENSEI_ERROR("Unable to obtain dataset \"" << internals.Mesh.c_str() << "\"");
+  }
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -274,9 +299,16 @@ int CatalystSlice::CoProcess(vtkCPDataDescription* dataDesc)
 {
   timer::MarkEvent mark("catalyst::slice");
   vtkInternals& internals = (*this->Internals);
-  internals.UpdatePipeline(dataDesc->GetInputDescription(0)->GetGrid(),
-    dataDesc->GetTimeStep(), dataDesc->GetTime());
-  return 1;
+  auto dd = internals.Mesh.empty() ?
+    dataDesc->GetInputDescription(0) :
+    dataDesc->GetInputDescriptionByName(internals.Mesh.c_str());
+  if (dd)
+  {
+    internals.UpdatePipeline(dd->GetGrid(),
+      dataDesc->GetTimeStep(), dataDesc->GetTime());
+    return 1;
+  }
+  return 0;
 }
 
 //----------------------------------------------------------------------------
