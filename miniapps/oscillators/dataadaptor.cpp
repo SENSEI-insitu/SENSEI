@@ -378,7 +378,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
       }
     }
   else if (meshName == "particles" && association == vtkDataObject::FIELD_ASSOCIATION_POINTS &&
-           (arrayName == "uniqueGlobalId" || arrayName == "velocity"))
+           (arrayName == "uniqueGlobalId" || arrayName == "velocity" || arrayName == "velocityMagnitude"))
     {
     for (unsigned int cc=0, max=md->GetNumberOfBlocks(); cc < max; ++cc)
       {
@@ -423,6 +423,20 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
           pd->SetScalars(array.Get());
           pd->SetActiveScalars(array->GetName());
           }
+        else if (arrayName == "velocityMagnitude")
+          {
+          vtkNew<vtkFloatArray> array;
+          array->SetName(arrayName.c_str());
+          array->SetNumberOfComponents(1);
+          array->SetNumberOfTuples(block->GetNumberOfPoints());
+          for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
+            {
+            float magnitude = std::sqrt(particles[i].velocity.norm());
+            array->SetTypedTuple(i, &magnitude);
+            }
+          pd->SetScalars(array.Get());
+          pd->SetActiveScalars(array->GetName());
+          }
         }
       }
     }
@@ -431,7 +445,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     {
     SENSEI_ERROR("the miniapp provides a cell centered array named \"data\" "
       "on meshes named \"mesh\" or \"ucdmesh\"; or point centered arrays named "
-      "\"uniqueGlobalId\" and \"velocity\" on a mesh named \"particles\"")
+      "\"uniqueGlobalId\", \"velocity\" and \"velocityMagnitude\" on a mesh named \"particles\"")
     return -1;
     }
 #endif
