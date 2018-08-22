@@ -680,6 +680,7 @@ void ConduitDataAdaptor::UpdateFields()
       }
     }
   }
+
   return;
 }
 //-----------------------------------------------------------------------------
@@ -835,8 +836,11 @@ int ConduitDataAdaptor::AddArray(vtkDataObject* mesh,
 
   std::vector<std::string> vec = search->second;
   int flag = 1;
+  std::cout << "arrayname: " << arrayname <<std::endl;
+  std::cout << "vector size " << vec.size() <<std::endl;
   for(int i = 0; i < (int) vec.size(); i++)
   {
+      std::cout << "array in vector: " << vec.at(i) << std::endl;
     if(arrayname.compare(vec.at(i)) == 0)
     {
       flag = 0;
@@ -863,7 +867,7 @@ int ConduitDataAdaptor::AddArray(vtkDataObject* mesh,
   
   if(!mb)
   {
-    SENSEI_ERROR("MultiBlockDataSet is NULl")
+    SENSEI_ERROR("MultiBlockDataSet is NULL")
     return -1;
   }
   if(conduit::blueprint::mesh::is_multi_domain(*this->Node))
@@ -890,8 +894,8 @@ int ConduitDataAdaptor::AddArray(vtkDataObject* mesh,
       std::stringstream rr;
       rr << "fields/" << arrayname << "/values";
       std::string values_path = rr.str();
-      int nchildren = d_node[values_path].number_of_children();
-
+      int nchildren = values.number_of_children();
+      std::cout << "NUMBER OF CHILDREN " << nchildren <<std::endl;
       if(field_association == "vertex")
       {
         if(nchildren > 0)
@@ -945,6 +949,7 @@ int ConduitDataAdaptor::AddArray(vtkDataObject* mesh,
     rr << "fields/" << arrayname << "/values";
     std::string values_path = rr.str();
     int nchildren = (*this->Node)[values_path].number_of_children();
+      std::cout << "NUMBER OF CHILDREN " << nchildren <<std::endl;
 
     if(field_association == "vertex")
     {

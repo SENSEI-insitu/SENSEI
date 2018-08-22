@@ -60,6 +60,10 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
   std::string topoPath = ss.str();
   ss.str(std::string());
 
+  ss << "fields/" << arrayName << "/type";
+  std::string typePath = ss.str();
+  ss.str(std::string());
+
   ss << "fields/" << arrayName << "/values";
   std::string valPath = ss.str();
   ss.str(std::string());
@@ -105,6 +109,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
         {
@@ -116,7 +122,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -129,7 +137,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -159,6 +169,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
           vals[i] = *cell->GetTuple(i);
@@ -166,7 +178,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -179,7 +193,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -223,6 +239,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
         {
@@ -234,7 +252,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -247,7 +267,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -277,6 +299,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
           vals[i] = *cell->GetTuple(i);
@@ -284,7 +308,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -297,7 +323,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -342,6 +370,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
         {
@@ -353,7 +383,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -366,7 +398,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -396,6 +430,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
           vals[i] = *cell->GetTuple(i);
@@ -403,7 +439,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -416,7 +454,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        node[typePath] = "vector";
+
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -472,7 +512,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -485,7 +525,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -506,6 +546,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         return -1;
       }
     }
+//TODO: How vectors are arranged in vtk?? interwoven or each vector sequentially? 
     else if(cell)
     {
       node[assocPath] = "element";
@@ -522,7 +563,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
-        int size = tuples/2;
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
@@ -535,7 +576,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 3)
       {
-        int size = tuples/3;
+        int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
@@ -674,7 +715,7 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 
     int dims[3] = {0,0,0};
     rectilinear->GetDimensions(dims);
-    std::cout << "dims " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
+    //std::cout << "dims " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
 
     vtkDataArray *x = rectilinear->GetXCoordinates();
     vtkDataArray *y = rectilinear->GetYCoordinates();
@@ -788,11 +829,11 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   std::cout << "Number of arrays " << nArrays << std::endl;
   std::string arrayName;
   dataAdaptor->GetArrayName("mesh", 1, 0, arrayName);
+  arrayName = "vel";
   std::cout << "ArrayName " << arrayName <<std::endl;
   dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
   obj->Print(std::cout);
   conduit::Node temp_node;
-  int count = 0;
 
   vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
   if(cds != nullptr)
@@ -811,7 +852,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         VTK_To_Coordsets(ds, temp_node);
         VTK_To_Topology(ds, temp_node);
         VTK_To_Fields(ds, temp_node, arrayName, obj2);
-        temp_node.print();
 
         conduit::Node& build = node.append();
         build.set(temp_node);
@@ -822,14 +862,12 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
   else if(vtkDataSet::SafeDownCast(obj) != nullptr)
   {
-    vtkDataSet::SafeDownCast(obj)->Print(std::cout);
     vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
 
     temp_node.reset();
     VTK_To_Coordsets(ds, temp_node);
     VTK_To_Topology(ds, temp_node);
     VTK_To_Fields(ds, temp_node, arrayName, obj);
-//    temp_node.print();
 
     conduit::Node& build = node.append();
     build.set(temp_node);
@@ -846,7 +884,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 
   std::cout << "NODE PRINT" << std::endl;
   node.print();
-          std::cout << "multi dom: " << conduit::blueprint::mesh::is_multi_domain(node) << std::endl;;
 
   this->a.publish(node);
   this->a.execute(actions);
