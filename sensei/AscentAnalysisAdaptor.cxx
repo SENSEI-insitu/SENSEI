@@ -185,8 +185,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -201,9 +201,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
+          wVals[i] = cell->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -315,8 +315,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -331,9 +331,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
+          wVals[i] = cell->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -446,8 +446,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -462,9 +462,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
+          wVals[i] = cell->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -578,8 +578,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -594,9 +594,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
+          uVals[i] = cell->GetComponent(i, 0);
+          vVals[i] = cell->GetComponent(i, 1);
+          wVals[i] = cell->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
