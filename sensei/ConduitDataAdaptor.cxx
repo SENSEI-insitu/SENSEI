@@ -836,11 +836,8 @@ int ConduitDataAdaptor::AddArray(vtkDataObject* mesh,
 
   std::vector<std::string> vec = search->second;
   int flag = 1;
-  std::cout << "arrayname: " << arrayname <<std::endl;
-  std::cout << "vector size " << vec.size() <<std::endl;
   for(int i = 0; i < (int) vec.size(); i++)
   {
-      std::cout << "array in vector: " << vec.at(i) << std::endl;
     if(arrayname.compare(vec.at(i)) == 0)
     {
       flag = 0;
@@ -948,7 +945,6 @@ int ConduitDataAdaptor::AddArray(vtkDataObject* mesh,
     rr << "fields/" << arrayname << "/values";
     std::string values_path = rr.str();
     int nchildren = (*this->Node)[values_path].number_of_children();
-      std::cout << "NUMBER OF CHILDREN " << nchildren <<std::endl;
 
     if(field_association == "vertex")
     {
