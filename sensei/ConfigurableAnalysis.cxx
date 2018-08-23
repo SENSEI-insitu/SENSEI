@@ -333,6 +333,10 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     vtkNew<CatalystSlice> slice;
 
     double tmp[3];
+    if (node.attribute("mesh"))
+      {
+      slice->SetInputMesh(node.attribute("mesh").value());
+      }
     if (node.attribute("slice-normal") &&
       (std::sscanf(node.attribute("slice-normal").value(),
       "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))

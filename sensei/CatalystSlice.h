@@ -13,6 +13,9 @@ public:
   vtkTypeMacro(CatalystSlice, vtkCPPipeline);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
+  /// @brief Set the mesh on which the slice should operate.
+  void SetInputMesh(const std::string& meshName);
+
   /// @brief Set slice plane origin.
   void SetSliceOrigin(double x, double y, double z);
 
