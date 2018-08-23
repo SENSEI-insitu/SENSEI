@@ -5,6 +5,7 @@
 #include <conduit_blueprint.hpp>
 
 #include <vtkObjectFactory.h>
+#include <vtkCellArray.h>
 #include <vtkDataObject.h>
 #include <vtkDataArray.h>
 #include <vtkFieldData.h>
@@ -37,6 +38,20 @@ AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
 {
 }
 
+
+
+//------------------------------------------------------------------------------
+void
+GetShape(std::string &shape, int type)
+{
+  if(type == 1) shape = "point";
+  else if(type == 2) shape = "line";
+  else if(type == 3) shape = "tri";
+  else if(type == 4) shape = "quad";
+  else if(type == 8) shape = "hex";
+  else SENSEI_ERROR("Error: Unsupported element shape");
+  return;
+}
 
 //------------------------------------------------------------------------------
 int
@@ -660,24 +675,46 @@ VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
   }
   else if(structured != nullptr)
   {
-    node["topologies/topo/type"]     = "structured";
-    node["topologies/topo/coordset"] = "coords";
+    node["topologies/mesh/type"]     = "structured";
+    node["topologies/mesh/coordset"] = "coords";
 
     int dims[3] = {0,0,0};
     structured->GetDimensions(dims);
 
-    node["topologies/topo/elements/dims/i"] = dims[0] - 1;
-    node["topologies/topo/elements/dims/j"] = dims[1] - 1;
+    node["topologies/mesh/elements/dims/i"] = dims[0] - 1;
+    node["topologies/mesh/elements/dims/j"] = dims[1] - 1;
     if(dims[2] != 0 && dims[2] != 1)
-      node["topologies/topo/elements/dims/k"] = dims[2] - 1;
+      node["topologies/mesh/elements/dims/k"] = dims[2] - 1;
   }
   else if(unstructured != nullptr)
   {
-    node["topologies/topo/type"]     = "unstructured";
-    node["topologies/topo/coordset"] = "coords";
-    //TODO
-    node["topologies/topo/elements/shape"] = "?";
-    node["topologies/topo/elements/connectivity"] = "?";
+    node["topologies/mesh/type"]     = "unstructured";
+    node["topologies/mesh/coordset"] = "coords";
+
+    vtkCellArray* cellarray = unstructured->GetCells();
+    vtkIdType *ptr = cellarray->GetPointer();
+
+    std::string shape;
+    GetShape(shape, ptr[0]);
+    node["topologies/mesh/elements/shape"] = shape;
+
+    int ncells = unstructured->GetNumberOfCells();
+    int connections = ncells*(ptr[0] + 1);
+    std::vector<int> data(ncells*ptr[0], 0);
+
+    int count = 0;
+    for(int i = 0; i < connections; i++)
+    {
+      int offset = ptr[0] + 1;
+      if(i%offset == 0)
+        continue;
+      else
+      {
+        data[count] = ptr[i];
+        count++;
+      }
+    }
+    node["topologies/mesh/elements/connectivity"].set(data);
   }
   else
   {
@@ -841,7 +878,7 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   std::cout << "Number of arrays " << nArrays << std::endl;
   std::string arrayName;
   dataAdaptor->GetArrayName("mesh", 1, 0, arrayName);
-  arrayName = "vel";
+//  arrayName = "vel";
   std::cout << "ArrayName " << arrayName <<std::endl;
   dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
   obj->Print(std::cout);
