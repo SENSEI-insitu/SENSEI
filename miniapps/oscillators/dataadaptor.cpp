@@ -403,7 +403,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
           for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
             {
             vtkIdType ugid = particles[i].id;
-            array->SetTypedTuple(i, &ugid);
+            array->SetValue(i, ugid);
             }
           pd->AddArray(array.Get());
           }
@@ -419,7 +419,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
             vel[0] = particles[i].velocity[0];
             vel[1] = particles[i].velocity[1];
             vel[2] = particles[i].velocity[2];
-            array->SetTypedTuple(i, vel);
+            array->SetTuple(i, vel);
             }
           pd->SetScalars(array.Get());
           pd->SetActiveScalars(array->GetName());
@@ -433,7 +433,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
           for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
             {
             float magnitude = std::sqrt(particles[i].velocity.norm());
-            array->SetTypedTuple(i, &magnitude);
+            array->SetValue(i, magnitude);
             }
           pd->SetScalars(array.Get());
           pd->SetActiveScalars(array->GetName());
