@@ -6,6 +6,10 @@ voxel-wise autocorrelations for all window sizes up to the specified input (via
 `-w` option). It also finds the voxels with the `k` strongest autocorrelations
 (for every shift).
 
+The oscillators' locations and parameters are specified in an input file. See
+inputs folder for examples. The `generate_input.py` script can generate a set
+of randomly initialized oscillators.
+
 The simulation code is in `oscillator.cpp`.
 The analysis interface is specified in `analysis.h`.
 The actual analysis code is in `analysis.cpp`.
