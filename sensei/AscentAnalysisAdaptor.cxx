@@ -129,8 +129,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -145,9 +145,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
-          wVals[i] = *point->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -185,8 +185,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -201,9 +201,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
-          wVals[i] = *cell->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -259,8 +259,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -275,9 +275,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
-          wVals[i] = *point->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -315,8 +315,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -331,9 +331,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
-          wVals[i] = *cell->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -390,8 +390,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -406,9 +406,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
-          wVals[i] = *point->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -446,8 +446,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -462,9 +462,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
-          wVals[i] = *cell->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -501,6 +501,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
         {
@@ -512,28 +514,32 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
+        node[typePath] = "vector";
+
         int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
       }
       else if(components == 3)
       {
+        node[typePath] = "vector";
+
         int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *point->GetTuple(i);
-          vVals[i] = *point->GetTuple(i + size);
-          wVals[i] = *point->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
@@ -556,6 +562,8 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
       if(components == 1)
       {
+        node[typePath] = "scalar";
+
         std::vector<conduit::float64> vals(tuples,0.0);
         for(int i = 0; i < tuples; i++)
           vals[i] = *cell->GetTuple(i);
@@ -563,28 +571,32 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       }
       else if(components == 2)
       {
+        node[typePath] = "vector";
+
         int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
       }
       else if(components == 3)
       {
+        node[typePath] = "vector";
+
         int size = tuples;
         std::vector<conduit::float64> uVals(size, 0.0);
         std::vector<conduit::float64> vVals(size, 0.0);
         std::vector<conduit::float64> wVals(size, 0.0);
         for(int i = 0; i < size; i++)
         {
-          uVals[i] = *cell->GetTuple(i);
-          vVals[i] = *cell->GetTuple(i + size);
-          wVals[i] = *cell->GetTuple(i + 2*size);
+          uVals[i] = point->GetComponent(i, 0);
+          vVals[i] = point->GetComponent(i, 1);
+          wVals[i] = point->GetComponent(i, 2);
         }
         node[uValPath].set(uVals);
         node[vValPath].set(vVals);
