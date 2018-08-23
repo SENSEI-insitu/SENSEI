@@ -1,5 +1,6 @@
 #include <vector>
 #include <chrono>
+#include <ctime>
 
 #include <format.h>
 #include <opts/opts.h>
@@ -12,6 +13,7 @@
 #include <grid/vertices.h>
 
 #include "oscillator.h"
+#include "particles.h"
 
 #include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
@@ -31,15 +33,22 @@ using Link   = diy::RegularGridLink;
 using Master = diy::Master;
 using Proxy  = Master::ProxyWithLink;
 
+using RandomSeedType = std::default_random_engine::result_type;
 
+
+inline bool IsVertexInsideBounds(const Vertex& v, const Bounds& b)
+{
+    return (v[0] >= static_cast<float>(b.min[0])) && (v[0] <= static_cast<float>(b.max[0])) &&
+           (v[1] >= static_cast<float>(b.min[1])) && (v[1] <= static_cast<float>(b.max[1])) &&
+           (v[2] >= static_cast<float>(b.min[2])) && (v[2] <= static_cast<float>(b.max[2]));
+}
 
 struct Block
 {
-        Block(int gid_, const Bounds& bounds_, const Vertex& domain_shape_, const Oscillators& oscillators_):
+        Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators& oscillators_):
                 gid(gid_),
                 bounds(bounds_),
-                domain_shape(domain_shape_),
-                from(bounds.min),
+                domain(domain_),
                 grid(Vertex(bounds.max) - Vertex(bounds.min) + Vertex::one()),
                 oscillators(oscillators_)
     {
@@ -51,17 +60,95 @@ struct Block
         {
             auto& gv = grid(v);
                   gv = 0;
-            auto v_global = v + from;
+            auto v_global = v + bounds.min;
 
             for (auto& o : oscillators)
                 gv += o.evaluate(v_global, t);
         });
+
+        for (auto& particle : particles)
+        {
+            particle.velocity = { 0, 0, 0 };
+            for (auto& o : oscillators)
+            {
+                particle.velocity += o.evaluateGradient(particle.position, t);
+            }
+            // normalize
+            particle.velocity /= std::sqrt(particle.velocity.norm());
+        }
+    }
+
+    void move_particles(float dt, const Proxy& cp)
+    {
+        auto link = static_cast<Link*>(cp.link());
+
+        auto particle = particles.begin();
+        while (particle != particles.end())
+        {
+            particle->position += particle->velocity * dt;
+            // warp position if needed
+            for (int i = 0; i < 3; ++i)
+            {
+                if (particle->position[i] > static_cast<float>(domain.max[i]))
+                {
+                    particle->position[i] += static_cast<float>(domain.min[i] - domain.max[i]);
+                }
+                else if (particle->position[i] < static_cast<float>(domain.min[i]))
+                {
+                    particle->position[i] += static_cast<float>(domain.max[i] - domain.min[i]);
+                }
+            }
+
+            if (!IsVertexInsideBounds(particle->position, bounds))
+            {
+                bool enqueued = false;
+                for (int i = 0; i < link->size(); ++i)
+                {
+                    if (IsVertexInsideBounds(particle->position, link->bounds(i)))
+                    {
+                        cp.enqueue(link->target(i), *particle);
+                        enqueued = true;
+                        break;
+                    }
+                }
+                if (!enqueued)
+                {
+                    fmt::print(
+                        "Error: could not find appropriate neighbor for particle: "
+                        "id: {}, position: ({}, {}, {}), velocity: ({}, {}, {})\n",
+                        particle->id,
+                        particle->position[0], particle->position[1], particle->position[2],
+                        particle->velocity[0], particle->velocity[1], particle->velocity[2]);
+                }
+                particle = particles.erase(particle);
+            }
+            else
+            {
+                ++particle;
+            }
+        }
+    }
+
+    void handle_incoming_particles(const Proxy& cp)
+    {
+        auto link = static_cast<Link*>(cp.link());
+        for (int i = 0; i < link->size(); ++i)
+        {
+            auto nbr = link->target(i).gid;
+            while(cp.incoming(nbr))
+            {
+                Particle particle;
+                cp.dequeue(nbr, particle);
+                particles.push_back(particle);
+            }
+        }
     }
 
     void    analyze_block()
       {
 #ifdef ENABLE_SENSEI
       bridge::set_data(gid, grid.data());
+      bridge::set_particles(gid, particles);
 #else
       analyze(gid, grid.data());
 #endif
@@ -72,9 +159,9 @@ struct Block
 
     int                             gid;
     Bounds                          bounds;
-    Vertex                          domain_shape;
-    Vertex                          from;
+    Bounds                          domain;
     Grid                            grid;
+    Particles                       particles;
     Oscillators                     oscillators;
 
     private:
@@ -97,6 +184,8 @@ int main(int argc, char** argv)
     size_t                      k_max     = 3;
     int                         threads   = 1;
     int                         ghostLevels = 0;
+    int                         numberOfParticles = 1024;
+    int                         seed = -1;
     std::string                 config_file;
     std::string                 out_prefix = "";
     Options ops(argc, argv);
@@ -113,7 +202,9 @@ int main(int argc, char** argv)
         >> Option(     "t-end",  t_end,     "end time")
         >> Option('j', "jobs",   threads,   "number of threads to use")
         >> Option('o', "output", out_prefix, "prefix to save output")
-        >> Option('g', "ghost levels", ghostLevels, "Number of ghost levels")
+        >> Option('g', "ghost levels", ghostLevels, "number of ghost levels")
+        >> Option('p', "particles", numberOfParticles, "number of random particles to generate")
+        >> Option(     "seed", seed, "specify a random seed")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
     bool log = ops >> Present("log", "generate full time and memory usage log");
@@ -141,6 +232,21 @@ int main(int argc, char** argv)
         }
         return 1;
     }
+
+    int particlesPerBlock = (numberOfParticles + nblocks - 1) / nblocks;
+    if (seed == -1)
+    {
+        if (world.rank() == 0)
+        {
+            seed = static_cast<int>(std::time(nullptr));
+            fmt::print("using seed {}\n", seed);
+        }
+        diy::mpi::broadcast(world, seed, 0);
+    }
+
+    std::default_random_engine rng(static_cast<RandomSeedType>(seed));
+    for (int i = 0; i < world.rank(); ++i) rng(); // different seed for each rank
+
 
     timer::SetLogging(log || shortlog);
     timer::SetTrackSummariesOverTime(shortlog);
@@ -178,14 +284,31 @@ int main(int argc, char** argv)
                      to_x,   to_y,   to_z;
 
 
-    diy::RegularDecomposer<Bounds>::BoolVector share_face, wrap;
+    diy::RegularDecomposer<Bounds>::BoolVector share_face;
+    diy::RegularDecomposer<Bounds>::BoolVector wrap(true);
     diy::RegularDecomposer<Bounds>::CoordinateVector ghosts = {ghostLevels, ghostLevels, ghostLevels};
 
     // decompose the domain
     diy::decompose(3, world.rank(), domain, assigner,
                    [&](int gid, const Bounds&, const Bounds& bounds, const Bounds& domain, const Link& link)
                    {
-                      auto b = new Block(gid, bounds, { domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1 }, oscillators);
+                      auto b = new Block(gid, bounds, domain, oscillators);
+
+                      // generate particles
+                      int start = particlesPerBlock * gid;
+                      int count = particlesPerBlock;
+                      if (start + count > numberOfParticles)
+                      {
+                        count = std::max(0, numberOfParticles - start);
+                      }
+                      float bds[6];
+                      for (int i = 0; i < 3; ++i)
+                      {
+                        bds[2*i] = static_cast<float>(bounds.min[i]);
+                        bds[2*i + 1] = static_cast<float>(bounds.max[i]);
+                      }
+                      b->particles = GenerateRandomParticles(rng, bds, start, count);
+
                       master.add(gid, b, new Link(link));
 
                       // std::cout << world.rank() << " Block " << gid << ": " << Vertex(bounds.min) << " - " << Vertex(bounds.max) << std::endl;
@@ -238,6 +361,24 @@ int main(int argc, char** argv)
                                 b->advance(t);
                               });
         timer::MarkEndEvent("oscillators::advance");
+
+        timer::MarkStartEvent("oscillators::move_particles");
+        master.foreach<Block>([=](Block* b, const Proxy& p, void*)
+                              {
+                                b->move_particles(dt, p);
+                              });
+        timer::MarkEndEvent("oscillators::move_particles");
+
+        timer::MarkStartEvent("oscillators::master.exchange");
+        master.exchange();
+        timer::MarkEndEvent("oscillators::master.exchange");
+
+        timer::MarkStartEvent("oscillators::handle_incoming_particles");
+        master.foreach<Block>([=](Block* b, const Proxy& p, void*)
+                              {
+                                b->handle_incoming_particles(p);
+                              });
+        timer::MarkEndEvent("oscillators::handle_incoming_particles");
 
         timer::MarkStartEvent("oscillators::analysis");
         master.foreach<Block>([=](Block* b, const Proxy&, void*)

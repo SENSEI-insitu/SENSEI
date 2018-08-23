@@ -4,6 +4,8 @@
 #include <mpi.h>
 #include <string>
 
+#include "particles.h"
+
 namespace bridge
 {
   void initialize(MPI_Comm world,
@@ -18,6 +20,7 @@ namespace bridge
                   const std::string& config_file);
 
   void set_data(int gid, float* data);
+  void set_particles(int gid, const Particles& particles);
 
   void analyze(float time);
 
