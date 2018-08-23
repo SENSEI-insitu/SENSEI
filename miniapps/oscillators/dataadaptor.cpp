@@ -9,6 +9,7 @@
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
+#include <vtkNew.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
