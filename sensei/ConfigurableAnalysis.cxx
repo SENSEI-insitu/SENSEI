@@ -726,7 +726,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
   if (inode)
       initSource = inode.text().as_string();
 
-  vtkNew<PythonAnalysis> pyAnalysis;
+  auto pyAnalysis = vtkSmartPointer<PythonAnalysis>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     pyAnalysis->SetCommunicator(this->Comm);
@@ -741,7 +741,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
     SENSEI_ERROR("Failed to initialize PythonAnalysis")
     return -1;
     }
-  this->Analyses.push_back(pyAnalysis.GetPointer());
+  this->Analyses.push_back(pyAnalysis);
 
   const char *scriptType = scriptFile.empty() ? "module" : "file";
 
