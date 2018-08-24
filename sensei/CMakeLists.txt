@@ -3,105 +3,48 @@ if (ENABLE_SENSEI)
 
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
-  set(senseiCore_headers
-    AnalysisAdaptor.h
-    Autocorrelation.h
-    DataAdaptor.h
-    DataRequirements.h
-    Error.h
-    Histogram.h
-    ProgrammableDataAdaptor.h
-    VTKHistogram.h
-    VTKDataAdaptor.h
-    VTKUtils.h
-  )
-
-  set(senseiCore_sources
-    AnalysisAdaptor.cxx
-    Autocorrelation.cxx
-    DataAdaptor.cxx
-    DataRequirements.cxx
-    Error.cxx
-    Histogram.cxx
-    ProgrammableDataAdaptor.cxx
-    VTKHistogram.cxx
-    VTKDataAdaptor.cxx
-    VTKUtils.cxx
-  )
+  set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
+    DataAdaptor.cxx DataRequirements.cxx Error.cxx Histogram.cxx
+    ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
+    VTKUtils.cxx)
 
   set(senseiCore_libs mpi pugixml vtk thread ArrayIO timer diy grid)
 
-  if(ENABLE_CONDUIT)
-    list(APPEND senseiCore_headers ConduitDataAdaptor.h)
+  if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
     list(APPEND senseiCore_libs sconduit)
   endif()
 
-  if(ENABLE_CATALYST)
-    list(APPEND senseiCore_headers
-      CatalystAnalysisAdaptor.h
-      CatalystSlice.h
-      CatalystUtilities.h
-    )
-    list(APPEND senseiCore_sources
-      CatalystAnalysisAdaptor.cxx
-      CatalystSlice.cxx
-      CatalystUtilities.cxx
-    )
+  if (ENABLE_CATALYST)
+    list(APPEND senseiCore_sources CatalystAnalysisAdaptor.cxx
+      CatalystSlice.cxx CatalystUtilities.cxx)
   endif()
 
   if (ENABLE_VTKM)
-    list(APPEND senseiCore_headers
-      VTKmVolumeReductionAnalysis.h
-      CinemaHelper.h
-    )
-    list(APPEND senseiCore_sources
-      VTKmVolumeReductionAnalysis.cxx
-      CinemaHelper.cxx
-    )
+    list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx
+      CinemaHelper.cxx)
     list(APPEND senseiCore_libs vtkm_cont)
   endif()
 
   if(ENABLE_ADIOS)
-    list(APPEND senseiCore_headers
-      ADIOSSchema.h
-      ADIOSAnalysisAdaptor.h
-      ADIOSDataAdaptor.h
-    )
-    list(APPEND senseiCore_sources
-      ADIOSSchema.cxx
-      ADIOSAnalysisAdaptor.cxx
-      ADIOSDataAdaptor.cxx
-    )
+    list(APPEND senseiCore_sources ADIOSSchema.cxx ADIOSAnalysisAdaptor.cxx
+      ADIOSDataAdaptor.cxx)
     list(APPEND senseiCore_libs adios)
   endif()
 
   if(ENABLE_VTK_ACCELERATORS)
-    list(APPEND senseiCore_headers
-      VTKmContourAnalysis.h
-    )
-    list(APPEND senseiCore_sources
-      VTKmContourAnalysis.cxx
-    )
+    list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()
 
   if(ENABLE_LIBSIM)
-    list(APPEND senseiCore_headers
-      LibsimAnalysisAdaptor.h
-      LibsimImageProperties.h
-    )
-    list(APPEND senseiCore_sources
-      LibsimAnalysisAdaptor.cxx
-      LibsimImageProperties.cxx
-    )
+    list(APPEND senseiCore_sources LibsimAnalysisAdaptor.cxx
+      LibsimImageProperties.cxx)
     list(APPEND senseiCore_libs libsim)
   endif()
 
   if(ENABLE_VTK_IO)
-    list(APPEND senseiCore_headers VTKPosthocIO.h)
     list(APPEND senseiCore_sources VTKPosthocIO.cxx)
     if (ENABLE_VTK_MPI)
-      list(APPEND senseiCore_headers VTKAmrWriter.h)
       list(APPEND senseiCore_sources VTKAmrWriter.cxx)
     endif()
   endif()
@@ -121,13 +64,7 @@ if (ENABLE_SENSEI)
   install(EXPORT senseiCore DESTINATION lib/cmake
     EXPORT_LINK_INTERFACE_LIBRARIES)
 
-  install(
-    FILES ${senseiCore_headers}
-    DESTINATION include
-  )
-
   set(sensei_sources ConfigurableAnalysis.cxx)
-  set(sensei_headers ConfigurableAnalysis.h)
   set(sensei_libs senseiCore)
 
   # PythonAnalysis
@@ -175,7 +112,6 @@ if (ENABLE_SENSEI)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
       DESTINATION lib FILES_MATCHING PATTERN "*.py")
 
-    list(APPEND sensei_headers PythonAnalysis.h)
     list(APPEND sensei_libs _PythonAnalysis)
   endif()
 
@@ -190,10 +126,8 @@ if (ENABLE_SENSEI)
 
   target_link_libraries(sensei PUBLIC ${sensei_libs})
 
-  install(
-    FILES ${sensei_headers}
-    DESTINATION include
-  )
+  install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
+    DESTINATION include FILES_MATCHING PATTERN "*.h")
 
   install(TARGETS sensei EXPORT sensei
     INCLUDES DESTINATION include ARCHIVE DESTINATION lib
