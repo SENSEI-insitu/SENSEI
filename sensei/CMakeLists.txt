@@ -20,7 +20,7 @@ if (ENABLE_SENSEI)
   endif()
 
   if(ENABLE_ASCENT)
-    list(APPEND senseiCore_sources AscentAnalysisAdaptor.cxx)
+    list(APPEND senseiCore_sources AscentAnalysisAdaptor.cxx AscentSchema.cxx)
     list(APPEND senseiCore_libs sascent)
   endif()
 

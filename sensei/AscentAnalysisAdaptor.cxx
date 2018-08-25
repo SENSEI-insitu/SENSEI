@@ -886,12 +886,12 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   if(this->actionNode["action"].as_string() ==  "add_scenes")
   {
     arrayName = this->actionNode["scenes/scene1/plots/plt1/params/field"].as_string();
-    std::cout << "TRUE" << std::endl;
     add_actions["action"] = "add_scenes";
     add_actions["scenes"] = this->actionNode["scenes"];
   }
   else if(this->actionNode["action"].as_string() == "add_pipelines")
   {
+      std::cout << "HERE" << std::endl;
     arrayName = this->actionNode["pipelines/pl1/f1/params/field"].as_string();
     add_actions["action"] = "add_pipelines";
     add_actions["pipelines"]    = this->actionNode["pipelines"];

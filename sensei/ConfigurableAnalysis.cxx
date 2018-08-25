@@ -46,6 +46,7 @@
 #endif
 #ifdef ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
+#include "AscentSchema.h"
 #endif
 #ifdef ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
