@@ -688,6 +688,11 @@ VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
   }
   else if(unstructured != nullptr)
   {
+    if(!unstructured->IsHomogeneous())
+    {
+      SENSEI_ERROR("Unstructured cells must be homogenous")
+      return -1;
+    }
     node["topologies/mesh/type"]     = "unstructured";
     node["topologies/mesh/coordset"] = "coords";
 
@@ -872,13 +877,39 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     SENSEI_ERROR("Failed to get mesh")
     return -1;
   }
-//  obj->Print(std::cout); 
-  unsigned int nArrays = 0;
-  dataAdaptor->GetNumberOfArrays("mesh", 1, nArrays);
-  std::cout << "Number of arrays " << nArrays << std::endl;
+
   std::string arrayName;
-  dataAdaptor->GetArrayName("mesh", 1, 0, arrayName);
-//  arrayName = "vel";
+
+  conduit::Node actions;
+  conduit::Node &add_actions = actions.append();
+
+  if(this->actionNode["action"].as_string() ==  "add_scenes")
+  {
+    arrayName = this->actionNode["scenes/scene1/plots/plt1/params/field"].as_string();
+    std::cout << "TRUE" << std::endl;
+    add_actions["action"] = "add_scenes";
+    add_actions["scenes"] = this->actionNode["scenes"];
+  }
+  else if(this->actionNode["action"].as_string() == "add_pipelines")
+  {
+    arrayName = this->actionNode["pipelines/pl1/f1/params/field"].as_string();
+    add_actions["action"] = "add_pipelines";
+    add_actions["pipelines"]    = this->actionNode["pipelines"];
+
+    conduit::Node scenes;
+    scenes["action"] = "add_scenes";
+    scenes["scenes/scene1/plots/plt1/params/field"] = this->actionNode["pipelines/pl1/f1/params/field"];
+    scenes["scenes/scene1/plots/plt1/type"] = "pseudocolor";
+    scenes["scenes/scene1/plots/plt1/pipeline"] = "pl1";
+
+    actions.append() = scenes;
+  }
+  actions.append()["action"] = "execute";
+  actions.print();
+
+  std::cout << "NODE PRINT" << std::endl;
+  node.print();
+
   std::cout << "ArrayName " << arrayName <<std::endl;
   dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
   obj->Print(std::cout);
@@ -925,14 +956,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   {
     SENSEI_ERROR("Data object is not supported.")
   }
-  conduit::Node actions;
-  conduit::Node &add_actions = actions.append();
-  add_actions["action"] = "add_scenes";
-  add_actions["scenes"] = this->actionNode["scenes"];
-  actions.append()["action"] = "execute";
-
-  std::cout << "NODE PRINT" << std::endl;
-  node.print();
 
   this->a.publish(node);
   this->a.execute(actions);
