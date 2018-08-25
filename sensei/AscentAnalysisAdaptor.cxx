@@ -905,6 +905,7 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
   else if(this->actionNode["action"].as_string() == "add_pipelines")
   {
+      std::cout << "HERE" << std::endl;
     arrayName = this->actionNode["pipelines/pl1/f1/params/field"].as_string();
     add_actions["action"] = "add_pipelines";
     add_actions["pipelines"]    = this->actionNode["pipelines"];
