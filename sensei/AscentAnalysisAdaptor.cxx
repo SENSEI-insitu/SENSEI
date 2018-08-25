@@ -898,7 +898,7 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 
     conduit::Node scenes;
     scenes["action"] = "add_scenes";
-    scenes["scenes/scene1/plots/plt1/params/field"] = this->actionNode["pipelines/pl1/f1/params/field"];
+    scenes["scenes/scene1/plots/plt1/params/field"] = arrayName;
     scenes["scenes/scene1/plots/plt1/type"] = "pseudocolor";
     scenes["scenes/scene1/plots/plt1/pipeline"] = "pl1";
 
@@ -907,8 +907,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   actions.append()["action"] = "execute";
   actions.print();
 
-  std::cout << "NODE PRINT" << std::endl;
-  node.print();
 
   std::cout << "ArrayName " << arrayName <<std::endl;
   dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
@@ -956,6 +954,8 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   {
     SENSEI_ERROR("Data object is not supported.")
   }
+  std::cout << "NODE PRINT" << std::endl;
+  node.print();
 
   this->a.publish(node);
   this->a.execute(actions);
