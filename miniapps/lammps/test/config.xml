@@ -1,0 +1,13 @@
+<sensei>
+  <!-- Custom Analyses -->
+  <analysis type="histogram" mesh="atoms" array="type" association="point"
+    bins="67" enabled="1" />
+
+  <!-- Available with ENABLE_VTK_IO -->
+  <analysis type="PosthocIO" mode="paraview" output_dir="./" enabled="1">
+    <mesh name="atoms">
+        <point_arrays> type, id </point_arrays>
+    </mesh>
+  </analysis>
+</sensei>
+
