@@ -17,7 +17,7 @@ if (ENABLE_SENSEI)
 
   if (ENABLE_CATALYST)
     list(APPEND senseiCore_sources CatalystAnalysisAdaptor.cxx
-      CatalystSlice.cxx CatalystUtilities.cxx)
+      CatalystParticle.cxx CatalystSlice.cxx CatalystUtilities.cxx)
   endif()
 
   if (ENABLE_VTKM)

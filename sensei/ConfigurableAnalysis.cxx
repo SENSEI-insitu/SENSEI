@@ -24,6 +24,7 @@
 #endif
 #ifdef ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
+#include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #endif
 #ifdef ENABLE_LIBSIM
@@ -432,6 +433,70 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
       }
 
     this->CatalystAdaptor->AddPipeline(slice.GetPointer());
+    }
+  else if (strcmp(node.attribute("pipeline").value(), "particle") == 0)
+    {
+    vtkNew<CatalystParticle> particle;
+
+    double tmp[3];
+    if (node.attribute("mesh"))
+      {
+      particle->SetInputMesh(node.attribute("mesh").value());
+      }
+    if (node.attribute("particle-style"))
+      {
+      particle->SetParticleStyle(node.attribute("particle-style").value());
+      }
+    if (node.attribute("particle-radius") &&
+      (std::sscanf(node.attribute("particle-radius").value(),
+      "%lg", &tmp[0]) == 1))
+      {
+      particle->SetParticleRadius(tmp[0]);
+      }
+    if (node.attribute("camera-position") &&
+      (std::sscanf(node.attribute("camera-position").value(),
+      "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
+      {
+      particle->SetCameraPosition(tmp);
+      }
+
+    if (node.attribute("camera-focus") &&
+      (std::sscanf(node.attribute("camera-focus").value(),
+      "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
+      {
+      particle->SetCameraFocus(tmp);
+      }
+
+    int association = 0;
+    std::string assocStr = node.attribute("association").as_string("point");
+    if (VTKUtils::GetAssociation(assocStr, association))
+      {
+      SENSEI_ERROR("Failed to initialize Catalyst")
+      return -1;
+      }
+
+    particle->ColorBy(association, node.attribute("array").value());
+    if (node.attribute("color-range") &&
+      (std::sscanf(node.attribute("color-range").value(), "%lg,%lg", &tmp[0], &tmp[1]) == 2))
+      {
+      particle->SetAutoColorRange(false);
+      particle->SetColorRange(tmp[0], tmp[1]);
+      }
+    else
+      {
+      particle->SetAutoColorRange(true);
+      }
+
+    particle->SetUseLogScale(node.attribute("color-log").as_int(0) == 1);
+    if (node.attribute("image-filename"))
+      {
+      particle->SetImageParameters(
+        node.attribute("image-filename").value(),
+        node.attribute("image-width").as_int(800),
+        node.attribute("image-height").as_int(800));
+      }
+
+    this->CatalystAdaptor->AddPipeline(particle.GetPointer());
     }
   else if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {

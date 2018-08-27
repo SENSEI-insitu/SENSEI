@@ -45,8 +45,9 @@ inline bool IsVertexInsideBounds(const Vertex& v, const Bounds& b)
 
 struct Block
 {
-        Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators& oscillators_):
+        Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators& oscillators_, float velocity_scale_):
                 gid(gid_),
+                velocity_scale(velocity_scale_),
                 bounds(bounds_),
                 domain(domain_),
                 grid(Vertex(bounds.max) - Vertex(bounds.min) + Vertex::one()),
@@ -73,8 +74,8 @@ struct Block
             {
                 particle.velocity += o.evaluateGradient(particle.position, t);
             }
-            // normalize
-            particle.velocity /= std::sqrt(particle.velocity.norm());
+            // scale the gradient to get "units" right for velocity
+            particle.velocity *= velocity_scale;
         }
     }
 
@@ -158,6 +159,7 @@ struct Block
     static void  destroy(void* b)           { delete static_cast<Block*>(b); }
 
     int                             gid;
+    float                           velocity_scale;
     Bounds                          bounds;
     Bounds                          domain;
     Grid                            grid;
@@ -165,7 +167,9 @@ struct Block
     Oscillators                     oscillators;
 
     private:
-        Block() {}      // for create; to let Master manage the blocks
+        Block() // for create; to let Master manage the blocks
+          : gid(-1), velocity_scale(1.0f)
+        {}
 };
 
 
@@ -180,6 +184,7 @@ int main(int argc, char** argv)
     int                         nblocks   = world.size();
     float                       t_end     = 10;
     float                       dt        = .01;
+    float                       velocity_scale = 50.0f;
     size_t                      window    = 10;
     size_t                      k_max     = 3;
     int                         threads   = 1;
@@ -204,6 +209,7 @@ int main(int argc, char** argv)
         >> Option('o', "output", out_prefix, "prefix to save output")
         >> Option('g', "ghost levels", ghostLevels, "number of ghost levels")
         >> Option('p', "particles", numberOfParticles, "number of random particles to generate")
+        >> Option('v', "velocity scale", velocity_scale, "scale factor to convert function gradient to velocity")
         >> Option(     "seed", seed, "specify a random seed")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
@@ -292,7 +298,7 @@ int main(int argc, char** argv)
     diy::decompose(3, world.rank(), domain, assigner,
                    [&](int gid, const Bounds&, const Bounds& bounds, const Bounds& domain, const Link& link)
                    {
-                      auto b = new Block(gid, bounds, domain, oscillators);
+                      auto b = new Block(gid, bounds, domain, oscillators, velocity_scale);
 
                       // generate particles
                       int start = particlesPerBlock * gid;
