@@ -1,0 +1,44 @@
+<sensei>
+
+  <!--
+       Catalyst particle rendering example
+
+       This XML configures a ParaView/Catalyst pipeline
+       to render points using the point-Gaussian representation.
+
+       This representation accepts a particle-style parameter
+       that should be one of:
+         + "Gaussian Blur"
+         + "Sphere"
+         + "Black-edged circle"
+         + "Plain circle"
+         + "Triangle"
+         + "Square Outline"
+       You may set the size of the point-Gaussian circles
+       using the particle-radius parameter (which defaults to 1.0).
+
+       The camera will default to looking at the origin from the
+       point (1,1,1) but will have its position reset along this line
+       at each timestep so that the entire dataset is in view.
+       You may override these camera settings with the camera-position
+       and camera-focus parameters.
+
+       For now, you must include an image-filename parameter
+       indicating where to save the image from each timestep.
+    -->
+  <analysis
+    enabled="1"
+
+    type="catalyst" pipeline="particle"
+    mesh="particles"
+
+    particle-style="Black-edged circle" particle-radius="0.5"
+    array="uniqueGlobalId" association="point"
+    color-range="0.0,1024.0" color-log="0"
+
+    camera-position="150,150,100" camera-focus="0,0,0"
+    image-filename="/tmp/catalyst-particles-%ts.png"
+    image-width="1920" image-height="1080"
+    />
+
+</sensei>

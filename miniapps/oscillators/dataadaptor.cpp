@@ -399,7 +399,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
           vtkNew<vtkIdTypeArray> array;
           array->SetName(arrayName.c_str());
           array->SetNumberOfComponents(1);
-          array->SetNumberOfTuples(block->GetNumberOfPoints());
+          array->SetNumberOfTuples(particles.size());
           for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
             {
             vtkIdType ugid = particles[i].id;
@@ -412,7 +412,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
           vtkNew<vtkFloatArray> array;
           array->SetName(arrayName.c_str());
           array->SetNumberOfComponents(3);
-          array->SetNumberOfTuples(block->GetNumberOfPoints());
+          array->SetNumberOfTuples(particles.size());
           float vel[3] = { 0, 0, 0 };
           for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
             {
@@ -429,7 +429,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
           vtkNew<vtkFloatArray> array;
           array->SetName(arrayName.c_str());
           array->SetNumberOfComponents(1);
-          array->SetNumberOfTuples(block->GetNumberOfPoints());
+          array->SetNumberOfTuples(particles.size());
           for (vtkIdType i = 0; i < array->GetNumberOfTuples(); ++i)
             {
             float magnitude = std::sqrt(particles[i].velocity.norm());
