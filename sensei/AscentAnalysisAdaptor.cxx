@@ -659,13 +659,17 @@ VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
 
     int dims[3] = {0,0,0};
     uniform->GetDimensions(dims);
+
     double origin[3] = {0.0,0.0,0.0};
     uniform->GetOrigin(origin);
 
-    node["topologies/mesh/elements/origin/i0"] = origin[0];
-    node["topologies/mesh/elements/origin/j0"] = origin[1];
+    int extents[6] = {0,0,0,0,0,0};
+    uniform->GetExtent(extents);
+
+    node["topologies/mesh/elements/origin/i0"] = origin[0] + extents[0];
+    node["topologies/mesh/elements/origin/j0"] = origin[1] + extents[2];
     if(dims[2] != 0 && dims[2] != 1)
-      node["topologies/mesh/elements/origin/k0"] = origin[2];
+      node["topologies/mesh/elements/origin/k0"] = origin[2] + extents[4];
   }
   else if(rectilinear != nullptr)
   {
@@ -745,18 +749,25 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   {
     node["coordsets/coords/type"] = "uniform";
 
+    //Local Dimensions
     int dims[3] = {0,0,0};
     uniform->GetDimensions(dims);
     node["coordsets/coords/dims/i"] = dims[0];
     node["coordsets/coords/dims/j"] = dims[1];
     node["coordsets/coords/dims/k"] = dims[2];
 
+    //Global Origin 
     double origin[3] = {0.0,0.0,0.0};
     uniform->GetOrigin(origin);
-    node["coordsets/coords/origin/x"] = origin[0];
-    node["coordsets/coords/origin/y"] = origin[1];
-    node["coordsets/coords/origin/z"] = origin[2];
 
+    int extents[6] = {0,0,0,0,0,0};
+    uniform->GetExtent(extents);
+
+    node["coordsets/coords/origin/x"] = origin[0] + extents[0];
+    node["coordsets/coords/origin/y"] = origin[1] + extents[2];
+    node["coordsets/coords/origin/z"] = origin[2] + extents[4];
+
+    //Global Spacing == Local Spacing
     double spacing[3] = {0.0,0.0,0.0};
     uniform->GetSpacing(spacing);
     node["coordsets/coords/spacing/dx"] = spacing[0];
@@ -858,7 +869,10 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 void
 AscentAnalysisAdaptor::Initialize(conduit::Node actions)
 {
- this->a.open();
+ conduit::Node ascent_options;
+ ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
+ ascent_options["runtime/type"] = "ascent";
+ this->a.open(ascent_options);
  this->actionNode = actions; 
 
 return;
@@ -910,7 +924,7 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 
   std::cout << "ArrayName " << arrayName <<std::endl;
   dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
-  obj->Print(std::cout);
+//  obj->Print(std::cout);
   conduit::Node temp_node;
 
   vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
@@ -954,11 +968,14 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   {
     SENSEI_ERROR("Data object is not supported.")
   }
-  std::cout << "NODE PRINT" << std::endl;
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::cout << "RANK " << rank << " NODE PRINT" << std::endl;
   node.print();
 
   this->a.publish(node);
   this->a.execute(actions);
+  node.reset();
 
   return true;
 }
