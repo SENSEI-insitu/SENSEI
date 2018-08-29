@@ -22,7 +22,7 @@ if (ENABLE_SENSEI)
 
   if (ENABLE_VTKM)
     list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx
-      CinemaHelper.cxx)
+      VTKmCDFAnalysis.cxx CDFReducer.cxx CinemaHelper.cxx)
     list(APPEND senseiCore_libs vtkm_cont)
   endif()
 

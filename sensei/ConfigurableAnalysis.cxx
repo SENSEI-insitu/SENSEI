@@ -18,6 +18,7 @@
 #endif
 #ifdef ENABLE_VTKM
 #include "VTKmVolumeReductionAnalysis.h"
+#include "VTKmCDFAnalysis.h"
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
@@ -149,6 +150,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddHistogram(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
+  int AddVTKmCDF(pugi::xml_node node);
   int AddAdios(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
@@ -317,6 +319,46 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   this->Analyses.push_back(reducer.GetPointer());
 
   SENSEI_STATUS("Configured VTKmVolumeReductionAnalysis " << mesh << "/" << field)
+
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
+{
+#ifndef ENABLE_VTKM
+  (void)node;
+  SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
+  return -1;
+#else
+  if (
+    requireAttribute(node, "mesh") ||
+    requireAttribute(node, "field") ||
+    requireAttribute(node, "association")
+    )
+    {
+    SENSEI_ERROR("Failed to initialize VTKmCDFAnalysis");
+    return -1;
+    }
+
+  auto mesh = node.attribute("mesh").as_string();
+  auto field = node.attribute("field").as_string();
+  auto assoc = node.attribute("association").as_string();
+  auto quantiles = node.attribute("quantiles").as_int(10);
+  auto exchangeSize = node.attribute("exchange-size").as_int(quantiles);
+
+  bool haveWorkDir = !!node.attribute("working-directory");
+  std::string workDir =  haveWorkDir ? node.attribute("working-directory").as_string() : ".";
+
+  auto analysis = vtkSmartPointer<VTKmCDFAnalysis>::New();
+  this->TimeInitialization(analysis, [&]() {
+    analysis->Initialize(mesh, field, assoc, workDir, quantiles, exchangeSize, this->Comm);
+    return 0;
+  });
+  this->Analyses.push_back(analysis.GetPointer());
+
+  SENSEI_STATUS("Configured VTKmCDFAnalysis " << mesh << "/" << field)
 
   return 0;
 #endif
@@ -900,6 +942,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
       || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
+      || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
       {
       if (rank == 0)
