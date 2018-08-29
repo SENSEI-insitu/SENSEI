@@ -43,6 +43,7 @@
 
 #include <vector>
 #include <pugixml.hpp>
+#include <fstream>
 #include <sstream>
 #include <cstdio>
 #include <errno.h>
@@ -131,7 +132,7 @@ static int parse(MPI_Comm comm, int rank,
 struct ConfigurableAnalysis::InternalsType
 {
   InternalsType()
-    : Comm(MPI_COMM_NULL), RecordTimings(false), RankLogModulus(1)
+    : Comm(MPI_COMM_NULL)
   {
   }
 
@@ -181,29 +182,31 @@ public:
   // and superfluous Comm_dup's are avoided.
   MPI_Comm Comm;
 
-  // whether to record timings for each configured analysis:
-  bool RecordTimings;
-  // how many ranks should print timing info:
-  int RankLogModulus;
+  std::vector<std::string> LogEventNames;
 };
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::TimeInitialization(
   AnalysisAdaptorPtr adaptor, std::function<int()> initializer)
 {
-  std::string analysisName;
-  if (this->RecordTimings)
+  const char* analysisName = nullptr;
+  if (timer::GetLogging())
   {
-    std::ostringstream name;
-    name << adaptor->GetClassName() << "::" << this->Analyses.size() << "::initialize";
-    analysisName = name.str();
-    timer::MarkStartEvent(analysisName.c_str());
+    std::ostringstream initName;
+    std::ostringstream execName;
+    std::ostringstream finiName;
+    auto analysisNumber = this->Analyses.size();
+    initName << adaptor->GetClassName() << "::" << analysisNumber << "::initialize";
+    execName << adaptor->GetClassName() << "::" << analysisNumber << "::execute";
+    finiName << adaptor->GetClassName() << "::" << analysisNumber << "::finalize";
+    this->LogEventNames.push_back(initName.str());
+    this->LogEventNames.push_back(execName.str());
+    this->LogEventNames.push_back(finiName.str());
+    analysisName = this->LogEventNames[3 * analysisNumber].c_str();
   }
+  timer::MarkStartEvent(analysisName);
   int result = initializer();
-  if (this->RecordTimings)
-  {
-    timer::MarkEndEvent(analysisName.c_str());
-  }
+  timer::MarkEndEvent(analysisName);
   return result;
 }
 
@@ -915,17 +918,6 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 
   int rv = 0;
   pugi::xml_node root = doc.child("sensei");
-
-  // This must come before analysis initialization in order for us to time them.
-  this->Internals->RecordTimings = root.attribute("timing").as_bool(false);
-  if (this->Internals->RecordTimings)
-  {
-    timer::SetTrackSummariesOverTime(
-      root.attribute("summarize-timing").as_bool(true));
-    this->Internals->RankLogModulus =
-      root.attribute("timing-rank-modulus").as_int(1);
-  }
-
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
     {
@@ -962,29 +954,23 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 
   int rv = 0;
   int ai = 0;
-  bool recordTimings = this->Internals->RecordTimings;
-  std::string analysisName;
+  const char* analysisName = nullptr;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    if (recordTimings)
-    {
-      std::ostringstream name;
-      name << (*iter)->GetClassName() << "::" << ai << "::execute";
-      analysisName = name.str();
-      timer::MarkStartEvent(analysisName.c_str());
-    }
+    if (timer::GetLogging())
+      {
+      analysisName = this->Internals->LogEventNames[3 * ai + 1].c_str();
+      }
+    timer::MarkStartEvent(analysisName);
     if (!(*iter)->Execute(data))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
       rv -= 1;
       }
-    if (recordTimings)
-      {
-      timer::MarkEndEvent(analysisName.c_str());
-      }
+    timer::MarkEndEvent(analysisName);
     }
 
   return rv < 0 ? false : true;
@@ -998,34 +984,27 @@ int ConfigurableAnalysis::Finalize()
 
   int rv = 0;
   int ai = 0;
-  bool recordTimings = this->Internals->RecordTimings;
-  std::string analysisName;
+  const char* analysisName = nullptr;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    if (recordTimings)
-    {
-      std::ostringstream name;
-      name << (*iter)->GetClassName() << "::" << ai << "::finalize";
-      analysisName = name.str();
-      timer::MarkStartEvent(analysisName.c_str());
-    }
+    if (timer::GetLogging())
+      {
+      analysisName = this->Internals->LogEventNames[3 * ai + 2].c_str();
+      }
+    timer::MarkStartEvent(analysisName);
     if ((*iter)->Finalize())
       {
       SENSEI_ERROR("Failed to finalize " << (*iter)->GetClassName())
       rv -= 1;
       }
-    if (recordTimings)
-      {
-      timer::MarkEndEvent(analysisName.c_str());
-      }
+    timer::MarkEndEvent(analysisName);
     }
 
-  if (recordTimings)
+  if (timer::GetLogging())
   {
-    timer::PrintLog(
-      std::cout, this->GetCommunicator(), this->Internals->RankLogModulus);
+    timer::PrintLog(std::cout, this->GetCommunicator());
   }
 
   return rv;
