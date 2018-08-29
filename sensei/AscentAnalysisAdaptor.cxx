@@ -883,7 +883,6 @@ return;
 bool
 AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  std::cout << "IN EzXECUTE" << std::endl;
   conduit::Node node;
   vtkDataObject* obj = nullptr;
   if(dataAdaptor->GetMesh("mesh", false, obj))
@@ -905,7 +904,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
   else if(this->actionNode["action"].as_string() == "add_pipelines")
   {
-      std::cout << "HERE" << std::endl;
     arrayName = this->actionNode["pipelines/pl1/f1/params/field"].as_string();
     add_actions["action"] = "add_pipelines";
     add_actions["pipelines"]    = this->actionNode["pipelines"];
@@ -919,12 +917,12 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     actions.append() = scenes;
   }
   actions.append()["action"] = "execute";
-  actions.print();
+  actions.append()["action"] = "reset";
+//  actions.print();
 
 
-  std::cout << "ArrayName " << arrayName <<std::endl;
   dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
-//  obj->Print(std::cout);
+
   conduit::Node temp_node;
 
   vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
@@ -968,10 +966,6 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   {
     SENSEI_ERROR("Data object is not supported.")
   }
-  int rank = 0;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  std::cout << "RANK " << rank << " NODE PRINT" << std::endl;
-  node.print();
 
   this->a.publish(node);
   this->a.execute(actions);
