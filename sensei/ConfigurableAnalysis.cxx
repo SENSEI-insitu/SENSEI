@@ -190,23 +190,28 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
   AnalysisAdaptorPtr adaptor, std::function<int()> initializer)
 {
   const char* analysisName = nullptr;
-  if (timer::GetLogging())
+  bool logEnabled = timer::Enabled();
+  if (logEnabled)
   {
     std::ostringstream initName;
     std::ostringstream execName;
     std::ostringstream finiName;
     auto analysisNumber = this->Analyses.size();
-    initName << adaptor->GetClassName() << "::" << analysisNumber << "::initialize";
-    execName << adaptor->GetClassName() << "::" << analysisNumber << "::execute";
-    finiName << adaptor->GetClassName() << "::" << analysisNumber << "::finalize";
+    initName << adaptor->GetClassName() << "::" << analysisNumber << "::Initialize";
+    execName << adaptor->GetClassName() << "::" << analysisNumber << "::Execute";
+    finiName << adaptor->GetClassName() << "::" << analysisNumber << "::Finalize";
     this->LogEventNames.push_back(initName.str());
     this->LogEventNames.push_back(execName.str());
     this->LogEventNames.push_back(finiName.str());
     analysisName = this->LogEventNames[3 * analysisNumber].c_str();
+    timer::MarkStartEvent(analysisName);
   }
-  timer::MarkStartEvent(analysisName);
+
   int result = initializer();
-  timer::MarkEndEvent(analysisName);
+
+  if (logEnabled)
+    timer::MarkEndEvent(analysisName);
+
   return result;
 }
 
@@ -243,8 +248,8 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
   this->Analyses.push_back(histogram.GetPointer());
 
   SENSEI_STATUS("Configured histogram with " << bins
-    << " " << assocStr << "data array " << array
-    << " on mesh " << mesh)
+    << " bins on " << assocStr << " data array \"" << array
+    << "\" on mesh \"" << mesh << "\"")
 
   return 0;
 }
@@ -905,6 +910,8 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
+  timer::MarkEvent("ConfigurableAnalysis::Initialize");
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
@@ -918,6 +925,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 
   int rv = 0;
   pugi::xml_node root = doc.child("sensei");
+
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
     {
@@ -949,28 +957,34 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
+  timer::MarkEvent("ConfigurableAnalysis::Execute");
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   int rv = 0;
   int ai = 0;
-  const char* analysisName = nullptr;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    if (timer::GetLogging())
+    const char* analysisName = nullptr;
+    bool logEnabled = timer::Enabled();
+    if (logEnabled)
       {
       analysisName = this->Internals->LogEventNames[3 * ai + 1].c_str();
+      timer::MarkStartEvent(analysisName);
       }
-    timer::MarkStartEvent(analysisName);
+
     if (!(*iter)->Execute(data))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
       rv -= 1;
       }
-    timer::MarkEndEvent(analysisName);
+
+    if (logEnabled)
+      timer::MarkEndEvent(analysisName);
     }
 
   return rv < 0 ? false : true;
@@ -979,33 +993,34 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Finalize()
 {
+  timer::MarkEvent("ConfigurableAnalysis::Finalize");
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   int rv = 0;
   int ai = 0;
-  const char* analysisName = nullptr;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    if (timer::GetLogging())
+    bool logEnabled = timer::Enabled();
+    const char* analysisName = nullptr;
+    if (logEnabled)
       {
       analysisName = this->Internals->LogEventNames[3 * ai + 2].c_str();
+      timer::MarkStartEvent(analysisName);
       }
-    timer::MarkStartEvent(analysisName);
+
     if ((*iter)->Finalize())
       {
       SENSEI_ERROR("Failed to finalize " << (*iter)->GetClassName())
       rv -= 1;
       }
-    timer::MarkEndEvent(analysisName);
-    }
 
-  if (timer::GetLogging())
-  {
-    timer::PrintLog(std::cout, this->GetCommunicator());
-  }
+    if (logEnabled)
+      timer::MarkEndEvent(analysisName);
+    }
 
   return rv;
 }
