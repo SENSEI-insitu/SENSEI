@@ -300,12 +300,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
 #else
-  if (
-    requireAttribute(node, "mesh") ||
-    requireAttribute(node, "field") ||
-    requireAttribute(node, "association") ||
-    requireAttribute(node, "reduction")
-    )
+  if (requireAttribute(node, "mesh") || requireAttribute(node, "field") ||
+    requireAttribute(node, "association") || requireAttribute(node, "reduction"))
     {
     SENSEI_ERROR("Failed to initialize VTKmVolumeReductionAnalysis");
     return -1;
@@ -316,8 +312,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   auto assoc = node.attribute("association").as_string();
   auto reduction = node.attribute("reduction").as_int();
 
-  bool haveWorkDir = !!node.attribute("working-directory");
-  std::string workDir =  haveWorkDir ? node.attribute("working-directory").as_string() : ".";
+  std::string workDir = node.attribute("working-directory").as_string(".");
 
   auto reducer = vtkSmartPointer<VTKmVolumeReductionAnalysis>::New();
   this->TimeInitialization(reducer, [&]() {
