@@ -23,8 +23,6 @@
 #include <fstream>
 #include <cassert>
 
-#include <ArrayIO.h>
-
 #if defined(ENABLE_VTK_IO)
 #include <vtkAlgorithm.h>
 #include <vtkCompositeDataPipeline.h>
