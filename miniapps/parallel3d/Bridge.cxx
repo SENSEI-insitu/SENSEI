@@ -6,7 +6,7 @@
 #include <vtkDataObject.h>
 #include <vector>
 
-#include <timer/Timer.h>
+#include "Timer.h"
 
 namespace BridgeInternals
 {
@@ -20,6 +20,8 @@ void bridge_initialize(MPI_Comm comm, int g_x, int g_y, int g_z,
   uint64_t start_extents_z, int tot_blocks_x, int tot_blocks_y, int tot_blocks_z,
   int block_id_x, int block_id_y, int block_id_z, const char* config_file)
 {
+  timer::Initialize();
+
   BridgeInternals::GlobalDataAdaptor = vtkSmartPointer<parallel3d::DataAdaptor>::New();
   BridgeInternals::GlobalDataAdaptor->SetCommunicator(comm);
 
@@ -45,12 +47,12 @@ void bridge_update(int tstep, double time, double *pressure, double* temperature
 }
 
 //-----------------------------------------------------------------------------
-void bridge_finalize(MPI_Comm comm)
+void bridge_finalize()
 {
   BridgeInternals::GlobalAnalysisAdaptor->Finalize();
 
   BridgeInternals::GlobalAnalysisAdaptor = nullptr;
   BridgeInternals::GlobalDataAdaptor = nullptr;
 
-  timer::PrintLog(std::cout, comm);
+  timer::Finalize();
 }

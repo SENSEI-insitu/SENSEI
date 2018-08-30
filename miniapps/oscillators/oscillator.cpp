@@ -18,6 +18,7 @@
 #include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
 #include "bridge.h"
+#include "MemoryProfiler.h"
 #else
 #include "analysis.h"
 #endif
@@ -45,7 +46,7 @@ inline bool IsVertexInsideBounds(const Vertex& v, const Bounds& b)
 
 struct Block
 {
-        Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators& oscillators_, float velocity_scale_):
+     Block(int gid_, const Bounds& bounds_, const Bounds& domain_, const Oscillators& oscillators_, float velocity_scale_):
                 gid(gid_),
                 velocity_scale(velocity_scale_),
                 bounds(bounds_),
@@ -55,7 +56,7 @@ struct Block
     {
     }
 
-    void    advance(float t)
+    void advance(float t)
     {
         grid::for_each(grid.shape(), [&](const Vertex& v)
         {
@@ -253,9 +254,10 @@ int main(int argc, char** argv)
     std::default_random_engine rng(static_cast<RandomSeedType>(seed));
     for (int i = 0; i < world.rank(); ++i) rng(); // different seed for each rank
 
+    if (log || shortlog)
+        timer::Enable(shortlog);
 
-    timer::SetLogging(log || shortlog);
-    timer::SetTrackSummariesOverTime(shortlog);
+    timer::Initialize();
     timer::MarkStartEvent("oscillators::initialize");
 
     Oscillators oscillators;
@@ -434,10 +436,11 @@ int main(int argc, char** argv)
 #endif
     timer::MarkEndEvent("oscillators::finalize");
 
+    timer::Finalize();
+
     auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
     if (world.rank() == 0)
       {
       fmt::print("Total run time: {}.{} s\n", duration.count() / 1000, duration.count() % 1000);
       }
-    timer::PrintLog(std::cout, world);
 }
