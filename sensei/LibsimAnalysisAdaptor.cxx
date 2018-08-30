@@ -1176,7 +1176,7 @@ LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
             std::string tmpVar = varName.substr(pos+1, varName.size()-1-pos);
             if(tmpVar.substr(0, 5) == "cell_")
             {
-                var = tmpVar.substr(5, tmpVar.size()-1-5);
+                var = tmpVar.substr(5, tmpVar.size()-5);
                 association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
             }
             else
@@ -1191,7 +1191,7 @@ LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
         meshName = meshNames[0];
         if(varName.substr(0, 5) == "cell_")
         {
-            var = varName.substr(5, varName.size()-1-5);
+            var = varName.substr(5, varName.size()-5);
             association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
         }
         else
