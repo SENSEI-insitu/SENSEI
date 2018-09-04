@@ -19,8 +19,23 @@
 #include <iomanip>
 #include <limits>
 
-using std::endl;
-using std::cerr;
+
+extern "C"
+void MPIErrorHandler(MPI_Comm *comm, int *code, ...)
+{
+  int rank = 0;
+  MPI_Comm_rank(*comm, &rank);
+
+  std::ostringstream oss;
+  oss << "rank " << rank  << " encountered MPI error " << *code << std::endl
+    << "=========================================================" << std::endl
+    << vtksys::SystemInformation::GetProgramStack(1,0)
+    << "=========================================================" << std::endl;
+
+  std::cerr << oss.str() << std::endl;
+
+  MPI_Abort(*comm, -1);
+}
 
 namespace timer
 {
@@ -162,7 +177,7 @@ void Event::ToStream(std::ostream &str) const
 #ifndef NDEBUG
   if (this->Empty())
     {
-    cerr << "Empty event detected" << endl;
+    std::cerr << "Empty event detected" << std::endl;
     abort();
     }
 #endif
@@ -188,7 +203,7 @@ void Event::PrettyPrint(std::ostream& stream, Indent indent) const
 #ifndef NDEBUG
   if (this->Empty())
     {
-    cerr << "Empty event detected" << endl;
+    std::cerr << "Empty event detected" << std::endl;
     abort();
     }
 #endif
@@ -196,13 +211,13 @@ void Event::PrettyPrint(std::ostream& stream, Indent indent) const
   if (this->Count == 1)
     {
     stream << indent << this->Name
-       << " = (" << this->Time[DELTA] <<  " s)" << endl;
+       << " = (" << this->Time[DELTA] <<  " s)" << std::endl;
     }
   else
     {
     stream << indent << this->Name << " = ( min: "
       << this->Time[MIN] << " s, max: " << this->Time[MAX]
-      << " s, avg:" << this->Time[SUM]/this->Count << " s )" << endl;
+      << " s, avg:" << this->Time[SUM]/this->Count << " s )" << std::endl;
     }
 
   // handle nested events
@@ -374,6 +389,14 @@ void Initialize()
     impl::MemProf.Initialize();
     }
 
+  // enable diagnostic info about crashes and MPI errors
+  vtksys::SystemInformation::SetStackTraceOnError(1);
+
+  MPI_Errhandler meh;
+  MPI_Comm_create_errhandler(MPIErrorHandler, &meh);
+  MPI_Comm_set_errhandler(impl::Comm, meh);
+
+  // report what options are in use
   int rank = 0;
   MPI_Comm_rank(impl::Comm, &rank);
 
@@ -397,7 +420,7 @@ void Finalize()
     if (impl::Summarize)
       {
       // pretty print to the termninal
-      impl::PrintSummary(cerr);
+      impl::PrintSummary(std::cerr);
       }
     else
       {
@@ -413,7 +436,7 @@ void Finalize()
       oss.setf(std::ios::scientific, std::ios::floatfield);
 
       if (rank == 0)
-        oss << "# rank, name, start time, end time, delta" << endl;
+        oss << "# rank, name, start time, end time, delta" << std::endl;
 
       std::list<impl::Event>::iterator iter = impl::GlobalEvents.begin();
       std::list<impl::Event>::iterator end = impl::GlobalEvents.end();
@@ -497,7 +520,7 @@ void MarkStartEvent(const char* eventname)
 #ifndef NDEBUG
     if (!eventname)
       {
-      cerr << "null eventname detected. events must be named." << endl;
+      std::cerr << "null eventname detected. events must be named." << std::endl;
       abort();
       }
 #endif
@@ -518,17 +541,19 @@ void MarkEndEvent(const char* eventname)
     {
     impl::Event evt = impl::Mark.back();
 
-#ifndef NDEBUG
+#ifdef NDEBUG
+    (void)eventname;
+#else
     if (!eventname)
       {
-      cerr << "null eventname detected. events must be named." << endl;
+      std::cerr << "null eventname detected. events must be named." << std::endl;
       abort();
       }
 
     if (strcmp(eventname, evt.Name.c_str()) != 0)
       {
-      cerr << "Mismatched MarkStartEvent/MarkEndEvent. Expecting: '"
-        << evt.Name.c_str() << "' Got: '" << eventname << "'" << endl;
+      std::cerr << "Mismatched MarkStartEvent/MarkEndEvent. Expecting: '"
+        << evt.Name.c_str() << "' Got: '" << eventname << "'" << std::endl;
       abort();
       }
 #endif
