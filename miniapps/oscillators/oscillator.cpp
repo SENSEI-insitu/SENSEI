@@ -115,12 +115,10 @@ struct Block
                 }
                 if (!enqueued)
                 {
-                    fmt::print(
-                        "Error: could not find appropriate neighbor for particle: "
-                        "id: {}, position: ({}, {}, {}), velocity: ({}, {}, {})\n",
-                        particle->id,
-                        particle->position[0], particle->position[1], particle->position[2],
-                        particle->velocity[0], particle->velocity[1], particle->velocity[2]);
+                    std::cerr << "Error: could not find appropriate neighbor for particle: id: " << particle->id
+                        << ", position: (" << particle->position[0] << ", " << particle->position[1] << ", " << particle->position[2]
+                        << "), velocity: (" << particle->velocity[0] << ", " << particle->velocity[1] << ", " << particle->velocity[2]
+                        << std::endl;
                 }
                 particle = particles.erase(particle);
             }
