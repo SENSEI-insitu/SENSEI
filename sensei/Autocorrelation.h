@@ -29,9 +29,11 @@ public:
   ///         compute autocorrelation for.
   /// @param arrayname together with \c association, identifies the array to
   ///         compute autocorrelation for.
-  /// @param k_max number of strongest autocorrelations to report
+  /// @param kMax number of strongest autocorrelations to report
+  /// @param numThreads number of threads in diy's thread pool
   void Initialize(size_t window, const std::string &meshName,
-    int association, const std::string &arrayname, size_t k_max);
+    int association, const std::string &arrayname, size_t kMax,
+    int numThreads = 1);
 
   bool Execute(DataAdaptor* data) override;
 

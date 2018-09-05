@@ -188,7 +188,7 @@ int main(int argc, char** argv)
     size_t                      k_max     = 3;
     int                         threads   = 1;
     int                         ghostLevels = 0;
-    int                         numberOfParticles = 1024;
+    int                         numberOfParticles = 64;
     int                         seed = -1;
     std::string                 config_file;
     std::string                 out_prefix = "";
@@ -242,10 +242,8 @@ int main(int argc, char** argv)
     if (seed == -1)
     {
         if (world.rank() == 0)
-        {
             seed = static_cast<int>(std::time(nullptr));
-            fmt::print("using seed {}\n", seed);
-        }
+
         diy::mpi::broadcast(world, seed, 0);
     }
 
@@ -419,12 +417,13 @@ int main(int argc, char** argv)
 
         if (sync)
             world.barrier();
+
         timer::MarkEndTimeStep();
 
         t += dt;
         t_count++;
     }
-    world.barrier();
+
 
     timer::MarkStartEvent("oscillators::finalize");
 #ifdef ENABLE_SENSEI
@@ -436,9 +435,10 @@ int main(int argc, char** argv)
 
     timer::Finalize();
 
-    auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
+    world.barrier();
     if (world.rank() == 0)
       {
+      auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
       fmt::print("Total run time: {}.{} s\n", duration.count() / 1000, duration.count() % 1000);
       }
 }

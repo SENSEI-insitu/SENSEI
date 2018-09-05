@@ -9,6 +9,7 @@
 #include <functional>
 #include <numeric>
 #include <memory>
+#include <climits>
 
 #include "link.hpp"
 #include "collection.hpp"
