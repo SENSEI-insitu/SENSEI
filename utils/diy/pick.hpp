@@ -5,32 +5,25 @@
 
 namespace diy
 {
-  template<class Bounds, class Point, class OutIter>
-  void near(const RegularLink<Bounds>& link, const Point& p, float r, OutIter out,
-            const Bounds& domain);
+    template<class Bounds, class Point, class OutIter>
+    void near(const RegularLink<Bounds>& link, const Point& p, float r, OutIter out,
+              const Bounds& domain);
 
-  template<class Bounds, class Point, class OutIter>
-  void in(const RegularLink<Bounds>& link, const Point& p, OutIter out, const Bounds& domain);
+    template<class Bounds, class Point, class OutIter>
+    void in(const RegularLink<Bounds>& link, const Point& p, OutIter out, const Bounds& domain);
 
-  template<class Point>
-  float distance(int dim, const ContinuousBounds& bounds, const Point& p);
+    template<class Point, class Bounds>
+    float distance(int dim, const Bounds& bounds, const Point& p);
 
-  inline
-  float distance(int dim, const ContinuousBounds& bounds1, const ContinuousBounds& bounds2);
+    template<class Bounds>
+    inline
+    float distance(int dim, const Bounds& bounds1, const Bounds& bounds2);
 
-  template<class Bounds>
-  void wrap_bounds(Bounds& bounds, int wrap_dir, const Bounds& domain, int dim);
-
-  namespace detail
-  {
-    template<class Point>
-    void shift(float new_pt[DIY_MAX_DIM], const Point& p, float r, Direction dir, int dim);
-  }
+    template<class Bounds>
+    void wrap_bounds(Bounds& bounds, Direction wrap_dir, const Bounds& domain, int dim);
 }
 
-//! Finds the neighbors within radius r of a target point. Assumptions:
-//! 1. Point p needs to be in the current block
-//! 2. Only for a regular decomposition
+//! Finds the neighbors within radius r of a target point.
 template<class Bounds, class Point, class OutIter>
 void
 diy::
@@ -40,8 +33,6 @@ near(const RegularLink<Bounds>& link,  //!< neighbors
      OutIter out,                      //!< insert iterator for output set of neighbors
      const Bounds& domain)             //!< global domain bounds
 {
-  int d; // current dimension
-  float new_pt[DIY_MAX_DIM]; // offset point
   Bounds neigh_bounds; // neighbor block bounds
 
   // for all neighbors of this block
@@ -49,34 +40,18 @@ near(const RegularLink<Bounds>& link,  //!< neighbors
   {
     // wrap neighbor bounds, if necessary, otherwise bounds will be unchanged
     neigh_bounds = link.bounds(n);
-    wrap_bounds(neigh_bounds, link.wrap() & link.direction(n), domain, link.dimension());
+    wrap_bounds(neigh_bounds, link.wrap(n), domain, link.dimension());
 
-    detail::shift(new_pt, p, r, link.direction(n), link.dimension());
-
-    // check if neighbor is near enough
-    for (d = 0; d < link.dimension(); d++)
-    {
-      // if shifted point did not move into or past the neighbor,
-      // break and proceed to next neighbor
-      // note dist can be large enough to shift the point beyond the neighbor
-      // that means the point was definitely near enough to neighbor
-      if (((link.direction(n) & (1 << (2*d + 1)))   && new_pt[d] < neigh_bounds.min[d]) ||
-          ((link.direction(n) & (1 << (2*d)))       && new_pt[d] > neigh_bounds.max[d]))
-        break;
-    }
-
-    if (d < link.dimension())
-      continue; // next neighbor
-
-    *out++ = n;
+    if (distance(link.dimension(), neigh_bounds, p) <= r)
+        *out++ = n;
   } // for all neighbors
 }
 
 //! Find the distance between point `p` and box `bounds`.
-template<class Point>
+template<class Point, class Bounds>
 float
 diy::
-distance(int dim, const ContinuousBounds& bounds, const Point& p)
+distance(int dim, const Bounds& bounds, const Point& p)
 {
     float res = 0;
     for (int i = 0; i < dim; ++i)
@@ -95,9 +70,10 @@ distance(int dim, const ContinuousBounds& bounds, const Point& p)
     return sqrt(res);
 }
 
+template<class Bounds>
 float
 diy::
-distance(int dim, const ContinuousBounds& bounds1, const ContinuousBounds& bounds2)
+distance(int dim, const Bounds& bounds1, const Bounds& bounds2)
 {
     float res = 0;
     for (int i = 0; i < dim; ++i)
@@ -119,8 +95,7 @@ distance(int dim, const ContinuousBounds& bounds1, const ContinuousBounds& bound
     return sqrt(res);
 }
 
-//! Finds the neighbor(s) containing the target point. Assumptions:
-//! 1. Only for a regular decomposition
+//! Finds the neighbor(s) containing the target point.
 template<class Bounds, class Point, class OutIter>
 void
 diy::
@@ -129,7 +104,6 @@ in(const RegularLink<Bounds>& link,  //!< neighbors
    OutIter out,                      //!< insert iterator for output set of neighbors
    const Bounds& domain)             //!< global domain bounds
 {
-  int d; // current dimension
   Bounds neigh_bounds; // neighbor block bounds
 
   // for all neighbors of this block
@@ -137,19 +111,10 @@ in(const RegularLink<Bounds>& link,  //!< neighbors
   {
     // wrap neighbor bounds, if necessary, otherwise bounds will be unchanged
     neigh_bounds = link.bounds(n);
-    wrap_bounds(neigh_bounds, link.wrap() & link.direction(n), domain, link.dimension());
+    wrap_bounds(neigh_bounds, link.wrap(n), domain, link.dimension());
 
-    // check if p is in neighbor
-    for (d = 0; d < link.dimension(); d++)
-    {
-      if (p[d] < neigh_bounds.min[d] || p[d] > neigh_bounds.max[d])
-        break;
-    }
-
-    if (d < link.dimension())
-      continue; // next neighbor
-
-    *out++ = n;
+    if (distance(link.dimension(), neigh_bounds, p) == 0)
+        *out++ = n;
   } // for all neighbors
 }
 
@@ -159,38 +124,12 @@ in(const RegularLink<Bounds>& link,  //!< neighbors
 template<class Bounds>
 void
 diy::
-wrap_bounds(Bounds& bounds, int wrap_dir, const Bounds& domain, int dim)
+wrap_bounds(Bounds& bounds, Direction wrap_dir, const Bounds& domain, int dim)
 {
   for (int i = 0; i < dim; ++i)
   {
-    int left  = 1 << (2*dim);
-    int right = 1 << (2*dim + 1);
-    if (wrap_dir & left)
-    {
-      bounds.min[dim] -= (domain.max[dim] - domain.min[dim]);
-      bounds.max[dim] -= (domain.max[dim] - domain.min[dim]);
-    }
-    if (wrap_dir & right)
-    {
-      bounds.min[dim] += (domain.max[dim] - domain.min[dim]);
-      bounds.max[dim] += (domain.max[dim] - domain.min[dim]);
-    }
-  }
-}
-
-template<class Point>
-void
-diy::detail::
-shift(float new_pt[DIY_MAX_DIM], const Point& p, float r, Direction dir, int dim)
-{
-  for (int i = 0; i < dim; ++i)
-  {
-    int left  = 1 << (2*dim);
-    int right = 1 << (2*dim + 1);
-    if (dir & left)
-      new_pt[dim] = p[dim] - r;
-    if (dir & right)
-      new_pt[dim] = p[dim] + r;
+    bounds.min[i] += wrap_dir[i] * (domain.max[i] - domain.min[i]);
+    bounds.max[i] += wrap_dir[i] * (domain.max[i] - domain.min[i]);
   }
 }
 

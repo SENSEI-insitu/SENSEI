@@ -2,25 +2,25 @@
 #define DIY_SERIALIZATION_HPP
 
 #include <vector>
+#include <valarray>
 #include <map>
 #include <set>
 #include <string>
 #include <fstream>
 
-#ifndef BUILD_GYP                   // C++11 does not work right in my nwjs- and node-gyp builds--TP
-#if __cplusplus > 199711L           // C++11
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <type_traits>              // this is used for a safety check for default serialization
-#endif
-#endif
 
 namespace diy
 {
   //! A serialization buffer. \ingroup Serialization
   struct BinaryBuffer
   {
+    virtual ~BinaryBuffer()                                         =default;
     virtual void        save_binary(const char* x, size_t count)    =0;   //!< copy `count` bytes from `x` into the buffer
+    virtual inline void append_binary(const char* x, size_t count)  =0;   //!< append `count` bytes from `x` to end of buffer
     virtual void        load_binary(char* x, size_t count)          =0;   //!< copy `count` bytes into `x` from the buffer
     virtual void        load_binary_back(char* x, size_t count)     =0;   //!< copy `count` bytes into `x` from the back of the buffer
   };
@@ -30,9 +30,10 @@ namespace diy
                         MemoryBuffer(size_t position_ = 0):
                           position(position_)                       {}
 
-    virtual inline void save_binary(const char* x, size_t count);   //!< copy `count` bytes from `x` into the buffer
-    virtual inline void load_binary(char* x, size_t count);         //!< copy `count` bytes into `x` from the buffer
-    virtual inline void load_binary_back(char* x, size_t count);    //!< copy `count` bytes into `x` from the back of the buffer
+    virtual inline void save_binary(const char* x, size_t count) override;   //!< copy `count` bytes from `x` into the buffer
+    virtual inline void append_binary(const char* x, size_t count) override; //!< append `count` bytes from `x` to end of buffer
+    virtual inline void load_binary(char* x, size_t count) override;         //!< copy `count` bytes into `x` from the buffer
+    virtual inline void load_binary_back(char* x, size_t count) override;    //!< copy `count` bytes into `x` from the back of the buffer
 
     void                clear()                                     { buffer.clear(); reset(); }
     void                wipe()                                      { std::vector<char>().swap(buffer); reset(); }
@@ -55,9 +56,9 @@ namespace diy
     void                read(const std::string& fn)
     {
         std::ifstream in(fn.c_str(), std::ios::binary | std::ios::ate);
-        buffer.resize(in.tellg());
+        buffer.resize(static_cast<size_t>(in.tellg()));
         in.seekg(0);
-        in.read(&buffer[0], size());
+        in.read(&buffer[0], static_cast<std::streamsize>(size()));
         position = 0;
     }
 
@@ -91,16 +92,13 @@ namespace diy
   template<class T>
   struct Serialization: public detail::Default
   {
-#ifndef BUILD_GYP                   // C++11 does not work right in my nwjs- and node-gyp builds--TP
-#if __cplusplus > 199711L           // C++11
-#if !defined(__GNUG__) || __GNUC__ >= 5
+#if defined(__clang__) || (defined(__GNUC__) && __GNUC__ >= 5)
     static_assert(std::is_trivially_copyable<T>::value, "Default serialization works only for trivially copyable types");
-#endif
-#endif
 #endif
 
     static void         save(BinaryBuffer& bb, const T& x)          { bb.save_binary((const char*)  &x, sizeof(T)); }
     static void         load(BinaryBuffer& bb, T& x)                { bb.load_binary((char*)        &x, sizeof(T)); }
+    static size_t       size(const T& x)                            { return sizeof(T); }
   };
 
   //! Saves `x` to `bb` by calling `diy::Serialization<T>::save(bb,x)`.
@@ -124,6 +122,12 @@ namespace diy
   //! Supports only binary data copying (meant for simple footers).
   template<class T>
   void                  load_back(BinaryBuffer& bb, T& x)           { bb.load_binary_back((char*) &x, sizeof(T)); }
+
+  template<class T, class... Args>
+  void                  save(BinaryBuffer& bb, const T& x, const Args&... args)     { save(bb, x); save(bb, args...);}
+
+  template<class T, class... Args>
+  void                  load(BinaryBuffer& bb, T& x, Args&... args)                 { load(bb, x); load(bb, args...);}
 
   //@}
 
@@ -180,6 +184,11 @@ namespace diy
       x.buffer.resize(x.position);
       diy::load(bb, &x.buffer[0], x.position);
     }
+
+    static size_t       size(const MemoryBuffer& x)
+    {
+        return sizeof(x.position) + x.position;
+    }
   };
 
   // save/load for std::vector<U>
@@ -192,7 +201,8 @@ namespace diy
     {
       size_t s = v.size();
       diy::save(bb, s);
-      diy::save(bb, &v[0], v.size());
+      if (s > 0)
+        diy::save(bb, &v[0], v.size());
     }
 
     static void         load(BinaryBuffer& bb, Vector& v)
@@ -200,7 +210,31 @@ namespace diy
       size_t s;
       diy::load(bb, s);
       v.resize(s);
-      diy::load(bb, &v[0], s);
+      if (s > 0)
+        diy::load(bb, &v[0], s);
+    }
+  };
+
+  template<class U>
+  struct Serialization< std::valarray<U> >
+  {
+    typedef             std::valarray<U>        ValArray;
+
+    static void         save(BinaryBuffer& bb, const ValArray& v)
+    {
+      size_t s = v.size();
+      diy::save(bb, s);
+      if (s > 0)
+        diy::save(bb, &v[0], v.size());
+    }
+
+    static void         load(BinaryBuffer& bb, ValArray& v)
+    {
+      size_t s;
+      diy::load(bb, s);
+      v.resize(s);
+      if (s > 0)
+        diy::load(bb, &v[0], s);
     }
   };
 
@@ -304,13 +338,11 @@ namespace diy
     }
   };
 
-#ifndef BUILD_GYP                   // C++11 does not work right in my nwjs- and node-gyp builds--TP
-#if __cplusplus > 199711L           // C++11
-  // save/load for std::unordered_map<K,V>
-  template<class K, class V>
-  struct Serialization< std::unordered_map<K,V> >
+  // save/load for std::unordered_map<K,V,H,E,A>
+  template<class K, class V, class H, class E, class A>
+  struct Serialization< std::unordered_map<K,V,H,E,A> >
   {
-    typedef             std::unordered_map<K,V>         Map;
+    typedef             std::unordered_map<K,V,H,E,A>   Map;
 
     static void         save(BinaryBuffer& bb, const Map& m)
     {
@@ -327,6 +359,33 @@ namespace diy
       for (size_t i = 0; i < s; ++i)
       {
         std::pair<K,V> p;
+        diy::load(bb, p);
+        m.emplace(std::move(p));
+      }
+    }
+  };
+
+  // save/load for std::unordered_set<T,H,E,A>
+  template<class T, class H, class E, class A>
+  struct Serialization< std::unordered_set<T,H,E,A> >
+  {
+    typedef             std::unordered_set<T,H,E,A>     Set;
+
+    static void         save(BinaryBuffer& bb, const Set& m)
+    {
+      size_t s = m.size();
+      diy::save(bb, s);
+      for (auto& x : m)
+        diy::save(bb, x);
+    }
+
+    static void         load(BinaryBuffer& bb, Set& m)
+    {
+      size_t s;
+      diy::load(bb, s);
+      for (size_t i = 0; i < s; ++i)
+      {
+        T p;
         diy::load(bb, p);
         m.emplace(std::move(p));
       }
@@ -366,8 +425,6 @@ namespace diy
                         load(BinaryBuffer& bb, Tuple& t)                { diy::load(bb, std::get<I>(t)); load<I+1>(bb, t); }
 
   };
-#endif
-#endif
 }
 
 void
@@ -375,20 +432,33 @@ diy::MemoryBuffer::
 save_binary(const char* x, size_t count)
 {
   if (position + count > buffer.capacity())
-    buffer.reserve((position + count) * growth_multiplier());           // if we have to grow, grow geometrically
+  {
+    double newsize = static_cast<double>(position + count) * growth_multiplier();  // if we have to grow, grow geometrically
+    buffer.reserve(static_cast<size_t>(newsize));
+  }
 
   if (position + count > buffer.size())
     buffer.resize(position + count);
 
-  std::copy(x, x + count, &buffer[position]);
+  std::copy_n(x, count, &buffer[position]);
   position += count;
+}
+
+void
+diy::MemoryBuffer::
+append_binary(const char* x, size_t count)
+{
+    size_t temp_pos = position;
+    position = size();
+    save_binary(x, count);
+    position = temp_pos;
 }
 
 void
 diy::MemoryBuffer::
 load_binary(char* x, size_t count)
 {
-  std::copy(&buffer[position], &buffer[position + count], x);
+  std::copy_n(&buffer[position], count, x);
   position += count;
 }
 
@@ -396,7 +466,7 @@ void
 diy::MemoryBuffer::
 load_binary_back(char* x, size_t count)
 {
-  std::copy(&buffer[buffer.size() - count], &buffer[buffer.size()], x);
+  std::copy_n(&buffer[buffer.size() - count], count, x);
   buffer.resize(buffer.size() - count);
 }
 
@@ -410,7 +480,7 @@ copy(MemoryBuffer& from, MemoryBuffer& to)
 
   size_t total = sizeof(size_t) + sz;
   to.buffer.resize(to.position + total);
-  std::copy(&from.buffer[from.position], &from.buffer[from.position + total], &to.buffer[to.position]);
+  std::copy_n(&from.buffer[from.position], total, &to.buffer[to.position]);
   to.position += total;
   from.position += total;
 }

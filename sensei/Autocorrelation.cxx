@@ -351,7 +351,7 @@ void Autocorrelation::PrintResults(size_t k_max)
   size_t nblocks = internals.NumberOfBlocks;
 
     // add up the autocorrellations
-  internals.Master->foreach<AutocorrelationImpl>([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp, void*)
+  internals.Master->foreach([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
                                         grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
@@ -373,15 +373,17 @@ void Autocorrelation::PrintResults(size_t k_max)
     std::cout << std::endl;
     }
 
-  internals.Master->foreach<AutocorrelationImpl>(
-    [](AutocorrelationImpl*, const diy::Master::ProxyWithLink& cp, void*)
+  internals.Master->foreach(
+    [](AutocorrelationImpl*, const diy::Master::ProxyWithLink& cp)
     {
     cp.collectives()->clear();
     });
 
     // select k strongest autocorrelations for each shift
     diy::ContiguousAssigner     assigner(internals.Master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
-    diy::RegularMergePartners   partners(3, nblocks, 2, true);
+    diy::RegularDecomposer<diy::DiscreteBounds> decomposer(1, diy::interval(0, nblocks-1), nblocks);
+    diy::RegularMergePartners   partners(decomposer, 2);
+    //diy::RegularMergePartners   partners(3, nblocks, 2, true);
     diy::reduce(*internals.Master, assigner, partners,
                 [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
                 {
