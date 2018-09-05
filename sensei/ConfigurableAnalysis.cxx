@@ -710,6 +710,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 
   int window = node.attribute("window").as_int(10);
   int kMax = node.attribute("k-max").as_int(3);
+  int numThreads = node.attribute("n-threads").as_int(1);
 
   auto adaptor = vtkSmartPointer<Autocorrelation>::New();
 
@@ -720,11 +721,13 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
     adaptor->Initialize(window, meshName, assoc, arrayName, kMax);
     return 0;
   });
+
   this->Analyses.push_back(adaptor.GetPointer());
 
   SENSEI_STATUS("Configured Autocorrelation " << assocStr
-    << " data array " << arrayName << " on mesh " << meshName
-    << " window " << window << " k-max " << kMax)
+    << " data array \"" << arrayName << "\" on mesh \"" << meshName
+    << "\" window " << window << " k-max " << kMax
+    << " n-threads " << numThreads)
 
   return 0;
 }
