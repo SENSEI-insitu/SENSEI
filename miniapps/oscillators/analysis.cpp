@@ -137,7 +137,7 @@ void analysis_final(size_t k_max, size_t nblocks)
     diy::mpi::io::file out(master->communicator(), "buffer.npy", diy::mpi::io::file::wronly | diy::mpi::io::file::create);
     diy::io::NumPy writer(out);
     writer.write_header<float>(buffer_shape);
-    master->foreach<Autocorrelation>([&writer](Autocorrelation* b, const diy::Master::ProxyWithLink, void*)
+    master->foreach([&writer](Autocorrelation* b, const diy::Master::ProxyWithLink)
                                      {
                                        diy::DiscreteBounds bounds;
                                        for (size_t i = 0; i < 3; ++i)
@@ -152,7 +152,7 @@ void analysis_final(size_t k_max, size_t nblocks)
 #endif
 
     // add up the autocorrellations
-    master->foreach<Autocorrelation>([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp, void*)
+    master->foreach([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
                                         grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
@@ -174,14 +174,16 @@ void analysis_final(size_t k_max, size_t nblocks)
             std::cout << ' ' << result[i];
         std::cout << std::endl;
     }
-    master->foreach<Autocorrelation>([](Autocorrelation*, const diy::Master::ProxyWithLink& cp, void*)
+    master->foreach([](Autocorrelation*, const diy::Master::ProxyWithLink& cp)
                                      {
                                         cp.collectives()->clear();
                                      });
 
     // select k strongest autocorrelations for each shift
     diy::ContiguousAssigner     assigner(master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
-    diy::RegularMergePartners   partners(3, nblocks, 2, true);
+    //diy::RegularMergePartners   partners(3, nblocks, 2, true);
+    diy::RegularDecomposer<diy::DiscreteBounds> decomposer(1, diy::interval(0, nblocks-1), nblocks);
+    diy::RegularMergePartners   partners(decomposer, 2);
     diy::reduce(*master, assigner, partners,
                 [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
                 {

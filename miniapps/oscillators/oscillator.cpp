@@ -51,7 +51,7 @@ struct Block
                 velocity_scale(velocity_scale_),
                 bounds(bounds_),
                 domain(domain_),
-                grid(Vertex(bounds.max) - Vertex(bounds.min) + Vertex::one()),
+                grid(Vertex(&bounds.max[0]) - Vertex(&bounds.min[0]) + Vertex::one()),
                 oscillators(oscillators_)
     {
     }
@@ -62,7 +62,7 @@ struct Block
         {
             auto& gv = grid(v);
                   gv = 0;
-            auto v_global = v + bounds.min;
+            auto v_global = v + Vertex(&bounds.min[0]);
 
             for (auto& o : oscillators)
                 gv += o.evaluate(v_global, t);
@@ -362,14 +362,14 @@ int main(int argc, char** argv)
     {
         timer::MarkStartTimeStep(t_count, t);
         timer::MarkStartEvent("oscillators::advance");
-        master.foreach<Block>([=](Block* b, const Proxy&, void*)
+        master.foreach([=](Block* b, const Proxy&)
                               {
                                 b->advance(t);
                               });
         timer::MarkEndEvent("oscillators::advance");
 
         timer::MarkStartEvent("oscillators::move_particles");
-        master.foreach<Block>([=](Block* b, const Proxy& p, void*)
+        master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->move_particles(dt, p);
                               });
@@ -380,14 +380,14 @@ int main(int argc, char** argv)
         timer::MarkEndEvent("oscillators::master.exchange");
 
         timer::MarkStartEvent("oscillators::handle_incoming_particles");
-        master.foreach<Block>([=](Block* b, const Proxy& p, void*)
+        master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->handle_incoming_particles(p);
                               });
         timer::MarkEndEvent("oscillators::handle_incoming_particles");
 
         timer::MarkStartEvent("oscillators::analysis");
-        master.foreach<Block>([=](Block* b, const Proxy&, void*)
+        master.foreach([=](Block* b, const Proxy&)
                               {
                                 b->analyze_block();
                               });
@@ -405,7 +405,7 @@ int main(int argc, char** argv)
             std::string outfn = fmt::format("{}-{}.bin", out_prefix, t);
             diy::mpi::io::file out(world, outfn, diy::mpi::io::file::wronly | diy::mpi::io::file::create);
             diy::io::BOV writer(out, shape);
-            master.foreach<Block>([&writer](Block* b, const diy::Master::ProxyWithLink& cp, void*)
+            master.foreach([&writer](Block* b, const diy::Master::ProxyWithLink& cp)
                                            {
                                              auto link = static_cast<Link*>(cp.link());
                                              writer.write(link->bounds(), b->grid.data(), true);
