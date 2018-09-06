@@ -4,7 +4,7 @@ target_include_directories(timer SYSTEM INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include/timer>)
 
-target_link_libraries(timer vtk mpi)
+target_link_libraries(timer svtk mpi)
 
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
   DESTINATION include/timer FILES_MATCHING PATTERN "*.h")
