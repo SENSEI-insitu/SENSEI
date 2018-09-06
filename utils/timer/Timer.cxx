@@ -26,11 +26,19 @@ void MPIErrorHandler(MPI_Comm *comm, int *code, ...)
   int rank = 0;
   MPI_Comm_rank(*comm, &rank);
 
+  int estrLen = 0;
+  char estr[MPI_MAX_ERROR_STRING] = {'\0'};
+  MPI_Error_string(*code, estr, &estrLen);
+
   std::ostringstream oss;
-  oss << "rank " << rank  << " encountered MPI error " << *code << std::endl
-    << "=========================================================" << std::endl
-    << vtksys::SystemInformation::GetProgramStack(1,0)
-    << "=========================================================" << std::endl;
+  oss
+    << "+--------------------------------------------------------+" << std::endl
+    << "MPI rank " << rank  << " encountered error " << *code << std::endl
+    << std::endl
+    << estr << std::endl
+    << std::endl
+    << vtksys::SystemInformation::GetProgramStack(3,0)
+    << "+--------------------------------------------------------+" << std::endl;
 
   std::cerr << oss.str() << std::endl;
 
@@ -314,6 +322,11 @@ void SetCommunicator(MPI_Comm comm)
   if (impl::Comm != MPI_COMM_NULL)
     MPI_Comm_free(&impl::Comm);
 
+  // install an error handler
+  MPI_Errhandler meh;
+  MPI_Comm_create_errhandler(MPIErrorHandler, &meh);
+  MPI_Comm_set_errhandler(comm, meh);
+
   MPI_Comm_dup(comm, &impl::Comm);
 }
 
@@ -346,7 +359,7 @@ void Initialize()
 {
   // always use isolated comm space
   if (impl::Comm == MPI_COMM_NULL)
-    MPI_Comm_dup(MPI_COMM_WORLD, &impl::Comm);
+    timer::SetCommunicator(MPI_COMM_WORLD);
 
   impl::MemProf.SetCommunicator(impl::Comm);
 
@@ -389,12 +402,8 @@ void Initialize()
     impl::MemProf.Initialize();
     }
 
-  // enable diagnostic info about crashes and MPI errors
+  // enable diagnostic info about crashes
   vtksys::SystemInformation::SetStackTraceOnError(1);
-
-  MPI_Errhandler meh;
-  MPI_Comm_create_errhandler(MPIErrorHandler, &meh);
-  MPI_Comm_set_errhandler(impl::Comm, meh);
 
   // report what options are in use
   int rank = 0;
