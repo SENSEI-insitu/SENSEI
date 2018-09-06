@@ -2,7 +2,7 @@ find_package(MPI REQUIRED)
 add_library(mpi INTERFACE)
 
 target_include_directories(mpi SYSTEM INTERFACE ${MPI_C_INCLUDE_PATH}
-  ${MPI_CXX_INCLUDE_PATH})
+  ${MPI_CXX_INCLUDE_PATH} ${MPI_C_INCLUDE_DIRS}  ${MPI_CXX_INCLUDE_DIRS})
 
 target_link_libraries(mpi INTERFACE ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
 
