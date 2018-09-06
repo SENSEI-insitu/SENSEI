@@ -60,7 +60,7 @@ endif()
 
 include(thread)
 include(mpi)
-include(vtk)
+include(svtk)
 include(timer)
 include(pugixml)
 include(timer)

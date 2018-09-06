@@ -29,7 +29,7 @@ if (ENABLE_PYTHON)
 
   add_library(python INTERFACE)
   target_include_directories(python INTERFACE ${PYTHON_INCLUDE_PATH} ${MPI4PY_INCLUDE_DIR})
-  target_link_libraries(python INTERFACE ${PYTHON_LIBRARIES} vtk)
+  target_link_libraries(python INTERFACE ${PYTHON_LIBRARIES} svtk)
   install(TARGETS python EXPORT python)
   install(EXPORT python DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
 
