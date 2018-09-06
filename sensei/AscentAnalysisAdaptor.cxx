@@ -950,14 +950,33 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 }
 
 
+void
+NodeIter(const conduit::Node& node, std::vector<std::string>& fields)
+{
+  if(node.number_of_children() > 0)
+  {
+    if(node.has_child("field"))
+      fields.push_back(node["field"].as_string());
+    else
+    {
+      conduit::NodeConstIterator itr = node.children();
+      while(itr.has_next())
+      {
+        const conduit::Node& child = itr.next();
+        NodeIter(child, fields);
+      }
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 //TODO: Search Action Node for Field Names for the AddArray funciton in Execute
 void
 AscentAnalysisAdaptor::GetFieldsFromActions()
 {
-  int nchildren = this->actionNode.number_of_children();
-  std::cout << "children: " << nchildren << std::endl;
-
+  const conduit::Node& temp = this->actionNode;
+  NodeIter(temp, this->Fields);
+  std::cout << "fields size : " << this->Fields.size()<<std::endl; 
 }
 
 
@@ -1060,7 +1079,7 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 // TODO: Populate vector this->Fields wiht field names from the
 // this->actionNode. Then loop over the field names vector and perform 
 // the present code. 
-//  GetFieldsFromActions();
+  GetFieldsFromActions();
 
   arrayName = "braid";
 
