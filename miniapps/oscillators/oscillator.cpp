@@ -188,10 +188,11 @@ int main(int argc, char** argv)
     size_t                      k_max     = 3;
     int                         threads   = 1;
     int                         ghostLevels = 0;
-    int                         numberOfParticles = 64;
+    int                         numberOfParticles = -1;
     int                         seed = -1;
     std::string                 config_file;
     std::string                 out_prefix = "";
+
     Options ops(argc, argv);
     ops
         >> Option('b', "blocks", nblocks,   "number of blocks to use. must greater or equal to number of MPI ranks.")
@@ -214,6 +215,7 @@ int main(int argc, char** argv)
     bool sync = ops >> Present("sync", "synchronize after each time step");
     bool log = ops >> Present("log", "generate full time and memory usage log");
     bool shortlog = ops >> Present("shortlog", "generate a summary time and memory usage log");
+    bool verbose = ops >> Present("verbose", "print debugging messages");
 
     std::string infn;
     if (  ops >> Present('h', "help", "show help") ||
@@ -238,17 +240,32 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    int particlesPerBlock = (numberOfParticles + nblocks - 1) / nblocks;
+    if (numberOfParticles < 0)
+        numberOfParticles = nblocks*64;
+
+    int particlesPerBlock = numberOfParticles / nblocks;
+
+    if (verbose && (world.rank() == 0))
+    {
+        std::cerr << world.rank() << " numberOfParticles = " << numberOfParticles << std::endl
+            << world.rank() << " particlesPerBlock = " << particlesPerBlock << std::endl;
+    }
+
     if (seed == -1)
     {
         if (world.rank() == 0)
+        {
             seed = static_cast<int>(std::time(nullptr));
+            if (verbose)
+                std::cerr << world.rank() << " seed = " << seed << std::endl;
+        }
 
         diy::mpi::broadcast(world, seed, 0);
     }
 
     std::default_random_engine rng(static_cast<RandomSeedType>(seed));
     for (int i = 0; i < world.rank(); ++i) rng(); // different seed for each rank
+
 
     if (log || shortlog)
         timer::Enable(shortlog);
@@ -269,8 +286,12 @@ int main(int argc, char** argv)
         diy::mpi::broadcast(world, bb.buffer, 0);
         diy::load(bb, oscillators);
     }
-    //for (auto& o : oscillators)
-    //    fmt::print("center = {}, radius = {}, omega0 = {}, zeta = {}\n", o.center, o.radius, o.omega0, o.zeta);
+
+    if (verbose && (world.rank() == 0))
+        for (auto& o : oscillators)
+            std::cerr << world.rank() << " center = " << o.center
+              << " radius = " << o.radius << " omega0 = " << o.omega0
+              << " zeta = " << o.zeta << std::endl;
 
     diy::Master               master(world, threads, -1,
                                      &Block::create,
@@ -281,6 +302,10 @@ int main(int argc, char** argv)
     domain.min[0] = domain.min[1] = domain.min[2] = 0;
     for (unsigned i = 0; i < 3; ++i)
       domain.max[i] = shape[i] - 1;
+
+    if (verbose && (world.rank() == 0))
+        std::cerr << world.rank() << " domain = " << domain.min
+            << ", " << domain.max << std::endl;
 
     // record various parameters to initialize analysis
     std::vector<int> gids,
@@ -315,7 +340,9 @@ int main(int argc, char** argv)
 
                       master.add(gid, b, new Link(link));
 
-                      // std::cout << world.rank() << " Block " << gid << ": " << Vertex(bounds.min) << " - " << Vertex(bounds.max) << std::endl;
+                      if (verbose)
+                        std::cerr << world.rank() << " Block " << gid << ": "
+                          << bounds.min << " - " << bounds.max << std::endl;
 
                       gids.push_back(gid);
                       from_x.push_back(bounds.min[0]);
@@ -347,9 +374,6 @@ int main(int argc, char** argv)
 #endif
     timer::MarkEndEvent("oscillators::analysis::initialize");
 
-    if (world.rank() == 0)
-        fmt::print("Started\n");
-
     using Time = std::chrono::high_resolution_clock;
     using ms   = std::chrono::milliseconds;
     auto start = Time::now();
@@ -359,6 +383,10 @@ int main(int argc, char** argv)
     while (t < t_end)
     {
         timer::MarkStartTimeStep(t_count, t);
+
+        if (verbose && (world.rank() == 0))
+            std::cerr << "started step = " << t_count << " t = " << t << std::endl;
+
         timer::MarkStartEvent("oscillators::advance");
         master.foreach([=](Block* b, const Proxy&)
                               {
@@ -408,10 +436,11 @@ int main(int argc, char** argv)
                                              auto link = static_cast<Link*>(cp.link());
                                              writer.write(link->bounds(), b->grid.data(), true);
                                            });
-            if (world.rank() == 0)
+            if (verbose && (world.rank() == 0))
             {
                 auto out_duration = std::chrono::duration_cast<ms>(Time::now() - out_start);
-                fmt::print("Output time for {}: {}.{} s\n", outfn, out_duration.count() / 1000, out_duration.count() % 1000);
+                std::cerr << "Output time for " << outfn << ":" << out_duration.count() / 1000
+                    << "." << out_duration.count() % 1000 << " s" << std::endl;
             }
         }
 
@@ -439,6 +468,7 @@ int main(int argc, char** argv)
     if (world.rank() == 0)
       {
       auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
-      fmt::print("Total run time: {}.{} s\n", duration.count() / 1000, duration.count() % 1000);
+      std::cerr << "Total run time: " << duration.count() / 1000
+        << "." << duration.count() % 1000 << " s" << std::endl;
       }
 }
