@@ -91,13 +91,22 @@ struct Block
             // warp position if needed
             for (int i = 0; i < 3; ++i)
             {
-                if (particle->position[i] > static_cast<float>(domain.max[i]))
+                if (
+                  particle->position[i] > static_cast<float>(domain.max[i]) ||
+                  particle->position[i] < static_cast<float>(domain.min[i]))
                 {
-                    particle->position[i] += static_cast<float>(domain.min[i] - domain.max[i]);
-                }
-                else if (particle->position[i] < static_cast<float>(domain.min[i]))
-                {
-                    particle->position[i] += static_cast<float>(domain.max[i] - domain.min[i]);
+                    auto dm = static_cast<float>(domain.min[i]);
+                    auto dx = static_cast<float>(domain.max[i]) - dm;
+                    if (dx == 0)
+                    {
+                      particle->position[i] = dm;
+                    }
+                    else
+                    {
+                      auto dp = particle->position[i] - dm;
+                      auto dpdx = dp / dx;
+                      particle->position[i] = (dpdx - floor(dpdx))*dx + dm;
+                    }
                 }
             }
 
