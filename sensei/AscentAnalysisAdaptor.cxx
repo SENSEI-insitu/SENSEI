@@ -39,6 +39,19 @@ AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
 }
 
 
+//------------------------------------------------------------------------------
+
+template<typename n_t> struct conduit_tt {};                                   
+
+#define declare_conduit_tt(cpp_t, conduit_t) \
+template<> struct conduit_tt<cpp_t>          \
+{                                            \
+  using conduit_type = conduit_t;            \
+};
+
+declare_conduit_tt(double, conduit::float64)
+
+
 
 //------------------------------------------------------------------------------
 void
@@ -126,7 +139,9 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
       {
         node[typePath] = "scalar";
 
+//        std::vector<conduit_tt<VTK_TT>::conduit_type> vals(tuples,0.0);
         std::vector<conduit::float64> vals(tuples,0.0);
+//        VTK_TT* ptr = (VTK_TT *) point->GetVoidPointer(0);
         double* ptr = (double *) point->GetVoidPointer(0);
         for(int i = 0; i < tuples; i++)
         {
@@ -934,48 +949,59 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   return 1;
 }
 
+
+//------------------------------------------------------------------------------
+//TODO: Search Action Node for Field Names for the AddArray funciton in Execute
+void
+AscentAnalysisAdaptor::GetFieldsFromActions()
+{
+  int nchildren = this->actionNode.number_of_children();
+  std::cout << "children: " << nchildren << std::endl;
+
+}
+
+
+
+
 //------------------------------------------------------------------------------
 void
-AscentAnalysisAdaptor::Initialize(conduit::Node actions)
+JSONFileToNode(std::string file_name, conduit::Node& node)
 {
- conduit::Node ascent_options;
- ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
- ascent_options["runtime/type"] = "ascent";
- this->a.open(ascent_options);
- this->actionNode = actions; 
+  if(!conduit::utils::is_file(file_name))
+  {
+    return;
+  }
 
-return;
+  conduit::Node file_node;
+  file_node.load(file_name, "json");
+  node.update(file_node);
 }
 
 
 //------------------------------------------------------------------------------
-bool
-AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+void
+AscentAnalysisAdaptor::Initialize(std::string field, conduit::Node xml_actions)
 {
-  conduit::Node node;
-  vtkDataObject* obj = nullptr;
-  if(dataAdaptor->GetMesh("mesh", false, obj))
-  {
-    SENSEI_ERROR("Failed to get mesh")
-    return -1;
-  }
-
-  std::string arrayName;
+  conduit::Node ascent_options;
+  ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
+  ascent_options["runtime/type"] = "ascent";
+  this->a.open(ascent_options);
 
   conduit::Node actions;
   conduit::Node &add_actions = actions.append();
 
-  if(this->actionNode["action"].as_string() ==  "add_scenes")
+
+  if(xml_actions["action"].as_string() ==  "add_scenes")
   {
-    arrayName = this->actionNode["scenes/scene1/plots/plt1/params/field"].as_string();
     add_actions["action"] = "add_scenes";
-    add_actions["scenes"] = this->actionNode["scenes"];
+    add_actions["scenes"] = xml_actions["scenes"];
   }
-  else if(this->actionNode["action"].as_string() == "add_pipelines")
+  else if(xml_actions["action"].as_string() == "add_pipelines")
   {
-    arrayName = this->actionNode["pipelines/pl1/f1/params/field"].as_string();
-    add_actions["action"] = "add_pipelines";
-    add_actions["pipelines"]    = this->actionNode["pipelines"];
+    std::string arrayName = xml_actions["pipelines/pl1/f1/params/field"].as_string();
+
+    add_actions["action"]    = "add_pipelines";
+    add_actions["pipelines"] = xml_actions["pipelines"];
 
     conduit::Node scenes;
     scenes["action"] = "add_scenes";
@@ -987,10 +1013,58 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
   actions.append()["action"] = "execute";
   actions.append()["action"] = "reset";
-//  actions.print();
 
 
-  dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
+  this->arrayName = field;
+  this->actionNode = actions; 
+
+return;
+}
+
+
+//------------------------------------------------------------------------------
+void
+AscentAnalysisAdaptor::Initialize(std::string field, std::string json_file_path)
+{
+  conduit::Node json_actions;
+  JSONFileToNode(json_file_path, json_actions);
+
+  conduit::Node ascent_options;
+  ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
+  ascent_options["runtime/type"] = "ascent";
+
+  this->arrayName = field;
+  this->a.open(ascent_options);
+  this->actionNode = json_actions; 
+
+return;
+}
+
+
+//------------------------------------------------------------------------------
+
+
+
+
+bool
+AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+{
+  conduit::Node node;
+  vtkDataObject* obj = nullptr;
+  if(dataAdaptor->GetMesh("mesh", false, obj))
+  {
+    SENSEI_ERROR("Failed to get mesh")
+    return -1;
+  }
+
+// TODO: Populate vector this->Fields wiht field names from the
+// this->actionNode. Then loop over the field names vector and perform 
+// the present code. 
+//  GetFieldsFromActions();
+
+  arrayName = "braid";
+
+  dataAdaptor->AddArray(obj, "mesh", 1, this->arrayName);
 
   conduit::Node temp_node;
 
@@ -1037,11 +1111,11 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
 
   this->a.publish(node);
-//  std::cout << "ACTIONS" <<std::endl;
-//  actions.print();
+  std::cout << "ACTIONS" <<std::endl;
+  this->actionNode.print();
 //  std::cout << "NODE" << std::endl;
 //  node.print();
-  this->a.execute(actions);
+  this->a.execute(this->actionNode);
   node.reset();
 
   return true;
