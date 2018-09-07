@@ -1,0 +1,103 @@
+Current status:
+  * The VTK_To_Coordsets and VTK_To_Topology need to be rewritten to employ zero copy
+  * Currently the template code in VTK_To_Coordsets in seg faulting
+
+
+ The current ascent_actions.xml and json files are setup to run with the conduit test if you change
+ the mesh example from spiral to braid. 
+ conduit::blueprint::mesh::examples::braid("rectilinear", 10, 10 , 10, res);.
+ 
+  
+ The braid example has fields: braid (point data), radial (cell data), and vel (vectors). 
+ 
+ I find it helpful to print out the node from the test file (res.print()) to compare with teh node I'm 
+ building in AscentAnalysisAdaptor (node.print())  
+
+Build Notes:
+  * DIY issues -- once diy is removed from sensei there shouldn't be 
+  any major build errors
+  * The key is to keep a consistent build environment. 
+  * Option 1: build all the dependencies individually -- easiest way to keep things consistent
+    Option 2: Use the ./bootstrap script,  this will make spack build all the dependencies
+      * You can tell spack to use your mpi instead of building it's own 
+      This should be in a .yaml file -- the ascent build instructions may or may not be helpful enough
+      to do this successfully (I've never tried).
+      * You can also tell sensei to use the mpi that spack builds -- this was the easiest fix 
+      for me since everything was already built. 
+
+
+My Config file for building sensei w/Ascent
+#!/bin/bash
+
+cmake -DCMAKE_CXX_FLAGS="-fPIC -std=c++11 -Wall -Wextra -O0 -g3 -Wfatal-errors" \
+    -DCMAKE_C_FLAGS="-fPIC -std=c++11 -Wall -Wextra -O0 -g3 -Wfatal-errors" \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DENABLE_SENSEI=ON -DENABLE_PYTHON=ON \
+    -DENABLE_ADIOS=ON -DVTK_DIR=/home/sensei/sc17/software/vtk/8.0.0/lib/cmake/vtk-8.0/ \
+    -DADIOS_DIR=/home/sensei/sc17/software/adios/1.13.0/ \
+    -DCMAKE_INSTALL_PREFIX=/home/sensei/sc17/software/sensei/2.0.0-vtk \
+    -DENABLE_PYTHON=OFF \
+    -DENABLE_ASCENT=ON \
+    -DENABLE_OSCILLATORS=OFF \
+    -DENABLE_CONDUIT=ON \
+    -DENABLE_VTK_IO=ON \
+    -DENABLE_VTK_MPI=ON \
+    -DENABLE_CONDUITTEST=ON \
+    -DENABLE_ADIOS=ON \
+    -DASCENT_DIR=/home/sensei/sc17/software/sensei/builds/Ascent/install/ \
+    -DCONDUIT_DIR=/home/sensei/sc17/software/sensei/builds/Ascent/ascent/uberenv_libs/spack/opt/spack/linux-fedora26-x86_64/gcc-7.1.1/conduit-master-ohzagbdbzxtj6cskzhxr6c7mxickc4qo/ \
+    -DVTKM_DIR=/home/sensei/sc17/software/sensei/builds/Ascent/ascent/uberenv_libs/spack/opt/spack/linux-fedora26-x86_64/gcc-7.1.1/vtkm-master-rk2cwv5d7zrbofljxlv3i5xe3gdvv7ui/ \
+    -DVTKH_DIR=/home/sensei/sc17/software/sensei/builds/Ascent/ascent/uberenv_libs/spack/opt/spack/linux-fedora26-x86_64/gcc-7.1.1/vtkh-develop-catjzuronpfe45b2neiweirwtqceis36/ \
+    -DMPI_CXX_COMPILER=/home/sensei/sc17/software/sensei/builds/Ascent/ascent/uberenv_libs/spack/opt/spack/linux-fedora26-x86_64/gcc-7.1.1/openmpi-3.1.0-rgibxz7carspymsfq6366knidogz6bbu/bin/mpicxx \
+    -DMPI_C_COMPILER=/home/sensei/sc17/software/sensei/builds/Ascent/ascent/uberenv_libs/spack/opt/spack/linux-fedora26-x86_64/gcc-7.1.1/openmpi-3.1.0-rgibxz7carspymsfq6366knidogz6bbu/bin/mpicc \
+    $*
+
+
+These are the instructions I used to build ascent: 
+
+    mkdir Ascent
+    cd Ascent
+    git clone https://github.com/Alpine-DAV/ascent.git
+    mkdir build install
+    cd ascent
+    git submodule init
+    git submodule update
+    ./bootstrap-env.sh
+    cd ../build
+    cmake -C ../ascent/uberenv_libs/host-name*.cmake ../ascent/src/
+    ccmake .
+    (Set CMAKE_INSTALL_PREFIX to path-to-folder/Ascent/install)
+    make install
+
+There are also instructions for building ascent with your own branch of vtkm:
+These have been less successful in the past. 
+mkdir Repositories
+cd Repositories
+mkdir VTKM
+cd VTKM
+git clone "vktm git path" — this will likely need to be the path to your fork of vtkm where you will make changes to vtkm.
+mkdir build install
+cd build
+cmake ../vtk-m/
+ccmake .
+(SET the CMAKE_INSTALL_PREFIX to the install directory you just created,
+ENABLED TBB ON, VTKm_USE_64BIT_IDS  OFF,                                                                                               VTKm_USE_DOUBLE_PRECISION ON  )
+cmake -DTBB_DIR=/path_to_tbb_lib ../vtk-m/
+make -j8 install
+cd ~/path_to_Repositories/
+mkdir Ascent
+cd Ascent
+git clone https://github.com/Alpine-DAV/ascent.git
+mkdir build install
+cd ascent
+git submodule init
+git submodule update
+./bootstrap-env.sh
+cp uberenv_libs/host-name*.cmake host-configs/my_config.cmake
+vim host-configs/mu_config.cmake
+(SET VTKM_DIR to ~/path_to_Repositories/VTKM/install, you could also change the TBB_DIR to point to the same TBB)
+cd ../build
+cmake -C ../ascent/host-configs/my_config.cmake ../ascent/src/
+ccmake .
+(Set CMAKE_INSTALL_PREFIX to path-to-folder/Ascent/install)
+make install

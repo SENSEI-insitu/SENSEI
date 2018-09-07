@@ -1,6 +1,8 @@
 #include "AscentAnalysisAdaptor.h"
 #include "DataAdaptor.h"
 #include "Error.h"
+#include "VTKUtils.h"
+
 #include <conduit.hpp>
 #include <conduit_blueprint.hpp>
 
@@ -19,6 +21,9 @@
 #include <vtkUnstructuredGrid.h>
 #include <vtkCellData.h>
 #include <vtkPointData.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkSOADataArrayTemplate.h>
+#include <vtkDataArrayTemplate.h>
 
 
 namespace sensei
@@ -41,7 +46,7 @@ AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
 
 //------------------------------------------------------------------------------
 
-template<typename n_t> struct conduit_tt {};                                   
+template<typename n_t> struct conduit_tt {};
 
 #define declare_conduit_tt(cpp_t, conduit_t) \
 template<> struct conduit_tt<cpp_t>          \
@@ -50,6 +55,7 @@ template<> struct conduit_tt<cpp_t>          \
 };
 
 declare_conduit_tt(char, conduit::int8);
+declare_conduit_tt(signed char, conduit::int8);
 declare_conduit_tt(unsigned char, conduit::uint8);
 declare_conduit_tt(short, conduit::int16);
 declare_conduit_tt(unsigned short, conduit::uint16);
@@ -77,8 +83,137 @@ GetShape(std::string &shape, int type)
   return;
 }
 
+
+int VTK_To_Fields(vtkDataSetAttributes *dsa,
+   int centering, conduit::Node &node)
+{
+  int nArrays = dsa->GetNumberOfArrays();
+  for (int i = 0; i < nArrays; ++i)
+  {
+    vtkDataArray *da = dsa->GetArray(i);
+    const char *name = da->GetName();
+    long nElem = da->GetNumberOfTuples();
+    int nComps = da->GetNumberOfComponents();
+
+    std::string arrayName(name);
+
+    //nComp = 1 -> type = scalar; nComp > 1 -> type = vector
+    std::stringstream ss;
+    ss << "fields/" << arrayName << "/type";
+    std::string typePath = ss.str();
+    ss.str(std::string());
+
+    //nComp = 1
+    ss << "fields/" << arrayName << "/values";
+    std::string valPath = ss.str();
+    ss.str(std::string());
+
+    //nComp > 1
+    ss << "fields/" << arrayName << "/values/u";
+    std::string uValPath = ss.str();
+    ss.str(std::string());
+
+    ss << "fields/" << arrayName << "/values/v";
+    std::string vValPath = ss.str();
+    ss.str(std::string());
+
+    ss << "fields/" << arrayName << "/values/w";
+    std::string wValPath = ss.str();
+    ss.str(std::string());
+
+
+    switch (da->GetDataType())
+    {
+      vtkTemplateMacro(
+        vtkAOSDataArrayTemplate<VTK_TT> *aosda =
+          dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(da);
+
+        vtkSOADataArrayTemplate<VTK_TT> *soada =
+          dynamic_cast<vtkSOADataArrayTemplate<VTK_TT>*>(da);
+
+        if (aosda)
+        {
+          // AOS
+          VTK_TT *ptr = aosda->GetPointer(0);
+
+          // TODO -- Have to set the u v w separately -- like below
+          // Not sure how to do that with zero copy
+          // Original code copied the data into three separate vectors
+          //node[valPath].set_external(ptr, nElem);
+          //node[uValPath].set_external(ptr, nElem);
+          //node[vValPath].set_external(ptr, nElem);
+          //node[wValPath].set_external(ptr, nElem);
+        }
+        else if (soada)
+        {
+          // SOA
+          for (int j = 0; j < nComps; ++j)
+          {
+            VTK_TT *ptr = soada->GetComponentArrayPointer(j);
+            if(nComps == 1)
+            {
+              node[valPath].set_external((conduit_tt<VTK_TT>::conduit_type*)ptr, nElem, 0,
+                sizeof(VTK_TT), sizeof(VTK_TT), conduit::Endianness::DEFAULT_ID);
+              node[typePath] = "scalar";
+            }
+            else
+            {
+              switch(j)
+              {
+                 case 0: node[uValPath].set_external((conduit_tt<VTK_TT>::conduit_type*)ptr, nElem, 0,
+                           sizeof(VTK_TT), sizeof(VTK_TT), conduit::Endianness::DEFAULT_ID);
+                         node[typePath] = "vector";
+                         break;
+                 case 1: node[vValPath].set_external((conduit_tt<VTK_TT>::conduit_type*)ptr, nElem, 0,
+                           sizeof(VTK_TT), sizeof(VTK_TT), conduit::Endianness::DEFAULT_ID);
+                         break;
+                 case 2: node[wValPath].set_external((conduit_tt<VTK_TT>::conduit_type*)ptr, nElem, 0,
+                           sizeof(VTK_TT), sizeof(VTK_TT), conduit::Endianness::DEFAULT_ID);
+                         break;
+
+              }
+            }
+          }
+        }
+        else
+        {
+          // this should never happen
+          SENSEI_ERROR("Invalid array type \""
+             << da->GetClassName() << "\" at " << i)
+        }
+        );
+      default:
+        SENSEI_ERROR("Invalid type from " << VTKUtils::GetAttributesName(centering)
+          << " data array " << i << " named \"" << (name ? name : "") << "\"")
+    }
+  }
+
+  return 0;
+}
+
+int VTK_To_Fields(int bid, vtkDataSet *ds,
+  conduit::Node &node)
+{
+  // handle the arrays
+  if (VTK_To_Fields(ds->GetPointData(), vtkDataObject::POINT, node))
+  {
+    SENSEI_ERROR("Failed to transfer point data from block " << bid)
+    return -1;
+  }
+
+  if (VTK_To_Fields(ds->GetCellData(), vtkDataObject::CELL, node))
+  {
+    SENSEI_ERROR("Failed to transfer cell data from block " << bid)
+    return -1;
+  }
+
+  return 0;
+}
+
+
+
 //------------------------------------------------------------------------------
-int
+/*int
 VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDataObject *obj)
 {
   vtkImageData *uniform             = vtkImageData::SafeDownCast(ds);
@@ -223,7 +358,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vals(tuples,0.0);
         double* ptr = (double *) cell->GetVoidPointer(0);
         for(int i = 0; i < tuples; i++)
-          vals[i] = ptr[i]; 
+          vals[i] = ptr[i];
         node[valPath].set(vals);
       }
       else if(components == 2)
@@ -277,7 +412,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
     }
     else
     {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element")
       return -1;
     }
     node[topoPath] = "mesh";
@@ -371,7 +506,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vals(tuples,0.0);
         double* ptr = (double *) cell->GetVoidPointer(0);
         for(int i = 0; i < tuples; i++)
-          vals[i] = ptr[i]; 
+          vals[i] = ptr[i];
         node[valPath].set(vals);
       }
       else if(components == 2)
@@ -425,7 +560,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
     }
     else
     {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element")
       return -1;
     }
     node[topoPath] = "mesh";
@@ -519,7 +654,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vals(tuples,0.0);
         double* ptr = (double *) cell->GetVoidPointer(0);
         for(int i = 0; i < tuples; i++)
-          vals[i] = ptr[i]; 
+          vals[i] = ptr[i];
         node[valPath].set(vals);
       }
       else if(components == 2)
@@ -573,7 +708,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
     }
     else
     {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element")
       return -1;
     }
     node[topoPath] = "mesh";
@@ -667,7 +802,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
         std::vector<conduit::float64> vals(tuples,0.0);
         double* ptr = (double *) cell->GetVoidPointer(0);
         for(int i = 0; i < tuples; i++)
-          vals[i] = ptr[i]; 
+          vals[i] = ptr[i];
         node[valPath].set(vals);
       }
       else if(components == 2)
@@ -721,7 +856,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
     }
     else
     {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertext or element")
+      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element")
       return -1;
     }
     node[topoPath] = "mesh";
@@ -735,7 +870,7 @@ VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, std::string arrayName, vtkDat
 
 
   return 1;
-}
+}*/
 
 //------------------------------------------------------------------------------
 
@@ -851,7 +986,7 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     node["coordsets/coords/dims/j"] = dims[1];
     node["coordsets/coords/dims/k"] = dims[2];
 
-    //Global Origin 
+    //Global Origin
     double origin[3] = {0.0,0.0,0.0};
     uniform->GetOrigin(origin);
 
@@ -879,32 +1014,39 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     vtkDataArray *x = rectilinear->GetXCoordinates();
     vtkDataArray *y = rectilinear->GetYCoordinates();
     vtkDataArray *z = rectilinear->GetZCoordinates();
-    if(x != nullptr)
+
+    if (!x || !y || !z)
     {
-      int size = x->GetNumberOfTuples();
-      double *ptr  = (double *)x->GetVoidPointer(0);
-      std::vector<conduit::float64> vals(size, 0.0);
-      for(int i = 0; i < size; i++)
-        vals[i] = ptr[i];
-      node["coordsets/coords/values/x"].set(vals);
+      SENSEI_ERROR("Invalid coordinate arrays in rectilinear")
+      return -1;
     }
-    if(y != nullptr)
+
+    switch (x->GetDataType())
     {
-      int size = y->GetNumberOfTuples();
-      double *ptr  = (double *)y->GetVoidPointer(0);
-      std::vector<conduit::float64> vals(size, 0.0);
-      for(int i = 0; i < size; i++)
-        vals[i] = ptr[i];
-      node["coordsets/coords/values/y"].set(vals);
-    }
-    if(z != nullptr && dims[2] != 0 && dims[2] != 1)
-    {
-      int size = z->GetNumberOfTuples();
-      double *ptr  = (double *)z->GetVoidPointer(0);
-      std::vector<conduit::float64> vals(size, 0.0);
-      for(int i = 0; i < size; i++)
-        vals[i] = ptr[i];
-      node["coordsets/coords/values/z"].set(vals);
+      vtkTemplateMacro(
+        // x
+        vtkDataArrayTemplate<VTK_TT> *tx =
+           dynamic_cast<vtkDataArrayTemplate<VTK_TT>*>(x);
+        VTK_TT *ptr = tx->GetPointer(0);
+        long nElem = tx->GetNumberOfTuples();
+        node["coordsets/coords/values/x"].set_external((conduit_tt<VTK_TT>::conduit_type*)ptr, nElem, 0,
+          sizeof(VTK_TT), sizeof(VTK_TT), conduit::Endianness::DEFAULT_ID);
+        // y
+        vtkDataArrayTemplate<VTK_TT> *ty =
+           dynamic_cast<vtkDataArrayTemplate<VTK_TT>*>(y);
+        ptr = ty->GetPointer(0);
+        nElem = ty->GetNumberOfTuples();
+//        node["coordsets/coords/values/y"].set_external(ptr, nElem);
+        // z
+        vtkDataArrayTemplate<VTK_TT> *tz =
+           dynamic_cast<vtkDataArrayTemplate<VTK_TT>*>(z);
+        ptr = tz->GetPointer(0);
+        nElem = tz->GetNumberOfTuples();
+//        node["coordsets/coords/values/z"].set_external(ptr, nElem);
+        );
+      default:
+        SENSEI_ERROR("Invlaid data type for recilinear grid coordinates")
+        return -1;
     }
   }
   else if(structured != nullptr)
@@ -916,15 +1058,15 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 
     int numPoints = structured->GetPoints()->GetNumberOfPoints();
     double point[3] = {0,0,0};
-    std::vector<conduit::float64> x(numPoints,0.0); 
-    std::vector<conduit::float64> y(numPoints,0.0); 
-    std::vector<conduit::float64> z(numPoints,0.0); 
+    std::vector<conduit::float64> x(numPoints,0.0);
+    std::vector<conduit::float64> y(numPoints,0.0);
+    std::vector<conduit::float64> z(numPoints,0.0);
     for(int i = 0; i < numPoints; i++)
     {
       structured->GetPoints()->GetPoint(i, point);
       x[i] = point[0];
       y[i] = point[1];
-      z[i] = point[2]; 
+      z[i] = point[2];
     }
     node["coordsets/coords/values/x"].set(x);
     node["coordsets/coords/values/y"].set(y);
@@ -937,15 +1079,15 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 
     int numPoints = unstructured->GetPoints()->GetNumberOfPoints();
     double point[3] = {0,0,0};
-    std::vector<conduit::float64> x(numPoints,0.0); 
-    std::vector<conduit::float64> y(numPoints,0.0); 
-    std::vector<conduit::float64> z(numPoints,0.0); 
+    std::vector<conduit::float64> x(numPoints,0.0);
+    std::vector<conduit::float64> y(numPoints,0.0);
+    std::vector<conduit::float64> z(numPoints,0.0);
     for(int i = 0; i < numPoints; i++)
     {
       unstructured->GetPoints()->GetPoint(i, point);
       x[i] = point[0];
       y[i] = point[1];
-      z[i] = point[2]; 
+      z[i] = point[2];
     }
     node["coordsets/coords/values/x"].set(x);
     node["coordsets/coords/values/y"].set(y);
@@ -1016,12 +1158,14 @@ AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions, conduit::Node setup
 
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   ascent_options["runtime/type"] = "ascent";
+
   if(setup.has_child("backend"))
-    ascent_options["runtime/backend"] = setup["runtime/backend"].as_string();
+    ascent_options["runtime/backend"] = setup["backend"].as_string();
   if(setup.has_child("image_width"))
     ascent_options["image_width"] = setup["image_width"];
   if(setup.has_child("image_height"))
     ascent_options["image_height"] = setup["image_height"];
+  ascent_options.print();
 
   this->a.open(ascent_options);
 
@@ -1053,7 +1197,7 @@ AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions, conduit::Node setup
   actions.append()["action"] = "reset";
 
 
-  this->actionNode = actions; 
+  this->actionNode = actions;
 
 return;
 }
@@ -1070,7 +1214,7 @@ AscentAnalysisAdaptor::Initialize(std::string json_file_path, conduit::Node setu
 
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   ascent_options["runtime/type"] = "ascent";
-  if(setup.has_child("backend"))
+  if(setup.has_child("runtime/backend"))
     ascent_options["runtime/backend"] = setup["runtime/backend"].as_string();
   if(setup.has_child("image_width"))
     ascent_options["image_width"] = setup["image_width"];
@@ -1078,17 +1222,13 @@ AscentAnalysisAdaptor::Initialize(std::string json_file_path, conduit::Node setu
     ascent_options["image_height"] = setup["image_height"];
 
   this->a.open(ascent_options);
-  this->actionNode = json_actions; 
+  this->actionNode = json_actions;
 
 return;
 }
 
 
 //------------------------------------------------------------------------------
-
-
-
-
 bool
 AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
@@ -1111,47 +1251,54 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
 
     conduit::Node temp_node;
-
-    vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
-    if(cds != nullptr)
+    if (vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(obj))
     {
       vtkCompositeDataIterator *itr = cds->NewIterator();
       itr->SkipEmptyNodesOn();
       itr->InitTraversal();
       while(!itr->IsDoneWithTraversal())
       {
-        vtkDataObject *obj2 = cds->GetDataSet(itr);
-        if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
-        {  
-          vtkDataSet *ds = vtkDataSet::SafeDownCast(obj2);
-
+        int bid = std::max(0u, itr->GetCurrentFlatIndex() - 1);
+        if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(cds->GetDataSet(itr)))
+        {
           temp_node.reset();
+
+          //TODO: Zero copy for Coordsets and Topology
           VTK_To_Coordsets(ds, temp_node);
           VTK_To_Topology(ds, temp_node);
-          VTK_To_Fields(ds, temp_node, arrayName, obj2);
+
+          if (VTK_To_Fields(bid, ds, temp_node))
+          {
+            SENSEI_ERROR("Failed to transfer block " << bid)
+            return -1;
+          }
 
           conduit::Node& build = node.append();
           build.set(temp_node);
-
         }
         itr->GoToNextItem();
       }
-    }  
-    else if(vtkDataSet::SafeDownCast(obj) != nullptr)
+    }
+    else if (vtkDataSet *ds = vtkDataSet::SafeDownCast(obj))
     {
-      vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
-
       temp_node.reset();
       VTK_To_Coordsets(ds, temp_node);
       VTK_To_Topology(ds, temp_node);
-      VTK_To_Fields(ds, temp_node, arrayName, obj);
+      //VTK_To_Fields(ds, temp_node, arrayName, obj);
+      if (VTK_To_Fields(0, ds, temp_node))
+      {
+        SENSEI_ERROR("Failed to transfer dataset")
+        return -1;
+      }
 
       conduit::Node& build = node.append();
       build.set(temp_node);
     }
     else
     {
-      SENSEI_ERROR("Data object is not supported.")
+      SENSEI_ERROR("Data object " << obj->GetClassName()
+        << " is not supported.")
+      return -1;
     }
 
 //    std::cout << "ACTIONS" <<std::endl;
