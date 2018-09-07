@@ -1,0 +1,53 @@
+[
+  
+  {
+    "action": "add_pipelines",
+    "pipelines": 
+    {
+      "pl1": 
+      {
+        "f1": 
+        {
+          "type": "iso_volume",
+          "params": 
+          {
+            "field": "braid",
+            "min_value": 2.0,
+            "max_value": 5.0
+          }
+        }
+      }
+    }
+  },
+  
+  {
+    "action": "add_scenes",
+    "scenes": 
+    {
+      "scene1": 
+      {
+        "plots": 
+        {
+          "plt1": 
+          {
+            "params": 
+            {
+              "field": "braid"
+            },
+            "type": "pseudocolor",
+            "pipeline": "pl1"
+          }
+        }
+      }
+    }
+  },
+  
+  {
+    "action": "execute"
+  },
+  
+  {
+    "action": "reset"
+  }
+
+]

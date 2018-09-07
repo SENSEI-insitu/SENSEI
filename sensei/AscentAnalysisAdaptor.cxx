@@ -864,7 +864,6 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 
     int dims[3] = {0,0,0};
     rectilinear->GetDimensions(dims);
-    //std::cout << "dims " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
 
     vtkDataArray *x = rectilinear->GetXCoordinates();
     vtkDataArray *y = rectilinear->GetYCoordinates();
@@ -951,12 +950,15 @@ VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
 
 
 void
-NodeIter(const conduit::Node& node, std::vector<std::string>& fields)
+NodeIter(const conduit::Node& node, std::set<std::string>& fields)
 {
   if(node.number_of_children() > 0)
   {
     if(node.has_child("field"))
-      fields.push_back(node["field"].as_string());
+    {
+      std::string field = node["field"].as_string();
+      fields.insert(field);
+    }
     else
     {
       conduit::NodeConstIterator itr = node.children();
@@ -970,13 +972,11 @@ NodeIter(const conduit::Node& node, std::vector<std::string>& fields)
 }
 
 //------------------------------------------------------------------------------
-//TODO: Search Action Node for Field Names for the AddArray funciton in Execute
 void
 AscentAnalysisAdaptor::GetFieldsFromActions()
 {
   const conduit::Node& temp = this->actionNode;
   NodeIter(temp, this->Fields);
-  std::cout << "fields size : " << this->Fields.size()<<std::endl; 
 }
 
 
@@ -999,7 +999,7 @@ JSONFileToNode(std::string file_name, conduit::Node& node)
 
 //------------------------------------------------------------------------------
 void
-AscentAnalysisAdaptor::Initialize(std::string field, conduit::Node xml_actions)
+AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions)
 {
   conduit::Node ascent_options;
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
@@ -1034,7 +1034,6 @@ AscentAnalysisAdaptor::Initialize(std::string field, conduit::Node xml_actions)
   actions.append()["action"] = "reset";
 
 
-  this->arrayName = field;
   this->actionNode = actions; 
 
 return;
@@ -1043,7 +1042,7 @@ return;
 
 //------------------------------------------------------------------------------
 void
-AscentAnalysisAdaptor::Initialize(std::string field, std::string json_file_path)
+AscentAnalysisAdaptor::Initialize(std::string json_file_path)
 {
   conduit::Node json_actions;
   JSONFileToNode(json_file_path, json_actions);
@@ -1052,7 +1051,6 @@ AscentAnalysisAdaptor::Initialize(std::string field, std::string json_file_path)
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   ascent_options["runtime/type"] = "ascent";
 
-  this->arrayName = field;
   this->a.open(ascent_options);
   this->actionNode = json_actions; 
 
@@ -1076,68 +1074,71 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     return -1;
   }
 
-// TODO: Populate vector this->Fields wiht field names from the
-// this->actionNode. Then loop over the field names vector and perform 
-// the present code. 
   GetFieldsFromActions();
+  std::vector<std::string> vec(this->Fields.begin(), this->Fields.end());
+  int size = vec.size();
 
-  arrayName = "braid";
-
-  dataAdaptor->AddArray(obj, "mesh", 1, this->arrayName);
-
-  conduit::Node temp_node;
-
-  vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
-  if(cds != nullptr)
+  for(int i = 0; i < size; i++)
   {
-    vtkCompositeDataIterator *itr = cds->NewIterator();
-    itr->SkipEmptyNodesOn();
-    itr->InitTraversal();
-    while(!itr->IsDoneWithTraversal())
+    std::string arrayName = vec[i];
+
+    dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
+
+    conduit::Node temp_node;
+
+    vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
+    if(cds != nullptr)
     {
-      vtkDataObject *obj2 = cds->GetDataSet(itr);
-      if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
+      vtkCompositeDataIterator *itr = cds->NewIterator();
+      itr->SkipEmptyNodesOn();
+      itr->InitTraversal();
+      while(!itr->IsDoneWithTraversal())
       {
-        vtkDataSet *ds = vtkDataSet::SafeDownCast(obj2);
+        vtkDataObject *obj2 = cds->GetDataSet(itr);
+        if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
+        {  
+          vtkDataSet *ds = vtkDataSet::SafeDownCast(obj2);
 
-        temp_node.reset();
-        VTK_To_Coordsets(ds, temp_node);
-        VTK_To_Topology(ds, temp_node);
-        VTK_To_Fields(ds, temp_node, arrayName, obj2);
+          temp_node.reset();
+          VTK_To_Coordsets(ds, temp_node);
+          VTK_To_Topology(ds, temp_node);
+          VTK_To_Fields(ds, temp_node, arrayName, obj2);
 
-        conduit::Node& build = node.append();
-        build.set(temp_node);
+          conduit::Node& build = node.append();
+          build.set(temp_node);
 
+        }
+        itr->GoToNextItem();
       }
-      itr->GoToNextItem();
+    }  
+    else if(vtkDataSet::SafeDownCast(obj) != nullptr)
+    {
+      vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
+
+      temp_node.reset();
+      VTK_To_Coordsets(ds, temp_node);
+      VTK_To_Topology(ds, temp_node);
+      VTK_To_Fields(ds, temp_node, arrayName, obj);
+
+      conduit::Node& build = node.append();
+      build.set(temp_node);
     }
-  }
-  else if(vtkDataSet::SafeDownCast(obj) != nullptr)
-  {
-    vtkDataSet *ds = vtkDataSet::SafeDownCast(obj);
+    else
+    {
+      SENSEI_ERROR("Data object is not supported.")
+    }
 
-    temp_node.reset();
-    VTK_To_Coordsets(ds, temp_node);
-    VTK_To_Topology(ds, temp_node);
-    VTK_To_Fields(ds, temp_node, arrayName, obj);
+//    std::cout << "ACTIONS" <<std::endl;
+//    this->actionNode.print();
+//    std::cout << "NODE" << std::endl;
+//    node.print();
 
-    conduit::Node& build = node.append();
-    build.set(temp_node);
-  }
-  else
-  {
-    SENSEI_ERROR("Data object is not supported.")
+    this->a.publish(node);
+    this->a.execute(this->actionNode);
+    node.reset();
   }
 
-  this->a.publish(node);
-  std::cout << "ACTIONS" <<std::endl;
-  this->actionNode.print();
-//  std::cout << "NODE" << std::endl;
-//  node.print();
-  this->a.execute(this->actionNode);
-  node.reset();
-
-  return true;
+return true;
 }
 
 
@@ -1145,7 +1146,9 @@ AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 int
 AscentAnalysisAdaptor::Finalize()
 {
-this->a.close();
+  this->a.close();
+  this->Fields.clear();
+
 return 0;
 }
 

@@ -23,8 +23,8 @@ public:
 
   void GetFieldsFromActions();
   // Let the caller explicitly initialize.
-  void Initialize(std::string field, conduit::Node actionNode);
-  void Initialize(std::string field, std::string json_file_path);
+  void Initialize(conduit::Node actionNode);
+  void Initialize(std::string json_file_path);
 
   bool Execute(DataAdaptor* data) override;
 
@@ -39,8 +39,7 @@ private:
   void operator=(const AscentAnalysisAdaptor&)=delete; // Not implemented.
   ascent::Ascent a;
   conduit::Node actionNode;
-  std::vector<std::string> Fields;
-  std::string arrayName;
+  std::set<std::string> Fields;
 };
 
 }

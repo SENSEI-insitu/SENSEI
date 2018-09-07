@@ -1,0 +1,24 @@
+ <!-- SENSEI ConfigurableAnalysis Configuration file.
+      set enabled="1" on analyses you wish to enable -->
+<sensei>
+
+  <analysis type="ascent" action="add_pipelines" 
+  pipeline="clip_with_field" clip_value="3"
+  plot="pseudocolor" plotvars="braid"
+    enabled="0"/>
+
+  <analysis type="ascent" action="add_pipelines" 
+  pipeline="iso_volume" min_value="-2" max_value="2"
+  plot="pseudocolor" plotvars="braid"
+    enabled="1"/>
+
+  <analysis type="ascent" action="add_scenes" 
+  plot="pseudocolor"  plotvars="braid" enabled="1"/>
+
+  <analysis type="ascent" action="add_scenes" 
+  plot="pseudocolor"  plotvars="radial" enabled="1"/>
+
+  <analysis type="ascent" action="add_scenes" 
+  plot="pseudocolor" json="/home/sensei/sc17/software/sensei/builds/ascent_actions.json" plotvars="braid" enabled="1"/>
+
+</sensei>
