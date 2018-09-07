@@ -1830,7 +1830,7 @@
                                 <Field name="plotName" type="string">Plot0001</Field>
                                 <Field name="pluginID" type="string">Contour_1.0</Field>
                                 <Field name="sourceID" type="string">SOURCE00</Field>
-                                <Field name="variableName" type="string">mesh/data</Field>
+                                <Field name="variableName" type="string">ucdmesh/data</Field>
                                 <Field name="active" type="bool">true</Field>
                                 <Field name="hidden" type="bool">false</Field>
                                 <Field name="realized" type="bool">true</Field>
