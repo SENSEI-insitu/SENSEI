@@ -49,8 +49,19 @@ template<> struct conduit_tt<cpp_t>          \
   using conduit_type = conduit_t;            \
 };
 
-declare_conduit_tt(double, conduit::float64)
-
+declare_conduit_tt(char, conduit::int8);
+declare_conduit_tt(unsigned char, conduit::uint8);
+declare_conduit_tt(short, conduit::int16);
+declare_conduit_tt(unsigned short, conduit::uint16);
+declare_conduit_tt(int, conduit::int32);
+declare_conduit_tt(unsigned int, conduit::uint32);
+declare_conduit_tt(long, conduit::int32);
+declare_conduit_tt(unsigned long, conduit::uint32);
+declare_conduit_tt(long long, conduit::int64);
+declare_conduit_tt(unsigned long long, conduit::uint64);
+declare_conduit_tt(float, conduit::float32);
+declare_conduit_tt(double, conduit::float64);
+declare_conduit_tt(long double, conduit::float64);
 
 
 //------------------------------------------------------------------------------
@@ -999,11 +1010,19 @@ JSONFileToNode(std::string file_name, conduit::Node& node)
 
 //------------------------------------------------------------------------------
 void
-AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions)
+AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions, conduit::Node setup)
 {
   conduit::Node ascent_options;
+
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   ascent_options["runtime/type"] = "ascent";
+  if(setup.has_child("backend"))
+    ascent_options["runtime/backend"] = setup["runtime/backend"].as_string();
+  if(setup.has_child("image_width"))
+    ascent_options["image_width"] = setup["image_width"];
+  if(setup.has_child("image_height"))
+    ascent_options["image_height"] = setup["image_height"];
+
   this->a.open(ascent_options);
 
   conduit::Node actions;
@@ -1042,14 +1061,21 @@ return;
 
 //------------------------------------------------------------------------------
 void
-AscentAnalysisAdaptor::Initialize(std::string json_file_path)
+AscentAnalysisAdaptor::Initialize(std::string json_file_path, conduit::Node setup)
 {
   conduit::Node json_actions;
   JSONFileToNode(json_file_path, json_actions);
 
   conduit::Node ascent_options;
+
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   ascent_options["runtime/type"] = "ascent";
+  if(setup.has_child("backend"))
+    ascent_options["runtime/backend"] = setup["runtime/backend"].as_string();
+  if(setup.has_child("image_width"))
+    ascent_options["image_width"] = setup["image_width"];
+  if(setup.has_child("image_height"))
+    ascent_options["image_height"] = setup["image_height"];
 
   this->a.open(ascent_options);
   this->actionNode = json_actions; 

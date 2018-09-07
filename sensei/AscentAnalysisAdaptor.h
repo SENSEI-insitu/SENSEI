@@ -23,8 +23,8 @@ public:
 
   void GetFieldsFromActions();
   // Let the caller explicitly initialize.
-  void Initialize(conduit::Node actionNode);
-  void Initialize(std::string json_file_path);
+  void Initialize(conduit::Node xml_actions, conduit::Node setup);
+  void Initialize(std::string json_file_path, conduit::Node setup);
 
   bool Execute(DataAdaptor* data) override;
 
