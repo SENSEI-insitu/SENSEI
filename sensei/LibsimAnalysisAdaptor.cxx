@@ -1173,10 +1173,10 @@ LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
         if(pos != std::string::npos)
         {
             meshName = varName.substr(0, pos);
-            std::string tmpVar = varName.substr(pos+1, varName.size()-1-pos);
+            std::string tmpVar = varName.substr(pos+1, std::string::npos);
             if(tmpVar.substr(0, 5) == "cell_")
             {
-                var = tmpVar.substr(5, tmpVar.size()-5);
+                var = tmpVar.substr(5, std::string::npos);
                 association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
             }
             else
@@ -1191,7 +1191,7 @@ LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
         meshName = meshNames[0];
         if(varName.substr(0, 5) == "cell_")
         {
-            var = varName.substr(5, varName.size()-5);
+            var = varName.substr(5, std::string::npos);
             association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
         }
         else
@@ -1519,11 +1519,21 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
     {
         if(VisIt_PointMesh_alloc(&mesh) != VISIT_ERROR)
         {
-            visit_handle pts = vtkDataArray_To_VisIt_VariableData(pgrid->GetPoints()->GetData());
-            if(pts != VISIT_INVALID_HANDLE)
-                VisIt_PointMesh_setCoords(mesh, pts);
-            else
+            bool perr = true;
+            vtkPoints *p = pgrid->GetPoints();
+            if(p != nullptr)
             {
+                visit_handle pts = vtkDataArray_To_VisIt_VariableData(p->GetData());
+                if(pts != VISIT_INVALID_HANDLE)
+                {
+                    VisIt_PointMesh_setCoords(mesh, pts);
+                    perr = false;
+                }
+            }
+
+            if(perr)
+            {
+                SENSEI_ERROR("The vtkPolyData's coordinates are not set.")
                 VisIt_PointMesh_free(mesh);
                 mesh = VISIT_INVALID_HANDLE;
             }
@@ -1725,7 +1735,12 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
         // Get the mesh, structure only.
         vtkDataObject *obj = nullptr;
-        bool structureOnly = true;
+
+        // Do not bother with structure-only. Most data adaptors are stupid and
+        // it causes problems if we later call GetMesh with different values
+        // of structureOnly.
+        bool structureOnly = false;
+
         if (da->GetMesh(meshName, structureOnly, obj))
         {
             SENSEI_ERROR("GetMesh request failed. Skipping that mesh.")

@@ -546,9 +546,9 @@ DataAdaptor::CreateGhostCellsArray(int cc) const
 //----------------------------------------------------------------------------
 int DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &meshName)
 {
-  if (meshName != "mesh" && meshName != "ucdmesh")
+  if (meshName != "mesh" && meshName != "ucdmesh" && meshName != "particles")
     {
-    SENSEI_ERROR("the miniapp provides meshes \"mesh\" and \"ucdmesh\".")
+    SENSEI_ERROR("the miniapp provides meshes \"mesh\", \"ucdmesh\", and \"particles\".")
     return -1;
     }
 
