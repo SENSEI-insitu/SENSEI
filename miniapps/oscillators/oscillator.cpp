@@ -198,7 +198,8 @@ int main(int argc, char** argv)
     int                         threads   = 1;
     int                         ghostLevels = 0;
     int                         numberOfParticles = -1;
-    int                         seed = -1;
+    // Use a fixed seed by default for regression tests:
+    int                         seed = 0x240dc6a9;
     std::string                 config_file;
     std::string                 out_prefix = "";
 
