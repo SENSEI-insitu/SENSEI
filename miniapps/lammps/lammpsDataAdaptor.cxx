@@ -328,29 +328,49 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
 int lammpsDataAdaptor::GetNumberOfArrays(const std::string &meshName,
   int association, unsigned int &numberOfArrays)
 {
-  (void)association;
+  numberOfArrays = 0;
 
-  if (meshName != "atoms")
-    {
+  if (meshName != "atoms") {
     SENSEI_ERROR("No mesh \"" << meshName << "\"")
     return -1;
     }
 
-  numberOfArrays = 1;
+  if (association == vtkDataObject::POINT) {
+    numberOfArrays = 2;
+  }
 
   return 0;
 }
 
 
-// not implemented
 //-----------------------------------------------------------------------------
 int lammpsDataAdaptor::GetArrayName(const std::string &meshName, int association,
   unsigned int index, std::string &arrayName)
 {
-  (void) meshName;
-  (void) association;
-  (void) index;
-  (void) arrayName;
+  arrayName = "";
+
+  if (meshName != "atoms") {
+    SENSEI_ERROR("No mesh \"" << meshName << "\"")
+    return -1;
+  }
+
+  if (association != vtkDataObject::POINT) {
+    SENSEI_ERROR("No cell data on mesh \"" << meshName << "\"")
+    return -1;
+  }
+
+  switch (index)
+  {
+    case 0:
+      arrayName = "type";
+      break;
+    case 1:
+      arrayName = "id";
+      break;
+    default:
+      SENSEI_ERROR("Array index " << index << " out of bounds")
+      return -1;
+  }
 
   return 0;
 }
@@ -359,8 +379,7 @@ int lammpsDataAdaptor::GetArrayName(const std::string &meshName, int association
 int lammpsDataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/, 
   int &nLayers)
 {
-  (void) nLayers;  
-
+  nLayers = 0;
   return 0;
 }
 
@@ -370,7 +389,6 @@ int lammpsDataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string
 {
   (void) mesh;
   (void) meshName;
-
   return 0;
 }
 
