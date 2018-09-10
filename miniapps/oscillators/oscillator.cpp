@@ -324,7 +324,7 @@ int main(int argc, char** argv)
 
 
     diy::RegularDecomposer<Bounds>::BoolVector share_face;
-    diy::RegularDecomposer<Bounds>::BoolVector wrap(true);
+    diy::RegularDecomposer<Bounds>::BoolVector wrap(3, true);
     diy::RegularDecomposer<Bounds>::CoordinateVector ghosts = {ghostLevels, ghostLevels, ghostLevels};
 
     // decompose the domain
