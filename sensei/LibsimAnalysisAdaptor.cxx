@@ -1173,10 +1173,10 @@ LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
         if(pos != std::string::npos)
         {
             meshName = varName.substr(0, pos);
-            std::string tmpVar = varName.substr(pos+1, varName.size()-1-pos);
+            std::string tmpVar = varName.substr(pos+1, std::string::npos);
             if(tmpVar.substr(0, 5) == "cell_")
             {
-                var = tmpVar.substr(5, tmpVar.size()-1-5);
+                var = tmpVar.substr(5, std::string::npos);
                 association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
             }
             else
@@ -1191,7 +1191,7 @@ LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
         meshName = meshNames[0];
         if(varName.substr(0, 5) == "cell_")
         {
-            var = varName.substr(5, varName.size()-1-5);
+            var = varName.substr(5, std::string::npos);
             association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
         }
         else
@@ -1735,14 +1735,12 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
         // Get the mesh, structure only.
         vtkDataObject *obj = nullptr;
-#if 0
-        bool structureOnly = true;
-#else
+
         // Do not bother with structure-only. Most data adaptors are stupid and
         // it causes problems if we later call GetMesh with different values
         // of structureOnly.
         bool structureOnly = false;
-#endif
+
         if (da->GetMesh(meshName, structureOnly, obj))
         {
             SENSEI_ERROR("GetMesh request failed. Skipping that mesh.")
