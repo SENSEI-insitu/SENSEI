@@ -5,18 +5,18 @@
 #include <diy/reduce.hpp>
 #include <diy/partners/merge.hpp>
 #include <diy/io/numpy.hpp>
-#include <grid/grid.h>
-#include <grid/vertices.h>
+#include <diy/grid.hpp>
+#include <diy/vertices.hpp>
 
 #include "analysis.h"
 
-using GridRef = grid::GridRef<float,3>;
+using GridRef = diy::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
 struct Autocorrelation
 {
-    using Grid = grid::Grid<float,4>;
+    using Grid = diy::Grid<float,4>;
 
                     Autocorrelation(size_t window_, int gid_, Vertex from_, Vertex to_):
                         window(window_),
@@ -36,7 +36,7 @@ struct Autocorrelation
         GridRef g(data, shape);
 
         // record the values
-        grid::for_each(g.shape(), [&](const Vertex& v)
+        diy::for_each(g.shape(), [&](const Vertex& v)
         {
             auto gv = g(v);
 
@@ -155,7 +155,7 @@ void analysis_final(size_t k_max, size_t nblocks)
     master->foreach([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
-                                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                                         {
                                             size_t w = v[3];
                                             sums[w] += b->corr(v);
@@ -195,7 +195,7 @@ void analysis_final(size_t k_max, size_t nblocks)
                     MaxHeapVector maxs(b->window);
                     if (rp.in_link().size() == 0)
                     {
-                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                         {
                             size_t offset = v[3];
                             float val = b->corr(v);

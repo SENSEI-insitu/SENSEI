@@ -22,8 +22,8 @@
 #include <diy/reduce.hpp>
 #include <diy/partners/merge.hpp>
 #include <diy/io/numpy.hpp>
-#include <grid/grid.h>
-#include <grid/vertices.h>
+#include <diy/grid.hpp>
+#include <diy/vertices.hpp>
 
 #include <timer/Timer.h>
 
@@ -58,13 +58,13 @@ template<class U> struct mpi_op<add_vectors<U>>
 namespace sensei
 {
 
-using GridRef = grid::GridRef<float,3>;
+using GridRef = diy::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
 struct AutocorrelationImpl
 {
-  using Grid = grid::Grid<float,4>;
+  using Grid = diy::Grid<float,4>;
   AutocorrelationImpl(size_t window_, int gid_, Vertex from_, Vertex to_):
     window(window_),
     gid(gid_),
@@ -83,9 +83,9 @@ struct AutocorrelationImpl
 
     if (ghostArray)
       {
-      grid::GridRef<unsigned char, 3> ghost(ghostArray, shape);
+      diy::GridRef<unsigned char, 3> ghost(ghostArray, shape);
       // record the values
-      grid::for_each(g.shape(), [&](const Vertex& v)
+      diy::for_each(g.shape(), [&](const Vertex& v)
         {
         auto gv = (ghost(v) == 0) ? g(v) : 0;
 
@@ -105,7 +105,7 @@ struct AutocorrelationImpl
     else
       {
       // record the values
-      grid::for_each(g.shape(), [&](const Vertex& v)
+      diy::for_each(g.shape(), [&](const Vertex& v)
         {
         auto gv = g(v);
 
@@ -354,7 +354,7 @@ void Autocorrelation::PrintResults(size_t k_max)
   internals.Master->foreach([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
-                                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                                         {
                                             size_t w = v[3];
                                             sums[w] += b->corr(v);
@@ -396,7 +396,7 @@ void Autocorrelation::PrintResults(size_t k_max)
                   MaxHeapVector maxs(b->window);
                   if (rp.in_link().size() == 0)
                   {
-                      grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                      diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                       {
                           size_t offset = v[3];
                           float val = b->corr(v);
