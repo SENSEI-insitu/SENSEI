@@ -1,4 +1,4 @@
-set(sources oscillator.cpp analysis.cpp)
+set(sources main.cpp analysis.cpp)
 
 set(libs mpi diy opts thread timer util)
 
