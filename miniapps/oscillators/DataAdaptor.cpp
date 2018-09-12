@@ -1,4 +1,4 @@
-#include "dataadaptor.h"
+#include "DataAdaptor.h"
 #include "Error.h"
 
 #include <vtkCellArray.h>
@@ -35,7 +35,7 @@ struct DataAdaptor::DInternals
   int shape[3];
   int ghostLevels;
 
-  std::vector<const Particles*> ParticlesData;
+  std::vector<const std::vector<Particle>*> ParticlesData;
   vtkSmartPointer<vtkMultiBlockDataSet> ParticlesDataSet;
   std::vector<vtkSmartPointer<vtkPolyData>> ParticleBlocks;
 };
@@ -123,7 +123,7 @@ void DataAdaptor::SetBlockData(int gid, float* data)
 }
 
 //-----------------------------------------------------------------------------
-void DataAdaptor::SetParticles(int gid, const Particles& particles)
+void DataAdaptor::SetParticles(int gid, const std::vector<Particle> &particles)
 {
   this->Internals->ParticlesData[gid] = &particles;
 }
@@ -388,7 +388,7 @@ int DataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
         continue;
         }
 
-      const Particles& particles = *internals.ParticlesData[cc];
+      const std::vector<Particle> &particles = *internals.ParticlesData[cc];
 
       vtkPolyData* block = internals.ParticleBlocks[cc].Get();
       auto pd = block ? block->GetPointData() : NULL;

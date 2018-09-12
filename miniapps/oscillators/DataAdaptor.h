@@ -3,7 +3,7 @@
 
 #include <sensei/DataAdaptor.h>
 
-#include "particles.h"
+#include "Particles.h"
 
 class vtkDataArray;
 
@@ -33,7 +33,7 @@ public:
   void SetBlockData(int gid, float* data);
 
   /// Set particles for a specific block
-  void SetParticles(int gid, const Particles& particles);
+  void SetParticles(int gid, const std::vector<Particle> &particles);
 
   // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
