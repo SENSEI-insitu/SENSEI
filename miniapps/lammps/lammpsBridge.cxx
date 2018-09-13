@@ -13,6 +13,7 @@ void Initialize(MPI_Comm world, const std::string& config_file)
   GlobalDataAdaptor = vtkSmartPointer<senseiLammps::lammpsDataAdaptor>::New();
   GlobalDataAdaptor->Initialize();
   GlobalDataAdaptor->SetCommunicator(world);
+  GlobalDataAdaptor->SetDataTimeStep(-1);
 
   GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   GlobalAnalysisAdaptor->Initialize(config_file);
@@ -25,6 +26,8 @@ void SetData(long ntimestep, int nlocal, int *id,
              double zsublo, double zsubhi )
 {
   GlobalDataAdaptor->AddLAMMPSData( ntimestep, nlocal, id, nghost, type, x, xsublo, xsubhi, ysublo, ysubhi, zsublo, zsubhi);
+  GlobalDataAdaptor->SetDataTimeStep(ntimestep);
+  GlobalDataAdaptor->SetDataTime(ntimestep);
 }
 
 void Analyze()
