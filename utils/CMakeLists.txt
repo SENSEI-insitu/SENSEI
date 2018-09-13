@@ -1,9 +1,9 @@
-add_library(diy INTERFACE)
-target_include_directories(diy SYSTEM INTERFACE
+add_library(sDIY INTERFACE)
+target_include_directories(sDIY SYSTEM INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include>)
-install(TARGETS diy EXPORT diy)
-install(EXPORT diy DESTINATION lib/cmake)
+install(TARGETS sDIY EXPORT sDIY)
+install(EXPORT sDIY DESTINATION lib/cmake)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/diy"
   DESTINATION include)
 
