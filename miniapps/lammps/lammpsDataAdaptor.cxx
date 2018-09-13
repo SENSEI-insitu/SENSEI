@@ -252,11 +252,11 @@ int lammpsDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
   if (!internals.mesh){
   	vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
 
-  	//if(!structureOnly){
+  	if(!structureOnly){
         	vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
         	pts->SetData(internals.AtomPositions);
 		pd->SetPoints(pts);
-  	//}
+  	}
 
 	pd->SetVerts( internals.vertices );
 
@@ -413,6 +413,6 @@ int lammpsDataAdaptor::ReleaseData()
   return 0;
 }
 
-}	// sensei_libIS
+}	// senseiLammps
 
 
