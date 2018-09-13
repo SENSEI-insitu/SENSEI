@@ -12,7 +12,7 @@ include(adios)
 include(vtk)
 include(libsim)
 include(catalyst)
-include(vtkm) # Place after vtk, catalyst, others that depend on vtkm
+include(vtkm)
 include(conduit)
 include(python)
 include(version)

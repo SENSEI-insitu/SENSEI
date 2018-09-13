@@ -92,7 +92,7 @@ if(MPI_FOUND)
     include_directories("tools")
 
 
-    set(libs mpi sconduit sensei)
+    set(libs mpi sConduit sensei)
     if(ENABLE_OPENMP)
            list(APPEND libs openmp)
     endif()
