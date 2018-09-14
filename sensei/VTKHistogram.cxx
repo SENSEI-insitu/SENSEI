@@ -5,6 +5,9 @@
 
 #include <algorithm>
 #include <vector>
+#include <cstdio>
+#include <cstring>
+#include <errno.h>
 
 #include <vtkSmartPointer.h>
 #include <vtkUnsignedCharArray.h>
@@ -234,12 +237,14 @@ void VTKHistogram::PreCompute(MPI_Comm comm, int bins)
 }
 
 // --------------------------------------------------------------------------
-void VTKHistogram::PostCompute(MPI_Comm comm, int bins, const std::string& name)
+void VTKHistogram::PostCompute(MPI_Comm comm, int nBins, int step,
+  double time, const std::string &meshName, const std::string &arrayName,
+  const std::string &fileName)
 {
-  std::vector<unsigned int> gHist(bins, 0);
+  std::vector<unsigned int> gHist(nBins, 0);
 
   MPI_Reduce(&this->Worker->Histogram[0], &gHist[0],
-    bins, MPI_UNSIGNED, MPI_SUM, 0, comm);
+    nBins, MPI_UNSIGNED, MPI_SUM, 0, comm);
 
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
@@ -251,27 +256,64 @@ void VTKHistogram::PostCompute(MPI_Comm comm, int bins, const std::string& name)
       {
       SENSEI_ERROR("Invalid histgram range ["
         << this->Range[0] << " - " << this->Range[1] << "]")
+      MPI_Abort(comm, -1);
       return;
       }
 
-    // print the histogram bins, range of each bin and count.
-    int origPrec = cout.precision();
-    cout.precision(4);
-
-    std::cout << "Histogram '" << name << "' (VTK):\n";
-    double width = (this->Range[1] - this->Range[0]) / bins;
-    for (int i = 0; i < bins; ++i)
+    if (fileName.empty())
       {
-      const int wid = 15;
-      cout << std::scientific << std::setw(wid) << std::right << this->Range[0] + i*width
-        << " - " << std::setw(wid) << std::left << this->Range[0] + (i+1)*width
-        << ": " << std::fixed << gHist[i] << endl;
+      // print the histogram nBins, range of each bin and count.
+      int origPrec = cout.precision();
+      std::cout.precision(4);
+
+      std::cout << "Histogram mesh \"" << meshName << "\" data array \""
+        << arrayName << "\" step " << step << " time " << time << std::endl;
+
+      double width = (this->Range[1] - this->Range[0]) / nBins;
+      for (int i = 0; i < nBins; ++i)
+        {
+        const int wid = 15;
+        std::cout << std::scientific << std::setw(wid) << std::right << this->Range[0] + i*width
+          << " - " << std::setw(wid) << std::left << this->Range[0] + (i+1)*width
+          << ": " << std::fixed << gHist[i] << std::endl;
+        }
+
+      std::cout.precision(origPrec);
+      }
+    else
+      {
+      char fname[1024] = {'\0'};
+      snprintf(fname, 1024, "%s_%s_%s_%d.txt", fileName.c_str(),
+        meshName.c_str(), arrayName.c_str(), step);
+
+      FILE *file = fopen(fname, "w");
+      if (!file)
+        {
+        char *estr = strerror(errno);
+        SENSEI_ERROR("Failed to open \"" << fname << "\""
+          << std::endl << estr)
+        MPI_Abort(comm, -1);
+        return;
+        }
+
+      fprintf(file, "step : %d\n", step);
+      fprintf(file, "time : %0.6g\n", time);
+      fprintf(file, "num bins : %d\n", nBins);
+      fprintf(file, "range : %0.6g %0.6g\n", this->Range[0], this->Range[1]);
+      fprintf(file, "bin edges : ");
+      double width = (this->Range[1] - this->Range[0]) / nBins;
+      for (int i = 0; i < nBins + 1; ++i)
+        fprintf(file, "%0.6g ", this->Range[0] + i*width);
+      fprintf(file, "\n");
+      fprintf(file, "counts : ");
+      for (int i = 0; i < nBins + 1; ++i)
+        fprintf(file, "%d ", gHist[i]);
+      fprintf(file, "\n");
+      fclose(file);
       }
 
-    // cache the last result
+    // cache the last result, the simulation can access it
     this->Worker->Histogram = gHist;
-
-    cout.precision(origPrec);
     }
 }
 
