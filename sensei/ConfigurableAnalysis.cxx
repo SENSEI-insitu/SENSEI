@@ -235,6 +235,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
   std::string mesh = node.attribute("mesh").value();
   std::string array = node.attribute("array").value();
   int bins = node.attribute("bins").as_int(10);
+  std::string fileName = node.attribute("file").value();
 
   auto histogram = vtkSmartPointer<Histogram>::New();
 
@@ -242,14 +243,15 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
     histogram->SetCommunicator(this->Comm);
 
   this->TimeInitialization(histogram, [&]() {
-      histogram->Initialize(bins, mesh, association, array);
+      histogram->Initialize(bins, mesh, association, array, fileName);
       return 0;
     });
   this->Analyses.push_back(histogram.GetPointer());
 
   SENSEI_STATUS("Configured histogram with " << bins
     << " bins on " << assocStr << " data array \"" << array
-    << "\" on mesh \"" << mesh << "\"")
+    << "\" on mesh \"" << mesh << "\" writing output to "
+    << (fileName.empty() ? "cout" : "file"))
 
   return 0;
 }

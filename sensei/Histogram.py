@@ -9,12 +9,15 @@ meshName = ''
 arrayName = ''
 arrayCen = vtkDataObject.POINT
 outFile = 'hist'
+verbose = True
 
 def Initialize():
     r = comm.Get_rank()
     if r == 0:
-        sys.stderr.write('Initialize numBins=%d meshName=%s arrayName=%s arrayCen=%d outFile=%s\n'%( \
-            numBins, meshName, arrayName, arrayCen, outFile))
+        if verbose:
+            sys.stderr.write( \
+                'Initialize numBins=%d meshName=%s arrayName=%s arrayCen=%d outFile=%s\n'%( \
+                numBins, meshName, arrayName, arrayCen, outFile))
 
         # check for valid control parameters
         if not meshName:
@@ -79,9 +82,12 @@ def Execute(adaptor):
 
     # rank 0 write to disk
     if r == 0:
+        t = adaptor.GetDataTime()
         ts = adaptor.GetDataTimeStep()
-        fn = '%s_%s_%d.txt'%(outFile, arrayName, ts)
+        fn = '%s_%s_%s_%d.txt'%(outFile, meshName, arrayName, ts)
         f = file(fn, 'w')
+        f.write('step : %d\n'%(ts))
+        f.write('time : %0.6g\n'%(t))
         f.write('num bins : %d\n'%(numBins))
         f.write('range : %0.6g %0.6g\n'%(mn, mx))
         f.write('bin edges: ')
@@ -93,11 +99,12 @@ def Execute(adaptor):
             f.write('%d '%(v))
         f.write('\n')
         f.close()
-        sys.stderr.write('Execute %s written\n'%(fn))
+        if verbose:
+            sys.stderr.write('Execute "%s" written\n'%(fn))
 
 def Finalize():
     r = comm.Get_rank()
-    if r == 0:
+    if r == 0 and verbose:
         sys.stderr.write('Finalize\n')
     return 0
 
