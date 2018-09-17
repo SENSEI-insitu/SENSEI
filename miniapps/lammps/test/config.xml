@@ -7,14 +7,14 @@
     bins="32" enabled="0" />
 
   <!-- Available with ENABLE_VTK_IO -->
-  <analysis type="PosthocIO" mode="paraview" output_dir="./" enabled="0">
+  <analysis type="PosthocIO" mode="paraview" output_dir="" enabled="0">
     <mesh name="atoms">
         <point_arrays> type, id</point_arrays>
     </mesh>
   </analysis>
 
-  <!-- Avalailable with ENABLE_CATALYST -->
+  <!-- Available with ENABLE_CATALYST -->
   <analysis type="catalyst" pipeline="pythonscript"
-    filename="lammps5.5.points.py" enabled="1" />
+    filename="gaussianpoints.py" enabled="1" />
 </sensei>
 
