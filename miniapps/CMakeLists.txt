@@ -19,6 +19,13 @@ else()
   message(STATUS "Disabled: Oscillators miniapp.")
 endif()
 
+if(ENABLE_KRIPKE)
+  message(STATUS "Enabled: Kripke miniapp")
+  add_subdirectory(kripke)
+else()
+  message(STATUS "Disabled: Kripke miniapp")
+endif()
+
 if(ENABLE_LAMMPS)
   message(STATUS "Enabled: LAMMPS driver.")
   add_subdirectory(lammps)
