@@ -90,7 +90,7 @@ def Execute(adaptor):
         f.write('time : %0.6g\n'%(t))
         f.write('num bins : %d\n'%(numBins))
         f.write('range : %0.6g %0.6g\n'%(mn, mx))
-        f.write('bin edges: ')
+        f.write('bin edges : ')
         for v in be:
             f.write('%0.6g '%(v))
         f.write('\n')

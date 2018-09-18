@@ -306,7 +306,7 @@ void VTKHistogram::PostCompute(MPI_Comm comm, int nBins, int step,
         fprintf(file, "%0.6g ", this->Range[0] + i*width);
       fprintf(file, "\n");
       fprintf(file, "counts : ");
-      for (int i = 0; i < nBins + 1; ++i)
+      for (int i = 0; i < nBins; ++i)
         fprintf(file, "%d ", gHist[i]);
       fprintf(file, "\n");
       fclose(file);
