@@ -70,7 +70,7 @@ if pda.GetNumberOfArrays("image", vtk.vtkDataObject.POINT) > 0:
   ha = sensei.Histogram.New()
 
   ha.Initialize(7, 'image', vtk.vtkDataObject.POINT,
-    pda.GetArrayName('image', vtk.vtkDataObject.POINT, 0))
+    pda.GetArrayName('image', vtk.vtkDataObject.POINT, 0), '')
 
   ha.Execute(pda)
 
