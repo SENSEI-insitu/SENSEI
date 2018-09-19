@@ -910,7 +910,7 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
-  timer::MarkEvent("ConfigurableAnalysis::Initialize");
+  timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
@@ -957,7 +957,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent("ConfigurableAnalysis::Execute");
+  timer::MarkEvent event("ConfigurableAnalysis::Execute");
 
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
@@ -993,7 +993,7 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Finalize()
 {
-  timer::MarkEvent("ConfigurableAnalysis::Finalize");
+  timer::MarkEvent event("ConfigurableAnalysis::Finalize");
 
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
