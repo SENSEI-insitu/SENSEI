@@ -784,11 +784,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 #else
   DataRequirements req;
 
-  if (req.Initialize(node) ||
-    (req.GetNumberOfRequiredMeshes() < 1))
+  if (req.Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize VTKAmrWriter. "
-      "At least one mesh is required")
+    SENSEI_ERROR("Failed to initialize VTKAmrWriter.")
     return -1;
     }
 
