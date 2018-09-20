@@ -33,6 +33,7 @@
 #include "fix_external.h"
 
 #include "lammpsBridge.h"   /* SENSEI bridge */
+#include <Timer.h>
 
 using namespace LAMMPS_NS;
 
@@ -80,7 +81,9 @@ const static std::string USAGE =
 "  -n <int>            Specify the number of steps to simulate for. Default is 10000\n"
 "  -lmp <lammps args>  Pass the list of arguments <args> to LAMMPS as if they were\n"
 "                      command line args to LAMMPS. This must be the last argument, all\n"
-"                      following arguments will be passed to lammps.";
+"                      following arguments will be passed to lammps.\n"
+"  -log                Generate full time and memory usage log.\n"
+"  -shortlog           Generate a summary time and memory usage log.";
 
 int main(int argc, char **argv) {
 	std::vector<std::string> args(argv, argv + argc);
@@ -94,6 +97,8 @@ int main(int argc, char **argv) {
 	std::vector<char*> lammps_args(1, argv[0]);
 
 	bool mpi_multilaunch = false;
+	bool log = false;
+	bool shortlog = false;
 	std::string sensei_xml;
 	size_t sim_steps = 10000;
 	for (size_t i = 2; i < args.size(); ++i) {
@@ -106,6 +111,10 @@ int main(int argc, char **argv) {
 		} else if (args[i] == "-h") {
 			std::cout << USAGE << "\n";
 			return 0;
+		} else if (args[i] == "-log" ) {
+			log = true;
+		} else if (args[i] == "-shortlog" ) {
+			shortlog = true;
 		} else if (args[i] == "-lmp") {
 			++i;
 			for (; i < args.size(); ++i) {
@@ -126,6 +135,11 @@ int main(int argc, char **argv) {
 	int me,nprocs;
 	MPI_Comm_rank(sim_comm, &me);
 	MPI_Comm_size(sim_comm, &nprocs);
+
+    	if (log || shortlog)
+        	timer::Enable(shortlog);
+
+    	timer::Initialize();
 
 	/* Initialize SENSEI bridge */
 	if (mpi_multilaunch) {
@@ -190,8 +204,14 @@ int main(int argc, char **argv) {
 
 	// run for a number of steps
 	for (size_t i = 0; i < sim_steps; ++i) {
+
+		timer::MarkStartTimeStep(i, (float)i);
+		
 		const char * string = "run 1 pre no post no";
 		lammps_command(lammps, (char *)string);
+
+		timer::MarkEndTimeStep();
+
 	}
 
 	lammps_close(lammps);
@@ -201,6 +221,9 @@ int main(int argc, char **argv) {
 	/* Finalize SENSEI bridge */
 	lammpsBridge::Finalize();
 	if ( 0 == me ) std::cout << "###### Finalize SENSEI bridge ######\n";
+
+	timer::Finalize();
+
 
 	/* close down MPI */
 	if (mpi_multilaunch) {
