@@ -1,4 +1,8 @@
-# SENSEI in situ
+title: "SENSEI in situ"
+markdown:
+  gfm: true
+  breaks: false
+---
 
 ## Overview
 
@@ -12,7 +16,7 @@ Our intent is to move the field of in situ processing in a direction where it ma
 
 ## Funding
 
-This work is supported by the Director, Office of Science, Office of Advanced Scientific Computing Research, of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231, through the grant “Scalable Analysis Methods and In Situ Infrastructure for Extreme Scale Knowledge Discovery,” program manager Dr. Lucy Nowell.
+This work is supported by the Director, Office of Science, Office of Advanced Scientific Computing Research, of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231, through the grant “Scalable Analysis Methods and In Situ Infrastructure for Extreme Scale Knowledge Discovery,” program manager Dr. Laura Biven.
 
 <!-- extra line breaks to prevent footer from obscuring text -->
 <br><br><br>
