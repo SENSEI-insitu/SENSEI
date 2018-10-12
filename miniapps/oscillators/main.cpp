@@ -36,6 +36,11 @@ using RandomSeedType = std::default_random_engine::result_type;
 
 int main(int argc, char** argv)
 {
+    using Time = std::chrono::high_resolution_clock;
+    using ms   = std::chrono::milliseconds;
+
+    auto start = Time::now();
+
     diy::mpi::environment     env(argc, argv);
     diy::mpi::communicator    world;
 
@@ -232,10 +237,6 @@ int main(int argc, char** argv)
                   &to_x[0],   &to_y[0],   &to_z[0]);
 #endif
     timer::MarkEndEvent("oscillators::analysis::initialize");
-
-    using Time = std::chrono::high_resolution_clock;
-    using ms   = std::chrono::milliseconds;
-    auto start = Time::now();
 
     int t_count = 0;
     float t = 0.;
