@@ -74,5 +74,7 @@ if (ENABLE_PYTHON)
           MAIN_DEPENDENCY ${input_file}
           DEPENDS ${depend_file} ${depends}
           COMMENT "Generating python bindings for ${input}...")
+      set_source_files_properties(${output}
+          PROPERTIES COMPILE_FLAGS -fpermissive)
   endfunction()
 endif()
