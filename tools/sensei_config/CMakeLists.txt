@@ -72,6 +72,7 @@ find_package(SENSEI REQUIRED)
 if (NOT SENSEI_LIBRARIES)
   get_deps(sensei sensei_deps sensei_incs)
 
+  string(GENEX_STRIP "${sensei_deps}" sensei_deps)
   string(REGEX REPLACE "([^;]+);" "\\1:" sensei_deps "${sensei_deps}")
   set(SENSEI_LIBRARIES ${sensei_deps} CACHE STRING "SENSEI link dependencies")
 
