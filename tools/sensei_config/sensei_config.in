@@ -5,7 +5,7 @@ SENSEI_CFLAGS=`echo ${SENSEI_INCLUDES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d
 SENSEI_INCLUDES=`echo ${SENSEI_INCLUDES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d' | tr '\n' ' '`
 
 SENSEI_LIBRARIES=@SENSEI_LIBRARIES@
-SENSEI_LIBRARIES=`echo ${SENSEI_LIBRARIES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d'  | tr '\n' ' '`
+SENSEI_LIBRARIES="-Wl,--start-group `echo ${SENSEI_LIBRARIES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d'  | tr '\n' ' '` -Wl,--end-group"
 
 if [[ $# > 0 ]]
 then
