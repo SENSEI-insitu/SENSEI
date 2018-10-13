@@ -7,7 +7,7 @@ include_directories(${LAMMPS_DIR}/src)
 set(sources lammpsDriver.cxx)
 
 set(libs 
-    mpi
+#    mpi
     ${LAMMPS_DIR}/src/liblammps_mpi.a
 )
 
@@ -24,7 +24,7 @@ endif()
 add_executable(lammpsDriver ${sources})
 
 # fix to build libsim version on Ubuntu
-set_target_properties(lammpsDriver PROPERTIES LINK_FLAGS "-Wl,--no-as-needed -ldl")
+#set_target_properties(lammpsDriver PROPERTIES LINK_FLAGS "-Wl,--no-as-needed -ldl")
 
 target_link_libraries(lammpsDriver ${libs})
 
