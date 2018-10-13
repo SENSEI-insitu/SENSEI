@@ -1,0 +1,42 @@
+<sensei>
+
+  <!--
+       Catalyst particle CDF example
+
+       This XML configures an MPI-based computation to obtain
+       inter-quantile boundaries. Specify the number of quantiles
+       you want with the `quantiles` attribute.
+
+       The output of the analysis is a Cinema database holding
+       the CDF approximation.
+       Specify the `working-directory` to indicate the directory
+       to hold the database.
+
+       Note that for now, if you want multiple CDF analyses to
+       be saved from a single run, you must set the
+       `working-directory` attribute to a different directory
+       for each one.
+    -->
+  <analysis
+    enabled="1"
+
+    type="cdf"
+    mesh="mesh"
+    field="data"
+    association="cell"
+    quantiles="50"
+    working-directory="/tmp/data-cdf"
+    />
+
+  <analysis
+    enabled="1"
+
+    type="cdf"
+    mesh="mesh"
+    field="data"
+    association="cell"
+    quantiles="50"
+    working-directory="/tmp/velocity-cdf"
+    />
+
+</sensei>

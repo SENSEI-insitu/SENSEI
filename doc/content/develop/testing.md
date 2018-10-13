@@ -1,11 +1,11 @@
 # CTest Regression Dashboard
 
-A number of systems have been confiugured for nightly testing and continuous integration.
+A number of systems have been configured for nightly testing and continuous integration.
 To view the results of these runs navigate your web browser to [http://cdash.hpcvis.com/index.php?project=SENSEI]().
 
 # Running the tests
 
-To enable the regression tests one must configure the build with tetsing enabeld.
+To enable the regression tests one must configure the build with testing enabled.
 ```bash
 cmake -DBUILD_TESTING=ON ...
 ```
@@ -14,7 +14,7 @@ To run the regression tests locally, from the build directory issue ctest comman
 cd build_dir
 ctest
 ```
-To run the tests and submit the results to the web dashboard add the ctest track option. Note, that it is case sensative.
+To run the tests and submit the results to the web dashboard add the ctest track option. Note, that it is case sensitive.
 ```bash
 ctest -DExperimental
 ```
@@ -27,7 +27,7 @@ Tests are added by calling the CMake function *senseiAddTest*. This function
 encapsulates the common scenarios needed to compile, link, and run tests in
 serial, and parallel; and configures CTest to flag absolute test failures
 (those retrurning non-zero exit code) as well as tests that print the word
-`ERROR` (case insensative). Given that not all tests require a compile/link
+`ERROR` (case insensitive). Given that not all tests require a compile/link
 step(eg Python based tests) arguments related to these steps are optional.
 ```CMake
 function senseiAddTest(<test name>
@@ -55,7 +55,7 @@ senseiAddTest(testHistogramSerial
   COMMAND testHistogram EXEC_NAME testHistogram
   SOURCES testHistogram.cpp LIBS sensei)
 ```
-Now the parallel version of the test. Note that it makes use of the above test's executable and therefore comnpiles nothing.
+Now the parallel version of the test. Note that it makes use of the above test's executable and therefore compiles nothing.
 ```CMake
 senseiAddTest(testHistogramParallel
   COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}

@@ -8,41 +8,41 @@ if (ENABLE_SENSEI)
     ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
     VTKUtils.cxx)
 
-  set(senseiCore_libs mpi pugixml vtk thread ArrayIO timer diy grid)
+  set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
 
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
-    list(APPEND senseiCore_libs sconduit)
+    list(APPEND senseiCore_libs sConduit)
   endif()
 
   if (ENABLE_CATALYST)
     list(APPEND senseiCore_sources CatalystAnalysisAdaptor.cxx
-      CatalystSlice.cxx CatalystUtilities.cxx)
+      CatalystParticle.cxx CatalystSlice.cxx CatalystUtilities.cxx)
   endif()
 
   if (ENABLE_VTKM)
     list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx
-      CinemaHelper.cxx)
-    list(APPEND senseiCore_libs vtkm_cont)
+      VTKmCDFAnalysis.cxx CDFReducer.cxx CinemaHelper.cxx)
+    list(APPEND senseiCore_libs sVTKm)
   endif()
 
-  if(ENABLE_ADIOS)
+  if (ENABLE_ADIOS)
     list(APPEND senseiCore_sources ADIOSSchema.cxx ADIOSAnalysisAdaptor.cxx
       ADIOSDataAdaptor.cxx)
-    list(APPEND senseiCore_libs adios)
+    list(APPEND senseiCore_libs sADIOS)
   endif()
 
-  if(ENABLE_VTK_ACCELERATORS)
+  if (ENABLE_VTK_ACCELERATORS)
     list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()
 
-  if(ENABLE_LIBSIM)
+  if (ENABLE_LIBSIM)
     list(APPEND senseiCore_sources LibsimAnalysisAdaptor.cxx
       LibsimImageProperties.cxx)
-    list(APPEND senseiCore_libs libsim)
+    list(APPEND senseiCore_libs sLibsim)
   endif()
 
-  if(ENABLE_VTK_IO)
+  if (ENABLE_VTK_IO)
     list(APPEND senseiCore_sources VTKPosthocIO.cxx)
     if (ENABLE_VTK_MPI)
       list(APPEND senseiCore_sources VTKAmrWriter.cxx)
@@ -68,9 +68,6 @@ if (ENABLE_SENSEI)
   set(sensei_libs senseiCore)
 
   # PythonAnalysis
-  # an analysis adaptor with a minimal set of Python bindings to enable an
-  # embedded interpreter to execute run time provided Python code implementing
-  # AnalysisAdaptor::Execute
   if (ENABLE_PYTHON)
     depend_swig(PythonAnalysis.i PythonAnalysis.dep)
 
@@ -85,7 +82,7 @@ if (ENABLE_SENSEI)
       ${CMAKE_CURRENT_BINARY_DIR}/_PythonAnalysis.cxx)
 
     set_target_properties(_PythonAnalysis PROPERTIES PREFIX "")
-    target_link_libraries(_PythonAnalysis PUBLIC senseiCore python)
+    target_link_libraries(_PythonAnalysis PUBLIC senseiCore sPython)
 
     add_custom_command(TARGET _PythonAnalysis POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy

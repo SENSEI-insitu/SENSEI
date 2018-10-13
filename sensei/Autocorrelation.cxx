@@ -22,8 +22,8 @@
 #include <diy/reduce.hpp>
 #include <diy/partners/merge.hpp>
 #include <diy/io/numpy.hpp>
-#include <grid/grid.h>
-#include <grid/vertices.h>
+#include <diy/grid.hpp>
+#include <diy/vertices.hpp>
 
 #include <timer/Timer.h>
 
@@ -58,13 +58,13 @@ template<class U> struct mpi_op<add_vectors<U>>
 namespace sensei
 {
 
-using GridRef = grid::GridRef<float,3>;
+using GridRef = diy::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
 struct AutocorrelationImpl
 {
-  using Grid = grid::Grid<float,4>;
+  using Grid = diy::Grid<float,4>;
   AutocorrelationImpl(size_t window_, int gid_, Vertex from_, Vertex to_):
     window(window_),
     gid(gid_),
@@ -83,9 +83,9 @@ struct AutocorrelationImpl
 
     if (ghostArray)
       {
-      grid::GridRef<unsigned char, 3> ghost(ghostArray, shape);
+      diy::GridRef<unsigned char, 3> ghost(ghostArray, shape);
       // record the values
-      grid::for_each(g.shape(), [&](const Vertex& v)
+      diy::for_each(g.shape(), [&](const Vertex& v)
         {
         auto gv = (ghost(v) == 0) ? g(v) : 0;
 
@@ -105,7 +105,7 @@ struct AutocorrelationImpl
     else
       {
       // record the values
-      grid::for_each(g.shape(), [&](const Vertex& v)
+      diy::for_each(g.shape(), [&](const Vertex& v)
         {
         auto gv = g(v);
 
@@ -153,13 +153,9 @@ public:
   size_t Window;
   bool BlocksInitialized;
   size_t NumberOfBlocks;
-  AInternals() :
-    KMax(3),
-    Association(vtkDataObject::POINT),
-    Window(10),
-    BlocksInitialized(false),
-    NumberOfBlocks(0)
-  {}
+
+  AInternals() : KMax(3), Association(vtkDataObject::POINT),
+    Window(10), BlocksInitialized(false), NumberOfBlocks(0) {}
 
   void InitializeBlocks(vtkDataObject* dobj)
     {
@@ -238,14 +234,15 @@ Autocorrelation::~Autocorrelation()
 
 //-----------------------------------------------------------------------------
 void Autocorrelation::Initialize(size_t window, const std::string &meshName,
-  int association, const std::string &arrayname, size_t kmax)
+  int association, const std::string &arrayname, size_t kmax, int numThreads)
 {
   timer::MarkEvent mark("Autocorrelation::Initialize");
 
   AInternals& internals = (*this->Internals);
-  internals.Master = make_unique<diy::Master>(this->GetCommunicator(), -1, -1,
-                                              &AutocorrelationImpl::create,
-                                              &AutocorrelationImpl::destroy);
+
+  internals.Master = make_unique<diy::Master>(this->GetCommunicator(),
+    numThreads, -1, &AutocorrelationImpl::create, &AutocorrelationImpl::destroy);
+
   internals.MeshName = meshName;
   internals.Association = association;
   internals.ArrayName = arrayname;
@@ -257,15 +254,16 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 bool Autocorrelation::Execute(DataAdaptor* data)
 {
   timer::MarkEvent mark("Autocorrelation::Execute");
+
   AInternals& internals = (*this->Internals);
   const int association = internals.Association;
 
   vtkDataObject* mesh = nullptr;
   if (data->GetMesh(internals.MeshName, false, mesh))
-   {
-   SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
-   return false;
-   }
+    {
+    SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
+    return false;
+    }
 
   if (data->AddArray(mesh, internals.MeshName,
     internals.Association, internals.ArrayName))
@@ -277,18 +275,18 @@ bool Autocorrelation::Execute(DataAdaptor* data)
 
   int nLayers = 0;
   if (data->GetMeshHasGhostCells(internals.MeshName, nLayers) == 0)
-   {
-   if (nLayers > 0 && data->AddGhostCellsArray(mesh, internals.MeshName))
-     {
-     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
-     return false;
-     }
-   }
+    {
+    if (nLayers > 0 && data->AddGhostCellsArray(mesh, internals.MeshName))
+      {
+      SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
+      return false;
+      }
+    }
   else
-   {
-   SENSEI_ERROR(<< data->GetClassName() << " failed to query for ghost cells.")
-   return false;
-   }
+    {
+    SENSEI_ERROR(<< data->GetClassName() << " failed to query for ghost cells.")
+    return false;
+    }
 
   internals.InitializeBlocks(mesh);
 
@@ -329,7 +327,7 @@ bool Autocorrelation::Execute(DataAdaptor* data)
     vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
       ds->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
     vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
-      ds->GetCellData()->GetArray("vtkGhostType"));       
+      ds->GetCellData()->GetArray("vtkGhostType"));
     if (fa)
       {
       corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);
@@ -340,21 +338,23 @@ bool Autocorrelation::Execute(DataAdaptor* data)
       abort();
       }
     }
+
   return true;
 }
 
 //-----------------------------------------------------------------------------
 void Autocorrelation::PrintResults(size_t k_max)
 {
-  timer::MarkEvent mark("autocorrelation::collect results");
+  timer::MarkEvent mark("Autocorrelation::PrintResults");
+
   AInternals& internals = (*this->Internals);
   size_t nblocks = internals.NumberOfBlocks;
 
     // add up the autocorrellations
-  internals.Master->foreach<AutocorrelationImpl>([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp, void*)
+  internals.Master->foreach([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
-                                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                                         {
                                             size_t w = v[3];
                                             sums[w] += b->corr(v);
@@ -367,95 +367,102 @@ void Autocorrelation::PrintResults(size_t k_max)
     {
     // print out the autocorrelations
     auto result = internals.Master->proxy(0).get<std::vector<float>>();
-    std::cout << "Autocorrelations:";
+    std::cerr << "Autocorrelations:";
     for (size_t i = 0; i < result.size(); ++i)
-      std::cout << ' ' << result[i];
-    std::cout << std::endl;
+      std::cerr << ' ' << result[i];
+    std::cerr << std::endl;
     }
 
-  internals.Master->foreach<AutocorrelationImpl>(
-    [](AutocorrelationImpl*, const diy::Master::ProxyWithLink& cp, void*)
+  internals.Master->foreach(
+    [](AutocorrelationImpl*, const diy::Master::ProxyWithLink& cp)
     {
     cp.collectives()->clear();
     });
 
-    // select k strongest autocorrelations for each shift
-    diy::ContiguousAssigner     assigner(internals.Master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
-    diy::RegularMergePartners   partners(3, nblocks, 2, true);
-    diy::reduce(*internals.Master, assigner, partners,
-                [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
-                {
-                    AutocorrelationImpl* b = static_cast<AutocorrelationImpl*>(b_);
-                    //unsigned round = rp.round(); // current round number
 
-                    using MaxHeapVector = std::vector<std::vector<std::tuple<float,Vertex>>>;
-                    using Compare       = std::greater<std::tuple<float,Vertex>>;
-                    MaxHeapVector maxs(b->window);
-                    if (rp.in_link().size() == 0)
-                    {
-                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
-                        {
-                            size_t offset = v[3];
-                            float val = b->corr(v);
-                            auto& max = maxs[offset];
-                            if (max.size() < k_max)
-                            {
-                                max.emplace_back(val, v.drop(3) + b->from);
-                                std::push_heap(max.begin(), max.end(), Compare());
-                            } else if (val > std::get<0>(max[0]))
-                            {
-                                std::pop_heap(max.begin(), max.end(), Compare());
-                                maxs[offset].back() = std::make_tuple(val, v.drop(3) + b->from);
-                                std::push_heap(max.begin(), max.end(), Compare());
-                            }
-                        });
-                    } else
-                    {
-                        for (long i = 0; i < rp.in_link().size(); ++i)
-                        {
-                            MaxHeapVector in_heaps;
-                            rp.dequeue(rp.in_link().target(i).gid, in_heaps);
-                            for (size_t j = 0; j < in_heaps.size(); ++j)
-                            {
-                                for (auto& x : in_heaps[j])
-                                    maxs[j].push_back(x);
-                            }
-                        }
-                        for (size_t j = 0; j < maxs.size(); ++j)
-                        {
-                            auto& max = maxs[j];
-                            std::make_heap(max.begin(), max.end(), Compare());
-                            while(max.size() > k_max)
-                            {
-                                std::pop_heap(max.begin(), max.end(), Compare());
-                                max.pop_back();
-                            }
-                        }
-                    }
+  // select k strongest autocorrelations for each shift
+  diy::ContiguousAssigner     assigner(internals.Master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
+  diy::RegularDecomposer<diy::DiscreteBounds> decomposer(1, diy::interval(0, nblocks-1), nblocks);
+  diy::RegularMergePartners   partners(decomposer, 2);
+  //diy::RegularMergePartners   partners(3, nblocks, 2, true);
+  diy::reduce(*internals.Master, assigner, partners,
+              [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
+              {
+                  AutocorrelationImpl* b = static_cast<AutocorrelationImpl*>(b_);
+                  //unsigned round = rp.round(); // current round number
 
-                    if (rp.out_link().size() > 0)
-                        rp.enqueue(rp.out_link().target(0), maxs);
-                    else
-                    {
-                        // print out the answer
-                        for (size_t i = 0; i < maxs.size(); ++i)
-                        {
-                            std::sort(maxs[i].begin(), maxs[i].end(), Compare());
-                            std::cout << "Max autocorrelations for " << i << ":";
-                            for (auto& x : maxs[i])
-                                std::cout << " (" << std::get<0>(x) << " at " << std::get<1>(x) << ")";
-                            std::cout << std::endl;
-                        }
-                    }
-                });
+                  using MaxHeapVector = std::vector<std::vector<std::tuple<float,Vertex>>>;
+                  using Compare       = std::greater<std::tuple<float,Vertex>>;
+                  MaxHeapVector maxs(b->window);
+                  if (rp.in_link().size() == 0)
+                  {
+                      diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                      {
+                          size_t offset = v[3];
+                          float val = b->corr(v);
+                          auto& max = maxs[offset];
+                          if (max.size() < k_max)
+                          {
+                              max.emplace_back(val, v.drop(3) + b->from);
+                              std::push_heap(max.begin(), max.end(), Compare());
+                          } else if (val > std::get<0>(max[0]))
+                          {
+                              std::pop_heap(max.begin(), max.end(), Compare());
+                              maxs[offset].back() = std::make_tuple(val, v.drop(3) + b->from);
+                              std::push_heap(max.begin(), max.end(), Compare());
+                          }
+                      });
+                  } else
+                  {
+                      for (long i = 0; i < rp.in_link().size(); ++i)
+                      {
+                          MaxHeapVector in_heaps;
+                          rp.dequeue(rp.in_link().target(i).gid, in_heaps);
+                          for (size_t j = 0; j < in_heaps.size(); ++j)
+                          {
+                              for (auto& x : in_heaps[j])
+                                  maxs[j].push_back(x);
+                          }
+                      }
+                      for (size_t j = 0; j < maxs.size(); ++j)
+                      {
+                          auto& max = maxs[j];
+                          std::make_heap(max.begin(), max.end(), Compare());
+                          while(max.size() > k_max)
+                          {
+                              std::pop_heap(max.begin(), max.end(), Compare());
+                              max.pop_back();
+                          }
+                      }
+                  }
+
+                  if (rp.out_link().size() > 0)
+                      rp.enqueue(rp.out_link().target(0), maxs);
+                  else
+                  {
+                      // print out the answer
+                      for (size_t i = 0; i < maxs.size(); ++i)
+                      {
+                          std::sort(maxs[i].begin(), maxs[i].end(), Compare());
+                          std::cerr << "Max autocorrelations for " << i << ":";
+                          for (auto& x : maxs[i])
+                              std::cerr << " (" << std::get<0>(x) << " at " << std::get<1>(x) << ")";
+                          std::cerr << std::endl;
+                      }
+                  }
+              });
 }
 
 //-----------------------------------------------------------------------------
 int Autocorrelation::Finalize()
 {
+  timer::MarkEvent mark("Autocorrelation::Finalize");
+
   this->PrintResults(this->Internals->KMax);
+
   delete this->Internals;
   this->Internals = nullptr;
+
   return 0;
 }
 

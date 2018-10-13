@@ -8,7 +8,7 @@ if (ENABLE_PYTHON)
 
   PYTHON_ADD_MODULE(_senseiPython ${CMAKE_CURRENT_BINARY_DIR}/senseiPython.cxx)
 
-  target_link_libraries(_senseiPython PUBLIC sensei python)
+  target_link_libraries(_senseiPython PUBLIC sensei sPython)
 
   add_custom_command(TARGET _senseiPython POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy

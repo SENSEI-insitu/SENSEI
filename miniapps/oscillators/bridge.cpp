@@ -1,6 +1,6 @@
 #include "bridge.h"
 
-#include "dataadaptor.h"
+#include "DataAdaptor.h"
 
 #include <vector>
 #include <sensei/ConfigurableAnalysis.h>
@@ -51,7 +51,7 @@ void set_data(int gid, float* data)
 }
 
 //-----------------------------------------------------------------------------
-void set_particles(int gid, const Particles& particles)
+void set_particles(int gid, const std::vector<Particle> &particles)
 {
   GlobalDataAdaptor->SetParticles(gid, particles);
 }

@@ -1,9 +1,9 @@
-set(sources oscillator.cpp analysis.cpp)
+set(sources main.cpp analysis.cpp)
 
-set(libs mpi diy grid opts thread timer util)
+set(libs sMPI sDIY opts thread timer util)
 
 if(ENABLE_SENSEI)
-  list(APPEND sources dataadaptor.cpp bridge.cpp)
+  list(APPEND sources bridge.cpp DataAdaptor.cpp Oscillator.cpp Particles.cpp Block.cpp)
   list(APPEND libs sensei)
 endif()
 

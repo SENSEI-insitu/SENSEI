@@ -65,8 +65,10 @@ int main(int argc, char **argv)
     return showHelp ? 0 : 1;
     }
 
-  timer::SetLogging(log || shortlog);
-  timer::SetTrackSummariesOverTime(shortlog);
+  if (log | shortlog)
+    timer::Enable(shortlog);
+
+  timer::Initialize();
 
   SENSEI_STATUS("Opening: \"" << input.c_str() << "\" using method \""
     << readmethod.c_str() << "\"")
@@ -134,7 +136,7 @@ int main(int argc, char **argv)
   dataAdaptor = nullptr;
   analysisAdaptor = nullptr;
 
-  timer::PrintLog(std::cout, comm);
+  timer::Finalize();
 
   MPI_Finalize();
 

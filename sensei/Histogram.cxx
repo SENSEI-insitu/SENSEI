@@ -34,14 +34,14 @@ Histogram::~Histogram()
 }
 
 //-----------------------------------------------------------------------------
-void Histogram::Initialize(int bins,
-  const std::string &meshName, int association,
-  const std::string& arrayName)
+void Histogram::Initialize(int bins, const std::string &meshName,
+  int association, const std::string& arrayName, const std::string &fileName)
 {
   this->Bins = bins;
   this->MeshName = meshName;
   this->ArrayName = arrayName;
   this->Association = association;
+  this->FileName = fileName;
 }
 
 //-----------------------------------------------------------------------------
@@ -64,6 +64,11 @@ bool Histogram::Execute(DataAdaptor* data)
   delete this->Internals;
   this->Internals = new VTKHistogram;
 
+  // get the current time and step
+  int step = data->GetDataTimeStep();
+  double time = data->GetDataTime();
+
+  // get the mesh object
   vtkDataObject* mesh = nullptr;
   if (data->GetMesh(this->MeshName, true, mesh))
     {
@@ -76,8 +81,8 @@ bool Histogram::Execute(DataAdaptor* data)
     // a dataset to process
     this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
 
-    this->Internals->PostCompute(this->GetCommunicator(),
-      this->Bins, this->ArrayName);
+    this->Internals->PostCompute(this->GetCommunicator(), this->Bins,
+      step, time, this->MeshName, this->ArrayName, this->FileName);
 
     return true;
     }
@@ -92,8 +97,8 @@ bool Histogram::Execute(DataAdaptor* data)
 
     this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
 
-    this->Internals->PostCompute(this->GetCommunicator(),
-      this->Bins, this->ArrayName);
+    this->Internals->PostCompute(this->GetCommunicator(), this->Bins,
+      step, time, this->MeshName, this->ArrayName, this->FileName);
 
     return false;
     }
@@ -165,8 +170,8 @@ bool Histogram::Execute(DataAdaptor* data)
       }
 
     // compute the global histogram
-    this->Internals->PostCompute(this->GetCommunicator(),
-      this->Bins, this->ArrayName);
+    this->Internals->PostCompute(this->GetCommunicator(), this->Bins,
+      step, time, this->MeshName, this->ArrayName, this->FileName);
     }
   else
     {
@@ -181,8 +186,8 @@ bool Histogram::Execute(DataAdaptor* data)
 
       this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
 
-      this->Internals->PostCompute(this->GetCommunicator(),
-        this->Bins, this->ArrayName);
+      this->Internals->PostCompute(this->GetCommunicator(), this->Bins,
+        step, time, this->MeshName, this->ArrayName, this->FileName);
       }
     else
       {
@@ -193,8 +198,8 @@ bool Histogram::Execute(DataAdaptor* data)
       this->Internals->PreCompute(this->GetCommunicator(), this->Bins);
       this->Internals->Compute(array, ghostArray);
 
-      this->Internals->PostCompute(this->GetCommunicator(),
-        this->Bins, this->ArrayName);
+      this->Internals->PostCompute(this->GetCommunicator(), this->Bins,
+        step, time, this->MeshName, this->ArrayName, this->FileName);
       }
     }
   return true;

@@ -3,7 +3,7 @@
        type="vtkmaar"           - we should use Haar wavelets to reduce the dataset size
        mesh="mesh"              - that this analysis will run on the oscillator's image data
        field="data"             - the scalar field we wish to reduce
-       association="points"     - that the scalar field is defined on points of the image
+       association="cell"       - that the scalar field is defined on cells of the image
        reduction="1"            - we should perform a single (factor of 8) reduction step
        working-directory="/tmp" - where the result files should be stored.
                                   The results include an "index.json" summary and on directory
@@ -15,7 +15,7 @@
     type="vtkmhaar"
     mesh="mesh"
     field="data"
-    association="points"
+    association="cell"
     reduction="1"
     working-directory="/tmp"
     />

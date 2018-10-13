@@ -5,18 +5,18 @@
 #include <diy/reduce.hpp>
 #include <diy/partners/merge.hpp>
 #include <diy/io/numpy.hpp>
-#include <grid/grid.h>
-#include <grid/vertices.h>
+#include <diy/grid.hpp>
+#include <diy/vertices.hpp>
 
 #include "analysis.h"
 
-using GridRef = grid::GridRef<float,3>;
+using GridRef = diy::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
 struct Autocorrelation
 {
-    using Grid = grid::Grid<float,4>;
+    using Grid = diy::Grid<float,4>;
 
                     Autocorrelation(size_t window_, int gid_, Vertex from_, Vertex to_):
                         window(window_),
@@ -36,7 +36,7 @@ struct Autocorrelation
         GridRef g(data, shape);
 
         // record the values
-        grid::for_each(g.shape(), [&](const Vertex& v)
+        diy::for_each(g.shape(), [&](const Vertex& v)
         {
             auto gv = g(v);
 
@@ -137,7 +137,7 @@ void analysis_final(size_t k_max, size_t nblocks)
     diy::mpi::io::file out(master->communicator(), "buffer.npy", diy::mpi::io::file::wronly | diy::mpi::io::file::create);
     diy::io::NumPy writer(out);
     writer.write_header<float>(buffer_shape);
-    master->foreach<Autocorrelation>([&writer](Autocorrelation* b, const diy::Master::ProxyWithLink, void*)
+    master->foreach([&writer](Autocorrelation* b, const diy::Master::ProxyWithLink)
                                      {
                                        diy::DiscreteBounds bounds;
                                        for (size_t i = 0; i < 3; ++i)
@@ -152,10 +152,10 @@ void analysis_final(size_t k_max, size_t nblocks)
 #endif
 
     // add up the autocorrellations
-    master->foreach<Autocorrelation>([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp, void*)
+    master->foreach([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
-                                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                                         {
                                             size_t w = v[3];
                                             sums[w] += b->corr(v);
@@ -174,14 +174,16 @@ void analysis_final(size_t k_max, size_t nblocks)
             std::cout << ' ' << result[i];
         std::cout << std::endl;
     }
-    master->foreach<Autocorrelation>([](Autocorrelation*, const diy::Master::ProxyWithLink& cp, void*)
+    master->foreach([](Autocorrelation*, const diy::Master::ProxyWithLink& cp)
                                      {
                                         cp.collectives()->clear();
                                      });
 
     // select k strongest autocorrelations for each shift
     diy::ContiguousAssigner     assigner(master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
-    diy::RegularMergePartners   partners(3, nblocks, 2, true);
+    //diy::RegularMergePartners   partners(3, nblocks, 2, true);
+    diy::RegularDecomposer<diy::DiscreteBounds> decomposer(1, diy::interval(0, nblocks-1), nblocks);
+    diy::RegularMergePartners   partners(decomposer, 2);
     diy::reduce(*master, assigner, partners,
                 [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
                 {
@@ -193,7 +195,7 @@ void analysis_final(size_t k_max, size_t nblocks)
                     MaxHeapVector maxs(b->window);
                     if (rp.in_link().size() == 0)
                     {
-                        grid::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                         {
                             size_t offset = v[3];
                             float val = b->corr(v);

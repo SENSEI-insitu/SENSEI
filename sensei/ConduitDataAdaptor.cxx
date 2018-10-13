@@ -624,8 +624,8 @@ void ConduitDataAdaptor::UpdateFields()
         //std::string meshName = field["topology"].as_string();
 
         std::string meshName = "mesh";
-        auto searchMesh = FieldNames.find(meshName);
-        if(searchMesh != FieldNames.end())
+        auto searchMesh = this->FieldNames.find(meshName);
+        if(searchMesh != this->FieldNames.end())
         {
           std::vector<std::string> vec = searchMesh->second;
           std::vector<std::string>::iterator itr;
@@ -634,14 +634,15 @@ void ConduitDataAdaptor::UpdateFields()
           if(itr == vec.end())
           {
              vec.push_back(field_name);
-             FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
+             this->FieldNames.erase(meshName);
+             this->FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
           }
         }
         else
         {
            std::vector<std::string> vec;
            vec.push_back(field_name);
-           FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
+           this->FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
 
         }
       }
@@ -658,8 +659,8 @@ void ConduitDataAdaptor::UpdateFields()
       std::string field_name = fields_itr.name();
       std::string meshName = field["topology"].as_string();
 
-      auto searchMesh = FieldNames.find(meshName);
-      if(searchMesh != FieldNames.end())
+      auto searchMesh = this->FieldNames.find(meshName);
+      if(searchMesh != this->FieldNames.end())
       {
         std::vector<std::string> vec = searchMesh->second;
         std::vector<std::string>::iterator itr;
@@ -668,14 +669,15 @@ void ConduitDataAdaptor::UpdateFields()
         if(itr == vec.end())
         {
            vec.push_back(field_name);
-           FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
+           this->FieldNames.erase(meshName);
+           this->FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
         }
       }
       else
       {
         std::vector<std::string> vec;
         vec.push_back(field_name);
-        FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
+        this->FieldNames.insert(std::pair<std::string, std::vector<std::string>>(meshName, vec));
       }
     }
   }

@@ -1,4 +1,7 @@
 title: "About SENSEI"
+markdown:
+  gfm: true
+  breaks: false
 ---
 
 This project takes aim at a set of research challenges for enabling scientific knowledge discovery within the context of in situ processing at extreme-scale concurrency. This work is motivated by a widening gap between FLOPs and I/O capacity which will make full-resolution, I/O-intensive post hoc analysis prohibitively expensive, if not impossible.
@@ -42,7 +45,7 @@ Office of Advanced Scientific Computing Research,
 of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231,
 through the grant
 “Scalable Analysis Methods and In Situ Infrastructure for Extreme Scale Knowledge Discovery,”
-program manager Dr. Lucy Nowell.
+program manager Dr. Laura Biven.
 
 <!-- extra line breaks to prevent footer from obscuring text -->
 <br><br><br>

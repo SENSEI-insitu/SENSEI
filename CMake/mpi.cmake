@@ -1,10 +1,19 @@
-find_package(MPI REQUIRED)
-add_library(mpi INTERFACE)
+find_package(MPI)
 
-target_include_directories(mpi SYSTEM INTERFACE ${MPI_C_INCLUDE_PATH}
-  ${MPI_CXX_INCLUDE_PATH})
+if (NOT MPI_C_FOUND)
+  message(FETAL_ERROR "Failed to locate MPI C libraries and headers")
+endif()
 
-target_link_libraries(mpi INTERFACE ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+# MPI to use extern "C" when including headers
+add_definitions(-DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1)
 
-install(TARGETS mpi EXPORT mpi)
-install(EXPORT mpi DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+# interface libarary for use elsewhere in the project
+add_library(sMPI INTERFACE)
+
+target_include_directories(sMPI SYSTEM INTERFACE
+  ${MPI_C_INCLUDE_PATH} ${MPI_C_INCLUDE_DIRS})
+
+target_link_libraries(sMPI INTERFACE ${MPI_C_LIBRARIES})
+
+install(TARGETS sMPI EXPORT sMPI)
+install(EXPORT sMPI DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)

@@ -19,6 +19,7 @@ else()
   message(STATUS "Disabled: Oscillators miniapp.")
 endif()
 
+
 if(ENABLE_KRIPKE)
   message(STATUS "Enabled: Kripke miniapp")
   add_subdirectory(kripke)

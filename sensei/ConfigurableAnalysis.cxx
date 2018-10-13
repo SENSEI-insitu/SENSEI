@@ -18,12 +18,14 @@
 #endif
 #ifdef ENABLE_VTKM
 #include "VTKmVolumeReductionAnalysis.h"
+#include "VTKmCDFAnalysis.h"
 #endif
 #ifdef ENABLE_ADIOS
 #include "ADIOSAnalysisAdaptor.h"
 #endif
 #ifdef ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
+#include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #endif
 #ifdef ENABLE_LIBSIM
@@ -41,6 +43,7 @@
 
 #include <vector>
 #include <pugixml.hpp>
+#include <fstream>
 #include <sstream>
 #include <cstdio>
 #include <errno.h>
@@ -129,7 +132,7 @@ static int parse(MPI_Comm comm, int rank,
 struct ConfigurableAnalysis::InternalsType
 {
   InternalsType()
-    : Comm(MPI_COMM_NULL), RecordTimings(false), RankLogModulus(1)
+    : Comm(MPI_COMM_NULL)
   {
   }
 
@@ -148,6 +151,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddHistogram(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
+  int AddVTKmCDF(pugi::xml_node node);
   int AddAdios(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
@@ -178,29 +182,36 @@ public:
   // and superfluous Comm_dup's are avoided.
   MPI_Comm Comm;
 
-  // whether to record timings for each configured analysis:
-  bool RecordTimings;
-  // how many ranks should print timing info:
-  int RankLogModulus;
+  std::vector<std::string> LogEventNames;
 };
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::TimeInitialization(
   AnalysisAdaptorPtr adaptor, std::function<int()> initializer)
 {
-  std::string analysisName;
-  if (this->RecordTimings)
+  const char* analysisName = nullptr;
+  bool logEnabled = timer::Enabled();
+  if (logEnabled)
   {
-    std::ostringstream name;
-    name << adaptor->GetClassName() << "::" << this->Analyses.size() << "::initialize";
-    analysisName = name.str();
-    timer::MarkStartEvent(analysisName.c_str());
+    std::ostringstream initName;
+    std::ostringstream execName;
+    std::ostringstream finiName;
+    auto analysisNumber = this->Analyses.size();
+    initName << adaptor->GetClassName() << "::" << analysisNumber << "::Initialize";
+    execName << adaptor->GetClassName() << "::" << analysisNumber << "::Execute";
+    finiName << adaptor->GetClassName() << "::" << analysisNumber << "::Finalize";
+    this->LogEventNames.push_back(initName.str());
+    this->LogEventNames.push_back(execName.str());
+    this->LogEventNames.push_back(finiName.str());
+    analysisName = this->LogEventNames[3 * analysisNumber].c_str();
+    timer::MarkStartEvent(analysisName);
   }
+
   int result = initializer();
-  if (this->RecordTimings)
-  {
-    timer::MarkEndEvent(analysisName.c_str());
-  }
+
+  if (logEnabled)
+    timer::MarkEndEvent(analysisName);
+
   return result;
 }
 
@@ -224,6 +235,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
   std::string mesh = node.attribute("mesh").value();
   std::string array = node.attribute("array").value();
   int bins = node.attribute("bins").as_int(10);
+  std::string fileName = node.attribute("file").value();
 
   auto histogram = vtkSmartPointer<Histogram>::New();
 
@@ -231,14 +243,15 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
     histogram->SetCommunicator(this->Comm);
 
   this->TimeInitialization(histogram, [&]() {
-      histogram->Initialize(bins, mesh, association, array);
+      histogram->Initialize(bins, mesh, association, array, fileName);
       return 0;
     });
   this->Analyses.push_back(histogram.GetPointer());
 
   SENSEI_STATUS("Configured histogram with " << bins
-    << " " << assocStr << "data array " << array
-    << " on mesh " << mesh)
+    << " bins on " << assocStr << " data array \"" << array
+    << "\" on mesh \"" << mesh << "\" writing output to "
+    << (fileName.empty() ? "cout" : "file"))
 
   return 0;
 }
@@ -289,12 +302,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
 #else
-  if (
-    requireAttribute(node, "mesh") ||
-    requireAttribute(node, "field") ||
-    requireAttribute(node, "association") ||
-    requireAttribute(node, "reduction")
-    )
+  if (requireAttribute(node, "mesh") || requireAttribute(node, "field") ||
+    requireAttribute(node, "association") || requireAttribute(node, "reduction"))
     {
     SENSEI_ERROR("Failed to initialize VTKmVolumeReductionAnalysis");
     return -1;
@@ -305,8 +314,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   auto assoc = node.attribute("association").as_string();
   auto reduction = node.attribute("reduction").as_int();
 
-  bool haveWorkDir = !!node.attribute("working-directory");
-  std::string workDir =  haveWorkDir ? node.attribute("working-directory").as_string() : ".";
+  std::string workDir = node.attribute("working-directory").as_string(".");
 
   auto reducer = vtkSmartPointer<VTKmVolumeReductionAnalysis>::New();
   this->TimeInitialization(reducer, [&]() {
@@ -316,6 +324,46 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   this->Analyses.push_back(reducer.GetPointer());
 
   SENSEI_STATUS("Configured VTKmVolumeReductionAnalysis " << mesh << "/" << field)
+
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
+{
+#ifndef ENABLE_VTKM
+  (void)node;
+  SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
+  return -1;
+#else
+  if (
+    requireAttribute(node, "mesh") ||
+    requireAttribute(node, "field") ||
+    requireAttribute(node, "association")
+    )
+    {
+    SENSEI_ERROR("Failed to initialize VTKmCDFAnalysis");
+    return -1;
+    }
+
+  auto mesh = node.attribute("mesh").as_string();
+  auto field = node.attribute("field").as_string();
+  auto assoc = node.attribute("association").as_string();
+  auto quantiles = node.attribute("quantiles").as_int(10);
+  auto exchangeSize = node.attribute("exchange-size").as_int(quantiles);
+
+  bool haveWorkDir = !!node.attribute("working-directory");
+  std::string workDir =  haveWorkDir ? node.attribute("working-directory").as_string() : ".";
+
+  auto analysis = vtkSmartPointer<VTKmCDFAnalysis>::New();
+  this->TimeInitialization(analysis, [&]() {
+    analysis->Initialize(mesh, field, assoc, workDir, quantiles, exchangeSize, this->Comm);
+    return 0;
+  });
+  this->Analyses.push_back(analysis.GetPointer());
+
+  SENSEI_STATUS("Configured VTKmCDFAnalysis " << mesh << "/" << field)
 
   return 0;
 #endif
@@ -432,6 +480,70 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
       }
 
     this->CatalystAdaptor->AddPipeline(slice.GetPointer());
+    }
+  else if (strcmp(node.attribute("pipeline").value(), "particle") == 0)
+    {
+    vtkNew<CatalystParticle> particle;
+
+    double tmp[3];
+    if (node.attribute("mesh"))
+      {
+      particle->SetInputMesh(node.attribute("mesh").value());
+      }
+    if (node.attribute("particle-style"))
+      {
+      particle->SetParticleStyle(node.attribute("particle-style").value());
+      }
+    if (node.attribute("particle-radius") &&
+      (std::sscanf(node.attribute("particle-radius").value(),
+      "%lg", &tmp[0]) == 1))
+      {
+      particle->SetParticleRadius(tmp[0]);
+      }
+    if (node.attribute("camera-position") &&
+      (std::sscanf(node.attribute("camera-position").value(),
+      "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
+      {
+      particle->SetCameraPosition(tmp);
+      }
+
+    if (node.attribute("camera-focus") &&
+      (std::sscanf(node.attribute("camera-focus").value(),
+      "%lg,%lg,%lg", &tmp[0], &tmp[1], &tmp[2]) == 3))
+      {
+      particle->SetCameraFocus(tmp);
+      }
+
+    int association = 0;
+    std::string assocStr = node.attribute("association").as_string("point");
+    if (VTKUtils::GetAssociation(assocStr, association))
+      {
+      SENSEI_ERROR("Failed to initialize Catalyst")
+      return -1;
+      }
+
+    particle->ColorBy(association, node.attribute("array").value());
+    if (node.attribute("color-range") &&
+      (std::sscanf(node.attribute("color-range").value(), "%lg,%lg", &tmp[0], &tmp[1]) == 2))
+      {
+      particle->SetAutoColorRange(false);
+      particle->SetColorRange(tmp[0], tmp[1]);
+      }
+    else
+      {
+      particle->SetAutoColorRange(true);
+      }
+
+    particle->SetUseLogScale(node.attribute("color-log").as_int(0) == 1);
+    if (node.attribute("image-filename"))
+      {
+      particle->SetImageParameters(
+        node.attribute("image-filename").value(),
+        node.attribute("image-width").as_int(800),
+        node.attribute("image-height").as_int(800));
+      }
+
+    this->CatalystAdaptor->AddPipeline(particle.GetPointer());
     }
   else if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {
@@ -600,6 +712,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 
   int window = node.attribute("window").as_int(10);
   int kMax = node.attribute("k-max").as_int(3);
+  int numThreads = node.attribute("n-threads").as_int(1);
 
   auto adaptor = vtkSmartPointer<Autocorrelation>::New();
 
@@ -610,11 +723,13 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
     adaptor->Initialize(window, meshName, assoc, arrayName, kMax);
     return 0;
   });
+
   this->Analyses.push_back(adaptor.GetPointer());
 
   SENSEI_STATUS("Configured Autocorrelation " << assocStr
-    << " data array " << arrayName << " on mesh " << meshName
-    << " window " << window << " k-max " << kMax)
+    << " data array \"" << arrayName << "\" on mesh \"" << meshName
+    << "\" window " << window << " k-max " << kMax
+    << " n-threads " << numThreads)
 
   return 0;
 }
@@ -669,11 +784,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 #else
   DataRequirements req;
 
-  if (req.Initialize(node) ||
-    (req.GetNumberOfRequiredMeshes() < 1))
+  if (req.Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize VTKAmrWriter. "
-      "At least one mesh is required")
+    SENSEI_ERROR("Failed to initialize VTKAmrWriter.")
     return -1;
     }
 
@@ -795,6 +908,8 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
+  timer::MarkEvent event("ConfigurableAnalysis::Initialize");
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
@@ -808,16 +923,6 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 
   int rv = 0;
   pugi::xml_node root = doc.child("sensei");
-
-  // This must come before analysis initialization in order for us to time them.
-  this->Internals->RecordTimings = root.attribute("timing").as_bool(false);
-  if (this->Internals->RecordTimings)
-  {
-    timer::SetTrackSummariesOverTime(
-      root.attribute("summarize-timing").as_bool(true));
-    this->Internals->RankLogModulus =
-      root.attribute("timing-rank-modulus").as_int(1);
-  }
 
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
@@ -835,6 +940,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
       || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
+      || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
       {
       if (rank == 0)
@@ -849,34 +955,34 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
+  timer::MarkEvent event("ConfigurableAnalysis::Execute");
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   int rv = 0;
   int ai = 0;
-  bool recordTimings = this->Internals->RecordTimings;
-  std::string analysisName;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    if (recordTimings)
-    {
-      std::ostringstream name;
-      name << (*iter)->GetClassName() << "::" << ai << "::execute";
-      analysisName = name.str();
-      timer::MarkStartEvent(analysisName.c_str());
-    }
+    const char* analysisName = nullptr;
+    bool logEnabled = timer::Enabled();
+    if (logEnabled)
+      {
+      analysisName = this->Internals->LogEventNames[3 * ai + 1].c_str();
+      timer::MarkStartEvent(analysisName);
+      }
+
     if (!(*iter)->Execute(data))
       {
       if (rank == 0)
         SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
       rv -= 1;
       }
-    if (recordTimings)
-      {
-      timer::MarkEndEvent(analysisName.c_str());
-      }
+
+    if (logEnabled)
+      timer::MarkEndEvent(analysisName);
     }
 
   return rv < 0 ? false : true;
@@ -885,40 +991,34 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Finalize()
 {
+  timer::MarkEvent event("ConfigurableAnalysis::Finalize");
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   int rv = 0;
   int ai = 0;
-  bool recordTimings = this->Internals->RecordTimings;
-  std::string analysisName;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    if (recordTimings)
-    {
-      std::ostringstream name;
-      name << (*iter)->GetClassName() << "::" << ai << "::finalize";
-      analysisName = name.str();
-      timer::MarkStartEvent(analysisName.c_str());
-    }
+    bool logEnabled = timer::Enabled();
+    const char* analysisName = nullptr;
+    if (logEnabled)
+      {
+      analysisName = this->Internals->LogEventNames[3 * ai + 2].c_str();
+      timer::MarkStartEvent(analysisName);
+      }
+
     if ((*iter)->Finalize())
       {
       SENSEI_ERROR("Failed to finalize " << (*iter)->GetClassName())
       rv -= 1;
       }
-    if (recordTimings)
-      {
-      timer::MarkEndEvent(analysisName.c_str());
-      }
-    }
 
-  if (recordTimings)
-  {
-    timer::PrintLog(
-      std::cout, this->GetCommunicator(), this->Internals->RankLogModulus);
-  }
+    if (logEnabled)
+      timer::MarkEndEvent(analysisName);
+    }
 
   return rv;
 }

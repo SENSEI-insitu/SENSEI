@@ -250,7 +250,7 @@ int main(int argc, char **argv)
   /////////////////////////////
 
 #ifdef ENABLE_SENSEI
-  bridge_finalize(MPI_COMM_WORLD);
+  bridge_finalize();
 
   if (config_file) {
     free(config_file);
@@ -309,7 +309,7 @@ static int parse_args(int argc, char **argv)
 #ifdef ENABLE_SENSEI
         case('f'):
             config_file = (char*)malloc(strlen(optarg) + 1);
-            strncpy(config_file, optarg, strlen(optarg) + 1);
+            strcpy(config_file, optarg);
             break;
 #else
         case('b'):

@@ -1,5 +1,6 @@
 #include <vector>
 #include <mpi.h>
+#include <cstdio>
 
 #include "histogram.h"
 

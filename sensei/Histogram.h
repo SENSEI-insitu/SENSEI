@@ -22,7 +22,8 @@ public:
   senseiTypeMacro(Histogram, AnalysisAdaptor);
 
   void Initialize(int bins, const std::string &meshName,
-    int association, const std::string& arrayname);
+    int association, const std::string& arrayName,
+    const std::string &fileName);
 
   bool Execute(DataAdaptor* data) override;
 
@@ -46,6 +47,7 @@ protected:
   std::string MeshName;
   std::string ArrayName;
   int Association;
+  std::string FileName;
 
   VTKHistogram *Internals;
 

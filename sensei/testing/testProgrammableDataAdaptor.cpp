@@ -138,7 +138,7 @@ int main(int argc, char **argv)
     pda->GetArrayName("image", vtkDataObject::POINT, 0, arrayName);
 
     sensei::Histogram *ha = sensei::Histogram::New();
-    ha->Initialize(7, "image", vtkDataObject::POINT, arrayName);
+    ha->Initialize(7, "image", vtkDataObject::POINT, arrayName, "");
     ha->Execute(pda);
 
     pda->ReleaseData();

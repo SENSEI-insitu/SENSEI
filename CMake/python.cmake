@@ -27,11 +27,11 @@ if (ENABLE_PYTHON)
   endif()
   find_package(MPI4PY REQUIRED)
 
-  add_library(python INTERFACE)
-  target_include_directories(python INTERFACE ${PYTHON_INCLUDE_PATH} ${MPI4PY_INCLUDE_DIR})
-  target_link_libraries(python INTERFACE ${PYTHON_LIBRARIES} vtk)
-  install(TARGETS python EXPORT python)
-  install(EXPORT python DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+  add_library(sPython INTERFACE)
+  target_include_directories(sPython INTERFACE ${PYTHON_INCLUDE_PATH} ${MPI4PY_INCLUDE_DIR})
+  target_link_libraries(sPython INTERFACE ${PYTHON_LIBRARIES} sVTK)
+  install(TARGETS sPython EXPORT sPython)
+  install(EXPORT sPython DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
 
   function(depend_swig input output)
       set(input_file ${CMAKE_CURRENT_SOURCE_DIR}/${input})
@@ -74,5 +74,7 @@ if (ENABLE_PYTHON)
           MAIN_DEPENDENCY ${input_file}
           DEPENDS ${depend_file} ${depends}
           COMMENT "Generating python bindings for ${input}...")
+      set_source_files_properties(${output}
+          PROPERTIES COMPILE_FLAGS -fpermissive)
   endfunction()
 endif()

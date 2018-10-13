@@ -4,7 +4,7 @@
 #include <mpi.h>
 #include <string>
 
-#include "particles.h"
+#include "Particles.h"
 
 namespace bridge
 {
@@ -20,7 +20,7 @@ namespace bridge
                   const std::string& config_file);
 
   void set_data(int gid, float* data);
-  void set_particles(int gid, const Particles& particles);
+  void set_particles(int gid, const std::vector<Particle> &particles);
 
   void analyze(float time);
 

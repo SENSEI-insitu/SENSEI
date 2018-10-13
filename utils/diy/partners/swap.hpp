@@ -20,19 +20,19 @@ struct RegularSwapPartners: public RegularPartners
                 // contiguous parameter indicates whether to match partners contiguously or in a round-robin fashion;
                 // contiguous is useful when data needs to be united;
                 // round-robin is useful for vector-"halving"
-                RegularSwapPartners(int dim,               //!< dimensionality of regular block grid
-                                    int nblocks,           //!< total number of blocks
-                                    int k,                 //!< target k value
-                                    bool contiguous = true //!< distance halving (true) or doubling (false)
+  template<class Decomposer>
+                RegularSwapPartners(const Decomposer& decomposer,   //!< domain decomposition
+                                    int k,                          //!< target k value
+                                    bool contiguous = true          //!< distance halving (true) or doubling (false)
                     ):
-                    Parent(dim, nblocks, k, contiguous)         {}
+                    Parent(decomposer, k, contiguous)         {}
                 RegularSwapPartners(const DivisionVector&   divs, //!< explicit division vector
                                     const KVSVector&        kvs,  //!< explicit k vector
                                     bool  contiguous = true       //!< distance halving (true) or doubling (false)
                     ):
                     Parent(divs, kvs, contiguous)               {}
 
-  bool          active(int round, int gid, const Master&) const                                 { return true; }    // in swap-reduce every block is always active
+  bool          active(int, int, const Master&) const                                           { return true; }    // in swap-reduce every block is always active
 
   void          incoming(int round, int gid, std::vector<int>& partners, const Master&) const   { Parent::fill(round - 1, gid, partners); }
   void          outgoing(int round, int gid, std::vector<int>& partners, const Master&) const   { Parent::fill(round, gid, partners); }

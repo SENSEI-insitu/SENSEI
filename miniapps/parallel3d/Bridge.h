@@ -7,6 +7,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /// This defines the analysis bridge for parallel_3d miniapp.
 
 /// Called before simulation loop
@@ -19,7 +20,7 @@ void bridge_initialize(MPI_Comm comm, int g_x, int g_y, int g_z,
 void bridge_update(int tstep, double time, double *pressure, double* temperature, double* density);
 
 /// Called just before simulation terminates.
-void bridge_finalize(MPI_Comm comm);
+void bridge_finalize();
 
 #ifdef __cplusplus
 } // extern "C"
