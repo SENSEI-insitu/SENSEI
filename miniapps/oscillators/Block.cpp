@@ -3,16 +3,33 @@
 // --------------------------------------------------------------------------
 void Block::update_fields(float t)
 {
-    // update the scalar oscilltor field
-    diy::for_each(grid.shape(), [&](const Vertex& v)
+    // update the scalar oscillator field
+    const Vertex &shape = grid.shape();
+    int ni = shape[0];
+    int nj = shape[1];
+    int nk = shape[2];
+    int nij = ni*nj;
+    int i0 = bounds.min[0];
+    int j0 = bounds.min[1];
+    int k0 = bounds.min[2];
+    float *pdata = grid.data();
+    for (int k = 0; k < nk; ++k)
     {
-        auto& gv = grid(v);
-              gv = 0;
-        auto v_global = v + Vertex(&bounds.min[0]);
-
-        for (auto& o : oscillators)
-            gv += o.evaluate(v_global, t);
-    });
+        float z = k0 + k;
+        float *pdk = pdata + k*nij;
+        for (int j = 0; j < nj; ++j)
+        {
+            float y = j0 + j;
+            float *pd = pdk + j*ni;
+            for (int i = 0; i < ni; ++i)
+            {
+                float x = i0 + i;
+                pd[i] = 0.f;
+                for (auto& o : oscillators)
+                    pd[i] += o.evaluate({x,y,z}, t);
+            }
+        }
+    }
 
     // update the velocity field on the particle mesh
     for (auto& particle : particles)
