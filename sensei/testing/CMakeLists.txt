@@ -5,8 +5,8 @@ if (BUILD_TESTING)
     SOURCES testHistogram.cpp LIBS sensei)
 
   senseiAddTest(testHistogramParallel
-    COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
-      ${MPIEXEC_MAX_NUMPROCS} testHistogram)
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG}
+      ${MPIEXEC_MAX_NUMPROCS} ${MPIEXEC_POSTFLAGS} testHistogram)
 
   senseiAddTest(testADIOSFlexpath
       COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testADIOS.sh
@@ -23,12 +23,14 @@ if (BUILD_TESTING)
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS})
 
   senseiAddTest(testProgrammableDataAdaptor
-    COMMAND ${MPIEXEC} -np 1 testProgrammableDataAdaptor
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 1
+      ${MPIEXEC_POSTFLAGS} testProgrammableDataAdaptor
     SOURCES testProgrammableDataAdaptor.cpp
     LIBS sensei)
 
   senseiAddTest(testProgrammableDataAdaptorPy
-    COMMAND ${MPIEXEC} -np 1 python
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} 1
+      ${MPIEXEC_POSTFLAGS} python
       ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
     FEATURES ${ENABLE_PYTHON})
 
@@ -39,7 +41,7 @@ if (BUILD_TESTING)
     LIBS sensei)
 
   senseiAddTest(testPythonAnalysisParallel
-    COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
-      ${MPIEXEC_MAX_NUMPROCS} testPythonAnalysis
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG}
+      ${MPIEXEC_MAX_NUMPROCS} ${MPIEXEC_POSTFLAGS} testPythonAnalysis
       ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml)
 endif()
