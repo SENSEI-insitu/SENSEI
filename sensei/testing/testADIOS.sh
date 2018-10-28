@@ -6,7 +6,7 @@ then
   exit 1
 fi
 
-mpiexec=$1
+mpiexec=`basename $1`
 npflag=$2
 nproc=$3
 srcdir=$4
