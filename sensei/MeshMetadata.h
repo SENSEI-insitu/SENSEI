@@ -109,7 +109,8 @@ void MeshMetadata::SetArrayNames(int association,
 {
   if (association == vtkDataObject::POINT)
     this->PointDataArrayNames.assign(arrayNames.begin(), arrayNames.end());
-  this->CellDataArrayNames.assign(arrayNames.begin(), arrayNames.end());
+  else if (association == vtkDataObject::CELL)
+    this->CellDataArrayNames.assign(arrayNames.begin(), arrayNames.end());
 }
 
 };

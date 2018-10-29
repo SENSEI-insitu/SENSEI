@@ -56,13 +56,16 @@ def read_data(file_name, method):
       # get a VTK dataset with all the arrays
       ds = da.GetMesh(meshName, False)
       # request each array
-      assocs = {vtk.VTK_POINT_DATA:'point', vtk.VTK_CELL_DATA:'cell'}
+      assocs = {vtk.vtkDataObject.POINT:'point', vtk.vtkDataObject.CELL:'cell'}
       for assoc,assoc_name in assocs.iteritems():
         n_arrays = da.GetNumberOfArrays(meshName, assoc)
+
+        status_message('%d %s arrays'%(n_arrays, assoc_name))
         i = 0
         while i < n_arrays:
           array_name = da.GetArrayName(meshName, assoc, i)
           da.AddArray(ds, meshName, assoc, array_name)
+          status_message('receive array %s'%(array_name))
           i += 1
       # this often will cause segv's if the dataset has been
       # improperly constructed, thus serves as a good check
@@ -80,7 +83,7 @@ def read_data(file_name, method):
           j = 0
           while j < n_arrays:
             array = bds.GetPointData().GetArray(j) \
-              if assoc == vtk.VTK_POINT_DATA else \
+              if assoc == vtk.vtkDataObject.POINT else \
                 bds.GetCellData().GetArray(j)
             if (check_array(array)):
               error_message('Test failed on array %d "%s"'%( \
