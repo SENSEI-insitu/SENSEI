@@ -377,7 +377,6 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   SENSEI_ERROR("ADIOS was requested but is disabled in this build")
   return -1;
 #else
-
   auto adios = vtkSmartPointer<ADIOSAnalysisAdaptor>::New();
 
   if (this->Comm != MPI_COMM_NULL)
@@ -390,6 +389,14 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   pugi::xml_attribute method = node.attribute("method");
   if (method)
     adios->SetMethod(method.value());
+
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS.")
+    return -1;
+    }
+  adios->SetDataRequirements(req);
 
   this->TimeInitialization(adios);
   this->Analyses.push_back(adios.GetPointer());
