@@ -7,6 +7,7 @@
 #include <vtkCellData.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkMultiBlockDataSet.h>
+#include <vtkUniformGridAMR.h>
 #include <vtkDataArray.h>
 #include <vtkDataArrayTemplate.h>
 #include <vtkDataObject.h>
@@ -29,6 +30,7 @@
 #include <vtkAlgorithm.h>
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLDataSetWriter.h>
+#include <vtkDataSetWriter.h>
 
 #include <mpi.h>
 
@@ -89,7 +91,8 @@ namespace sensei
 senseiNewMacro(VTKPosthocIO);
 
 //-----------------------------------------------------------------------------
-VTKPosthocIO::VTKPosthocIO() : OutputDir("./"), Mode(MODE_PARAVIEW)
+VTKPosthocIO::VTKPosthocIO() :
+  OutputDir("./"), Mode(MODE_PARAVIEW), Writer(WRITER_VTK_XML)
 {}
 
 //-----------------------------------------------------------------------------
@@ -141,6 +144,67 @@ int VTKPosthocIO::SetMode(std::string modeStr)
 
   this->Mode = mode;
   return 0;
+}
+
+//-----------------------------------------------------------------------------
+int VTKPosthocIO::SetWriter(int writer)
+{
+  if (!(writer == VTKPosthocIO::WRITER_VTK_LEGACY) ||
+    (writer == VTKPosthocIO::WRITER_VTK_XML))
+    {
+    SENSEI_ERROR("Invalid writer " << writer)
+    return -1;
+    }
+
+  this->Writer = writer;
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int VTKPosthocIO::SetWriter(std::string writerStr)
+{
+  unsigned int n = writerStr.size();
+  for (unsigned int i = 0; i < n; ++i)
+    writerStr[i] = tolower(writerStr[i]);
+
+  int writer = 0;
+  if (writerStr == "legacy")
+    {
+    writer = VTKPosthocIO::WRITER_VTK_LEGACY;
+    }
+  else if (writerStr == "xml")
+    {
+    writer = VTKPosthocIO::WRITER_VTK_XML;
+    }
+  else
+    {
+    SENSEI_ERROR("invalid writer \"" << writerStr << "\"")
+    return -1;
+    }
+
+  this->Writer = writer;
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+void VTKPosthocIO::SetGhostArrayName(const std::string &name)
+{
+  this->GhostArrayName = name;
+}
+
+//-----------------------------------------------------------------------------
+std::string VTKPosthocIO::GetGhostArrayName()
+{
+  if (this->GhostArrayName.empty())
+    {
+    if (this->Mode == VTKPosthocIO::MODE_VISIT)
+      return "avtGhostZones";
+
+    if (this->Mode == VTKPosthocIO::MODE_PARAVIEW)
+      return "vtkGhostType";
+    }
+
+  return this->GhostArrayName;
 }
 
 //-----------------------------------------------------------------------------
@@ -262,7 +326,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     if (!this->HaveBlockInfo[meshName])
       {
       if (!it->IsDoneWithTraversal())
-        this->BlockExt[meshName] = getBlockExtension(it->GetCurrentDataObject());
+        this->BlockExt[meshName] = this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY ?
+          ".vtk" : getBlockExtension(it->GetCurrentDataObject());
 
       this->FileId[meshName] = 0;
       this->HaveBlockInfo[meshName] = 1;
@@ -275,24 +340,59 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       ++nBlocks;
     it->SetSkipEmptyNodes(1);
 
+    // amr meshes indices start from 0 while multiblock starts at 1
+    long bidShift = 1;
+    if (dynamic_cast<vtkUniformGridAMR*>(cd.GetPointer()))
+      bidShift = 0;
+
     // write the blocks
-    vtkXMLDataSetWriter *writer = vtkXMLDataSetWriter::New();
     for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
       {
-      long blockId = std::max(0u, it->GetCurrentFlatIndex() - 1);
+      vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+      if (!ds)
+        {
+        // this should never happen
+        SENSEI_ERROR("Block at " << it->GetCurrentFlatIndex() << " is null")
+        return false;
+        }
+
+      long blockId = it->GetCurrentFlatIndex() - bidShift;
+      if (blockId < 0)
+        {
+        // this should never happen
+        SENSEI_ERROR("Negative index! Dataset is " << cd->GetClassName())
+        return false;
+        }
 
       std::string fileName =
         getBlockFileName(this->OutputDir, meshName, blockId,
           this->FileId[meshName], this->BlockExt[meshName]);
 
-      writer->SetInputData(it->GetCurrentDataObject());
-      writer->SetDataModeToAppended();
-      writer->EncodeAppendedDataOff();
-      writer->SetCompressorTypeToNone();
-      writer->SetFileName(fileName.c_str());
-      writer->Write();
+      vtkDataArray *ga = ds->GetCellData()->GetArray("vtkGhostType");
+      if (ga)
+        ga->SetName(this->GetGhostArrayName().c_str());
+
+      if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)
+        {
+        vtkDataSetWriter *writer = vtkDataSetWriter::New();
+        writer->SetInputData(ds);
+        writer->SetFileName(fileName.c_str());
+        writer->SetFileTypeToBinary();
+        writer->Write();
+        writer->Delete();
+        }
+      else
+        {
+        vtkXMLDataSetWriter *writer = vtkXMLDataSetWriter::New();
+        writer->SetInputData(ds);
+        writer->SetDataModeToAppended();
+        writer->EncodeAppendedDataOff();
+        writer->SetCompressorTypeToNone();
+        writer->SetFileName(fileName.c_str());
+        writer->Write();
+        writer->Delete();
+        }
       }
-    writer->Delete();
 
     this->FileId[meshName] += 1;
 
@@ -368,7 +468,7 @@ int VTKPosthocIO::Finalize()
         for (long j = 0; j < nBlocks; ++j)
           {
           std::string fileName =
-            getBlockFileName(this->OutputDir, meshName, j, i, blockExt);
+            getBlockFileName("./", meshName, j, i, blockExt);
 
           pvdFile << "<DataSet timestep=\"" << times[i]
             << "\" group=\"\" part=\"" << j << "\" file=\"" << fileName
@@ -383,35 +483,82 @@ int VTKPosthocIO::Finalize()
       }
     else if (this->Mode == VTKPosthocIO::MODE_VISIT)
       {
-      std::string visitFileName = this->OutputDir + "/" + meshName + ".visit";
-      ofstream visitFile(visitFileName);
-
-      if (!visitFile)
-        {
-        SENSEI_ERROR("Failed to open " << visitFileName << " for writing")
-        return -1;
-        }
-
-      // TODO -- does .visit file support a changing number of blocks?
+      // does the number of blocks change?
+      // if so dump one visit file per timestep, otherwise one visit file for
+      // the series
+      int staticMesh = 1;
       long nBlocks = numBlocks[0];
-      visitFile << "!NBLOCKS " << nBlocks << endl;
-
       for (long i = 0; i < nSteps; ++i)
         {
-        visitFile << "!TIME " << times[i] << endl;
-        }
-
-      for (long i = 0; i < nSteps; ++i)
-        {
-        for (long j = 0; j < nBlocks; ++j)
+        if (numBlocks[i] != nBlocks)
           {
-          std::string fileName =
-            getBlockFileName(this->OutputDir, meshName, j, i, blockExt);
-
-          visitFile << fileName << endl;
+          staticMesh = 0;
+          break;
           }
         }
 
+      if (staticMesh)
+        {
+        // write a single .visit file for the time series
+        std::string visitFileName = this->OutputDir + "/" + meshName + ".visit";
+        ofstream visitFile(visitFileName);
+
+        if (!visitFile)
+          {
+          SENSEI_ERROR("Failed to open " << visitFileName << " for writing")
+          return -1;
+          }
+
+        visitFile << "!NBLOCKS " << nBlocks << std::endl;
+
+        for (long i = 0; i < nSteps; ++i)
+          visitFile << "!TIME " << times[i] << std::endl;
+
+        for (long i = 0; i < nSteps; ++i)
+          {
+          for (long j = 0; j < nBlocks; ++j)
+            {
+            std::string fileName =
+              getBlockFileName("./", meshName, j, i, blockExt);
+
+            visitFile << fileName << std::endl;
+            }
+          }
+
+        visitFile.close();
+        }
+      else
+        {
+        // write a .visit file per step
+        for (long i = 0; i < nSteps; ++i)
+          {
+          std::ostringstream oss;
+          oss << this->OutputDir << "/" << meshName << "_"
+            <<  std::setw(5) << std::setfill('0') << i << ".visit";
+
+          std::string visitFileName = oss.str();
+
+          ofstream visitFile(visitFileName);
+          if (!visitFile)
+            {
+            SENSEI_ERROR("Failed to open " << visitFileName << " for writing")
+            return -1;
+            }
+
+          nBlocks = numBlocks[i];
+
+          visitFile << "!NBLOCKS " << nBlocks << std::endl;
+          visitFile << "!TIME " << times[i] << std::endl;
+
+          for (long j = 0; j < nBlocks; ++j)
+            {
+            std::string fileName = getBlockFileName("./", meshName, j, i, blockExt);
+            visitFile << fileName << std::endl;
+            }
+
+          visitFile.close();
+          }
+        }
       }
     else
       {

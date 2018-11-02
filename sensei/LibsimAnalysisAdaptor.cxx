@@ -30,7 +30,7 @@
 
 #include <mpi.h>
 
-#define DEBUG_PRINT
+#define VISIT_DEBUG_LOG
 
 #define VISIT_COMMAND_PROCESS 0
 #define VISIT_COMMAND_SUCCESS 1
@@ -437,7 +437,9 @@ LibsimAnalysisAdaptor::PrivateData::Initialize()
             VisItOpenTraceFile((traceFile + suffix).c_str());
         }
 
-        VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::Initialize ====\n");
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Initialize\n");
+#endif
 
         if(!options.empty())
             VisItSetOptions(const_cast<char*>(options.c_str()));
@@ -603,7 +605,9 @@ LibsimAnalysisAdaptor::PrivateData::DetermineExportFilename(const std::string &f
 bool
 LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
 {
-    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::Execute ====\n");
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Execute\n");
+#endif
 
     // Keep a pointer to the data adaptor so the callbacks can access it.
     da = DataAdaptor;
@@ -947,14 +951,14 @@ LibsimAnalysisAdaptor::PrivateData::AddMeshDataCacheEntry(const std::string &mes
     int ndoms = ndatasets;
 #ifdef DEDBUG_PRINT
     char tmp[100];
-    sprintf(tmp, "Rank %d has %d domains.\n", rank, ndoms);
+    sprintf(tmp, "SENSEI: Rank %d has %d domains.\n", rank, ndoms);
     VisItDebug5(tmp);
 #endif
     MPI_Allgather(&ndoms, 1, MPI_INT,
                   mInfo->doms_per_rank, 1, MPI_INT, this->comm);
 
 #ifdef DEDBUG_PRINT
-    VisItDebug5("doms_per_rank = {");
+    VisItDebug5("SENSEI: doms_per_rank = {");
     for(int i = 0; i < size; ++i)
     {
         sprintf(tmp, "%d, ", mInfo->doms_per_rank[i]);
@@ -1138,8 +1142,8 @@ LibsimAnalysisAdaptor::PrivateData::AddArray(const std::string &meshName,
     if((mit = meshData.find(meshName)) != meshData.end())
     {
         retval = da->AddArray(mit->second->dataObj, meshName, association, arrayName);
-#ifdef DEBUG_PRINT
-        VisItDebug5("da->AddArray returned %d\n", retval);
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: da->AddArray returned %d\n", retval);
 #endif
     }
     return retval;
@@ -1251,10 +1255,12 @@ vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
                 else
                     copy = true;
 
+#ifdef VISIT_DEBUG_LOG
                 if(!copy)
                 {
-                    VisItDebug5("==== Standard memory layout: nc=%d, nt=%d ====\n", nc, nt);
+                    VisItDebug5("SENSEI: Standard memory layout: nc=%d, nt=%d\n", nc, nt);
                 }
+#endif
             }
             else
             {
@@ -1266,7 +1272,9 @@ vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
             // Expose the data as a copy, converting to double.
             if(copy)
             {
-                VisItDebug5("==== Copying required: nc=%d, nt=%d ====\n", nc, nt);
+#ifdef VISIT_DEBUG_LOG
+                VisItDebug5("SENSEI: Copying required: nc=%d, nt=%d\n", nc, nt);
+#endif
 
                 double *v = (double *)malloc(sizeof(double) * nc * nt);
                 double *tuple = v;
@@ -1357,8 +1365,9 @@ vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds, DataAdaptor */*da*/)
     vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::SafeDownCast(ds);
     if(igrid != nullptr)
     {
-        VisItDebug5("\tExposing vtkImageData as a rectilinear grid.\n");
-
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: \tExposing vtkImageData as a rectilinear grid.\n");
+#endif
         // We already have a VTK dataset. Libsim doesn't have a path to just
         // pass it through to SimV2+VisIt so we have to pull some details
         // out to make the right Libsim calls so the SimV2 reader will be
@@ -1541,8 +1550,10 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
     }
     else if(ugrid != nullptr)
     {
-        VisItDebug5("vtkUnstructuredGrid: npts = %d, ncells = %d\n", 
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: vtkUnstructuredGrid: npts = %d, ncells = %d\n",
             (int)ugrid->GetNumberOfPoints(), (int)ugrid->GetNumberOfCells());
+#endif
         if(VisIt_UnstructuredMesh_alloc(&mesh) != VISIT_ERROR)
         {
             bool err = false;
@@ -1623,7 +1634,9 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
     else
     {
         SENSEI_ERROR("Unsupported VTK mesh type \"" << ds->GetClassName() << "\"")
-        VisItDebug5("Unsupported VTK mesh type.\n");
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: Unsupported VTK mesh type.\n");
+#endif
     }
 
     return mesh;
@@ -1679,9 +1692,9 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
     PrivateData *This = (PrivateData *)cbdata;
     sensei::DataAdaptor *da = This->da;
 
-#ifdef DEBUG_PRINT
+#ifdef VISIT_DEBUG_LOG
     char msg[1000];
-    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetMetaData ====\n");
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetMetaData\n");
 #endif
 
     // Get the mesh names.
@@ -1691,8 +1704,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         SENSEI_ERROR("Failed to get mesh names")
         return VISIT_INVALID_HANDLE;
     }
-#ifdef DEBUG_PRINT
-    VisItDebug5("meshNames = {");
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: meshNames = {");
     for(size_t i = 0; i < meshNames.size(); ++i)
     {
         sprintf(msg, "%s,", meshNames[i].c_str());
@@ -1728,8 +1741,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 //    multiblock dataset. It might work for GetMesh but GetVar would probably flop.
 // 3. (future) see if there are AMR settings we can glean from the mesh structure.
 
-#ifdef DEBUG_PRINT
-        sprintf(msg, "GetMesh(%s) structure only\n", meshName.c_str());
+#ifdef VISIT_DEBUG_LOG
+        sprintf(msg, "SENSEI: GetMesh(%s) structure only\n", meshName.c_str());
         VisItDebug5(msg);
 #endif
 
@@ -1774,8 +1787,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             SENSEI_ERROR("The data object is not supported data type. Skipping it.")
             continue;
         }
-#ifdef DEBUG_PRINT
-        VisItDebug5("datasets.size() = %d\n", (int)datasets.size());
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: datasets.size() = %d\n", (int)datasets.size());
 #endif
 
         // Let's create a new mesh information object to contain the data object and
@@ -1801,12 +1814,12 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         }
         if(bcast_rank == -1)
             continue;
-#ifdef DEBUG_PRINT
+#ifdef VISIT_DEBUG_LOG
         std::stringstream ss;
-        ss << *mInfo << endl;
+        ss << "SENSEI: " << *mInfo << endl;
         VisItDebug5(ss.str().c_str());
 
-        sprintf(msg, "bcast_rank=%d\n", bcast_rank);
+        sprintf(msg, "SENSEI: bcast_rank=%d\n", bcast_rank);
         VisItDebug5(msg);
 #endif
 
@@ -1867,9 +1880,11 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             }
         }
         // Broadcast the iMesh data to all.
+#ifdef VISIT_DEBUG_LOG
         MPI_Bcast(iMesh, 5, MPI_INT, bcast_rank, This->comm);
-        VisItDebug5("iMesh = {%d, %d, %d, %d, %d}\n", 
+        VisItDebug5("SENSEI: iMesh = {%d, %d, %d, %d, %d}\n",
                     iMesh[0],iMesh[1],iMesh[2],iMesh[3],iMesh[4]);
+#endif
         // Add mesh metadata.
         visit_handle mmd = VISIT_INVALID_HANDLE;
         if (VisIt_MeshMetaData_alloc(&mmd) != VISIT_OKAY)
@@ -1916,8 +1931,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         // If we had a supported mesh type then add the mesh to the metadata.
         if(supported)
         {
-#ifdef DEBUG_PRINT
-            VisItDebug5("mesh: %s\n", meshName.c_str());
+#ifdef VISIT_DEBUG_LOG
+            VisItDebug5("SENSEI: mesh: %s\n", meshName.c_str());
 #endif
             VisIt_MeshMetaData_setName(mmd, meshName.c_str());
             VisIt_MeshMetaData_setNumDomains(mmd, This->GetTotalDomains(meshName));
@@ -1943,8 +1958,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         std::vector<std::string> node_vars;
         da->GetArrayNames(meshName, assoc, node_vars);
         unsigned int nArrays = node_vars.size();
-#if 1
-        VisItDebug5("#node vars: %d\n", nArrays);
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: #node vars: %d\n", nArrays);
 #endif
         for(unsigned int i = 0; i < nArrays; ++i)
         {
@@ -1957,8 +1972,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             std::string arrayName(node_vars[i]);
             if(nMeshes > 1)
                 arrayName = (meshName + "/") + arrayName;
-#if 1
-            VisItDebug5("point var: %s\n", arrayName.c_str());
+#ifdef VISIT_DEBUG_LOG
+            VisItDebug5("SENSEI: point var: %s\n", arrayName.c_str());
 #endif
             VisIt_VariableMetaData_setName(vmd, arrayName.c_str());
             VisIt_VariableMetaData_setMeshName(vmd, meshName.c_str());
@@ -1972,8 +1987,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         std::vector<std::string> cell_vars;
         da->GetArrayNames(meshName, assoc, cell_vars);
         nArrays = cell_vars.size();
-#if 1
-        VisItDebug5("#cell vars: %d\n", nArrays);
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: #cell vars: %d\n", nArrays);
 #endif
         for(unsigned int i = 0; i < nArrays; ++i)
         {
@@ -1983,6 +1998,16 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 SENSEI_ERROR("Failed to allocate variable metadata")
                 return VISIT_INVALID_HANDLE;
             }
+
+            // TODO -- the below logic may change the variable names
+            // depending on how the code is run. for example running
+            // in tightly coupled mode we might see many meshes, however
+            // in a loosely coupled run with the same simulation we may
+            // see only one of them. Also, there is some complication
+            // with session file generated completely outside of sensei.
+            // for example session files generated using AMReX plot files
+            // read into VisIt with the boxlib reader. The below logic
+            // makes that work sometimes, and not others.
 
             std::string arrayName = cell_vars[i];
 
@@ -2003,8 +2028,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 arrayName = (meshName + "/") + arrayName;
             }
 
-#if 1
-            VisItDebug5("cell var: %s\n", arrayName.c_str());
+#ifdef VISIT_DEBUG_LOG
+            VisItDebug5("SENSEI: cell var: %s\n", arrayName.c_str());
 #endif
             VisIt_VariableMetaData_setName(vmd, arrayName.c_str());
             VisIt_VariableMetaData_setMeshName(vmd, meshName.c_str());
@@ -2033,16 +2058,18 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 visit_handle
 LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
 {
-    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetMesh ====\n");
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetMesh\n");
+#endif
     PrivateData *This = (PrivateData *)cbdata;
 
     std::string meshName(name);
     int localdomain = This->GetLocalDomain(meshName, dom);
     visit_handle mesh = VISIT_INVALID_HANDLE;
 
-#ifdef DEBUG_PRINT
+#ifdef VISIT_DEBUG_LOG
     char tmp[200];
-    sprintf(tmp, "\tdom=%d, localdomain = %d, nLocalDomains=%d\n",
+    sprintf(tmp, "SENSEI:\tdom=%d, localdomain = %d, nLocalDomains=%d\n",
             dom, localdomain, (int)This->GetNumDataSets(meshName));
     VisItDebug5(tmp);
 #endif
@@ -2070,23 +2097,24 @@ visit_handle
 LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdata)
 {
     PrivateData *This = (PrivateData *)cbdata;
-    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetVariable ====\n");
-
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetVariable\n");
+#endif
     // Given the VisIt variable name, turn it back into the SENSEI variable name.
     std::string meshName, varName;
     int association;
     This->GetArrayInfoFromVariableName(name, meshName, varName, association);
-#ifdef DEBUG_PRINT
-    VisItDebug5("dom=%d, name=%s\n", dom, name);
-    VisItDebug5("meshName=%s, varName=%s, association=%d\n",
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: dom=%d, name=%s\n", dom, name);
+    VisItDebug5("SENSEI: meshName=%s, varName=%s, association=%d\n",
                 meshName.c_str(), varName.c_str(), association);
 #endif
 
     // Get the local domain.
     int localdomain = This->GetLocalDomain(meshName, dom);
     visit_handle h = VISIT_INVALID_HANDLE;
-#ifdef DEBUG_PRINT
-    VisItDebug5("localdomain=%d\n", localdomain);
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: localdomain=%d\n", localdomain);
 #endif
 
     if(localdomain >= 0)
@@ -2101,8 +2129,8 @@ LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void 
         else
             arr = ds->GetCellData()->GetArray(varName.c_str());
 
-#ifdef DEBUG_PRINT
-        VisItDebug5("arr=%p\n", arr);
+#ifdef VISIT_DEBUG_LOG
+        VisItDebug5("SENSEI: arr=%p\n", arr);
 #endif
 
         // If we did not find the array then get it from SENSEI's
@@ -2116,16 +2144,16 @@ LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void 
                 arr = ds->GetPointData()->GetArray(varName.c_str());
             else
                 arr = ds->GetCellData()->GetArray(varName.c_str());
-#ifdef DEBUG_PRINT
-            VisItDebug5("After AddArray: arr=%p\n", arr);
+#ifdef VISIT_DEBUG_LOG
+            VisItDebug5("SENSEI: After AddArray: arr=%p\n", arr);
 #endif
         }
 
         // Wrap the VTK data array's data as a VisIt_VariableData.
         if(arr != nullptr)
         {
-#ifdef DEBUG_PRINT
-            VisItDebug5("Converting to VisIt_VariableData\n");
+#ifdef VISIT_DEBUG_LOG
+            VisItDebug5("SENSEI: Converting to VisIt_VariableData\n");
 #endif
             h = vtkDataArray_To_VisIt_VariableData(arr);
         }
@@ -2141,7 +2169,9 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *name, void *cbdata
     PrivateData *This = (PrivateData *)cbdata;
     visit_handle h = VISIT_INVALID_HANDLE;
     std::string meshName(name);
-    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainList ====\n");
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetDomainList\n");
+#endif
 
     if(VisIt_DomainList_alloc(&h) != VISIT_ERROR)
     {
