@@ -759,21 +759,25 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   std::string outputDir = node.attribute("output_dir").as_string("./");
   std::string fileName = node.attribute("file_name").as_string("data");
   std::string mode = node.attribute("mode").as_string("visit");
+  std::string writer = node.attribute("writer").as_string("xml");
+  std::string ghostArrayName = node.attribute("ghost_array_name").as_string("");
 
-  auto adapter = vtkSmartPointer<VTKPosthocIO>::New();
+  auto adaptor = vtkSmartPointer<VTKPosthocIO>::New();
 
   if (this->Comm != MPI_COMM_NULL)
-    adapter->SetCommunicator(this->Comm);
+    adaptor->SetCommunicator(this->Comm);
 
-  if (adapter->SetOutputDir(outputDir) || adapter->SetMode(mode) ||
-    adapter->SetDataRequirements(req))
+  adaptor->SetGhostArrayName(ghostArrayName);
+
+  if (adaptor->SetOutputDir(outputDir) || adaptor->SetMode(mode) ||
+    adaptor->SetWriter(writer) || adaptor->SetDataRequirements(req))
     {
     SENSEI_ERROR("Failed to initialize the VTKPosthocIO analysis")
     return -1;
     }
 
-  this->TimeInitialization(adapter);
-  this->Analyses.push_back(adapter.GetPointer());
+  this->TimeInitialization(adaptor);
+  this->Analyses.push_back(adaptor.GetPointer());
 
   SENSEI_STATUS("Configured VTKPosthocIO")
 

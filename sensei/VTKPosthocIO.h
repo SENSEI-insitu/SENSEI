@@ -34,8 +34,18 @@ public:
 
   enum {MODE_PARAVIEW=0, MODE_VISIT=1};
   int SetMode(int mode);
-
   int SetMode(std::string mode);
+
+  // sets the writer class. options are VTK legacy writer
+  // or the VTK XML writer.
+  enum {WRITER_VTK_LEGACY=0, WRITER_VTK_XML=1};
+  int SetWriter(int writer);
+  int SetWriter(std::string writer);
+
+  // if set this overrrides the default of vtkGhostType
+  // for ParaView and avtGhostZones for VisIt
+  void SetGhostArrayName(const std::string &name);
+  std::string GetGhostArrayName();
 
   /// data requirements tell the adaptor what to push
   /// if none are given then all data is pushed.
@@ -60,6 +70,8 @@ private:
   std::string OutputDir;
   DataRequirements Requirements;
   int Mode;
+  int Writer;
+  std::string GhostArrayName;
 
   template<typename T>
   using NameMap = std::map<std::string, T>;
