@@ -1,11 +1,13 @@
 menu:
   learn-more: Learn more
   develop: Develop
+  tutorials: Tutorials
   news: News
 
 index:
   learn-more: Learn more
   develop: Develop
+  tutorials: Tutorials
   news: News
 
 page:
@@ -32,3 +34,7 @@ sidebar:
     dataset-schema: Dataset schema
     testing: Testing
     contributing: Contributing
+  tutorials:
+    supercomputing: Supercomputing Conference
+    sc17: Supercomputing 2017
+    sc18: Supercomputing 2018
