@@ -15,3 +15,8 @@ develop:
   contributing:
     overview: contribute.html
     testing: testing.html
+
+tutorials:
+  supercomputing:
+    sc17: sc17.html
+    sc18: sc18.html
