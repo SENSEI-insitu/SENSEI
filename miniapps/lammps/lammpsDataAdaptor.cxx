@@ -260,8 +260,10 @@ int lammpsDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 
 	pd->SetVerts( internals.vertices );
 
-  	int rank, size, comm;
-  	comm = GetCommunicator();
+  	int rank, size; 
+    MPI_Comm comm;
+  	
+    comm = GetCommunicator();
   	MPI_Comm_rank(comm, &rank);
   	MPI_Comm_size(comm, &size); 
 
@@ -295,7 +297,9 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
   	vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
   	vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
   
-        int comm, rank;
+        int rank;
+        MPI_Comm comm;
+
         comm = GetCommunicator();
         MPI_Comm_rank(comm, &rank);
 
@@ -310,7 +314,9 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
   	vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
   	vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
   
-        int comm, rank;
+        int rank;
+        MPI_Comm comm;
+
         comm = GetCommunicator();
         MPI_Comm_rank(comm, &rank);
 
