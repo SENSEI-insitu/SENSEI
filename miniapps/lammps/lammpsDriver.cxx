@@ -43,10 +43,11 @@ struct Info {
 };
 
 void mycallback(void *ptr, bigint ntimestep,
-		int nlocal, int *id, double **x, double **f) {
+		int nlocal, int *id, double **x, double **f) 
+{
 
-        (void) x;
-        (void) f;
+    (void) x;
+    (void) f;
  
 	Info *info = (Info *) ptr;
 
@@ -57,18 +58,20 @@ void mycallback(void *ptr, bigint ntimestep,
 	double zsublo = info->lmp->domain->sublo[2];
 	double zsubhi = info->lmp->domain->subhi[2];
 
-        const char *typ = "type";
+    const char *typ = "type";
 	int *type = (int *)lammps_extract_atom(info->lmp,(char *)typ);
 
-        const char *ng = "nghost";
+    const char *ng = "nghost";
 	int *nghost = (int*)lammps_extract_global(info->lmp,(char *)ng);
 
 	// The arrays we get through extract atom include the ghost atoms as well
-        const char *xx = "x";
+    const char *xx = "x";
 	double **all_pos = (double**)lammps_extract_atom(info->lmp,(char *)xx);
 
-	lammpsBridge::SetData(ntimestep, nlocal, id, *nghost, type, all_pos, xsublo, xsubhi, ysublo, ysubhi, zsublo, zsubhi);
-        lammpsBridge::Analyze();
+	lammpsBridge::SetData(ntimestep, nlocal, id, *nghost, type, all_pos, 
+                          xsublo, xsubhi, ysublo, ysubhi, zsublo, zsubhi);
+    
+    lammpsBridge::Analyze();
 }
 
 const static std::string USAGE =
