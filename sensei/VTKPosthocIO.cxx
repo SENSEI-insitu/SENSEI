@@ -394,6 +394,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
         }
       }
 
+    it->Delete();
+
     this->FileId[meshName] += 1;
 
     // rank 0 keeps track of time info for meta file
@@ -408,6 +410,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       this->NumBlocks[meshName].push_back(nBlocks);
       }
     }
+
+  dataAdaptor->ReleaseData();
 
   return true;
 }
