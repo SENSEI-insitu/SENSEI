@@ -87,11 +87,17 @@ public:
   virtual int Finalize() = 0;
 
 
-  // TODO
+  // Control API
   virtual int OpenStream() = 0;
   virtual int CloseStream() = 0;
   virtual int AdvanceStream() = 0;
   virtual int StreamGood() = 0;
+
+  // Default partitioners
+  int GetBlockPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
+  int GetCyclicPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
+  int GetPlanePartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
+  int GetMappedPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
 
 protected:
   InTransitDataAdaptor();
