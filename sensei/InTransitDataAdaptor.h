@@ -2,23 +2,10 @@
 #define sensei_InTransitDataAdaptor_h
 
 #include "DataAdaptor.h"
-
-#include <vector>
-#include <string>
-#include <mpi.h>
-#include <memory>
-
 #include <pugixml.hpp>
-
-class vtkAbstractArray;
-class vtkDataObject;
-class vtkInformation;
-class vtkInformationIntegerKey;
 
 namespace sensei
 {
-
-
 /// @class InTransitDataAdaptor
 /// @brief InTransitDataAdaptor is an abstract base class that defines the data interface.
 ///
@@ -78,7 +65,7 @@ public:
   // simulation/remote side. Analyses that need control over how data lands
   // can use this to see what data is available, associated metadata such as
   // block bounds and array metadata and how it's laid out on the sender side.
-  virtual int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata);
+  virtual int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) = 0;
 
   // New API that enables one to specify how the data is partitioned on the
   // analysis/local side. Analyses that need control over how data lands
@@ -94,32 +81,10 @@ public:
   // is handled by the transport layer. See comments in InTransitDataAdaptor::Initialize
   // for the universal partioning options as well as comments in the specific
   // transport's implementation.
-  virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr metadata);
+  virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr metadata) = 0;
 
-  // Core sensei::DataAdaptor API. These methods are used by the
-  // sensei::AnalysisAdaptor's which do not need explicit control of where data
-  // lands to access data and meta data. For these Analyses the transport layer
-  // makes desicions about how data lands. The user can influence how the data
-  // lands if desired via XML. See comments in InTransitDataAdaptor::Initialize
-  // for the universal partioning options as well as comments in the specific
-  // transport's implementation.
-  virtual int GetNumberOfMeshes(unsigned int &numMeshes) = 0;
-
-  virtual int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) = 0;
-
-  int GetMeshMetadata(const std::string &meshName, MeshMetadataPtr &metadata);
-
-  virtual int GetMesh(const std::string &meshName, bool structureOnly,
-    vtkDataObject *&mesh) = 0;
-
-  virtual int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName);
-  virtual int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName);
-
-  virtual int AddArray(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::string &arrayName) = 0;
-  virtual int AddArrays(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::vector<std::string> &arrayName);
-  virtual int ReleaseData() = 0;
+  // New API that is called before the application is brought down
+  virtual int Finalize() = 0;
 
 protected:
   InTransitDataAdaptor();
