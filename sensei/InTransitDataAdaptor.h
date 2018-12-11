@@ -61,7 +61,7 @@ public:
   // sensei::InTransitAdaptorFactory
   virtual int Initialize(pugi::xml_node parent) = 0;
 
-  // New API that enables one to peak at how the data is partitioned on the
+  // New API that enables one to peek at how the data is partitioned on the
   // simulation/remote side. Analyses that need control over how data lands
   // can use this to see what data is available, associated metadata such as
   // block bounds and array metadata and how it's laid out on the sender side.
@@ -85,6 +85,13 @@ public:
 
   // New API that is called before the application is brought down
   virtual int Finalize() = 0;
+
+
+  // TODO
+  virtual int OpenStream() = 0;
+  virtual int CloseStream() = 0;
+  virtual int AdvanceStream() = 0;
+  virtual int StreamGood() = 0;
 
 protected:
   InTransitDataAdaptor();
