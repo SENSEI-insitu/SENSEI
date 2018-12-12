@@ -57,9 +57,9 @@ public:
   /// iteration.
   bool Execute(DataAdaptor* data) override;
 
-  void SetCommunicator(MPI_Comm comm);
-  void SetScalarField(const std::string &scalarField);
-  void SetScalarFieldAssociation(int association);
+  void SetMeshName(const std::string &name);
+  void SetArrayName(const std::string &name);
+  void SetArrayCentering(int association);
   void SetUseMarchingCubes(int useMarchinCubes);
   void SetUsePersistenceSorter(int usePersistenceSorter);
   void SetNumberOfLevels(int numberOfLevels);

@@ -16,12 +16,13 @@
 #ifdef ENABLE_VTK_ACCELERATORS
 #include "VTKmContourAnalysis.h"
 #endif
-#ifdef ENABLE_VTKM
+#ifdef ENABLE_VTKM_VOLUME_REDUCTION
 #include "VTKmVolumeReductionAnalysis.h"
-#include "VTKmCDFAnalysis.h"
-#include "VTKmContourAnalysis.h"
 #endif
-#ifdef ENABLE_VTKm
+#ifdef ENABLE_VTKM_CFD_ANALYSIS
+#include "VTKmCDFAnalysis.h"
+#endif
+#ifdef ENABLE_VTKM_SMART_CONTOUR
 #include "VTKmSmartContour.h"
 #endif
 #ifdef ENABLE_ADIOS
@@ -163,9 +164,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddPosthocIO(pugi::xml_node node);
   int AddVTKAmrWriter(pugi::xml_node node);
   int AddPythonAnalysis(pugi::xml_node node);
-
-  // adds the VTKm smart contour
-  int AddVTKmSmartContour(MPI_Comm comm, pugi::xml_node node);
+  int AddVTKmSmartContour(pugi::xml_node node);
 
 public:
   // list of all analyses. api calls are forwareded to each
@@ -304,7 +303,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKM
+#ifndef ENABLE_VTKM_VOLUME_REDUCTION
   (void)node;
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
@@ -339,7 +338,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKM
+#ifndef ENABLE_VTKM_CFD_ANALYSIS
   (void)node;
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
@@ -751,33 +750,38 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKm
-  (void)comm;
+#ifndef ENABLE_VTKM_SMART_CONTOUR
   (void)node;
   SENSEI_ERROR("VTKmSmartContour was requested but is disabled in this build")
   return -1;
 #else
 
   // configure the smart contour
-  if (!node.attribute("scalarField"))
+  if (!node.attribute("meshName"))
     {
-    SENSEI_ERROR("scalarField is a required attribute")
+    SENSEI_ERROR("meshName is a required attribute")
     return -1;
     }
+  std::string meshName = node.attribute("meshName").value();
 
-  std::string scalarField = node.attribute("scalarField").value();
-
-  int association = vtkDataObject::POINT;
-  if (node.attribute("association"))
+  if (!node.attribute("arrayName"))
     {
-    std::string assoc = node.attribute("association").value();
+    SENSEI_ERROR("arrayName is a required attribute")
+    return -1;
+    }
+  std::string arrayName = node.attribute("arrayName").value();
+
+  int arrayCentering = vtkDataObject::POINT;
+  if (node.attribute("arrayCentering"))
+    {
+    std::string assoc = node.attribute("arrayCentering").value();
     if (strcmp(assoc.c_str(), "cell") == 0)
       {
-      association = vtkDataObject::CELL;
+      arrayCentering = vtkDataObject::CELL;
       }
     else
       {
-      SENSEI_ERROR("inavlid association " << assoc)
+      SENSEI_ERROR("inavlid arrayCentering " << assoc)
       return -1;
       }
     }
@@ -813,13 +817,13 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
 #endif
     }
 
-  std::string outputFileName = node.attribute("outputFileName") ?
-     node.attribute("outputFileName").value() : "";
+  std::string outputDir = node.attribute("outputDir") ?
+     node.attribute("outputDir").value() : "";
 
   vtkNew<VTKmSmartContour> adaptor;
-  adaptor->SetCommunicator(comm);
-  adaptor->SetScalarField(scalarField);
-  adaptor->SetScalarFieldAssociation(association);
+  adaptor->SetMeshName(meshName);
+  adaptor->SetArrayName(arrayName);
+  adaptor->SetArrayCentering(arrayCentering);
   adaptor->SetUseMarchingCubes(useMarchingCubes);
   adaptor->SetUsePersistenceSorter(usePersistenceSorter);
   adaptor->SetNumberOfLevels(numberOfLevels);
@@ -828,17 +832,17 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
   adaptor->SetSelectMethod(selectMethod);
   adaptor->SetNumberOfComps(numberOfComps);
   adaptor->SetCatalystScript(catalystScript);
-  adaptor->SetOutputFileName(outputFileName);
+  adaptor->SetOutputDir(outputDir);
   adaptor->Initialize();
 
   this->Analyses.push_back(adaptor.GetPointer());
 
-  SENSEI_STATUS("Configured VTKmSmartContour "
-   << "scalarField=" << scalarField << " useMarchingCubes=" << useMarchingCubes
+  SENSEI_STATUS("Configured VTKmSmartContour meshName=" << meshName
+   << "arrayName=" << arrayName << " useMarchingCubes=" << useMarchingCubes
    << " numberOfLevels=" << numberOfLevels << " contourType=" << contourType
    << " eps=" << eps << " selectMethod=" << selectMethod
    << " usePeristenceSorter="<< usePersistenceSorter << " numberOfComps=" << numberOfComps
-   << " catalystScript=" << catalystScript << " outputFileName=" << outputFileName)
+   << " catalystScript=" << catalystScript << " outputDir=" << outputDir)
 #endif
 
   return 0;
@@ -1053,6 +1057,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
+      || ((type == "vtkmSmartContour") && !this->Internals->AddVTKmSmartContour(node))
       || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
       || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))

@@ -16,9 +16,9 @@
 #include <vtkDataArray.h>
 #include <vtkDataArrayTemplate.h>
 #include <vtkObjectFactory.h>
-
 #include <vtkImageData.h>
 #include <vtkDoubleArray.h>
+#include <vtkCellDataToPointData.h>
 
 #if defined(USE_VTKM_CONTOUR)
 // TODO
@@ -43,22 +43,22 @@
 #include <vtkm/cont/DataSetFieldAdd.h>
 #include <vtkm/cont/DeviceAdapter.h>
 #include <vtkm/cont/Storage.h>
-#include <vtkm/filter/ContourTreeUniformPPP2.h>
-#include <vtkm/worklet/contourtree_ppp2/PrintVectors.h>
+#include <vtkm/filter/ContourTreeUniformAugmented.h>
+#include <vtkm/worklet/contourtree_augmented/PrintVectors.h>
 
-#include <vtkm/worklet/contourtree_ppp2/ContourTree.h>
-#include <vtkm/worklet/contourtree_ppp2/ProcessContourTree.h>
-#include <vtkm/worklet/contourtree_ppp2/ProcessContourTree_Inc/Branch.h>
-#include <vtkm/worklet/contourtree_ppp2/ProcessContourTree_Inc/PiecewiseLinearFunction.h>
+#include <vtkm/worklet/contourtree_augmented/ContourTree.h>
+#include <vtkm/worklet/contourtree_augmented/ProcessContourTree.h>
+#include <vtkm/worklet/contourtree_augmented/processcontourtree/Branch.h>
+#include <vtkm/worklet/contourtree_augmented/processcontourtree/PiecewiseLinearFunction.h>
 
-using namespace vtkm::worklet::contourtree_ppp2;
-using namespace vtkm::worklet::contourtree_ppp2::process_contourtree_inc;
+using namespace vtkm::worklet::contourtree_augmented;
+using namespace vtkm::worklet::contourtree_augmented::process_contourtree_inc;
 
 template <typename NT>
 using ArrayHandleType = vtkm::cont::ArrayHandle<NT, vtkm::cont::StorageTagBasic>;
 
 template <typename NT>
-using BranchType = vtkm::worklet::contourtree_ppp2::process_contourtree_inc::Branch<NT>;
+using BranchType = vtkm::worklet::contourtree_augmented::process_contourtree_inc::Branch<NT>;
 
 #include <iostream>
 using namespace std;
@@ -68,19 +68,20 @@ namespace sensei
 class VTKmSmartContour::InternalsType
 {
 public:
-  InternalsType() : Comm(MPI_COMM_WORLD), ScalarField(""),
-    ScalarFieldAssociation(vtkDataObject::POINT), UseMarchingCubes(0),
+  InternalsType() : MeshName(""), ArrayName(""),
+    ArrayCentering(vtkDataObject::POINT), UseMarchingCubes(0),
     UsePersistenceSorter(1), NumberOfLevels(10), NumberOfComps(11),
     ContourType(0), Eps(1.0e-5), SelectMethod(0), CatalystScript(""),
     CatalystAdaptor(nullptr), OutputDir(""), IOAdaptor(nullptr) {}
 
-  vtkDataArray* GetScalarField(vtkDataObject* dobj);
+  vtkDataArray *GetArray(vtkDataObject* dobj,
+    const std::string &name, int cen);
 
   int VTKmImage(vtkDataObject *dobj, vtkm::cont::DataSet &vtkmds);
 
   template<typename n_t>
-  int VTKmImage(double *dx, double *x0, int nx, int ny, int nz,
-    n_t *data, vtkm::cont::DataSet &ds);
+  int VTKmImage(double *x0, double *dx, int nx, int ny, int nz,
+    int cen, n_t *data, vtkm::cont::DataSet &ds);
 
   bool XZPlane(int nx, int ny, int nz);
   bool XYPlane(int nx, int ny, int nz);
@@ -90,12 +91,12 @@ public:
   const char *AssociationStr(int assoc);
 
   const char *AssociationStr()
-  { return this->AssociationStr(this->ScalarFieldAssociation); }
+  { return this->AssociationStr(this->ArrayCentering); }
 
 public:
-  MPI_Comm Comm;
-  std::string ScalarField;
-  int ScalarFieldAssociation;
+  std::string MeshName;
+  std::string ArrayName;
+  int ArrayCentering;
   int UseMarchingCubes;
   int UsePersistenceSorter;
   int NumberOfLevels;
@@ -118,17 +119,16 @@ const char *VTKmSmartContour::InternalsType::AssociationStr(int assoc)
 }
 
 // --------------------------------------------------------------------------
-vtkDataArray* VTKmSmartContour::InternalsType::GetScalarField(vtkDataObject* dobj)
+vtkDataArray* VTKmSmartContour::InternalsType::GetArray(vtkDataObject *dobj,
+  const std::string &name, int cen)
 {
-  if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(this->ScalarFieldAssociation))
+  if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(cen))
     {
-    if (vtkDataArray *da = fd->GetArray(this->ScalarField.c_str()))
-      {
+    if (vtkDataArray *da = fd->GetArray(name.c_str()))
       return da;
-      }
     }
-  SENSEI_ERROR("No field array named " << this->ScalarField
-   << " in " << this->AssociationStr(this->ScalarFieldAssociation))
+  SENSEI_ERROR("No field array named " << name
+   << " in " << this->AssociationStr(cen))
   return nullptr;
 }
 
@@ -159,8 +159,8 @@ bool VTKmSmartContour::InternalsType::YZPlane(int nx, int ny, int nz)
 
 // --------------------------------------------------------------------------
 template<typename n_t>
-int VTKmSmartContour::InternalsType::VTKmImage(double *dx, double *x0,
-  int nx, int ny, int nz, n_t *data, vtkm::cont::DataSet &ds)
+int VTKmSmartContour::InternalsType::VTKmImage(double *x0, double *dx,
+  int nx, int ny, int nz, int cen, n_t *data, vtkm::cont::DataSet &ds)
 {
   // build the input dataset
   vtkm::cont::DataSetBuilderUniform dsb;
@@ -198,13 +198,13 @@ int VTKmSmartContour::InternalsType::VTKmImage(double *dx, double *x0,
 
   // Add the data values to the dataset
   vtkm::cont::DataSetFieldAdd dsf;
-  if (this->ScalarFieldAssociation == vtkDataObject::POINT)
+  if (cen == vtkDataObject::POINT)
     {
-    dsf.AddPointField(ds, this->ScalarField, hData);
+    dsf.AddPointField(ds, this->ArrayName, hData);
     }
-  else if (this->ScalarFieldAssociation == vtkDataObject::CELL)
+  else if (cen == vtkDataObject::CELL)
     {
-    dsf.AddCellField(ds, this->ScalarField, hData);
+    dsf.AddCellField(ds, this->ArrayName, hData);
     }
   else
     {
@@ -221,6 +221,22 @@ int VTKmSmartContour::InternalsType::VTKmImage(vtkDataObject *dobj,
 {
   if (vtkImageData *image = dynamic_cast<vtkImageData*>(dobj))
     {
+    // the vtkm contour tree doesn't hande cell centered data
+    // so we always convert to point centering.
+    int cen = this->ArrayCentering;
+    if (cen == vtkDataObject::CELL)
+      {
+      vtkCellDataToPointData *cdpd = vtkCellDataToPointData::New();
+      cdpd->SetInputData(image);
+      cdpd->SetPassCellData(1);
+      //cdpd->AddCellDataArray(this->ArrayName.c_str());
+      cdpd->Update();
+      image = static_cast<vtkImageData*>(cdpd->GetOutput());
+      image->Register(nullptr);
+      cdpd->Delete();
+      cen = vtkDataObject::POINT;
+      }
+
     int ext[6] = {0};
     double x0[3] = {0.0};
     double dx[3] = {0.0};
@@ -232,7 +248,7 @@ int VTKmSmartContour::InternalsType::VTKmImage(vtkDataObject *dobj,
     long ny = ext[3] - ext[2] + 1;
     long nz = ext[5] - ext[4] + 1;
 
-    vtkDataArray* array = this->GetScalarField(image);
+    vtkDataArray* array = this->GetArray(image, this->ArrayName, cen);
     if (!array)
       {
       SENSEI_ERROR("failed to locate the scalar field")
@@ -244,15 +260,18 @@ int VTKmSmartContour::InternalsType::VTKmImage(vtkDataObject *dobj,
       {
       vtkTemplateMacro(
         VTK_TT *data = static_cast<vtkDataArrayTemplate<VTK_TT>*>(array)->GetPointer(0);
-        if (this->VTKmImage(dx, x0, nx, ny, nz, data, vtkmds))
+        if (this->VTKmImage(x0, dx, nx, ny, nz, cen, data, vtkmds))
           {
-          SENSEI_ERROR("Failed to convert array to VTKm")
+          SENSEI_ERROR("Failed to convert array \"" << this->ArrayName << "\" to VTKm")
           return -1;
           });
       default:
         SENSEI_ERROR("Invalid data type")
         return -1;
       }
+
+    if (cen == vtkDataObject::CELL)
+      image->Delete();
 
     return 0;
     }
@@ -281,21 +300,21 @@ VTKmSmartContour::~VTKmSmartContour()
 }
 
 //----------------------------------------------------------------------------
-void VTKmSmartContour::SetCommunicator(MPI_Comm comm)
+void VTKmSmartContour::SetMeshName(const std::string &name)
 {
-  this->Internals->Comm = comm;
+  this->Internals->MeshName = name;
 }
 
 //----------------------------------------------------------------------------
-void VTKmSmartContour::SetScalarField(const std::string &scalarField)
+void VTKmSmartContour::SetArrayName(const std::string &name)
 {
-  this->Internals->ScalarField = scalarField;
+  this->Internals->ArrayName = name;
 }
 
 //----------------------------------------------------------------------------
-void VTKmSmartContour::SetScalarFieldAssociation(int association)
+void VTKmSmartContour::SetArrayCentering(int association)
 {
-  this->Internals->ScalarFieldAssociation = association;
+  this->Internals->ArrayCentering = association;
 }
 
 //----------------------------------------------------------------------------
@@ -374,7 +393,6 @@ int VTKmSmartContour::Initialize()
       this->Internals->IOAdaptor->Delete();
 
     this->Internals->IOAdaptor = sensei::VTKPosthocIO::New();
-    this->Internals->IOAdaptor->SetCommunicator(this->Internals->Comm);
     this->Internals->IOAdaptor->SetOutputDir(this->Internals->OutputDir);
     this->Internals->IOAdaptor->SetMode(VTKPosthocIO::MODE_PARAVIEW);
     }
@@ -420,21 +438,19 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
     }
 
   // Convert the vtk data to VTKM
-  // TODO -- sensei 2.0 api
-  std::string meshName = "mesh";
   vtkDataObject* mesh = nullptr;
-  if (data->GetMesh(meshName, false, mesh))
+  if (data->GetMesh(this->Internals->MeshName, false, mesh))
     {
     SENSEI_ERROR("Failed to get mesh")
     return false;
     }
 
-  if (data->AddArray(mesh, meshName, this->Internals->ScalarFieldAssociation,
-    this->Internals->ScalarField.c_str()))
+  if (data->AddArray(mesh, this->Internals->MeshName,
+    this->Internals->ArrayCentering, this->Internals->ArrayName.c_str()))
     {
     SENSEI_ERROR("Faild to add "
       << this->Internals->AssociationStr() << " array \""
-      << this->Internals->ScalarField << "\"")
+      << this->Internals->ArrayName << "\"")
     return false;
     }
 
@@ -469,12 +485,12 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   // Build the contour tree
   ////////////////////////////////////////////
   // Output data set is pairs of saddle and peak vertex IDs
-  vtkm::filter::Result result;
+  vtkm::cont::DataSet result;
 
   // Convert the mesh of values into contour tree, pairs of vertex ids
   vtkm::filter::ContourTreePPP2 filter(this->Internals->UseMarchingCubes);
-  result = filter.Execute(inDataSet,
-                          this->Internals->ScalarField);
+  filter.SetActiveField(this->Internals->ArrayName);
+  result = filter.Execute(inDataSet);
 
 #ifdef DEBUG_PRINT
   // dump the contour tree  
@@ -484,8 +500,8 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   std::cerr<<"Contour Tree"<<std::endl;
   std::cerr<<"============"<<std::endl;
   printEdgePairArray(saddlePeak);
-  //contourTree.SortedArcPrint(mesh.sortOrder);
-  //contourTree.PrintDotSuperStructure();
+  contourTree.SortedArcPrint(mesh.sortOrder);
+  contourTree.PrintDotSuperStructure();
 #endif
 
   ////////////////////////////////////////////
@@ -497,7 +513,7 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   IdArrayType supernodeTransferWeight;
   IdArrayType hyperarcDependentWeight;
 
-  ProcessContourTree::ComputeVolumeWeights<DeviceAdapter>(
+  ProcessContourTree::ComputeVolumeWeights(
     filter.GetContourTree(), filter.GetNumIterations(), superarcIntrinsicWeight,
     superarcDependentWeight, supernodeTransferWeight, hyperarcDependentWeight);
 
@@ -508,13 +524,13 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   IdArrayType branchSaddle;
   IdArrayType branchParent;
 
-  ProcessContourTree::ComputeVolumeBranchDecomposition<DeviceAdapter>(
+  ProcessContourTree::ComputeVolumeBranchDecomposition(
     filter.GetContourTree(), superarcDependentWeight, superarcIntrinsicWeight,
     whichBranch, branchMinimum, branchMaximum, branchSaddle, branchParent);
 
   // create explicit representation of the branch decompostion from the array representation
   ArrayHandleType<double> vtkmValues = inDataSet.GetField(
-    this->Internals->ScalarField).GetData().CastToTypeStorage<double,
+    this->Internals->ArrayName).GetData().CastToTypeStorage<double,
     vtkm::cont::StorageTagBasic>();
 
   BranchType<double> *branchDecompostionRoot =
@@ -588,8 +604,8 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   contour->SetComputeScalars(1);
 
   contour->SetInputArrayToProcess(0,0,0,
-    this->Internals->ScalarFieldAssociation,
-    this->Internals->ScalarField.c_str());
+    this->Internals->ArrayCentering,
+    this->Internals->ArrayName.c_str());
 
   int nVals = this->Internals->ContourValues.size();
   contour->SetNumberOfContours(nVals);

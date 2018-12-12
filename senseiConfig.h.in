@@ -18,6 +18,9 @@
 #cmakedefine ENABLE_VTK_RENDERING
 #cmakedefine ENABLE_VTK_ACCELERATORS
 #cmakedefine ENABLE_VTKM
+#cmakedefine ENABLE_VTKM_CFD_ANALYSIS
+#cmakedefine ENABLE_VTKM_VOLUME_REDUCTION
+#cmakedefine ENABLE_VTKM_SMART_CONTOUR
 
 #ifdef __cplusplus
 // hide some differences betweem VisIt's VTK and more modern versions

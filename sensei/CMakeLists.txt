@@ -21,9 +21,15 @@ if (ENABLE_SENSEI)
   endif()
 
   if (ENABLE_VTKM)
-    list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx
-      VTKmCDFAnalysis.cxx CDFReducer.cxx CinemaHelper.cxx
-      VTKmSmartContour.cxx)
+    if (ENABLE_VTKM_VOLUME_REDUCTION)
+      list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx CinemaHelper.cxx)
+    endif()
+    if (ENABLE_VTKM_CFD_ANALYSIS)
+      list(APPEND senseiCore_sources VTKmCDFAnalysis.cxx CDFReducer.cxx)
+    endif()
+    if (ENABLE_VTKM_SMART_CONTOUR)
+      list(APPEND senseiCore_sources VTKmSmartContour.cxx)
+    endif()
     list(APPEND senseiCore_libs sVTKm)
   endif()
 
