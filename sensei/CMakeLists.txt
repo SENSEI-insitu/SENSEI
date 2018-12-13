@@ -10,6 +10,8 @@ if (ENABLE_SENSEI)
 
   set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
 
+  set(senseiCore_defs)
+
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
     list(APPEND senseiCore_libs sConduit)
@@ -29,6 +31,7 @@ if (ENABLE_SENSEI)
     endif()
     if (ENABLE_VTKM_SMART_CONTOUR)
       list(APPEND senseiCore_sources VTKmSmartContour.cxx)
+      list(APPEND senseiCore_defs "VTKM_DEVICE_ADAPTER=VTKM_DEVICE_ADAPTER_TBB")
     endif()
     list(APPEND senseiCore_libs sVTKm)
   endif()
@@ -57,6 +60,8 @@ if (ENABLE_SENSEI)
   endif()
 
   add_library(senseiCore ${senseiCore_sources})
+
+  target_compile_definitions(senseiCore PRIVATE ${senseiCore_defs})
 
   target_include_directories(senseiCore PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
