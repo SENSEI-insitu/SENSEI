@@ -4,6 +4,7 @@
 #include "VTKDataAdaptor.h"
 #include "CatalystAnalysisAdaptor.h"
 #include "VTKPosthocIO.h"
+#include "VTKUtils.h"
 #include "Timer.h"
 #include "Error.h"
 
@@ -19,6 +20,7 @@
 #include <vtkImageData.h>
 #include <vtkDoubleArray.h>
 #include <vtkCellDataToPointData.h>
+#include <vtkPointData.h>
 
 #if defined(USE_VTKM_CONTOUR)
 // TODO
@@ -69,34 +71,16 @@ class VTKmSmartContour::InternalsType
 {
 public:
   InternalsType() : MeshName(""), ArrayName(""),
-    ArrayCentering(vtkDataObject::POINT), UseMarchingCubes(0),
+    ArrayCentering(vtkDataObject::POINT), ArrayType(0), UseMarchingCubes(0),
     UsePersistenceSorter(1), NumberOfLevels(10), NumberOfComps(11),
     ContourType(0), Eps(1.0e-5), SelectMethod(0), CatalystScript(""),
     CatalystAdaptor(nullptr), OutputDir(""), IOAdaptor(nullptr) {}
-
-  vtkDataArray *GetArray(vtkDataObject* dobj,
-    const std::string &name, int cen);
-
-  int VTKmImage(vtkDataObject *dobj, vtkm::cont::DataSet &vtkmds);
-
-  template<typename n_t>
-  int VTKmImage(double *x0, double *dx, int nx, int ny, int nz,
-    int cen, n_t *data, vtkm::cont::DataSet &ds);
-
-  bool XZPlane(int nx, int ny, int nz);
-  bool XYPlane(int nx, int ny, int nz);
-  bool YZPlane(int nx, int ny, int nz);
-  bool Planar(int nx, int ny, int nz);
-
-  const char *AssociationStr(int assoc);
-
-  const char *AssociationStr()
-  { return this->AssociationStr(this->ArrayCentering); }
 
 public:
   std::string MeshName;
   std::string ArrayName;
   int ArrayCentering;
+  int ArrayType;
   int UseMarchingCubes;
   int UsePersistenceSorter;
   int NumberOfLevels;
@@ -112,72 +96,50 @@ public:
 };
 
 // --------------------------------------------------------------------------
-const char *VTKmSmartContour::InternalsType::AssociationStr(int assoc)
-{
-  return assoc == vtkDataObject::POINT ? "point data" :
-   assoc == vtkDataObject::CELL ? "cell data" : "invalid association";
-}
-
-// --------------------------------------------------------------------------
-vtkDataArray* VTKmSmartContour::InternalsType::GetArray(vtkDataObject *dobj,
-  const std::string &name, int cen)
-{
-  if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(cen))
-    {
-    if (vtkDataArray *da = fd->GetArray(name.c_str()))
-      return da;
-    }
-  SENSEI_ERROR("No field array named " << name
-   << " in " << this->AssociationStr(cen))
-  return nullptr;
-}
-
-// --------------------------------------------------------------------------
-bool VTKmSmartContour::InternalsType::Planar(int nx, int ny, int nz)
-{
-  return this->XZPlane(nx, ny, nz) || this->XYPlane(nx, ny, nz) ||
-    this->YZPlane(nx, ny, nz);
-}
-
-// --------------------------------------------------------------------------
-bool VTKmSmartContour::InternalsType::XZPlane(int nx, int ny, int nz)
+bool XZPlane(int nx, int ny, int nz)
 {
   return ((ny == 1) && (nx > 1) && (nz > 1));
 }
 
 // --------------------------------------------------------------------------
-bool VTKmSmartContour::InternalsType::XYPlane(int nx, int ny, int nz)
+bool XYPlane(int nx, int ny, int nz)
 {
   return ((nz == 1) && (nx > 1) && (ny > 1));
 }
 
 // --------------------------------------------------------------------------
-bool VTKmSmartContour::InternalsType::YZPlane(int nx, int ny, int nz)
+bool YZPlane(int nx, int ny, int nz)
 {
   return ((nx == 1) && (ny > 1) && (nz > 1));
 }
 
 // --------------------------------------------------------------------------
+bool Planar(int nx, int ny, int nz)
+{
+  return XZPlane(nx, ny, nz) || XYPlane(nx, ny, nz) || YZPlane(nx, ny, nz);
+}
+
+// --------------------------------------------------------------------------
 template<typename n_t>
-int VTKmSmartContour::InternalsType::VTKmImage(double *x0, double *dx,
-  int nx, int ny, int nz, int cen, n_t *data, vtkm::cont::DataSet &ds)
+int NewVTKmBlock(double *x0, double *dx, int nx, int ny, int nz,
+  const std::string &name, int cen, n_t *data, vtkm::cont::DataSet &ds)
 {
   // build the input dataset
   vtkm::cont::DataSetBuilderUniform dsb;
 
-  if (this->XYPlane(nx, ny, nz))
+  if (XYPlane(nx, ny, nz))
     {
     ds = dsb.Create(vtkm::Id2(nx, ny),
       vtkm::Vec<double, 2>(x0[0], x0[1]),
       vtkm::Vec<double, 2>(dx[0], dx[1]));
     }
-  else if (this->XZPlane(nx, ny, nz))
+  else if (XZPlane(nx, ny, nz))
     {
     ds = dsb.Create(vtkm::Id2(nx, nz),
       vtkm::Vec<double, 2>(x0[0], x0[2]),
       vtkm::Vec<double, 2>(dx[0], dx[2]));
     }
-  else if (this->YZPlane(nx, ny, nz))
+  else if (YZPlane(nx, ny, nz))
     {
     ds = dsb.Create(vtkm::Id2(ny, nz),
       vtkm::Vec<double, 2>(x0[1], x0[2]),
@@ -200,11 +162,11 @@ int VTKmSmartContour::InternalsType::VTKmImage(double *x0, double *dx,
   vtkm::cont::DataSetFieldAdd dsf;
   if (cen == vtkDataObject::POINT)
     {
-    dsf.AddPointField(ds, this->ArrayName, hData);
+    dsf.AddPointField(ds, name, hData);
     }
   else if (cen == vtkDataObject::CELL)
     {
-    dsf.AddCellField(ds, this->ArrayName, hData);
+    dsf.AddCellField(ds, name, hData);
     }
   else
     {
@@ -213,71 +175,6 @@ int VTKmSmartContour::InternalsType::VTKmImage(double *x0, double *dx,
     }
 
   return 0;
-}
-
-// --------------------------------------------------------------------------
-int VTKmSmartContour::InternalsType::VTKmImage(vtkDataObject *dobj,
-  vtkm::cont::DataSet &vtkmds)
-{
-  if (vtkImageData *image = dynamic_cast<vtkImageData*>(dobj))
-    {
-    // the vtkm contour tree doesn't hande cell centered data
-    // so we always convert to point centering.
-    int cen = this->ArrayCentering;
-    if (cen == vtkDataObject::CELL)
-      {
-      vtkCellDataToPointData *cdpd = vtkCellDataToPointData::New();
-      cdpd->SetInputData(image);
-      cdpd->SetPassCellData(1);
-      //cdpd->AddCellDataArray(this->ArrayName.c_str());
-      cdpd->Update();
-      image = static_cast<vtkImageData*>(cdpd->GetOutput());
-      image->Register(nullptr);
-      cdpd->Delete();
-      cen = vtkDataObject::POINT;
-      }
-
-    int ext[6] = {0};
-    double x0[3] = {0.0};
-    double dx[3] = {0.0};
-    image->GetExtent(ext);
-    image->GetSpacing(dx);
-    image->GetOrigin(x0);
-
-    long nx = ext[1] - ext[0] + 1;
-    long ny = ext[3] - ext[2] + 1;
-    long nz = ext[5] - ext[4] + 1;
-
-    vtkDataArray* array = this->GetArray(image, this->ArrayName, cen);
-    if (!array)
-      {
-      SENSEI_ERROR("failed to locate the scalar field")
-      return -1;
-      }
-
-    // convert the array
-    switch (array->GetDataType())
-      {
-      vtkTemplateMacro(
-        VTK_TT *data = static_cast<vtkDataArrayTemplate<VTK_TT>*>(array)->GetPointer(0);
-        if (this->VTKmImage(x0, dx, nx, ny, nz, cen, data, vtkmds))
-          {
-          SENSEI_ERROR("Failed to convert array \"" << this->ArrayName << "\" to VTKm")
-          return -1;
-          });
-      default:
-        SENSEI_ERROR("Invalid data type")
-        return -1;
-      }
-
-    if (cen == vtkDataObject::CELL)
-      image->Delete();
-
-    return 0;
-    }
-
- SENSEI_ERROR("Not an image")
- return -1;
 }
 
 
@@ -315,6 +212,12 @@ void VTKmSmartContour::SetArrayName(const std::string &name)
 void VTKmSmartContour::SetArrayCentering(int association)
 {
   this->Internals->ArrayCentering = association;
+}
+
+//----------------------------------------------------------------------------
+void VTKmSmartContour::SetArrayType(int type)
+{
+  this->Internals->ArrayType = type;
 }
 
 //----------------------------------------------------------------------------
@@ -419,6 +322,32 @@ int VTKmSmartContour::Finalize()
   return 0;
 }
 
+// Usable AlmostEqual function
+bool equal(double a, double b)
+{
+    int maxUlps = 4;
+    float A = a;
+    float B = b;
+
+    // Make sure maxUlps is non-negative and small enough that the
+    // default NAN won't compare as equal to anything.
+    //assert(maxUlps > 0 && maxUlps < 4 * 1024 * 1024);
+    int aInt = *(int*)&A;
+    // Make aInt lexicographically ordered as a twos-complement int
+    if (aInt < 0)
+        aInt = 0x80000000 - aInt;
+    // Make bInt lexicographically ordered as a twos-complement int
+    int bInt = *(int*)&B;
+    if (bInt < 0)
+        bInt = 0x80000000 - bInt;
+    int intDiff = abs(aInt - bInt);
+    if (intDiff <= maxUlps)
+        return true;
+    return false;
+}
+
+
+
 //-----------------------------------------------------------------------------
 bool VTKmSmartContour::Execute(DataAdaptor* data)
 {
@@ -441,44 +370,163 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   vtkDataObject* mesh = nullptr;
   if (data->GetMesh(this->Internals->MeshName, false, mesh))
     {
-    SENSEI_ERROR("Failed to get mesh")
+    SENSEI_ERROR("Failed to get mesh \"" << this->Internals->MeshName << "\"")
     return false;
     }
 
-  if (data->AddArray(mesh, this->Internals->MeshName,
-    this->Internals->ArrayCentering, this->Internals->ArrayName.c_str()))
+  if (this->Internals->ArrayType == VTKmSmartContour::ARRAY_TYPE_SCALAR)
     {
-    SENSEI_ERROR("Faild to add "
-      << this->Internals->AssociationStr() << " array \""
-      << this->Internals->ArrayName << "\"")
-    return false;
-    }
-
-  // VTK-m dataset variables
-  vtkm::cont::DataSet inDataSet;
-  if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(mesh))
-    {
-    vtkSmartPointer<vtkCompositeDataIterator> iter;
-    iter.TakeReference(cd->NewIterator());
-    for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+    if (data->AddArray(mesh, this->Internals->MeshName,
+      this->Internals->ArrayCentering, this->Internals->ArrayName))
       {
-      // get the local mesh
-      vtkDataObject *dobj = iter->GetCurrentDataObject();
-      if (this->Internals->VTKmImage(dobj, inDataSet))
+      SENSEI_ERROR("Failed to add "
+        << VTKUtils::GetAttributesName(this->Internals->ArrayCentering) << " array \""
+        << this->Internals->ArrayName << "\"")
+      return false;
+      }
+    }
+  else if (this->Internals->ArrayType == VTKmSmartContour::ARRAY_TYPE_VECTOR)
+    {
+    // calculate magnitude of vector
+    std::string vxname = this->Internals->ArrayName + 'x';
+    std::string vyname = this->Internals->ArrayName + 'y';
+    std::string vzname = this->Internals->ArrayName + 'z';
+
+    if (data->AddArray(mesh, this->Internals->MeshName, this->Internals->ArrayCentering, vxname) ||
+      data->AddArray(mesh, this->Internals->MeshName, this->Internals->ArrayCentering, vyname) ||
+      data->AddArray(mesh, this->Internals->MeshName, this->Internals->ArrayCentering, vzname))
+      {
+      SENSEI_ERROR("Failed to add vector components for "
+        << VTKUtils::GetAttributesName(this->Internals->ArrayCentering) << " array \""
+        << this->Internals->ArrayName << "\"")
+      return false;
+      }
+
+      VTKUtils::DatasetFunction l2norm = [&](vtkDataSet *ds) -> int
+      {
+        vtkFieldData *fd = ds->GetAttributesAsFieldData(this->Internals->ArrayCentering);
+        vtkDataArray *dax = fd->GetArray(vxname.c_str());
+        vtkDataArray *day = fd->GetArray(vyname.c_str());
+        vtkDataArray *daz = fd->GetArray(vzname.c_str());
+
+        vtkIdType n = dax->GetNumberOfTuples();
+
+        vtkDataArray *mag = dax->NewInstance();
+        mag->SetName(this->Internals->ArrayName.c_str());
+        mag->SetNumberOfTuples(n);
+        fd->AddArray(mag);
+        mag->Delete();
+
+        switch (dax->GetDataType())
+          {
+          vtkTemplateMacro(
+            VTK_TT *vx = static_cast<vtkDataArrayTemplate<VTK_TT>*>(dax)->GetPointer(0);
+            VTK_TT *vy = static_cast<vtkDataArrayTemplate<VTK_TT>*>(day)->GetPointer(0);
+            VTK_TT *vz = static_cast<vtkDataArrayTemplate<VTK_TT>*>(daz)->GetPointer(0);
+            VTK_TT *vm = static_cast<vtkDataArrayTemplate<VTK_TT>*>(mag)->GetPointer(0);
+            for (vtkIdType i = 0; i < n; ++i)
+              {
+              vm[i] = sqrt(vx[i]*vx[i] + vy[i]*vy[i] + vz[i]*vz[i]);
+              }
+            );
+          }
+        return 0;
+      };
+
+      if (VTKUtils::Apply(mesh, l2norm))
         {
-        SENSEI_ERROR("failed to convert composite dataset node "
-          << iter->GetCurrentFlatIndex())
+        SENSEI_ERROR("Failed to compute magnitude of "
+          << VTKUtils::GetAttributesName(this->Internals->ArrayCentering)
+          << " vector \"" << this->Internals->ArrayName << "\"")
         return false;
         }
-      }
     }
   else
     {
-    if (this->Internals->VTKmImage(mesh, inDataSet))
+    SENSEI_ERROR("Invalid array type")
+    return false;
+    }
+
+  int cen = this->Internals->ArrayCentering;
+  if (cen == vtkDataObject::CELL)
+    {
+    // convert to point centered data
+    VTKUtils::DatasetFunction cellToPoint = [&](vtkDataSet *ds) -> int
+    {
+      vtkCellDataToPointData *cdpd = vtkCellDataToPointData::New();
+      cdpd->SetPassCellData(0);
+      cdpd->SetInputData(ds);
+      cdpd->Update();
+      vtkDataSet *dso = cdpd->GetOutput();
+      ds->GetPointData()->ShallowCopy(dso->GetPointData());
+      cdpd->Delete();
+      return 0;
+    };
+
+    if (VTKUtils::Apply(mesh, cellToPoint))
       {
-      SENSEI_ERROR("failed to convert dataset")
+      SENSEI_ERROR("Failed to convert cell to point centering")
       return false;
       }
+
+    cen = vtkDataObject::POINT;
+    }
+
+  // ocnvert to VTK-m dataset
+  vtkm::cont::DataSet inDataSet;
+
+  VTKUtils::DatasetFunction vtkToVtkm = [&](vtkDataSet *ds) -> int
+  {
+    vtkImageData *im = dynamic_cast<vtkImageData*>(ds);
+    if (!im)
+      {
+      SENSEI_ERROR("Cartesian blocks are required")
+      return -1;
+      }
+
+    int ext[6] = {0};
+    double x0[3] = {0.0};
+    double dx[3] = {0.0};
+
+    im->GetExtent(ext);
+    im->GetSpacing(dx);
+    im->GetOrigin(x0);
+
+    long nx = ext[1] - ext[0] + 1;
+    long ny = ext[3] - ext[2] + 1;
+    long nz = ext[5] - ext[4] + 1;
+
+    vtkFieldData* fd = im->GetAttributesAsFieldData(cen);
+    vtkDataArray *da = fd->GetArray(this->Internals->ArrayName.c_str());
+    if (!da)
+      {
+      SENSEI_ERROR("failed to locate " << VTKUtils::GetAttributesName(cen)
+        << " array \"" << this->Internals->ArrayName << "\"")
+      return -1;
+      }
+
+    // convert the da
+    switch (da->GetDataType())
+      {
+      vtkTemplateMacro(
+        VTK_TT *pda = static_cast<vtkDataArrayTemplate<VTK_TT>*>(da)->GetPointer(0);
+        if (NewVTKmBlock(x0, dx, nx, ny, nz, this->Internals->ArrayName, cen, pda, inDataSet))
+          {
+          SENSEI_ERROR("Failed to convert block")
+          return -1;
+          });
+      default:
+        SENSEI_ERROR("Invalid array type")
+        return -1;
+      }
+
+    return 0;
+  };
+
+  if (VTKUtils::Apply(mesh, vtkToVtkm))
+    {
+    SENSEI_ERROR("Failed to construct a VTK-m data set")
+    return false;
     }
 
   ////////////////////////////////////////////
@@ -493,7 +541,7 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   result = filter.Execute(inDataSet);
 
 #ifdef DEBUG_PRINT
-  // dump the contour tree  
+  // dump the contour tree
   vtkm::cont::Field resultField =  result.GetField();
   vtkm::cont::ArrayHandle<vtkm::Pair<vtkm::Id, vtkm::Id> > saddlePeak;
   resultField.GetData().CopyTo(saddlePeak);
@@ -582,7 +630,10 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
 
   // Remove any possible dublicates and retrieve only the unique iso values
   auto it = std::unique(this->Internals->ContourValues.begin(),
-                        this->Internals->ContourValues.end());
+                        this->Internals->ContourValues.end(),
+                        equal);
+
+
   this->Internals->ContourValues.resize(std::distance(this->Internals->ContourValues.begin(), it));
   std::cerr << "Isovalues: ";
   for (double val : this->Internals->ContourValues)
@@ -598,14 +649,14 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   // TODO - use VTKm to compute the contours
   // TODO - convert the VTKm output into a VTK Object
 #else
+
   vtkContourFilter *contour = vtkContourFilter::New();
 
   contour->SetComputeNormals(1);
   contour->SetComputeScalars(1);
 
   contour->SetInputArrayToProcess(0,0,0,
-    this->Internals->ArrayCentering,
-    this->Internals->ArrayName.c_str());
+    cen, this->Internals->ArrayName.c_str());
 
   int nVals = this->Internals->ContourValues.size();
   contour->SetNumberOfContours(nVals);
@@ -620,7 +671,7 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   mbds->SetNumberOfBlocks(nRanks);
   mbds->SetBlock(rank, contour->GetOutputDataObject(0));
 
-  contourGeometry->SetDataObject("mesh", mbds);
+  contourGeometry->SetDataObject(this->Internals->MeshName, mbds);
   contourGeometry->SetDataTimeStep(data->GetDataTimeStep());
   contourGeometry->SetDataTime(data->GetDataTime());
 
@@ -631,20 +682,20 @@ bool VTKmSmartContour::Execute(DataAdaptor* data)
   // render with catalyst
   if (this->Internals->CatalystAdaptor)
     {
-    if (this->Internals->CatalystAdaptor->Execute(contourGeometry.GetPointer()))
+    if (!this->Internals->CatalystAdaptor->Execute(contourGeometry.GetPointer()))
       {
       SENSEI_ERROR("Catalyst failed")
-      return -1;
+      return false;
       }
     }
 
   // write to disk
   if (this->Internals->IOAdaptor)
     {
-    if (this->Internals->IOAdaptor->Execute(contourGeometry.GetPointer()))
+    if (!this->Internals->IOAdaptor->Execute(contourGeometry.GetPointer()))
       {
       SENSEI_ERROR("I/O failed")
-      return -1;
+      return false;
       }
     }
 

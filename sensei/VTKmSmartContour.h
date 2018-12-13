@@ -60,6 +60,8 @@ public:
   void SetMeshName(const std::string &name);
   void SetArrayName(const std::string &name);
   void SetArrayCentering(int association);
+  enum {ARRAY_TYPE_SCALAR=0, ARRAY_TYPE_VECTOR=1};
+  void SetArrayType(int type);
   void SetUseMarchingCubes(int useMarchinCubes);
   void SetUsePersistenceSorter(int usePersistenceSorter);
   void SetNumberOfLevels(int numberOfLevels);

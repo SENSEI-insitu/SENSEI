@@ -786,6 +786,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
       }
     }
 
+  int arrayType = node.attribute("arrayType") ?
+    node.attribute("arrayType").as_int() : 0;
+
   int useMarchingCubes = node.attribute("useMarchingCubes") ?
     node.attribute("useMarchingCubes").as_int() : 0;
 
@@ -824,6 +827,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
   adaptor->SetMeshName(meshName);
   adaptor->SetArrayName(arrayName);
   adaptor->SetArrayCentering(arrayCentering);
+  adaptor->SetArrayType(arrayType);
   adaptor->SetUseMarchingCubes(useMarchingCubes);
   adaptor->SetUsePersistenceSorter(usePersistenceSorter);
   adaptor->SetNumberOfLevels(numberOfLevels);
@@ -838,7 +842,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmSmartContour(pugi::xml_node node
   this->Analyses.push_back(adaptor.GetPointer());
 
   SENSEI_STATUS("Configured VTKmSmartContour meshName=" << meshName
-   << "arrayName=" << arrayName << " useMarchingCubes=" << useMarchingCubes
+   << " arrayName=" << arrayName << " useMarchingCubes=" << useMarchingCubes
    << " numberOfLevels=" << numberOfLevels << " contourType=" << contourType
    << " eps=" << eps << " selectMethod=" << selectMethod
    << " usePeristenceSorter="<< usePersistenceSorter << " numberOfComps=" << numberOfComps
