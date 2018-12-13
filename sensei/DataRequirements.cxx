@@ -250,13 +250,19 @@ MeshRequirementsIterator DataRequirements::GetMeshRequirementsIterator() const
 ArrayRequirementsIterator DataRequirements::GetArrayRequirementsIterator(
   const std::string &meshName) const
 {
-  MeshArrayMapType::const_iterator it = this->MeshArrayMap.find(meshName);
-  if (it != this->MeshArrayMap.end())
+  if (this->MeshNames.find(meshName) == this->MeshNames.end())
     {
-    ArrayRequirementsIterator ait(it->second);
-    return ait;
+    SENSEI_ERROR("No mesh named \"" << meshName << "\"")
     }
-  SENSEI_ERROR("No mesh named \"" << meshName << "\"")
+  else
+    {
+    MeshArrayMapType::const_iterator it = this->MeshArrayMap.find(meshName);
+    if (it != this->MeshArrayMap.end())
+      {
+      ArrayRequirementsIterator ait(it->second);
+      return ait;
+      }
+    }
   return ArrayRequirementsIterator();
 }
 
