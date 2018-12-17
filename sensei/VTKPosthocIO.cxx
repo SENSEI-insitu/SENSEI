@@ -27,6 +27,10 @@
 #include <fstream>
 #include <cassert>
 
+#include <sys/stat.h>
+#include <errno.h>
+#include <string.h>
+
 #include <vtkAlgorithm.h>
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLDataSetWriter.h>
@@ -102,6 +106,22 @@ VTKPosthocIO::~VTKPosthocIO()
 //-----------------------------------------------------------------------------
 int VTKPosthocIO::SetOutputDir(const std::string &outputDir)
 {
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
+  // rank 0 ensures that directory is present
+  if (rank == 0)
+    {
+    int ierr = mkdir(outputDir.c_str(), S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);
+    if (ierr && (errno != EEXIST))
+      {
+      const char *estr = strerror(errno);
+      SENSEI_ERROR("Directory \"" << outputDir
+        << "\" does not exist and we could not create it. " << estr)
+      return -1;
+      }
+    }
+
   this->OutputDir = outputDir;
   return 0;
 }
@@ -109,8 +129,7 @@ int VTKPosthocIO::SetOutputDir(const std::string &outputDir)
 //-----------------------------------------------------------------------------
 int VTKPosthocIO::SetMode(int mode)
 {
-  if (!(mode == VTKPosthocIO::MODE_VISIT) ||
-    (mode == VTKPosthocIO::MODE_PARAVIEW))
+  if ((mode != VTKPosthocIO::MODE_VISIT) && (mode != VTKPosthocIO::MODE_PARAVIEW))
     {
     SENSEI_ERROR("Invalid mode " << mode)
     return -1;
@@ -281,16 +300,19 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     ArrayRequirementsIterator ait =
       this->Requirements.GetArrayRequirementsIterator(meshName);
 
-    for (; ait; ++ait)
+    if (ait)
       {
-      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
-         ait.Association(), ait.Array()))
+      for (; ait; ++ait)
         {
-        SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
-          << " data array \"" << ait.Array() << "\" to mesh \""
-          << meshName << "\"")
-        return false;
+        if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+           ait.Association(), ait.Array()))
+          {
+          SENSEI_ERROR("Failed to add "
+            << VTKUtils::GetAttributesName(ait.Association())
+            << " data array \"" << ait.Array() << "\" to mesh \""
+            << meshName << "\"")
+          return false;
+          }
         }
       }
 

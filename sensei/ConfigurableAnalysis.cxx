@@ -54,7 +54,6 @@ using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 namespace sensei
 {
 
-
 static
 int requireAttribute(pugi::xml_node &node, const char *attributeName)
 {
@@ -69,9 +68,12 @@ int requireAttribute(pugi::xml_node &node, const char *attributeName)
 
 
 // --------------------------------------------------------------------------
-static int parse(MPI_Comm comm, int rank,
-   const std::string &filename, pugi::xml_document &doc)
+static int parse(MPI_Comm comm, const std::string &filename,
+  pugi::xml_document &doc)
 {
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
   unsigned long nbytes = 0;
   char *buffer = nullptr;
   if(rank == 0)
@@ -921,18 +923,14 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
   timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-
   pugi::xml_document doc;
-  if (parse(this->GetCommunicator(), rank, filename, doc))
+  if (parse(this->GetCommunicator(), filename, doc))
     {
-    if (rank == 0)
-        SENSEI_ERROR("failed to parse configuration")
+    SENSEI_ERROR("Failed to load, parse, and share XML configuration")
+    MPI_Abort(this->GetCommunicator(), -1);
     return -1;
     }
 
-  int rv = 0;
   pugi::xml_node root = doc.child("sensei");
 
   for (pugi::xml_node node = root.child("analysis");
@@ -954,13 +952,12 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
       || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
       {
-      if (rank == 0)
-        SENSEI_ERROR("Failed to add '" << type << "' analysis")
-      rv -= 1;
+      SENSEI_ERROR("Failed to add '" << type << "' analysis")
+      MPI_Abort(this->GetCommunicator(), -1);
       }
     }
 
-  return rv;
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -968,10 +965,6 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
   timer::MarkEvent event("ConfigurableAnalysis::Execute");
 
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-
-  int rv = 0;
   int ai = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
@@ -987,16 +980,15 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 
     if (!(*iter)->Execute(data))
       {
-      if (rank == 0)
-        SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
-      rv -= 1;
+      SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
+      MPI_Abort(this->GetCommunicator(), -1);
       }
 
     if (logEnabled)
       timer::MarkEndEvent(analysisName);
     }
 
-  return rv < 0 ? false : true;
+  return true;
 }
 
 //----------------------------------------------------------------------------
@@ -1004,10 +996,6 @@ int ConfigurableAnalysis::Finalize()
 {
   timer::MarkEvent event("ConfigurableAnalysis::Finalize");
 
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-
-  int rv = 0;
   int ai = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
@@ -1024,14 +1012,14 @@ int ConfigurableAnalysis::Finalize()
     if ((*iter)->Finalize())
       {
       SENSEI_ERROR("Failed to finalize " << (*iter)->GetClassName())
-      rv -= 1;
+      MPI_Abort(this->GetCommunicator(), -1);
       }
 
     if (logEnabled)
       timer::MarkEndEvent(analysisName);
     }
 
-  return rv;
+  return 0;
 }
 
 //----------------------------------------------------------------------------
