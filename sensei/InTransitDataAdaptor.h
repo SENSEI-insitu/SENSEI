@@ -31,14 +31,15 @@ public:
   //            such that consecutive blocks are distributed over consecutive
   //            ranks (in a round-robin fashion).
   //
-  //     plane  The  blocks are distributed in blocks of a specified size.
-  //            The size is specified in the 'plane_size' attribute.
+  //     planar The  blocks are distributed in blocks of a specified size.
+  //            The size is specified in the 'plane_size' attribute. Note
+  //            block is a special case of planar with a plane_size of 1
   //
   //     mapped The mapped method of distribution will allocate blocks
-  //            in-order as listed in a nested 'proc' and 'block' elements.
-  //            each entry in the block element has a corresponding entry
-  //            in the proc element naming the mpi rank where the block
-  //            lands
+  //            in-order as listed in a nested 'block_owner' and 'block_id'
+  //            elements.  each entry in the block element has a
+  //            corresponding entry in the proc element naming the mpi rank
+  //            where the block lands
   //
   // Note, that these are core partitioning supported in SENSEI 3, specific
   // InTransitDataAdaptor instances are free to support other partitionings
@@ -46,15 +47,14 @@ public:
   //
   // Illustrative example of the XML:
   //
-  // <analysis type="histogram" ... >
-  //
-  //   <data_adaptor type="adios" partitioner="block" ... >
+  // <sensei>
+  //   <data_adaptor type="adios_2" partitioner="block" ... >
   //     ...
   //   </data_adaptor>
-  //
-  //   ...
-  //
-  // </analysis>
+  //   <analysis type="histogram" ... >
+  //     ...
+  //   </analysis>
+  // </sensei>
   //
   // For more information on the 'analysis element' see sensei::ConfigurableAnalysis.
   // For more information on the 'data_adaptor' 'type' attribute see
@@ -83,9 +83,16 @@ public:
   // transport's implementation.
   virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr metadata) = 0;
 
+  // Enables an analysis adaptor to programmatically select one of the default
+  // partitioners.
+  void SetPartitioner(const std::string &part);
+
+  // Query the current partitioner
+  enum {PARTITION_BLOCK, PARTITION_CYCLIC, PARTITION_PLANAR, PARTITION_MAPPED};
+  int GetPartitioner();
+
   // New API that is called before the application is brought down
   virtual int Finalize() = 0;
-
 
   // Control API
   virtual int OpenStream() = 0;

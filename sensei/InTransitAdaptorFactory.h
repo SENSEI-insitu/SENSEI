@@ -13,40 +13,43 @@ namespace sensei
 using DataAdaptorPtr = vtkSmartPointer<sensei::DataAdaptor>;
 using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 
-// the InTransitAdaptorFactory creates pairs of sensei::DataAdaptors and
-// sensei::AnalysisAdaptors based on a SENSEI XML config file. The factory
-// will be used in in transit end-points where each analysis adaptor has
-// associated with it a data adaptor.
+// the InTransitAdaptorFactory creates a sensei::ConfigurableAnalysis adaptor
+// and ensei::InTransitDataAdaptor based on a SENSEI XML config file. The
+// factory will be used in in transit end-points.
 //
-// The factory constructs a sensei::ConfigurableAnalysisAdaptor instance
-// for each analysis element in the XML config. The analysis adaptor instance
-// is initialized as usual by the ConfigurableAnalaysis XML parser.
+// The factory uses the 'type' attribute to construct the appropriate
+// InTransitDataAdaptor instance and initializes it with the data_adaptor
+// element. See InTranistDataAdaptor::Initialize for details.
 //
-// The factory expects each analysis element in the XML file to nest a
-// data_adaptor element that names the desired sensei::InTransitDataAdaptor
-// class. The factory constructs an instance of the named data adaptor
-// and initializes it with the data_adaptor element. See
-// InTranistDataAdaptor::Initialize for details.
+// The factory forwards analysis XML to the configurable analysis instance.
 //
-// A list of pairs of adaptors is returned, a zero return indicates success.
+// The supported transport types are:
 //
-// <analysis type="blah" ... >
+//   adios_2
+//   data_elevators
+//   libis
 //
-//   <data_adaptor transport="blah" ... >
+// Illustrative example of the XML:
+//
+// <sensei>
+//   <data_adaptor transport="adios_2" ... >
 //     ...
 //   </data_adaptor>
 //
-//   ...
+//   <analysis type="histogram" ... >
+//     ...
+//   </analysis>
 //
-// </analysis>
+//   ...
+// <sensei>
 namespace InTransitAdaptorFactory
 {
 
 int Initialize(const std::string &fileName,
-  std::vector<std::pair<AnalysisAdaptorPtr, DataAdaptorPtr>> &adaptors);
+  AnalysisAdaptor *&analysisAdaptor, InTransitDataAdaptor *&dataAdaptor);
 
 int Initialize(const pugi::xml_node &root,
-  std::vector<std::pair<AnalysisAdaptorPtr, DataAdaptorPtr>> &adaptors);
+  AnalysisAdaptor *&analysisAdaptor, InTransitDataAdaptor *&dataAdaptor);
 
 }
 
