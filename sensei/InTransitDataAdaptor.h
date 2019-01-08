@@ -2,6 +2,7 @@
 #define sensei_InTransitDataAdaptor_h
 
 #include "DataAdaptor.h"
+#include "Partitioner.h"
 #include <pugixml.hpp>
 
 namespace sensei
@@ -83,13 +84,12 @@ public:
   // transport's implementation.
   virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr metadata) = 0;
 
-  // Enables an analysis adaptor to programmatically select one of the default
-  // partitioners.
-  void SetPartitioner(const std::string &part);
+  // Enables an analysis adaptor to programmatically select the partitioning mode.
+  void SetPartitioner(sensei::Partitioner* partitioner);
 
-  // Query the current partitioner
-  enum {PARTITION_BLOCK, PARTITION_CYCLIC, PARTITION_PLANAR, PARTITION_MAPPED};
-  int GetPartitioner();
+  // Query the current partitioner.
+  // Usage example: this->GetPartitioner()->GetPartition(remote, local) 
+  sensei::Partitioner* GetPartitioner();
 
   // New API that is called before the application is brought down
   virtual int Finalize() = 0;
@@ -99,12 +99,6 @@ public:
   virtual int CloseStream() = 0;
   virtual int AdvanceStream() = 0;
   virtual int StreamGood() = 0;
-
-  // Default partitioners
-  int GetBlockPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
-  int GetCyclicPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
-  int GetPlanePartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
-  int GetMappedPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
 
 protected:
   InTransitDataAdaptor();
