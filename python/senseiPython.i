@@ -202,11 +202,11 @@ VTK_DERIVED(LibsimAnalysisAdaptor)
 #endif
 
 /****************************************************************************
- * ADIOSAnalysisAdaptor/DataAdaptor
+ * ADIOS1AnalysisAdaptor/DataAdaptor
  ***************************************************************************/
-#ifdef ENABLE_ADIOS
-VTK_DERIVED(ADIOSAnalysisAdaptor)
-SENSEI_DATA_ADAPTOR(ADIOSDataAdaptor)
+#ifdef ENABLE_ADIOS1
+VTK_DERIVED(ADIOS1AnalysisAdaptor)
+SENSEI_DATA_ADAPTOR(ADIOS1DataAdaptor)
 #endif
 
 #ifdef ENABLE_VTK_IO

@@ -4,6 +4,7 @@
 #include "Error.h"
 
 #include <vtkDataObject.h>
+#include <vtkCompositeDataSet.h>
 #include <vtkInformation.h>
 #include <vtkInformationIntegerKey.h>
 #include <vtkObjectFactory.h>
@@ -111,6 +112,29 @@ int DataAdaptor::GetDataTimeStep(vtkInformation* info)
 void DataAdaptor::SetDataTimeStep(vtkInformation* info, int index)
 {
   info->Set(DataAdaptor::DATA_TIME_STEP_INDEX(), index);
+}
+
+//----------------------------------------------------------------------------
+int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
+    vtkCompositeDataSet *&mesh)
+{
+  mesh = nullptr;
+
+  // get the object from the simulation
+  vtkDataObject *dobj = nullptr;
+  if (this->GetMesh(meshName, structureOnly, dobj))
+    {
+    SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+    return -1;
+    }
+
+  vtkCompositeDataSetPtr meshptr = VTKUtils::AsCompositeData(
+    this->GetCommunicator(), dobj, true);
+
+  mesh = meshptr.GetPointer();
+  mesh->Register(nullptr);
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------

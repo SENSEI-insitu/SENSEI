@@ -1,40 +1,35 @@
-#ifndef sensei_ADIOSAnalysisAdaptor_h
-#define sensei_ADIOSAnalysisAdaptor_h
+#ifndef ADIOS1AnalysisAdaptor_h
+#define ADIOS1AnalysisAdaptor_h
 
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
+#include "MeshMetadata.h"
 
 #include <vector>
 #include <string>
 #include <mpi.h>
 
-namespace senseiADIOS { class DataObjectCollectionSchema; }
+namespace senseiADIOS1 { class DataObjectCollectionSchema; }
 class vtkDataObject;
+class vtkCompositeDataSet;
 
 namespace sensei
 {
 
-/// @brief Analysis adaptor for ADIOS.
-///
-/// ADIOSAnalysisAdaptor is an subclass of sensei::AnalysisAdaptor. Despite
-/// being called an analysis adaptor, this adaptor doesn't do any analysis. It's
-/// main purpose is to serialize data provided via DataAdaptor using
-/// ADIOS.
-///
-/// \sa vtkADIOSDataAdaptor, ADIOSAnalysisEndPoint
-class ADIOSAnalysisAdaptor : public AnalysisAdaptor
+/// The write side of the ADIOS 1 transport
+class ADIOS1AnalysisAdaptor : public AnalysisAdaptor
 {
 public:
-  static ADIOSAnalysisAdaptor* New();
-  senseiTypeMacro(ADIOSAnalysisAdaptor, AnalysisAdaptor);
+  static ADIOS1AnalysisAdaptor* New();
+  senseiTypeMacro(ADIOS1AnalysisAdaptor, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
-  /// Sets the maximum buffer allocated by ADIOS in MB
+  /// Sets the maximum buffer allocated by ADIOS1 in MB
   /// takes affect on first Execute
   void SetMaxBufferSize(unsigned int size)
   { this->MaxBufferSize = size; }
 
-  /// @brief Set the ADIOS method e.g. MPI, FLEXPATH etc.
+  /// @brief Set the ADIOS1 method e.g. MPI, FLEXPATH etc.
   ///
   /// Default value is "MPI".
   void SetMethod(const std::string &method)
@@ -59,36 +54,35 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
+  // SENSEI AnalysisAdaptor API
   bool Execute(DataAdaptor* data) override;
-
   int Finalize() override;
 
 protected:
-  ADIOSAnalysisAdaptor();
-  ~ADIOSAnalysisAdaptor();
+  ADIOS1AnalysisAdaptor();
+  ~ADIOS1AnalysisAdaptor();
 
-  // intializes ADIOS in no-xml mode, allocate buffers, and declares a group
-  int InitializeADIOS(const std::vector<std::string> &objectNames,
-    const std::vector<vtkDataObject*> &objects);
+  // intializes ADIOS1 in no-xml mode, allocate buffers, and declares a group
+  int InitializeADIOS1(const std::vector<MeshMetadataPtr> &metadata);
 
   // writes the data collection
   int WriteTimestep(unsigned long timeStep, double time,
-    const std::vector<std::string> &objectNames,
-    const std::vector<vtkDataObject*> &dobjects);
+    const std::vector<MeshMetadataPtr> &metadata,
+    const std::vector<vtkCompositeDataSet*> &dobjects);
 
-  // shuts down ADIOS
-  int FinalizeADIOS();
+  // shuts down ADIOS1
+  int FinalizeADIOS1();
 
   unsigned int MaxBufferSize;
-  senseiADIOS::DataObjectCollectionSchema *Schema;
+  senseiADIOS1::DataObjectCollectionSchema *Schema;
   sensei::DataRequirements Requirements;
   std::string Method;
   std::string FileName;
-
+  int64_t GroupHandle;
 
 private:
-  ADIOSAnalysisAdaptor(const ADIOSAnalysisAdaptor&); // Not implemented.
-  void operator=(const ADIOSAnalysisAdaptor&); // Not implemented.
+  ADIOS1AnalysisAdaptor(const ADIOS1AnalysisAdaptor&) = delete;
+  void operator=(const ADIOS1AnalysisAdaptor&) = delete;
 };
 
 }

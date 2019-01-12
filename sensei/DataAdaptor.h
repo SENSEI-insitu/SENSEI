@@ -11,6 +11,7 @@
 
 class vtkAbstractArray;
 class vtkDataObject;
+class vtkCompositeDataSet;
 class vtkInformation;
 class vtkInformationIntegerKey;
 
@@ -80,22 +81,15 @@ public:
   virtual int GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh) = 0;
 
-// TODO
-/*
-  /// @brief convenience method to get full mesh will all arrays added to the
-  /// mesh.
+  /// @brief Return the data as a composite (multi-block) object
   ///
-  /// Note that in some cases getting the complete mesh may cause significant
-  /// memory pressure.
-  ///
-  /// @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
-  /// @param[in] structureOnly When set to true (default; false) the returned mesh
-  ///            may not have any geometry or topology information.
-  /// @param[out] mesh a reference to a pointer where a new VTK object is stored
-  /// @returns zero if successful, non zero if an error occurred
-  virtual int GetCompleteMesh(const std::string &meshName,
-    bool structureOnly, vtkDataObject *&mesh);
-*/
+  /// This method simplifies data access enuring that one can always iterate
+  /// through the blocks of data. If the simulation provides a legacy VTK object
+  /// per-rank this method efficiently converts it to a composite (multi-block)
+  /// object.
+  virtual int GetMesh(const std::string &meshName, bool structureOnly,
+    vtkCompositeDataSet *&mesh);
+
   /// @brief Adds ghost nodes on the specified mesh. The array name must be set
   ///        to "vtkGhostType".
   ///

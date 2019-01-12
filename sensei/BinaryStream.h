@@ -39,7 +39,7 @@ public:
   // state.
   void Clear() noexcept;
 
-  // Alolocate nBytes for the stream.
+  // Allocate nBytes for the stream.
   void Resize(unsigned long nBytes);
 
   // ensures space for nBytes more to the stream.
