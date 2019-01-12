@@ -1,8 +1,10 @@
-#include "ADIOSAnalysisAdaptor.h"
+#include "ADIOS1AnalysisAdaptor.h"
 
-#include "ADIOSSchema.h"
+#include "ADIOS1Schema.h"
 #include "DataAdaptor.h"
+#include "MeshMetadataMap.h"
 #include "VTKUtils.h"
+#include "MPIUtils.h"
 #include "Timer.h"
 #include "Error.h"
 
@@ -37,28 +39,29 @@ namespace sensei
 {
 
 //----------------------------------------------------------------------------
-senseiNewMacro(ADIOSAnalysisAdaptor);
+senseiNewMacro(ADIOS1AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOSAnalysisAdaptor::ADIOSAnalysisAdaptor() : MaxBufferSize(500),
-    Schema(nullptr), Method("MPI"), FileName("sensei.bp")
+ADIOS1AnalysisAdaptor::ADIOS1AnalysisAdaptor() : MaxBufferSize(500),
+    Schema(nullptr), Method("MPI"), FileName("sensei.bp"), GroupHandle(0)
 {
 }
 
 //----------------------------------------------------------------------------
-ADIOSAnalysisAdaptor::~ADIOSAnalysisAdaptor()
+ADIOS1AnalysisAdaptor::~ADIOS1AnalysisAdaptor()
 {
+  delete this->Schema;
 }
 
 //-----------------------------------------------------------------------------
-int ADIOSAnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs)
+int ADIOS1AnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs)
 {
   this->Requirements = reqs;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-int ADIOSAnalysisAdaptor::AddDataRequirement(const std::string &meshName,
+int ADIOS1AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
   int association, const std::vector<std::string> &arrays)
 {
   this->Requirements.AddRequirement(meshName, association, arrays);
@@ -66,9 +69,21 @@ int ADIOSAnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("ADIOSAnalysisAdaptor::Execute");
+  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Execute");
+
+  // figure out what the simulation can provide
+  MeshMetadataFlags flags;
+  flags.SetBlockDecomp();
+  flags.SetBlockSize();
+
+  MeshMetadataMap mdm;
+  if (mdm.Initialize(dataAdaptor, flags))
+    {
+    SENSEI_ERROR("Failed to get metadata")
+    return false;
+    }
 
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
@@ -77,71 +92,56 @@ bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     if (this->Requirements.Initialize(dataAdaptor, false))
       {
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
-      return -1;
+      return false;
       }
     SENSEI_WARNING("No subset specified. Writing all available data")
     }
 
   // collect the specified data objects and metadata
-  std::vector<vtkDataObject*> objects;
-  std::vector<std::string> objectNames;
-  std::vector<std::pair<int,int>> ghostLayers;
+  std::vector<vtkCompositeDataSet*> objects;
+  std::vector<MeshMetadataPtr> metadata;
 
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
 
-  for (; mit; ++mit)
+  while (mit)
     {
+    // get metadata
+    MeshMetadataPtr md;
+    if (mdm.GetMeshMetadata(mit.MeshName(), md))
+      {
+      SENSEI_ERROR("Failed to get mesh metadata for mesh \""
+        << mit.MeshName() << "\"")
+      return false;
+      }
+
     // get the mesh
-    vtkDataObject* dobj = nullptr;
+    vtkCompositeDataSet *dobj = nullptr;
     if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
-      return -1;
+      return false;
       }
-// TODO
-    // get ghost cell/node metadata always provide this information as
-    // it is essential to process the data objects
-    int nGhostCellLayers = 0;
-    int nGhostNodeLayers = 0;
-/*
-    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
-      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
-      {
-      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
-      return -1;
-      }
-*/
-    // pass ghost layer metadata in field data.
-    vtkIntArray *glmd = vtkIntArray::New();
-    glmd->SetName("senseiGhostLayers");
-    glmd->SetNumberOfTuples(2);
-    glmd->SetValue(0, nGhostCellLayers);
-    glmd->SetValue(1, nGhostNodeLayers);
-
-    vtkFieldData *fd = dobj->GetFieldData();
-    fd->AddArray(glmd);
-    glmd->Delete();
 
     // add the ghost cell arrays to the mesh
-    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
-      return -1;
+      return false;
       }
 
     // add the ghost node arrays to the mesh
-    if (nGhostNodeLayers > 0 && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
-      return -1;
+      return false;
       }
 
     // add the required arrays
     ArrayRequirementsIterator ait =
       this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
 
-    for (; ait; ++ait)
+    while (ait)
       {
       if (dataAdaptor->AddArray(dobj, mit.MeshName(),
          ait.Association(), ait.Array()))
@@ -150,64 +150,86 @@ bool ADIOSAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
           << VTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << ait.Array() << "\" to mesh \""
           << mit.MeshName() << "\"")
-        return -1;
+        return false;
         }
+
+      ++ait;
+      }
+
+    // generate a global view of the metadata. everything we do from here
+    // on out depends on having the global view.
+    if (!md->GlobalView)
+      {
+      MPI_Comm comm = this->GetCommunicator();
+      sensei::MPIUtils::GlobalViewV(comm, md->BlockOwner);
+      sensei::MPIUtils::GlobalViewV(comm, md->BlockIds);
+      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumPoints);
+      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumCells);
+      sensei::MPIUtils::GlobalViewV(comm, md->BlockCellArraySize);
+      sensei::MPIUtils::GlobalViewV(comm, md->BlockExtents);
+      md->GlobalView = true;
       }
 
     // add to the collection
     objects.push_back(dobj);
-    objectNames.push_back(mit.MeshName());
+    metadata.push_back(md);
+
+    ++mit;
     }
 
   unsigned long timeStep = dataAdaptor->GetDataTimeStep();
   double time = dataAdaptor->GetDataTime();
 
-  if (this->InitializeADIOS(objectNames, objects) ||
-    this->WriteTimestep(timeStep, time, objectNames, objects))
+  if (this->InitializeADIOS1(metadata) ||
+    this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
+
+  unsigned int n_objects = objects.size();
+  for (unsigned int i = 0; i < n_objects; ++i)
+    objects[i]->Delete();
 
   return true;
 }
 
 //----------------------------------------------------------------------------
-int ADIOSAnalysisAdaptor::InitializeADIOS(
-  const std::vector<std::string> &objectNames,
-  const std::vector<vtkDataObject*> &objects)
+int ADIOS1AnalysisAdaptor::InitializeADIOS1(
+  const std::vector<MeshMetadataPtr> &metadata)
 {
+  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::IntializeADIOS1");
+
   if (!this->Schema)
     {
-    timer::MarkEvent mark("ADIOSAnalysisAdaptor::IntializeADIOS");
-
     // initialize adios
     adios_init_noxml(this->GetCommunicator());
 
-    int64_t gHandle = 0;
-
 #if ADIOS_VERSION_GE(1,11,0)
     adios_set_max_buffer_size(this->MaxBufferSize);
-    adios_declare_group(&gHandle, "SENSEI", "",
-      static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_yes));
+    adios_declare_group(&this->GroupHandle, "SENSEI", "",
+      static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_no));
 #else
     adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
-    adios_declare_group(&gHandle, "SENSEI", "", adios_flag_yes);
+    adios_declare_group(&this->GroupHandle, "SENSEI", "", adios_flag_no);
 #endif
 
-    adios_select_method(gHandle, this->Method.c_str(), "", "");
+    adios_select_method(this->GroupHandle, this->Method.c_str(), "", "");
 
-    // define ADIOS variables
-    this->Schema = new senseiADIOS::DataObjectCollectionSchema;
-
-    if (this->Schema->DefineVariables(this->GetCommunicator(), gHandle, objectNames, objects))
-      {
-      SENSEI_ERROR("Failed to define variables")
-      return -1;
-      }
+    // define ADIOS1 variables
+    this->Schema = new senseiADIOS1::DataObjectCollectionSchema;
     }
+
+  // (re)define variables to support meshes that evovle in time
+  if (this->Schema->DefineVariables(this->GetCommunicator(),
+    this->GroupHandle, metadata))
+    {
+    SENSEI_ERROR("Failed to define variables")
+    return -1;
+    }
+
   return 0;
 }
 
 //----------------------------------------------------------------------------
-int ADIOSAnalysisAdaptor::FinalizeADIOS()
+int ADIOS1AnalysisAdaptor::FinalizeADIOS1()
 {
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
@@ -216,12 +238,12 @@ int ADIOSAnalysisAdaptor::FinalizeADIOS()
 }
 
 //----------------------------------------------------------------------------
-int ADIOSAnalysisAdaptor::Finalize()
+int ADIOS1AnalysisAdaptor::Finalize()
 {
-  timer::MarkEvent mark("ADIOSAnalysisAdaptor::Finalize");
+  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Finalize");
 
   if (this->Schema)
-    this->FinalizeADIOS();
+    this->FinalizeADIOS1();
 
   delete this->Schema;
   this->Schema = nullptr;
@@ -230,37 +252,42 @@ int ADIOSAnalysisAdaptor::Finalize()
 }
 
 //----------------------------------------------------------------------------
-int ADIOSAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
-  double time, const std::vector<std::string> &objectNames,
-  const std::vector<vtkDataObject*> &objects)
+int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
+  double time, const std::vector<MeshMetadataPtr> &metadata,
+  const std::vector<vtkCompositeDataSet*> &objects)
 {
-  timer::MarkEvent mark("ADIOSAnalysisAdaptor::WriteTimestep");
+  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::WriteTimestep");
 
+  int ierr = 0;
   int64_t handle = 0;
 
   adios_open(&handle, "sensei", this->FileName.c_str(),
     timeStep == 0 ? "w" : "a", this->GetCommunicator());
 
-  uint64_t group_size = this->Schema->GetSize(
-    this->GetCommunicator(), objectNames, objects);
+  // TODO -- what are the implications of not setting the group
+  // size? it's a lot of work to calculate the size. user manual
+  // indicates that it is optional. would setting a fixed size
+  // like 200MB be better than not setting the size?
+  //
+  /*uint64_t group_size = this->Schema->GetSize(
+    this->GetCommunicator(), metadata, objects);
+  adios_group_size(handle, group_size, &group_size);*/
 
-  adios_group_size(handle, group_size, &group_size);
-
-  if (this->Schema->Write(this->GetCommunicator(), handle,
-    timeStep, time, objectNames, objects))
+  if (this->Schema->Write(this->GetCommunicator(),
+    handle, timeStep, time, metadata, objects))
     {
     SENSEI_ERROR("Failed to write step " << timeStep
       << " to \"" << this->FileName << "\"")
-    return -1;
+    ierr = -1;
     }
 
   adios_close(handle);
 
-  return 0;
+  return ierr;
 }
 
 //----------------------------------------------------------------------------
-void ADIOSAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void ADIOS1AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

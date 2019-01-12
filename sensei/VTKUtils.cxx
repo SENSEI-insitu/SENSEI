@@ -26,10 +26,9 @@
 #include <vtkAbstractArray.h>
 #include <vtkCellArray.h>
 #include <vtkSmartPointer.h>
-#include <vtkInformation.h>
-#include <vtkInformationIntegerKey.h>
 #include <vtkIntArray.h>
-#include <vtkDataSetAttributes.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkSOADataArrayTemplate.h>
 
 #include <functional>
 #include <mpi.h>
@@ -649,6 +648,269 @@ vtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
 
   return cd;
 }
+
+/*
+int arrayCpy(void *&wptr, vtkDataArray *da)
+{
+  unsigned long nt = da->GetNumberOfTuples();
+  unsigned int nc = da->GetNumberOfComponents();
+
+  switch (da->GetDataType())
+    {
+    vtkTemplateMacro(
+      if (vtkAOSDataArrayTemplate<VTK_TT> *aosda =
+        dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(da))
+        {
+        unsigned long long nb = nt*nc*sizeof(VTK_TT);
+        VTK_TT *pda = aosda->GetPointer(0);
+        memcpy(wptr, pda, nb);
+        ((char*)wptr) += nb;
+        }
+      else if (vtkSOADataArrayTemplate<VTK_TT> *soada =
+        dynamic_cast<vtkSOADataArrayTemplate<VTK_TT>*>(da))
+        {
+        unsigned long long nb = nt*sizeof(VTK_TT);
+        for (unsigned int j = 0; j < nc; ++j)
+          {
+          VTK_TT *pda = soada->GetComponentArrayPointer(j);
+          memcpy(wptr, pda, nb);
+          ((char*)wptr) += nb;
+          }
+        }
+      else
+        {
+        SENSEI_ERROR("Invalid data array type " << da->GetClassName())
+        return -1;
+        }
+    )
+    }
+
+  return 0;
+}
+
+
+// --------------------------------------------------------------------------
+int DataArraySerializer::operator()(vtkDataSet *ds)
+{
+  vtkDataArray *da = m_centering == vtkDataObject::POINT ?
+    ds->GetPointData()->GetName(m_name) : ds->GetCellData()->GetName(m_name);
+
+  if (!da || arrayCpy(m_write_ptr, da))
+    {
+    SENSEI_ERROR("Failed to serialize "
+      << GetAttributesName(m_centering) << " data array \""
+      << m_name << "\"")
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int PointsSerializer::operator()(vtkDataSet *ds)
+{
+  vtkPointSet *ps = dynamic_cast<vtkPointSet*>(ps);
+  if (!ps)
+    {
+    SENSEI_ERROR("Invalid dataset type " << ds->GetClassName())
+    return -1;
+    }
+
+  vtkDataArray *da = ps->GetPoints()->GetData();
+  if (!da || arrayCpy(m_write_ptr, da))
+    {
+    SENSEI_ERROR("Failed to serialize points")
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int CellTypesSerializer::operator()(vtkDataSet *ds)
+{
+  vtkDataArray *da = nullptr;
+  if (vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds))
+    {
+    da = ug->GetCellTypesArray();
+    if (!da || arrayCpy(m_write_ptr, da))
+      {
+      SENSEI_ERROR("Failed to serialize cell types")
+      return -1;
+      }
+    }
+  else if (vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds))
+    {
+    vtkIdType nv = pd->GetNumberOfVerts();
+    memset(m_write_ptr, nv, VTK_VERTEX);
+    m_write_ptr += nv;
+
+    vtkIdType nl = pd->GetNumberOfLines();
+    memset(m_write_ptr, nl, VTK_LINE);
+    m_write_ptr += nl;
+
+    vtkIdType np = pd->GetNumberOfPolys();
+    memset(m_write_ptr, np, VTK_POLYGON);
+    m_write_ptr += np;
+
+    vtkIdType ns = pd->GetNumberOfStrips();
+    memset(m_write_ptr, ns, VTK_TRIANGLE_STRIP)
+    m_write_ptr += ns;
+    }
+  else
+    {
+    SENSEI_ERROR("Invalid dataset type " << ds->GetClassName())
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int CellArraySerializer::operator()(vtkDataSet *ds)
+{
+  vtkDataArray *da = nullptr;
+  if (vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds))
+    {
+    da = ug->GetCells()->GetData();
+    if (!da || arrayCpy(m_write_ptr, da))
+      {
+      SENSEI_ERROR("Failed to serialize cells")
+      return -1;
+      }
+    }
+  else if (vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds))
+    {
+    da = pd->GetVerts()->GetData();
+    if (!da || arrayCpy(m_write_ptr, da))
+      {
+      SENSEI_ERROR("Failed to serialize verts")
+      return -1;
+      }
+
+    da = pd->GetLines()->GetData();
+    if (!da || arrayCpy(m_write_ptr, da))
+      {
+      SENSEI_ERROR("Failed to serialize lines")
+      return -1;
+      }
+
+    da = pd->GetLines()->GetPolys();
+    if (!da || arrayCpy(m_write_ptr, da))
+      {
+      SENSEI_ERROR("Failed to serialize polys")
+      return -1;
+      }
+
+    da = pd->GetStrips()->GetData();
+    if (!da || arrayCpy(m_write_ptr, da))
+      {
+      SENSEI_ERROR("Failed to serialize strips")
+      return -1;
+      }
+    }
+  else
+    {
+    SENSEI_ERROR("Invalid dataset type " << ds->GetClassName())
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int GetSizesAndOffsets(MPI_Comm comm,
+  const sensei::MeshMetadataPtr &md,
+  unsigned long long &num_points_total,
+  unsigned long long &num_points_local,
+  unsigned long long &point_offset_local,
+  unsigned long long &num_cells_total,
+  unsigned long long &num_cells_local,
+  unsigned long long &cell_offset_local,
+  unsigned long long &cell_array_size_total,
+  unsigned long long &cell_array_size_local,
+  unsigned long long &cell_array_offset_local)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  num_points_total = 0;
+  num_points_local = 0;
+  point_offset_local = 0;
+  num_cells_total = 0;
+  num_cells_local = 0;
+  cell_offset_local = 0;
+  cell_array_size_total = 0;
+  cell_array_size_local = 0;
+  cell_array_offset_local = 0;
+
+  // calculate the number of points and cells total
+  // and the local offset to each type of data
+  unsigned int num_blocks = md->NumBlocks;
+  for (unsigned int i = 0; i < num_blocks; ++i)
+    {
+    num_points_total += md->BlockNumPoints[i];
+    num_cells_total += md->BlockNumCells[i];
+
+    if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
+     (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+     {
+     cell_array_size_total += md->BlockCellArraySize[i];
+     }
+
+    if (md->BlockOwner[i] < rank)
+      {
+      point_offset_local += md->BlockNumPoints[i];
+      cell_offset_local += md->BlockNumCells[i];
+      if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
+        (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+        {
+        cell_array_offset_local += md->BlockCellArraySize[i];
+        }
+      }
+    else if (md->BlockOwner[i] == rank)
+      {
+      num_points_local += md->BlockNumPoints[i]
+      num_cells_local += md->BlockNumCells[i]
+      if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
+        (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+        {
+        cell_array_size_local += md->BlockCellArraySize[i];
+        }
+      }
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int GetLocalGeometrySizes(MPI_Comm comm,
+  const sensei::MeshMetadataPtr &md,
+  unsigned long long &num_points_local,
+  unsigned long long &num_cells_local,
+  unsigned long long &cell_array_size_local)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  unsigned int num_blocks = md->NumBlocks;
+  for (unsigned int i = 0; i < num_blocks; ++i)
+    {
+    if (md->BlockOwner[i] == rank)
+      {
+      num_points_local += md->BlockNumPoints[i]
+      num_cells_local += md->BlockNumCells[i]
+      if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
+        (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+        {
+        cell_array_size_local += md->BlockCellArraySize[i];
+        }
+      }
+    }
+
+  return 0;
+}
+*/
 
 }
 }

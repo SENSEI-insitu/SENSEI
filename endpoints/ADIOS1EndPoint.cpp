@@ -1,4 +1,4 @@
-#include "ADIOSDataAdaptor.h"
+#include "ADIOS1DataAdaptor.h"
 #include "ConfigurableAnalysis.h"
 #include "Timer.h"
 #include "Error.h"
@@ -11,13 +11,13 @@
 #include <vtkSmartPointer.h>
 #include <vtkDataSet.h>
 
-using DataAdaptorPtr = vtkSmartPointer<sensei::ADIOSDataAdaptor>;
+using DataAdaptorPtr = vtkSmartPointer<sensei::ADIOS1DataAdaptor>;
 using AnalysisAdaptorPtr = vtkSmartPointer<sensei::ConfigurableAnalysis>;
 
 
 /*!
  * This program is designed to be an endpoint component in a scientific
- * workflow. It can read a data-stream using ADIOS-FLEXPATH. When enabled, this end point
+ * workflow. It can read a data-stream using ADIOS1-FLEXPATH. When enabled, this end point
  * supports histogram and catalyst-slice analysis via the Sensei infrastructure.
  *
  * Usage:
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
   bool haveInput = ops >> opts::PosOption(input);
 
   if (!showHelp && !haveInput && (rank == 0))
-    SENSEI_ERROR("Missing ADIOS input stream")
+    SENSEI_ERROR("Missing ADIOS1 input stream")
 
   if (!showHelp && config_file.empty() && (rank == 0))
     SENSEI_ERROR("Missing XML analysis configuration")
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
   SENSEI_STATUS("Opening: \"" << input.c_str() << "\" using method \""
     << readmethod.c_str() << "\"")
 
-  // open the ADIOS stream using the ADIOS adaptor
+  // open the ADIOS1 stream using the ADIOS1 adaptor
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
   dataAdaptor->SetCommunicator(comm);
   if (dataAdaptor->Open(readmethod, input))
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
     MPI_Abort(comm, 1);
     }
 
-  // read from the ADIOS stream until all steps have been
+  // read from the ADIOS1 stream until all steps have been
   // processed
   unsigned int nSteps = 0;
   do
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 
   SENSEI_STATUS("Finished processing " << nSteps << " time steps")
 
-  // close the ADIOS stream
+  // close the ADIOS1 stream
   dataAdaptor->Close();
   analysisAdaptor->Finalize();
 

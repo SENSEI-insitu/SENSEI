@@ -234,44 +234,6 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &nRanks);
 
-  // TODO -- I would like to get rid of the GloobalView flag
-  // in any case I think these checks do the wrong thing
-  /*if (this->GlobalView && (this->NumBlocksLocal.size() != unsigned(nRanks)))
-    {
-    SENSEI_ERROR("NumBlocksLocal should have an entry for each MPI rank")
-    err = true;
-    }
-
-  if (!this->GlobalView && (this->NumBlocksLocal.size() != 1))
-    {
-    SENSEI_ERROR("NumBlocksLocal should conatin only local count")
-    err = true;
-    }
-
-  // as a convenience compute the global number of blocks
-  // if it has not been provided
-  if (this->NumBlocks == 0)
-    {
-    if (this->GlobalView)
-      {
-      for (int i = 0; i < nRanks; ++i)
-        this->NumBlocks += this->NumBlocksLocal[i];
-      }
-    else
-      {
-      this->NumBlocks = this->NumBlocksLocal[0];
-      MPI_Allreduce(MPI_IN_PLACE, &this->NumBlocks, 1, MPI_INT, MPI_SUM, comm);
-      }
-    }
-
-  // check the sizes of block metadata
-  if (this->GlobalView)
-    {
-    }
-  else
-    {
-    }*/
-
   if (this->Flags.BlockNeighborsSet() &&
     requiredFlags.BlockNeighborsSet() && this->BlockNeighbors.empty())
     {
@@ -302,12 +264,6 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
       err = true;
       }
     }
-
-  /*if ((this->MeshType == VTK_OVERLAPPING_AMR) && !this->GlobalView)
-    {
-    SENSEI_ERROR("A global view is required for AMR")
-    err = true;
-    }*/
 
   if (this->Flags.BlockDecompSet() &&
     requiredFlags.BlockDecompSet() && (this->BlockOwner.empty() || this->BlockIds.empty()))

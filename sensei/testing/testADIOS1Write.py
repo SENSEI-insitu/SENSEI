@@ -1,5 +1,5 @@
 from mpi4py import *
-from sensei import VTKDataAdaptor,ADIOSDataAdaptor,ADIOSAnalysisAdaptor
+from sensei import VTKDataAdaptor,ADIOS1DataAdaptor,ADIOS1AnalysisAdaptor
 import sys,os
 import numpy as np
 import vtk, vtk.util.numpy_support as vtknp
@@ -96,7 +96,7 @@ def get_polydata(nx):
 
 def write_data(file_name, method, n_its):
   # initialize the analysis adaptor
-  aw = ADIOSAnalysisAdaptor.New()
+  aw = ADIOS1AnalysisAdaptor.New()
   aw.SetFileName(file_name)
   aw.SetMethod(method)
 
@@ -129,7 +129,7 @@ def write_data(file_name, method, n_its):
       da.SetDataObject(meshName, mesh)
 
     # execute the analysis adaptor
-    status_message('executing ADIOSAnalysisAdaptor %s ' \
+    status_message('executing ADIOS1AnalysisAdaptor %s ' \
       'step %d time %0.1f'%(method,it,t))
 
     aw.Execute(da)

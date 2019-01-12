@@ -27,10 +27,10 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sVTKm)
   endif()
 
-  if (ENABLE_ADIOS)
-    list(APPEND senseiCore_sources ADIOSSchema.cxx ADIOSAnalysisAdaptor.cxx
-      ADIOSDataAdaptor.cxx)
-    list(APPEND senseiCore_libs sADIOS)
+  if (ENABLE_ADIOS1)
+    list(APPEND senseiCore_sources ADIOS1Schema.cxx ADIOS1AnalysisAdaptor.cxx
+      ADIOS1DataAdaptor.cxx)
+    list(APPEND senseiCore_libs sADIOS1)
   endif()
 
   if (ENABLE_VTK_ACCELERATORS)

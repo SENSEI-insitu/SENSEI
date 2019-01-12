@@ -1,6 +1,6 @@
 from mpi4py import *
 from multiprocessing import Process,Lock,Value
-from sensei import VTKDataAdaptor,ADIOSDataAdaptor,ADIOSAnalysisAdaptor
+from sensei import VTKDataAdaptor,ADIOS1DataAdaptor,ADIOS1AnalysisAdaptor
 import sys,os
 import numpy as np
 import vtk, vtk.util.numpy_support as vtknp
@@ -34,8 +34,8 @@ def check_array(array):
 
 def read_data(file_name, method):
   # initialize the data adaptor
-  status_message('initializing ADIOSDataAdaptor %s %s'%(file_name,method))
-  da = ADIOSDataAdaptor.New()
+  status_message('initializing ADIOS1DataAdaptor %s %s'%(file_name,method))
+  da = ADIOS1DataAdaptor.New()
   da.Open(method, file_name)
   # process all time steps
   n_steps = 0
@@ -48,25 +48,25 @@ def read_data(file_name, method):
 
     # get the mesh info
     nMeshes = da.GetNumberOfMeshes()
+    status_message('receveied %d meshes'%(nMeshes))
     i = 0
     while i < nMeshes:
-      meshName = da.GetMeshName(i)
+      md = da.GetMeshMetadata(i)
+      meshName = md.MeshName
       status_message('received mesh %s'%(meshName))
 
       # get a VTK dataset with all the arrays
       ds = da.GetMesh(meshName, False)
       # request each array
-      assocs = {vtk.vtkDataObject.POINT:'point', vtk.vtkDataObject.CELL:'cell'}
-      for assoc,assoc_name in assocs.iteritems():
-        n_arrays = da.GetNumberOfArrays(meshName, assoc)
-
-        status_message('%d %s arrays'%(n_arrays, assoc_name))
-        i = 0
-        while i < n_arrays:
-          array_name = da.GetArrayName(meshName, assoc, i)
-          da.AddArray(ds, meshName, assoc, array_name)
-          status_message('receive array %s'%(array_name))
-          i += 1
+      n_arrays = md.NumArrays
+      status_message('%d arrays %s'%(n_arrays, str(md.ArrayName)))
+      j = 0
+      while j < n_arrays:
+        array_name = md.ArrayName[j]
+        assoc = md.ArrayCentering[j]
+        da.AddArray(ds, meshName, assoc, array_name)
+        #status_message('receive array %s'%(array_name))
+        j += 1
       # this often will cause segv's if the dataset has been
       # improperly constructed, thus serves as a good check
       str_rep = str(ds)
@@ -75,21 +75,21 @@ def read_data(file_name, method):
       while not it.IsDoneWithTraversal():
         bds = it.GetCurrentDataObject()
         idx = it.GetCurrentFlatIndex()
-        for assoc,assoc_name in assocs.iteritems():
-          n_arrays = da.GetNumberOfArrays(meshName, assoc)
-          status_message('checking %d %s data arrays ' \
-            'in block %d %s'%(n_arrays,assoc_name,idx,bds.GetClassName()), \
-            rank)
-          j = 0
-          while j < n_arrays:
-            array = bds.GetPointData().GetArray(j) \
-              if assoc == vtk.vtkDataObject.POINT else \
-                bds.GetCellData().GetArray(j)
-            if (check_array(array)):
-              error_message('Test failed on array %d "%s"'%( \
-                j, array.GetName()))
-              retval = -1
-            j += 1
+        n_arrays = md.NumArrays
+        status_message('checking %d data arrays ' \
+          'in block %d %s'%(n_arrays,idx,bds.GetClassName()), \
+          rank)
+        j = 0
+        while j < n_arrays:
+          array = bds.GetPointData().GetArray(md.ArrayName[j]) \
+            if md.ArrayCentering[j] == vtk.vtkDataObject.POINT else \
+              bds.GetCellData().GetArray(md.ArrayName[j])
+          if (check_array(array)):
+            error_message('Test failed on array %d "%s"'%( \
+              j, array.GetName()))
+            retval = -1
+          #status_message('checking %s ... OK'%(md.ArrayName[j]))
+          j += 1
         it.GoToNextItem()
       i += 1
 
@@ -97,10 +97,10 @@ def read_data(file_name, method):
     if (da.Advance()):
       break
 
-    # close down the stream
-    da.Close()
-    status_message('closed stream after receiving %d steps'%(n_steps))
-    return retval
+  # close down the stream
+  da.Close()
+  status_message('closed stream after receiving %d steps'%(n_steps))
+  return retval
 
 if __name__ == '__main__':
   # process command line
