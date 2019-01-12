@@ -1,6 +1,7 @@
 #include "Histogram.h"
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
+#include "MeshMetadataMap.h"
 #include "Timer.h"
 #include "VTKHistogram.h"
 #include "Error.h"
@@ -62,6 +63,14 @@ bool Histogram::Execute(DataAdaptor* data)
 {
   timer::MarkEvent mark("Histogram::Execute");
 
+  // see what the simulation is providing
+  MeshMetadataMap mdMap;
+  if (mdMap.Initialize(data))
+    {
+    SENSEI_ERROR("Failed to get metadata")
+    return false;
+    }
+
   delete this->Internals;
   this->Internals = new VTKHistogram;
 
@@ -71,7 +80,7 @@ bool Histogram::Execute(DataAdaptor* data)
 
   // get the mesh metadata object
   MeshMetadataPtr mmd;
-  if (data->GetMeshMetadata(this->MeshName, mmd))
+  if (mdMap.GetMeshMetadata(this->MeshName, mmd))
     {
     SENSEI_ERROR("Failed to get metadata for mesh \"" << this->MeshName << "\"")
     return false;
@@ -115,13 +124,13 @@ bool Histogram::Execute(DataAdaptor* data)
     }
 
   // add the ghost zones
-  if ((mmd->NumGhostCells > 0) && data->AddGhostCellsArray(mesh, this->MeshName))
+  if (mmd->NumGhostCells && data->AddGhostCellsArray(mesh, this->MeshName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
     return false;
     }
 
-  if ((mmd->NumGhostNodes > 0) && data->AddGhostNodesArray(mesh, this->MeshName))
+  if (mmd->NumGhostNodes && data->AddGhostNodesArray(mesh, this->MeshName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost nodes.")
     return false;

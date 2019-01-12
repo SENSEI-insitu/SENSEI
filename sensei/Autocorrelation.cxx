@@ -2,6 +2,7 @@
 
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
+#include "MeshMetadataMap.h"
 #include "Error.h"
 
 // VTK includes
@@ -252,16 +253,23 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 }
 
 //-----------------------------------------------------------------------------
-bool Autocorrelation::Execute(DataAdaptor* data)
+bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
 {
   timer::MarkEvent mark("Autocorrelation::Execute");
 
   AInternals& internals = (*this->Internals);
-  const int association = internals.Association;
+
+  // see what the simulation is providing
+  MeshMetadataMap mdMap;
+  if (mdMap.Initialize(dataAdaptor))
+    {
+    SENSEI_ERROR("Failed to get metadata")
+    return false;
+    }
 
   // metadata
   MeshMetadataPtr mmd;
-  if (data->GetMeshMetadata(internals.MeshName, mmd))
+  if (mdMap.GetMeshMetadata(internals.MeshName, mmd))
     {
     SENSEI_ERROR("Failed to get metadata for mesh \"" << internals.MeshName << "\"")
     return false;
@@ -269,14 +277,14 @@ bool Autocorrelation::Execute(DataAdaptor* data)
 
   // mesh
   vtkDataObject* mesh = nullptr;
-  if (data->GetMesh(internals.MeshName, false, mesh))
+  if (dataAdaptor->GetMesh(internals.MeshName, false, mesh))
     {
     SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
     return false;
     }
 
   // array
-  if (data->AddArray(mesh, internals.MeshName,
+  if (dataAdaptor->AddArray(mesh, internals.MeshName,
     internals.Association, internals.ArrayName))
     {
     SENSEI_ERROR("Failed to add array \"" << internals.ArrayName
@@ -285,18 +293,19 @@ bool Autocorrelation::Execute(DataAdaptor* data)
     }
 
   // ghost cells
-  if ((mmd->NumGhostCells > 0) && data->AddGhostCellsArray(mesh, internals.MeshName))
+  if ((mmd->NumGhostCells > 0) && dataAdaptor->AddGhostCellsArray(mesh, internals.MeshName))
     {
-    SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
+    SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost cells.")
     return false;
     }
 
-  if ((mmd->NumGhostNodes > 0) && data->AddGhostNodesArray(mesh, internals.MeshName))
+  if ((mmd->NumGhostNodes > 0) && dataAdaptor->AddGhostNodesArray(mesh, internals.MeshName))
     {
-    SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost nodes.")
+    SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost nodes.")
     return false;
     }
 
+  const int association = internals.Association;
   internals.InitializeBlocks(mesh);
 
   if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(mesh))

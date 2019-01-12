@@ -2,6 +2,7 @@
 #include "senseiConfig.h"
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
+#include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -141,6 +142,14 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
+  // see what the simulation is providing
+  MeshMetadataMap mdMap;
+  if (mdMap.Initialize(dataAdaptor))
+    {
+    SENSEI_ERROR("Failed to get metadata")
+    return false;
+    }
+
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
@@ -156,7 +165,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
 
-  for (; mit; ++mit)
+  while (mit)
     {
     // get the mesh
     vtkDataObject* dobj = nullptr;
@@ -174,9 +183,8 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       return false;
       }
 
-
-    MeshMetadataPtr metadata = MeshMetadata::New();
-    if (dataAdaptor->GetMeshMetadata(mit.MeshName(), metadata))
+    MeshMetadataPtr metadata;
+    if (mdMap.GetMeshMetadata(mit.MeshName(), metadata))
       {
       SENSEI_ERROR("Failed to get metadata for mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -202,7 +210,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
     ArrayRequirementsIterator ait =
       this->Requirements.GetArrayRequirementsIterator(meshName);
 
-    for (; ait; ++ait)
+    while (ait)
       {
       if (dataAdaptor->AddArray(dobj, mit.MeshName(),
          ait.Association(), ait.Array()))
@@ -213,6 +221,8 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
           << meshName << "\"")
         return false;
         }
+
+      ++ait;
       }
 
     // initialize file id and time and step records
@@ -246,6 +256,8 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       }
 
     dobj->Delete();
+
+    ++mit;
     }
 
   return true;

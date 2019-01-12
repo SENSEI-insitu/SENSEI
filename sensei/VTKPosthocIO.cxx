@@ -2,6 +2,7 @@
 #include "senseiConfig.h"
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
+#include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -245,6 +246,14 @@ int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
 //-----------------------------------------------------------------------------
 bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 {
+  // see what the simulation is providing
+  MeshMetadataMap mdMap;
+  if (mdMap.Initialize(dataAdaptor))
+    {
+    SENSEI_ERROR("Failed to get metadata")
+    return false;
+    }
+
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
@@ -260,13 +269,13 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
 
-  for (; mit; ++mit)
+  while (mit)
     {
-    std::string meshName = mit.MeshName();
+    const std::string &meshName = mit.MeshName();
 
     // get the metadta
     MeshMetadataPtr mmd;
-    if (dataAdaptor->GetMeshMetadata(meshName, mmd))
+    if (mdMap.GetMeshMetadata(meshName, mmd))
       {
       SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"")
       return false;
@@ -281,16 +290,16 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if ((mmd->NumGhostCells > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if ((mmd->NumGhostCells > 0) && dataAdaptor->AddGhostCellsArray(dobj, meshName))
       {
-      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if ((mmd->NumGhostNodes > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if ((mmd->NumGhostNodes > 0) && dataAdaptor->AddGhostNodesArray(dobj, meshName))
       {
-      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"")
       return false;
       }
 
@@ -298,20 +307,18 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
     ArrayRequirementsIterator ait =
       this->Requirements.GetArrayRequirementsIterator(meshName);
 
-    if (ait)
+    while (ait)
       {
-      for (; ait; ++ait)
+      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+         ait.Association(), ait.Array()))
         {
-        if (dataAdaptor->AddArray(dobj, mit.MeshName(),
-           ait.Association(), ait.Array()))
-          {
-          SENSEI_ERROR("Failed to add "
-            << VTKUtils::GetAttributesName(ait.Association())
-            << " data array \"" << ait.Array() << "\" to mesh \""
-            << meshName << "\"")
-          return false;
-          }
+        SENSEI_ERROR("Failed to add "
+          << VTKUtils::GetAttributesName(ait.Association())
+          << " data array \"" << ait.Array() << "\" to mesh \""
+          << meshName << "\"")
+        return false;
         }
+      ++ait;
       }
 
     // This class does not use VTK's parallel writers because at this
@@ -418,6 +425,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       }
 
     dobj->Delete();
+
+    ++mit;
     }
 
   dataAdaptor->ReleaseData();
