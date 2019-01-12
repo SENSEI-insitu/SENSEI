@@ -62,9 +62,6 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   virtual int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) = 0;
 
-  /// helper to get metadata by name
-  int GetMeshMetadata(const std::string &meshName, MeshMetadataPtr &metadata);
-
   /// @brief Return the data object with appropriate structure.
   ///
   /// This method will return a data object of the appropriate type. The data
