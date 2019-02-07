@@ -2,6 +2,8 @@ layout: index
 description: SENSEI in situ
 subtitle: SENSEI ∙  Scalable in situ analysis and visualization
 cmd: git clone https://github.com/Kitware/sensei.git
+img: https://data.kitware.com/api/v1/file/5c5c7a7d8d777f072b38863b/download
+imgcaption: ParaView/Catalyst on 256,000 processes on Mira.
 comments: false
 ---
 
@@ -49,45 +51,46 @@ ul#intro-feature-list
 div#intro-get-started-wrap
   a(href="/learn-more/index.html", id="intro-get-started-link") Learn more
 
-div#gallery
-  img(
-    src="https://data.kitware.com/api/v1/item/5bd137508d777f06b936b71d/download"
-    style="width: 100%;")
-  p.intro-feature-desc
-    span
-      b About this image: &nbsp;
-    span.caption ParaView/Catalyst on 256,000 processes on Mira.
-
 script.
   function getRandomInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min)) + min;
   }
-  var imgdiv = document.querySelector('div#gallery');
-  var imgele = imgdiv.querySelector('img');
-  var imgcap = imgdiv.querySelector('span.caption');
+  var imgele = document.querySelector('img#banner-start-image');
+  var imgcap = document.querySelector('span#banner-start-caption');
   var images = [
-    { url: 'https://data.kitware.com/api/v1/item/5bd137508d777f06b936b71d/download',
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7d8d777f072b38863b/download',
       caption: 'ParaView/Catalyst on 256,000 processes on Mira.' },
-    { url: 'https://data.kitware.com/api/v1/item/5bd137368d777f06b936b6d9/download',
-      caption: 'Interactive in transit visualization of a 172k atom simulation of silicene formation with 128 LAMMPS ranks sending to 16 renderer ranks, all executed on Theta at the Argonne Leadership Computing Facility. OSPRay is used as the rendering engine.' },
-    { url: 'https://data.kitware.com/api/v1/item/5bd1377b8d777f06b936b7ab/download',
-      caption: 'A Nek5000 simulation instrumented with SENSEI to render via libSim.' },
-    { url: 'https://data.kitware.com/api/v1/item/5bd137758d777f06b936b795/download',
-      caption: 'Downstream cross flow cut-planes at various positions of the NREL WindPACT-1.5MW wid turbine.' },
-    { url: 'https://data.kitware.com/api/v1/item/5bd1372d8d777f06b936b6bf/download',
-      caption: 'An iso-contour of the velocity magnitude demonstrating the vortex structure evolution of the NREL WindPACT-1.5WM wind turbine. The data extract were creating using in-situ in Libsim, and the data was post-processed using VisIt.' },
-    { url: 'https://data.kitware.com/api/v1/item/5bd137608d777f06b936b75b/download',
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7a8d777f072b388623/download',
+      caption: 'In situ rendering of relativistic Laser Plasma Accelerator(LPA) simulation with WarpX on NERSC Cori. (ParaView/Catalyst)' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7b8d777f072b38862b/download',
+      caption: 'In situ rendering of relativistic Laser Plasma Accelerator(LPA) simulation with WarpX on NERSC Cori. (VisIt/libSim)' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7b8d777f072b388633/download',
       caption: 'Ghost cell information can be requested so isocontouring and other operations are rendered properly.' },
-    { url: 'https://data.kitware.com/api/v1/item/5bd137588d777f06b936b73f/download',
-      caption: 'In situ rendering of the AMReX advection mini-app running on Cori. The Python based analysis code uses Yt, a popular AMR aware rendering suite written exclusively in Python.' }
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7d8d777f072b388643/download',
+      caption: 'In situ rendering of a Rayleigh-Taylor instability computed with the AMReX IAM compressible Navier-Stokes simulation code with 4 levels of refinement using 2048 cores on NERSC Cori. (ParaView/Catalyst)' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7e8d777f072b38864b/download',
+      caption: 'In situ rendering of a Rayleigh-Taylor instability computed with the AMReX IAM compressible Navier-Stokes simulation code with 4 levels of refinement using 2048 cores on NERSC Cori. (VisIt/libSim)' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a7e8d777f072b388653/download',
+      caption: 'In situ rendering of the AMReX advection mini-app running on Cori. The Python based analysis code uses Yt, a popular AMR aware rendering suite written exclusively in Python.' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a808d777f072b38865b/download',
+      caption: 'Interactive in transit visualization of a 172k atom simulation of silicene formation with 128 LAMMPS ranks sending to 16 renderer ranks, all executed on Theta at the Argonne Leadership Computing Facility. OSPRay is used as the rendering engine.' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a808d777f072b388663/download',
+      caption: 'A Nek5000 simulation instrumented with SENSEI to render via libSim.' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a818d777f072b38866b/download',
+      caption: 'An iso-contour of the velocity magnitude demonstrating the vortex structure evolution of the NREL WindPACT-1.5WM wind turbine. The data extract were creating using in-situ in Libsim, and the data was post-processed using VisIt.' },
+    { url: 'https://data.kitware.com/api/v1/file/5c5c7a828d777f072b388673/download',
+      caption: 'Downstream cross flow cut-planes at various positions of the NREL WindPACT-1.5MW wid turbine.' }
   ];
+  // Start with a random image (other than the default), then proceed sequentially.
   var imageIdx = getRandomInt(1, images.length);
+  imgele.onload = function () { imgcap.innerText = images[imgele.getAttribute('idx')].caption; }
+  imgele.setAttribute('idx', 0); // Page load starts with entry 0.
   function nextImage() {
-    imageIdxDelta = getRandomInt(1, images.length);
+    imageIdxDelta = 1;
     imageIdx = (imageIdx + imageIdxDelta) % images.length;
+    imgele.setAttribute('idx', imageIdx);
     imgele.setAttribute('src', images[imageIdx].url);
-    imgcap.innerText = images[imageIdx].caption;
   }
   var timerId = setInterval(nextImage, 8000);
