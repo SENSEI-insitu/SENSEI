@@ -5,6 +5,8 @@ if (BUILD_TESTING)
   include(CTest)
 endif()
 
+set(TEST_NP "4" CACHE STRING "Number of procs to use in parallel tests")
+
 # senseiAddTest(name
 #   EXEC_NAME -- optional, name of the copiled test
 #   SOURCES  -- optional, source files to comile

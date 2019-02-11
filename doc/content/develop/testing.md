@@ -59,7 +59,7 @@ Now the parallel version of the test. Note that it makes use of the above test's
 ```CMake
 senseiAddTest(testHistogramParallel
   COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
-    ${MPIEXEC_MAX_NUMPROCS} testHistogram)
+    ${TEST_NP} testHistogram)
 ```
 
 #### Python
@@ -69,7 +69,7 @@ Here is an example of a Python test.
 senseiAddTest(testADIOSFlexpath
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testADIOS.sh
     ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
-    ${MPIEXEC_MAX_NUMPROCS} ${CMAKE_CURRENT_SOURCE_DIR}
+    ${TEST_NP} ${CMAKE_CURRENT_SOURCE_DIR}
     testADIOSFlexpath.bp FLEXPATH FLEXPATH 2
   FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS})
 ```
