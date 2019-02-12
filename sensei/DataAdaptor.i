@@ -4,6 +4,7 @@
 #include "MeshMetadata.h"
 #include "DataAdaptor.h"
 #include "Error.h"
+#include "senseiPyString.h"
 #include <sstream>
 #include <string>
 #include <vector>
@@ -82,7 +83,7 @@ VTK_DERIVED(DA)
     {
     std::ostringstream oss;
     self->ToStream(oss);
-    return PyString_FromString(oss.str().c_str());
+    return C_STRING_TO_PY_STRING(oss.str().c_str());
     }
 }
 
@@ -92,7 +93,7 @@ VTK_DERIVED(DA)
     {
     std::ostringstream oss;
     self->ToStream(oss);
-    return PyString_FromString(oss.str().c_str());
+    return C_STRING_TO_PY_STRING(oss.str().c_str());
     }
 }
 %include "MeshMetadata.h"

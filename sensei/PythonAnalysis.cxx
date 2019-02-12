@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <Python.h>
 
+#include "senseiPyString.h"
+
 // Macro to report error through sensei's normal mechanism
 // and include Python exception info and stack
 #define SENSEI_PYTHON_ERROR(_msg)                       \
@@ -256,7 +258,7 @@ int PythonAnalysis::Finalize()
 int PythonAnalysis::Initialize()
 {
   // initialize the interpreter
-  Py_SetProgramName(const_cast<char*>("PythonAnalysis"));
+  Py_SetProgramName(C_STRING_LITERAL("PythonAnalysis"));
   Py_Initialize();
 
   if (!this->Internals->ScriptFile.empty() && !this->Internals->ScriptModule.empty())

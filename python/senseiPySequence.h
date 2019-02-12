@@ -2,6 +2,7 @@
 #define senseiPySequence_h
 
 #include "senseiPyObject.h"
+#include "senseiPyString.h"
 #include "Error.h"
 
 #include <Python.h>
@@ -73,7 +74,7 @@ template <typename cpp_t>
 bool Copy(cpp_t *va, unsigned long n, PyObject *seq)
 {
   // not a sequence
-  if (!PySequence_Check(seq) || PyString_Check(seq))
+  if (!PySequence_Check(seq) || PY_STRING_CHECK(seq))
     return false;
 
   // nothing to do

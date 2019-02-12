@@ -2,7 +2,7 @@
 
 if [[ $# < 8 ]]
 then
-  echo "test_adios.sh [mpiexec] [npflag] [nproc] [src dir] [file] [write method] [read method] [nits]"
+  echo "test_adios.sh [mpiexec] [npflag] [nproc] [py exec] [src dir] [file] [write method] [read method] [nits]"
   exit 1
 fi
 
@@ -12,12 +12,12 @@ nproc=$3
 nproc_write=$nproc
 let nproc_read=$nproc-1
 nproc_read=$(( nproc_read < 1 ? 1 : nproc_read ))
-
-srcdir=$4
-file=$5
-writeMethod=$6
-readMethod=$7
-nits=$8
+pyexec=$4
+srcdir=$5
+file=$6
+writeMethod=$7
+readMethod=$8
+nits=$9
 delay=1
 maxDelay=30
 
@@ -28,7 +28,7 @@ rm -f ${file}
 echo "testing ${writeMethod} -> ${readMethod}"
 echo "M=${nproc_write} x N=${nproc_read}"
 
-${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testADIOS1Write.py ${file} ${writeMethod} ${nits} &
+${mpiexec} ${npflag} ${nproc_write} ${pyexec} ${srcdir}/testADIOS1Write.py ${file} ${writeMethod} ${nits} &
 writePid=$!
 
 if [[ "${readMethod}" == "BP" ]]
@@ -58,5 +58,5 @@ then
   done
 fi
 
-${mpiexec} ${npflag} ${nproc_read} python ${srcdir}/testADIOS1Read.py ${file} ${readMethod}
+${mpiexec} ${npflag} ${nproc_read} ${pyexec} ${srcdir}/testADIOS1Read.py ${file} ${readMethod}
 exit 0

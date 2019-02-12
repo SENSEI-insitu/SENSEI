@@ -85,7 +85,7 @@ def Execute(adaptor):
         t = adaptor.GetDataTime()
         ts = adaptor.GetDataTimeStep()
         fn = '%s_%s_%s_%d.txt'%(outFile, meshName, arrayName, ts)
-        f = file(fn, 'w')
+        f = open(fn, 'w')
         f.write('step : %d\n'%(ts))
         f.write('time : %0.6g\n'%(t))
         f.write('num bins : %d\n'%(numBins))
