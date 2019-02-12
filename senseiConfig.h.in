@@ -1,5 +1,5 @@
-#ifndef sensei_config_h
-#define sensei_config_h
+#ifndef senseiConfig_h
+#define senseiConfig_h
 
 #define SENSEI_VERSION "@SENSEI_VERSION@"
 #define SENSEI_VERSION_MAJOR @SENSEI_VERSION_MAJOR@
@@ -18,6 +18,8 @@
 #cmakedefine ENABLE_VTK_RENDERING
 #cmakedefine ENABLE_VTK_ACCELERATORS
 #cmakedefine ENABLE_VTKM
+
+#cmakedefine SENSEI_PYTHON_VERSION @SENSEI_PYTHON_VERSION@
 
 #ifdef __cplusplus
 // hide some differences betweem VisIt's VTK and more modern versions

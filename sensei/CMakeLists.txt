@@ -77,7 +77,7 @@ if (ENABLE_SENSEI)
 
     include_directories(SYSTEM ${PYTHON_INCLUDE_PATH} ${NUMPY_INCLUDE_DIR})
     include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}
-      ${CMAKE_CURRENT_BINARY_DIR})
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR}/python)
 
     add_library(_PythonAnalysis SHARED
       ${CMAKE_CURRENT_BINARY_DIR}/_PythonAnalysis.cxx)
