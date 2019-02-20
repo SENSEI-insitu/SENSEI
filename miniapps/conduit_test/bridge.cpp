@@ -1,55 +1,47 @@
-#include <conduit.hpp>
 #include <ConduitDataAdaptor.h>
-#include "bridge.h"
-#include <Error.h>
-#include <mpi.h>
-#include <string>
-
 #include <ConfigurableAnalysis.h>
-#include <vtkNew.h>
+#include <Error.h>
 #include <vtkSmartPointer.h>
-#include <vtkDataObject.h>
-#include <vtkObjectBase.h>
-#include <iostream>
 
-namespace BridgeGuts
+#include "bridge.h"
+
+namespace SenseiBridge
 {
   static vtkSmartPointer<sensei::ConduitDataAdaptor> DataAdaptor;
   static vtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
-  static MPI_Comm comm;
 }
 
-void initialize(MPI_Comm comm, 
-                conduit::Node* node, 
-                const std::string& config_file)
+void SenseiInitialize( const std::string& config_file )
 {
-  //setup communication
-  BridgeGuts::comm = comm;
-    
-  //data adaptor
-  BridgeGuts::DataAdaptor = vtkSmartPointer<sensei::ConduitDataAdaptor>::New();
-  BridgeGuts::DataAdaptor->Initialize(node); 
+  // Create data adaptor.
+  SenseiBridge::DataAdaptor = vtkSmartPointer<sensei::ConduitDataAdaptor>::New();
 
-  //analysis adaptor
-  BridgeGuts::AnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-  BridgeGuts::AnalysisAdaptor->Initialize(config_file); 
-}
-
-void analyze(conduit::Node* node)
-{
-  BridgeGuts::DataAdaptor->SetNode(node);
-  if(!BridgeGuts::AnalysisAdaptor->Execute(BridgeGuts::DataAdaptor))
+  // Create analysis adaptor.
+  SenseiBridge::AnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
+  if( SenseiBridge::AnalysisAdaptor->Initialize(config_file) < 0 )
   {
-    SENSEI_ERROR("ERROR: Failed to execute analysis")
-    abort();
+    SENSEI_ERROR( "ERROR: Failed to create analysis" );
+    exit( -1 );
+  }
+}
+
+void SenseiAnalyze( conduit::Node &node )
+{
+  SenseiBridge::DataAdaptor->SetNode( &node );
+  if( !SenseiBridge::AnalysisAdaptor->Execute(SenseiBridge::DataAdaptor) )
+  {
+    SENSEI_ERROR("ERROR: Failed to execute analysis");
+    exit( -1 );
   }
     
-  BridgeGuts::DataAdaptor->ReleaseData();
+  SenseiBridge::DataAdaptor->ReleaseData();
 }
 
-void finalize()
+void SenseiFinalize()
 {
-  BridgeGuts::AnalysisAdaptor->Finalize();
-  BridgeGuts::AnalysisAdaptor = NULL;
-  BridgeGuts::DataAdaptor     = NULL;
+  SenseiBridge::AnalysisAdaptor->Finalize();
+
+  SenseiBridge::AnalysisAdaptor = nullptr;
+  SenseiBridge::DataAdaptor     = nullptr;
 }
+

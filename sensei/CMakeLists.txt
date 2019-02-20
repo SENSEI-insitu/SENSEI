@@ -16,7 +16,8 @@ if (ENABLE_SENSEI)
 
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
-    list(APPEND senseiCore_libs sConduit)
+    #list(APPEND senseiCore_libs sConduit)
+    list(APPEND senseiCore_libs)
   endif()
 
   if(ENABLE_ASCENT)

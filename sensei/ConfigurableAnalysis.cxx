@@ -272,6 +272,78 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
 }
 
 // --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
+{
+#ifndef ENABLE_ASCENT
+  (void)node;
+  SENSEI_ERROR("Ascent was requested but is disabled in this build");
+  return( -1 );
+#else
+
+  vtkNew<AscentAnalysisAdaptor> ascent;
+  if (this->Comm != MPI_COMM_NULL)
+    ascent->SetCommunicator(this->Comm);
+
+  this->Analyses.push_back(ascent.GetPointer());
+
+  std::string field = node.attribute("plotvars").value();
+
+  conduit::Node actions;
+  if(node.attribute("action"))
+  {
+    std::string action = node.attribute("action").value();
+    if(action == "add_scenes")
+    {
+      if(AscentGetScene(node, actions))
+        return( -1 );
+    }
+    else if(action == "add_pipelines")
+    {
+      if(AscentGetPipeline(node, actions))
+        return( -1 );
+    }
+    else if(action == "add_extracts")
+    {
+      SENSEI_ERROR("add_extracts is not available")
+      return( -1 );
+    }
+    else if(action == "execute")
+    {
+      actions["action"] = "execute";
+    }
+    else if(action == "reset")
+    {
+      actions["action"] = "reset";
+    }
+    else
+    {
+      SENSEI_ERROR("XML: action " << action << " is not supported.")
+      return( -1 );
+    }
+  }
+
+  conduit::Node setup;
+  if(node.attribute("backend"))
+    setup["backend"] = node.attribute("backend").value();
+
+  if(node.attribute("image-width"))
+    setup["image_width"] = node.attribute("image-width").as_int();
+  if(node.attribute("image-height"))
+    setup["image_height"] = node.attribute("image-height").as_int();
+
+  if(node.attribute("json"))
+  {
+    std::string json_file = node.attribute("json").value();
+    ascent->Initialize(json_file, setup);
+  }
+  else
+    ascent->Initialize(actions, setup);
+
+  return( 0 );
+#endif
+}
+
+// --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 {
 #ifndef ENABLE_VTKM

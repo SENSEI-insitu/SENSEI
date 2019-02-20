@@ -47,26 +47,33 @@
 /// file: ascent_render_example.cpp
 ///
 //-----------------------------------------------------------------------------
-
 #include <iostream>
-
+#include <mpi.h>
 #include <ascent.hpp>
-
 #include <conduit_blueprint.hpp>
 
 using namespace ascent;
 using namespace conduit;
 
-
 int main(int argc, char **argv)
 {
+    int mpiSize, mpiRank;
 
-    std::cout << ascent::about() << std::endl;
+    MPI_Init( &argc, &argv );
+    MPI_Comm_size( MPI_COMM_WORLD, &mpiSize );
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpiRank );
+
+    // Debug info
+    //std::cout << "MPI size: " << mpiSize << " rank: " << mpiRank << std::endl;
+    //std::cout << ascent::about() << std::endl;
     
     Ascent a;
+
+    Node ascent_opts;
+    ascent_opts["mpi_comm"] = MPI_Comm_c2f( MPI_COMM_WORLD );
     
     // open ascent
-    a.open();
+    a.open( ascent_opts );
 
     // create example mesh using conduit blueprint
     Node n_mesh;
@@ -81,7 +88,7 @@ int main(int argc, char **argv)
     // declare a scene to render the dataset
     Node scenes;
     scenes["s1/plots/p1/type"] = "pseudocolor";
-    scenes["s1/plots/p1/params/field"] = "braid";
+    scenes["s1/plots/p1/field"] = "braid";
     // Set the output file name (ascent will add ".png")
     scenes["s1/image_prefix"] = "out_ascent_render_3d";
 
@@ -99,5 +106,7 @@ int main(int argc, char **argv)
     // close alpine
     a.close();
 
+    MPI_Finalize();
+    return( 1 );
 }
 

@@ -1,14 +1,16 @@
 #include "AscentSchema.h"
-#include <pugixml.hpp>
 #include "Error.h"
+
+//
+// Great information on the following web page for the pipeline actions.
+// https://ascent.readthedocs.io/en/latest/Actions/Pipelines.html
+//
 
 namespace sensei
 {
 
 // --------------------------------------------------------------------------
-
-int
-Get3Slice(pugi::xml_node &node, conduit::Node &actions)
+static int Get3Slice(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["pipelines/pl1/f1/type"] = "3slice";
 
@@ -20,9 +22,10 @@ Get3Slice(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
+
   double x_offset = 0.0, y_offset = 0.0, z_offset = 0.0;
   if(node.attribute("offset"))
     sscanf(node.attribute("offset").value(), "%lg,%lg,%lg", &x_offset, &y_offset, &z_offset);
@@ -31,17 +34,12 @@ Get3Slice(pugi::xml_node &node, conduit::Node &actions)
   actions["pipelines/pl1/f1/params/y_offset"] = y_offset;
   actions["pipelines/pl1/f1/params/z_offset"] = z_offset;
 
-  return 0;
+  return( 0 );
 }
 
-
 // --------------------------------------------------------------------------
-
-
-int
-GetSlice(pugi::xml_node &node, conduit::Node &actions)
+static int GetSlice(pugi::xml_node &node, conduit::Node &actions)
 {
-    std::cout << "IN SLICE" <<std::endl;
   actions["pipelines/pl1/f1/type"] = "slice";
 
   std::string field;
@@ -52,8 +50,8 @@ GetSlice(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
 
   double x = 0.0, y = 0.0, z = 0.0;
@@ -61,8 +59,8 @@ GetSlice(pugi::xml_node &node, conduit::Node &actions)
 
   if(node.attribute("plane"))
     sscanf(node.attribute("plane").value(), "%lg,%lg,%lg", &x, &y, &z);
-  if(node.attribute("normals"))
-    sscanf(node.attribute("normals").value(), "%lg,%lg,%lg", &nx, &ny, &nz);
+  if(node.attribute("normal"))
+    sscanf(node.attribute("normal").value(), "%lg,%lg,%lg", &nx, &ny, &nz);
 
   actions["pipelines/pl1/f1/params/point/x"] = x;
   actions["pipelines/pl1/f1/params/point/y"] = y;
@@ -72,16 +70,11 @@ GetSlice(pugi::xml_node &node, conduit::Node &actions)
   actions["pipelines/pl1/f1/params/normal/y"] = ny;
   actions["pipelines/pl1/f1/params/normal/z"] = nz;
 
-  actions.print();
-  return 0;
+  return( 0 );
 }
 
-
 // --------------------------------------------------------------------------
-
-
-int
-GetClip(pugi::xml_node &node, conduit::Node &actions)
+static int GetClip(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["pipelines/pl1/f1/type"] = "clip";
 
@@ -93,8 +86,8 @@ GetClip(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
 
   actions["pipelines/pl1/f1/params/topology"] = "mesh";
@@ -103,7 +96,6 @@ GetClip(pugi::xml_node &node, conduit::Node &actions)
   std::string invert = "false";
   if(node.attribute("shape"))
     shape = node.attribute("shape").value();
-  std::cout << "SHAPE: " << shape << std::endl;
 
   if(node.attribute("invert"))
     invert = node.attribute("invert").value();
@@ -147,8 +139,8 @@ GetClip(pugi::xml_node &node, conduit::Node &actions)
 
     if(node.attribute("plane"))
       sscanf(node.attribute("plane").value(), "%lg,%lg,%lg", &x, &y, &z);
-    if(node.attribute("normals"))
-      sscanf(node.attribute("normals").value(), "%lg,%lg,%lg", &nx, &ny, &nz);
+    if(node.attribute("normal"))
+      sscanf(node.attribute("normal").value(), "%lg,%lg,%lg", &nx, &ny, &nz);
 
     actions["pipelines/pl1/f1/params/plane/point/x"] = x;
     actions["pipelines/pl1/f1/params/plane/point/y"] = y;
@@ -160,18 +152,15 @@ GetClip(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("Clip must specify a sphere, box, or plane")
-    return -1;
+    SENSEI_ERROR("Clip must specify a sphere, box, or plane");
+    return( -1 );
   }
-  return 0;
+
+  return( 0 );
 }
 
-
 // --------------------------------------------------------------------------
-
-
-int
-GetClipWithField(pugi::xml_node &node, conduit::Node &actions)
+static int GetClipWithField(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["pipelines/pl1/f1/type"] = "clip_with_field";
 
@@ -183,8 +172,8 @@ GetClipWithField(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
 
   std::string invert = "false";
@@ -197,15 +186,11 @@ GetClipWithField(pugi::xml_node &node, conduit::Node &actions)
   actions["pipelines/pl1/f1/params/clip_value"] = clip_value;
   actions["pipelines/pl1/f1/params/invert"]     = invert;
 
-  return 0;
+  return( 0 );
 }
 
-
 // --------------------------------------------------------------------------
-
-
-int
-GetThreshold(pugi::xml_node &node, conduit::Node &actions)
+static int GetThreshold(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["pipelines/pl1/f1/type"] = "threshold";
 
@@ -217,8 +202,8 @@ GetThreshold(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
   if(node.attribute("min_value") && node.attribute("max_value"))
   {
@@ -232,18 +217,14 @@ GetThreshold(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("Threshold requires a min_value and max_value defined")
-    return -1;
+    SENSEI_ERROR("Threshold requires a min_value and max_value defined");
+    return( -1 );
   }
-  return 0;
+  return( 0 );
 }
 
-
-
 // --------------------------------------------------------------------------
-
-int
-GetIsoVolume(pugi::xml_node &node, conduit::Node &actions)
+static int GetIsoVolume(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["pipelines/pl1/f1/type"] = "iso_volume";
 
@@ -255,9 +236,10 @@ GetIsoVolume(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
+
   double min_value = 0.0, max_value = 10.0;
   if(node.attribute("min_value"))
     sscanf(node.attribute("min_value").value(), "%lg", &min_value);
@@ -267,15 +249,11 @@ GetIsoVolume(pugi::xml_node &node, conduit::Node &actions)
   actions["pipelines/pl1/f1/params/min_value"] = min_value;
   actions["pipelines/pl1/f1/params/max_value"] = max_value;
 
-  return 0;
+  return( 0 );
 }
 
-
 // --------------------------------------------------------------------------
-
-
-int
-GetContour(pugi::xml_node &node, conduit::Node &actions)
+static int GetContour(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["pipelines/pl1/f1/type"] = "contour";
 
@@ -287,8 +265,8 @@ GetContour(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have field defined");
+    return( -1 );
   }
   if(node.attribute("value") || node.attribute("levels"))
   {
@@ -307,19 +285,14 @@ GetContour(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("contour pipeline must have values or levels defined")
-    return -1;
+    SENSEI_ERROR("contour pipeline must have values or levels defined");
+    return( -1 );
   }
-  return 0;
+  return( 0 );
 }
 
-
-
 // --------------------------------------------------------------------------
-
-
-int
-GetScene(pugi::xml_node &node, conduit::Node &actions)
+int AscentGetScene(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["action"] = "add_scenes";
 
@@ -331,29 +304,26 @@ GetScene(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_scenes action must have plot defined")
-    return -1;
+    SENSEI_ERROR("add_scenes action must have plot defined");
+    return( -1 );
   }
 
   std::string field;
   if(node.attribute("plotvars"))
   {
     field = node.attribute("plotvars").value();
-    actions["scenes/scene1/plots/plt1/params/field"] = field;
+    actions["scenes/scene1/plots/plt1/field"] = field;
   }
   else
   {
-    SENSEI_ERROR("add_scenes action must have field defined")
-    return -1;
+    SENSEI_ERROR("add_scenes action must have field defined");
+    return( -1 );
   }
-  return 0;
+  return( 0 );
 }
 
-
 // --------------------------------------------------------------------------
-
-int
-GetPipeline(pugi::xml_node &node, conduit::Node &actions)
+int AscentGetPipeline(pugi::xml_node &node, conduit::Node &actions)
 {
   actions["action"] = "add_pipelines";
 
@@ -364,51 +334,51 @@ GetPipeline(pugi::xml_node &node, conduit::Node &actions)
   }
   else
   {
-    SENSEI_ERROR("add_pipelines action must have pipeline defined")
-    return -1;
+    SENSEI_ERROR("add_pipelines action must have pipeline defined");
+    return( -1 );
   }
 
   if(pipeline == "contour")
   {
     if(GetContour(node, actions))
-      return -1;
+      return( -1 );
   }
   else if(pipeline == "threshold")
   {
     if(GetThreshold(node, actions))
-      return -1;
+      return( -1 );
   }
   else if(pipeline == "slice")
   {
     if(GetSlice(node, actions))
-      return -1;
+      return( -1 );
   }
   else if(pipeline == "3slice")
   {
     if(Get3Slice(node, actions))
-      return -1;
+      return( -1 );
   }
   else if(pipeline == "clip")
   {
     if(GetClip(node, actions))
-      return -1;
+      return( -1 );
   }
   else if(pipeline == "clip_with_field")
   {
     if(GetClipWithField(node, actions))
-      return -1;
+      return( -1 );
   }
   else if(pipeline == "iso_volume")
   {
     if(GetIsoVolume(node, actions))
-      return -1;
+      return( -1 );
   }
   else
   {
-    SENSEI_ERROR("Pipeline "  << pipeline << " is not a supported pipeline")
-    return -1;
+    SENSEI_ERROR("Pipeline "  << pipeline << " is not a supported pipeline");
+    return( -1 );
   }
-  return 0;
+  return( 0 );
 }
 
 }

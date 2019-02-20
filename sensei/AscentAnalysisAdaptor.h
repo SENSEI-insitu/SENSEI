@@ -1,11 +1,11 @@
 #ifndef sensei_AscentAnalysisAdaptor_h
 #define sensei_AscentAnalysisAdaptor_h
 
-#include "AnalysisAdaptor.h"
-#include "conduit.hpp"
-#include "ascent.hpp"
+#include <conduit.hpp>
+#include <ascent.hpp>
 #include <string>
-#include <mpi.h>
+
+#include "AnalysisAdaptor.h"
 
 namespace sensei
 {
@@ -20,9 +20,6 @@ public:
   static AscentAnalysisAdaptor* New();
   senseiTypeMacro(AscentAnalysisAdaptor, AnalysisAdaptor);
 
-
-  void GetFieldsFromActions();
-  // Let the caller explicitly initialize.
   void Initialize(conduit::Node xml_actions, conduit::Node setup);
   void Initialize(std::string json_file_path, conduit::Node setup);
 
@@ -37,11 +34,14 @@ protected:
 private:
   AscentAnalysisAdaptor(const AscentAnalysisAdaptor&)=delete; // Not implemented.
   void operator=(const AscentAnalysisAdaptor&)=delete; // Not implemented.
+
+  void GetFieldsFromActions();
+
   ascent::Ascent a;
   conduit::Node actionNode;
   std::set<std::string> Fields;
 };
 
-}
+} // namespace sensei
 
 #endif
