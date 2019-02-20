@@ -1,0 +1,7 @@
+ <!-- SENSEI ConfigurableAnalysis Configuration file.
+      set enabled="1" on analyses you wish to enable -->
+<sensei>
+  <!--analysis type="ascent" action="add_pipelines" pipeline="contour" levels="5" plot="pseudocolor" plotvars="dist" enabled="1" /-->
+  <analysis type="ascent" action="add_scenes" plot="pseudocolor" plotvars="dist" enabled="1" />
+</sensei>
+
