@@ -5,6 +5,7 @@
 
 #include <string>
 #include <mpi.h>
+#include <pugixml.hpp>
 
 namespace sensei
 {
