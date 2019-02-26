@@ -36,17 +36,17 @@ data in a consistent way; and a number of implementations of both. For more
 information see our [SC16 paper](http://dl.acm.org/citation.cfm?id=3015010).
 
 #### DataAdaptors
-| Class            | Description |
-|------------------|-------------|
-| DataAdaptor      | Base class declaring data adaptor API |
-| VTKDataAdaptor   | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
-| ADIOSDataAdaptor | Implementation that serves up data from ADIOS. For use in an ADIOS End point. |
+| Class             | Description |
+|-------------------|-------------|
+| DataAdaptor       | Base class declaring data adaptor API |
+| VTKDataAdaptor    | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
+| ADIOS1DataAdaptor | Implementation that serves up data from ADIOS 1. For use in an ADIOS 1 End point. |
 
 #### AnalysisAdaptors
 | Class                   | Description |
 |-------------------------|-------------|
 | AnalysisAdaptor         | Base class declaring analysis adaptor API |
-| ADIOSAnalysisAdaptor    | Implementation for using ADIOS from your simulation. |
+| ADIOS1AnalysisAdaptor    | Implementation for using ADIOS 1 from your simulation. |
 | LibsimAnalysisAdaptor   | Implementation for using Libsim from your simulation. |
 | CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulaiton. |
 | Autocorrelation         | Implementation that computes [autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation)  |
@@ -78,9 +78,10 @@ mini-app's source directory.
   usage of in situ infrastructures and custom analyses from Python.
 
 ### End points
-End points are programs that receive and analyze simulation data through ADIOS.
-The end point reads data being serialized by the ADIOS analysis adaptor and
-pass it back into a SENSEI bridge for further analysis.
+End points are programs that receive and analyze simulation data through transport
+layers such as ADIOS and LibIS. The end point uses the transport's data adaptor to
+reads data being serialized by the transport's analysis adaptor and pass it back
+into a SENSEI analysis for further processing.
 
 * [ADIOSAnalysisEndPoint](endpoints/README.md)
 
@@ -108,7 +109,7 @@ $ make install
 | `ENABLE_VTK_GENERIC_ARRAYS` | OFF | Enables use of VTK's generic array feature.  |
 | `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
 | `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
-| `ENABLE_ADIOS` | OFF | Enables ADIOS adaptors and endpoints. Set `ADIOS_DIR`. |
+| `ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
 | `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
 | `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
 | `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
@@ -121,9 +122,9 @@ $ make install
 | `LIBSIM_DIR` | | Path to libsim install. |
 
 
-### For use with ADIOS
+### For use with ADIOS 1
 ```bash
-cmake -DENABLE_SENSEI=ON -DENABLE_ADIOS=ON -DVTK_DIR=[your path] -DADIOS_DIR=[your path] ..
+cmake -DENABLE_SENSEI=ON -DENABLE_ADIOS1=ON -DVTK_DIR=[your path] -DADIOS_DIR=[your path] ..
 ```
 Can be used with either `ParaView_DIR` when configuring in conjunction with
 Catalyst, or `VTK_DIR` otherwise.
@@ -187,7 +188,7 @@ approvals from the U.S. Dept. of Energy).
 * [pugixml](https://github.com/zeux/pugixml), Copyright (c) 2006-2016 Arseny Kapoulkine.
 
 The SENSEI framework makes use of (links to) the following software:
-* [ADIOS](https://www.olcf.ornl.gov/center-projects/adios/), Copyright (c) 2008 - 2009.
+* [ADIOS 1](https://www.olcf.ornl.gov/center-projects/adios/), Copyright (c) 2008 - 2009.
   UT-BATTELLE, LLC. Copyright (c) 2008 - 2009.  Georgia Institute of Technology.
 * [ParaView/Catalyst](https://gitlab.kitware.com/paraview/paraview), Copyright (c) 2005-2008 Sandia Corporation, Kitware Inc.
   Sensei requires ParaView v5.5.1 or later when `ENABLE_CATALYST` is on
