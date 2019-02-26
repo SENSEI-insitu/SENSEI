@@ -44,7 +44,7 @@ Arguments to *senseiAddTest* are:
 3. **EXEC_NAME** - name to compile the test executable to (optional). If not given then the test name is used. Compilation of a test executable is triggered by the presence of a list of SOURCES.
 3. **SOURCES** - a list of source code files needed to compile the test executable (optional).
 4. **LIBS** - a list of additional libraries needed to link the test executable (optional)
-5. **FEATURES** - a list of values used in logical AND operation to determine if the test should be enabled or not. For example calling *senseiAddTest* with `FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS}` will enable the test only when both Python and ADIOS features are enabled. Note that this argument expects *values* hence use of the CMake dereference operator $.
+5. **FEATURES** - a list of values used in logical AND operation to determine if the test should be enabled or not. For example calling *senseiAddTest* with `FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1}` will enable the test only when both Python and ADIOS 1 features are enabled. Note that this argument expects *values* hence use of the CMake dereference operator $.
 6. **REQ_SENSEI_DATA** - a flag that indicates SENSEI's test data repo is needed to run the test. If the data repo is not found then the test will be disabled.
 
 ### examples
@@ -67,11 +67,11 @@ senseiAddTest(testHistogramParallel
 Here is an example of a Python test.
 ```CMake
 senseiAddTest(testADIOSFlexpath
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testADIOS.sh
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testADIOS1.sh
     ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
     ${TEST_NP} ${CMAKE_CURRENT_SOURCE_DIR}
     testADIOSFlexpath.bp FLEXPATH FLEXPATH 2
-  FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS})
+  FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 ```
 
 # Setting up a new test system

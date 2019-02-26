@@ -20,8 +20,8 @@
 #include "VTKmVolumeReductionAnalysis.h"
 #include "VTKmCDFAnalysis.h"
 #endif
-#ifdef ENABLE_ADIOS
-#include "ADIOSAnalysisAdaptor.h"
+#ifdef ENABLE_ADIOS1
+#include "ADIOS1AnalysisAdaptor.h"
 #endif
 #ifdef ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
@@ -374,12 +374,12 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
 {
-#ifndef ENABLE_ADIOS
+#ifndef ENABLE_ADIOS1
   (void)node;
-  SENSEI_ERROR("ADIOS was requested but is disabled in this build")
+  SENSEI_ERROR("ADIOS 1 was requested but is disabled in this build")
   return -1;
 #else
-  auto adios = vtkSmartPointer<ADIOSAnalysisAdaptor>::New();
+  auto adios = vtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adios->SetCommunicator(this->Comm);
@@ -395,7 +395,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   DataRequirements req;
   if (req.Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize ADIOS.")
+    SENSEI_ERROR("Failed to initialize ADIOS 1.")
     return -1;
     }
   adios->SetDataRequirements(req);
