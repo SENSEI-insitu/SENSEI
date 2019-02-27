@@ -125,7 +125,7 @@ def write_data(file_name, method, n_its):
     da.SetDataTime(t)
     da.SetDataTimeStep(it)
 
-    for meshName,mesh in meshes.iteritems():
+    for meshName,mesh in meshes.items():
       da.SetDataObject(meshName, mesh)
 
     # execute the analysis adaptor

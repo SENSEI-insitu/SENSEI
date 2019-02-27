@@ -3,6 +3,8 @@
 
 #include <Python.h>
 #include <string>
+#include "senseiPyString.h"
+#include "senseiPyInteger.h"
 
 namespace senseiPyObject
 {
@@ -33,11 +35,11 @@ template <> struct CppTT<PY_T>                                         \
   static bool IsType(PyObject *obj) { return PY_CHECK(obj); }          \
   static type Value(PyObject *obj) { return PY_AS_CPP(obj); }          \
 };
-senseiPyObject_CppTT_declare(int, long, PyInt_Check, PyInt_AsLong)
-senseiPyObject_CppTT_declare(long, long, PyLong_Check, PyLong_AsLong)
+senseiPyObject_CppTT_declare(int, long, PY_INTEGER_CHECK, PY_INTEGER_TO_C_INT)
+senseiPyObject_CppTT_declare(long, long, PY_INTEGER_CHECK, PyLong_AsLong)
 senseiPyObject_CppTT_declare(float, double, PyFloat_Check, PyFloat_AsDouble)
-senseiPyObject_CppTT_declare(char*, std::string, PyString_Check, PyString_AsString)
-senseiPyObject_CppTT_declare(bool, int, PyBool_Check, PyInt_AsLong)
+senseiPyObject_CppTT_declare(char*, std::string, PY_STRING_CHECK, PY_STRING_TO_C_STRING)
+senseiPyObject_CppTT_declare(bool, int, PyBool_Check, PY_INTEGER_TO_C_INT)
 
 /// PyTT, traits class for working with PyObject's
 /**
@@ -70,16 +72,16 @@ template <> struct PyTT<CPP_T>                             \
   static PyObject *NewObject(CPP_T val)                    \
   { return CPP_AS_PY(val); }                               \
 };
-senseiPyObject_PyTT_declare(char, int, PyInt_FromLong)
-senseiPyObject_PyTT_declare(short, int, PyInt_FromLong)
-senseiPyObject_PyTT_declare(int, int, PyInt_FromLong)
-senseiPyObject_PyTT_declare(long, int, PyInt_FromLong)
-senseiPyObject_PyTT_declare(long long, int, PyInt_FromSsize_t)
-senseiPyObject_PyTT_declare(unsigned char, int, PyInt_FromSize_t)
-senseiPyObject_PyTT_declare(unsigned short, int, PyInt_FromSize_t)
-senseiPyObject_PyTT_declare(unsigned int, int, PyInt_FromSize_t)
-senseiPyObject_PyTT_declare(unsigned long, int, PyInt_FromSize_t)
-senseiPyObject_PyTT_declare(unsigned long long, int, PyInt_FromSize_t)
+senseiPyObject_PyTT_declare(char, int, C_INT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(short, int, C_INT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(int, int, C_INT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(long, int, C_INT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(long long, int, C_LLINT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(unsigned char, int, C_UINT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(unsigned short, int, C_UINT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(unsigned int, int, C_UINT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(unsigned long, int, C_UINT_TO_PY_INTEGER)
+senseiPyObject_PyTT_declare(unsigned long long, int, C_ULLINT_TO_PY_INTEGER)
 senseiPyObject_PyTT_declare(float, float, PyFloat_FromDouble)
 senseiPyObject_PyTT_declare(double, float, PyFloat_FromDouble)
 // strings are a special case
@@ -87,7 +89,7 @@ template <> struct PyTT<std::string>
 {
   typedef char* Tag;
   static PyObject *NewObject(const std::string &s)
-  { return PyString_FromString(s.c_str()); }
+  { return C_STRING_TO_PY_STRING(s.c_str()); }
 };
 
 // dispatch macro.
