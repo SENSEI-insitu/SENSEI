@@ -3,6 +3,7 @@
 #include "Error.h"
 #include "Timer.h"
 #include "VTKUtils.h"
+#include "Utils.h"
 #include "DataRequirements.h"
 
 #include "Autocorrelation.h"
@@ -53,83 +54,6 @@ using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 
 namespace sensei
 {
-
-static
-int requireAttribute(pugi::xml_node &node, const char *attributeName)
-{
-  if (!node.attribute(attributeName))
-    {
-    SENSEI_ERROR(<< node.name()
-      << " is missing required attribute " << attributeName)
-    return -1;
-    }
-  return 0;
-}
-
-
-// --------------------------------------------------------------------------
-static int parse(MPI_Comm comm, const std::string &filename,
-  pugi::xml_document &doc)
-{
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
-
-  unsigned long nbytes = 0;
-  char *buffer = nullptr;
-  if(rank == 0)
-    {
-    FILE *f = fopen(filename.c_str(), "rb");
-    if (f)
-      {
-      setvbuf(f, nullptr, _IONBF, 0);
-      fseek(f, 0, SEEK_END);
-      nbytes = ftell(f);
-      fseek(f, 0, SEEK_SET);
-      buffer = static_cast<char*>(
-          pugi::get_memory_allocation_function()(nbytes));
-      unsigned long nread = fread(buffer, 1, nbytes, f);
-      fclose(f);
-      if (nread == nbytes)
-        {
-        MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
-        MPI_Bcast(buffer, nbytes, MPI_CHAR, 0, comm);
-        }
-      else
-        {
-        SENSEI_ERROR("read error on \""  << filename << "\"" << endl
-          << strerror(errno))
-        nbytes = 0;
-        MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
-        return -1;
-        }
-      }
-    else
-      {
-      SENSEI_ERROR("failed to open \""  << filename << "\"" << endl
-        << strerror(errno))
-      MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
-      return -1;
-      }
-    }
-  else
-    {
-    MPI_Bcast(&nbytes, 1, MPI_UNSIGNED_LONG, 0, comm);
-    if (!nbytes)
-        return -1;
-    buffer = static_cast<char*>(pugi::get_memory_allocation_function()(nbytes));
-    MPI_Bcast(buffer, nbytes, MPI_CHAR, 0, comm);
-    }
-  pugi::xml_parse_result result = doc.load_buffer_inplace_own(buffer, nbytes);
-  if (!result)
-    {
-    SENSEI_ERROR("XML [" << filename << "] parsed with errors, attr value: ["
-      << doc.child("node").attribute("attr").value() << "]" << endl
-      << "Error description: " << result.description() << endl
-      << "Error offset: " << result.offset << endl)
-    return -1;
-    }
-  return 0;
-}
 
 struct ConfigurableAnalysis::InternalsType
 {
@@ -220,7 +144,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 {
-  if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
+  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize Histogram");
     return -1;
@@ -267,7 +191,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   return -1;
 #else
 
-  if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
+  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize VTKmContourAnalysis");
     return -1;
@@ -304,8 +228,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
 #else
-  if (requireAttribute(node, "mesh") || requireAttribute(node, "field") ||
-    requireAttribute(node, "association") || requireAttribute(node, "reduction"))
+  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "field") ||
+    Utils::requireAttributeXML(node, "association") || Utils::requireAttributeXML(node, "reduction"))
     {
     SENSEI_ERROR("Failed to initialize VTKmVolumeReductionAnalysis");
     return -1;
@@ -340,9 +264,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
   return -1;
 #else
   if (
-    requireAttribute(node, "mesh") ||
-    requireAttribute(node, "field") ||
-    requireAttribute(node, "association")
+    Utils::requireAttributeXML(node, "mesh") ||
+    Utils::requireAttributeXML(node, "field") ||
+    Utils::requireAttributeXML(node, "association")
     )
     {
     SENSEI_ERROR("Failed to initialize VTKmCDFAnalysis");
@@ -702,7 +626,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 {
-  if (requireAttribute(node, "mesh") || requireAttribute(node, "array"))
+  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize Autocorrelation");
     return -1;
@@ -923,8 +847,11 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
   timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
   pugi::xml_document doc;
-  if (parse(this->GetCommunicator(), filename, doc))
+  if (Utils::parseXML(this->GetCommunicator(), rank, filename, doc))
     {
     SENSEI_ERROR("Failed to load, parse, and share XML configuration")
     MPI_Abort(this->GetCommunicator(), -1);
@@ -932,6 +859,17 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
     }
 
   pugi::xml_node root = doc.child("sensei");
+
+  return Initialize(root);
+}
+
+//----------------------------------------------------------------------------
+int Initialize(const pugi::xml_node &root)
+{
+  timer::MarkEvent event("ConfigurableAnalysis::Initialize");
+
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
