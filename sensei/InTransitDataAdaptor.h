@@ -85,11 +85,11 @@ public:
   virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr metadata) = 0;
 
   // Enables an analysis adaptor to programmatically select the partitioning mode.
-  void SetPartitioner(sensei::Partitioner* partitioner);
+  void SetPartitioner(sensei::PartitionerPtr& partitioner);
 
   // Query the current partitioner.
   // Usage example: this->GetPartitioner()->GetPartition(remote, local) 
-  sensei::Partitioner* GetPartitioner();
+  sensei::PartitionerPtr& GetPartitioner();
 
   // New API that is called before the application is brought down
   virtual int Finalize() = 0;

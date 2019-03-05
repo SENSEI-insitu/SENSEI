@@ -1,7 +1,7 @@
 #ifndef InTransitAdaptorFactory_h
 #define InTransitAdaptorFactory_h
 
-#include "DataAdaptor.h"
+#include "InTransitDataAdaptor.h"
 #include "AnalysisAdaptor.h"
 
 #include <vtkSmartPointer.h>
@@ -10,11 +10,11 @@
 namespace sensei
 {
 
-using DataAdaptorPtr = vtkSmartPointer<sensei::DataAdaptor>;
+using InTransitDataAdaptorPtr = vtkSmartPointer<sensei::InTransitDataAdaptor>;
 using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 
 // the InTransitAdaptorFactory creates a sensei::ConfigurableAnalysis adaptor
-// and ensei::InTransitDataAdaptor based on a SENSEI XML config file. The
+// and sensei::InTransitDataAdaptor based on a SENSEI XML config file. The
 // factory will be used in in transit end-points.
 //
 // The factory uses the 'type' attribute to construct the appropriate
@@ -32,7 +32,7 @@ using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 // Illustrative example of the XML:
 //
 // <sensei>
-//   <data_adaptor transport="adios_2" ... >
+//   <data_adaptor transport="adios_2" partitioner="block" ... >
 //     ...
 //   </data_adaptor>
 //
@@ -45,10 +45,10 @@ using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 namespace InTransitAdaptorFactory
 {
 
-int Initialize(const std::string &fileName,
+int Initialize(const std::string &fileName, MPI_Comm comm,
   AnalysisAdaptor *&analysisAdaptor, InTransitDataAdaptor *&dataAdaptor);
 
-int Initialize(const pugi::xml_node &root,
+int Initialize(const pugi::xml_node &root, MPI_Comm comm,
   AnalysisAdaptor *&analysisAdaptor, InTransitDataAdaptor *&dataAdaptor);
 
 }

@@ -13,7 +13,7 @@ namespace sensei
 class BlockPartitioner : public sensei::Partitioner
 {
 public:
-  BlockPartitioner();
+  BlockPartitioner(int numLocalRanks);
   ~BlockPartitioner();
 
   BlockPartitioner(const BlockPartitioner&) = delete;

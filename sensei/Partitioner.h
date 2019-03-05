@@ -22,7 +22,7 @@ namespace sensei
 ///
 ///  mapped The mapped method of distribution will allocate blocks
 ///         in-order as listed in a nested 'block_owner' and 'block_id'
-///         elements.  each entry in the block element has a
+///         elements.  Each entry in the block element has a
 ///         corresponding entry in the proc element naming the mpi rank
 ///         where the block lands
 class Partitioner 
@@ -31,12 +31,16 @@ public:
   virtual int GetPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local) = 0;
 
 protected:
-  Partitioner();
-  virtual ~Partitioner();
+  Partitioner(int numLocalRanks) : _NumLocalRanks(numLocalRanks) {}
+  virtual ~Partitioner() {}
 
   Partitioner(const Partitioner&) = delete;
   void operator=(const Partitioner&) = delete;
+
+  int _NumLocalRanks;
 };
+
+using PartitionerPtr = std::shared_ptr<Partitioner>;
 
 }
 #endif

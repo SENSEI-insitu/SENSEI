@@ -13,7 +13,7 @@ namespace sensei
 class CyclicPartitioner : public sensei::Partitioner
 {
 public:
-  CyclicPartitioner();
+  CyclicPartitioner(int numLocalRanks);
   ~CyclicPartitioner();
 
   CyclicPartitioner(const CyclicPartitioner&) = delete;

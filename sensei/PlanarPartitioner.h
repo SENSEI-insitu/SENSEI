@@ -13,13 +13,16 @@ namespace sensei
 class PlanarPartitioner : public sensei::Partitioner 
 {
 public:
-  PlanarPartitioner(unsigned int plane_size);
+  PlanarPartitioner(int numLocalRanks, unsigned int planeSize);
   ~PlanarPartitioner();
 
   PlanarPartitioner(const PlanarPartitioner&) = delete;
   void operator=(const PlanarPartitioner&) = delete;
 
   int GetPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
+
+protected:
+  unsigned int _PlaneSize;
 };
 
 }
