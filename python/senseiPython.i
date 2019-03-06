@@ -39,7 +39,6 @@ import_array();
  ***************************************************************************/
 VTK_SWIG_INTEROP(vtkObjectBase)
 VTK_SWIG_INTEROP(vtkDataObject)
-VTK_SWIG_INTEROP(vtkInformation)
 
 /****************************************************************************
  * DataAdaptor
