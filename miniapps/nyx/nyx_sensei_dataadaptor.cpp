@@ -1,6 +1,5 @@
 #include "nyx_sensei_dataadaptor.h"
 
-#include <vtkInformation.h>
 #if defined(BL_USE_FLOAT) || !defined(NYX_SENSEI_NO_COPY)
 #include <vtkFloatArray.h>
 #else

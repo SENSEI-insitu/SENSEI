@@ -12,8 +12,6 @@
 class vtkAbstractArray;
 class vtkDataObject;
 class vtkCompositeDataSet;
-class vtkInformation;
-class vtkInformationIntegerKey;
 
 namespace sensei
 {
@@ -144,38 +142,13 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   virtual int ReleaseData() = 0;
 
-  /// @brief Provides access to meta-data about the current data.
-  ///
-  /// This method can provide all meta-data necessary, including global extents,
-  /// fields available, etc.
-  vtkInformation* GetInformation();
-
-  /// @brief Convenience method to get the time information.
+  /// @brief Set/get the current simulated time.
   double GetDataTime();
-
-  /// @brief Convenience method to get the time information.
-  double GetDataTime(vtkInformation*);
-
-  /// @brief Convenience methods to set the time information.
   void SetDataTime(double time);
 
-  /// @brief Convenience methods to set the time information.
-  void SetDataTime(vtkInformation*, double time);
-
-  /// @brief Convenience method to get the time index information.
-  int GetDataTimeStep();
-
-  /// @brief Convenience method to get the time information.
-  int GetDataTimeStep(vtkInformation*);
-
-  /// @brief Convenience methods to set the time information.
-  void SetDataTimeStep(int index);
-
-  /// @brief Convenience methods to set the time information.
-  void SetDataTimeStep(vtkInformation*, int index);
-
-  /// @brief Key to store the timestep index.
-  static vtkInformationIntegerKey* DATA_TIME_STEP_INDEX();
+  /// @brief Set/get the current time step
+  long GetDataTimeStep();
+  void SetDataTimeStep(long index);
 
 protected:
   DataAdaptor();
