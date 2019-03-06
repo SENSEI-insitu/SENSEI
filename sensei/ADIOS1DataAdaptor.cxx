@@ -12,7 +12,6 @@
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
-#include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>

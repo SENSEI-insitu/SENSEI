@@ -6,7 +6,6 @@
 #include <vtkDataObject.h>
 #include <vtkDoubleArray.h>
 #include <vtkImageData.h>
-#include <vtkInformation.h>
 #include <vtkObjectFactory.h>
 
 #include <limits>
