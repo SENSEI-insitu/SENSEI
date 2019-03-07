@@ -5,3 +5,8 @@ if(ENABLE_ADIOS1)
   install(TARGETS ADIOS1EndPoint
     RUNTIME DESTINATION bin)
 endif()
+
+add_executable(ConfigurableEndPoint ConfigurableEndPoint.cxx)
+target_link_libraries(ConfigurableEndPoint PRIVATE opts sensei timer pugixml sMPI)
+
+install(TARGETS ConfigurableEndPoint RUNTIME DESTINATION bin)

@@ -1,15 +1,15 @@
-#ifndef Utils_h
-#define Utils_h
+#ifndef XMLUtils_h
+#define XMLUtils_h
 
 #include <mpi.h>
-#include <pugixml.hpp>
 #include <string>
+#include <pugixml.hpp>
 
 
 namespace sensei
 {
 
-namespace Utils
+namespace XMLUtils
 {
 
 int requireAttributeXML(pugi::xml_node &node, const char *attributeName);

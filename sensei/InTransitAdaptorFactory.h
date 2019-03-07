@@ -45,11 +45,9 @@ using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 namespace InTransitAdaptorFactory
 {
 
-int Initialize(const std::string &fileName, MPI_Comm comm,
-  AnalysisAdaptor *&analysisAdaptor, InTransitDataAdaptor *&dataAdaptor);
+int Initialize(MPI_Comm comm, const std::string &fileName, InTransitDataAdaptor *&dataAdaptor);
 
-int Initialize(const pugi::xml_node &root, MPI_Comm comm,
-  AnalysisAdaptor *&analysisAdaptor, InTransitDataAdaptor *&dataAdaptor);
+int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *&dataAdaptor);
 
 }
 

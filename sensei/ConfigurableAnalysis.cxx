@@ -1,9 +1,20 @@
+#include <vtkObjectFactory.h>
+#include <vtkSmartPointer.h>
+#include <vtkNew.h>
+#include <vtkDataObject.h>
+
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <cstdio>
+#include <errno.h>
+
 #include "ConfigurableAnalysis.h"
 #include "senseiConfig.h"
 #include "Error.h"
 #include "Timer.h"
 #include "VTKUtils.h"
-#include "Utils.h"
+#include "XMLUtils.h"
 #include "DataRequirements.h"
 
 #include "Autocorrelation.h"
@@ -36,18 +47,6 @@
 #ifdef ENABLE_PYTHON
 #include "PythonAnalysis.h"
 #endif
-
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
-#include <vtkDataObject.h>
-
-#include <vector>
-#include <pugixml.hpp>
-#include <fstream>
-#include <sstream>
-#include <cstdio>
-#include <errno.h>
 
 using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
@@ -144,7 +143,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 {
-  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "array"))
+  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize Histogram");
     return -1;
@@ -191,7 +190,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   return -1;
 #else
 
-  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "array"))
+  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize VTKmContourAnalysis");
     return -1;
@@ -228,8 +227,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
 #else
-  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "field") ||
-    Utils::requireAttributeXML(node, "association") || Utils::requireAttributeXML(node, "reduction"))
+  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "field") ||
+    XMLUtils::requireAttributeXML(node, "association") || XMLUtils::requireAttributeXML(node, "reduction"))
     {
     SENSEI_ERROR("Failed to initialize VTKmVolumeReductionAnalysis");
     return -1;
@@ -264,9 +263,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
   return -1;
 #else
   if (
-    Utils::requireAttributeXML(node, "mesh") ||
-    Utils::requireAttributeXML(node, "field") ||
-    Utils::requireAttributeXML(node, "association")
+    XMLUtils::requireAttributeXML(node, "mesh") ||
+    XMLUtils::requireAttributeXML(node, "field") ||
+    XMLUtils::requireAttributeXML(node, "association")
     )
     {
     SENSEI_ERROR("Failed to initialize VTKmCDFAnalysis");
@@ -626,7 +625,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 {
-  if (Utils::requireAttributeXML(node, "mesh") || Utils::requireAttributeXML(node, "array"))
+  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize Autocorrelation");
     return -1;
@@ -851,7 +850,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   pugi::xml_document doc;
-  if (Utils::parseXML(this->GetCommunicator(), rank, filename, doc))
+  if (XMLUtils::parseXML(this->GetCommunicator(), rank, filename, doc))
     {
     SENSEI_ERROR("Failed to load, parse, and share XML configuration")
     MPI_Abort(this->GetCommunicator(), -1);
@@ -864,7 +863,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 }
 
 //----------------------------------------------------------------------------
-int Initialize(const pugi::xml_node &root)
+int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 {
   timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
