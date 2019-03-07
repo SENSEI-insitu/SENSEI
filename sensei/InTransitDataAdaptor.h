@@ -17,7 +17,6 @@ class InTransitDataAdaptor : public sensei::DataAdaptor
 {
 public:
   senseiBaseTypeMacro(InTransitDataAdaptor, sensei::DataAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   // New API that enables run-time user based control of how data lands for
   // sensei::AnalysisAdaptor's which do not need explicit control. The specific
@@ -82,14 +81,15 @@ public:
   // is handled by the transport layer. See comments in InTransitDataAdaptor::Initialize
   // for the universal partioning options as well as comments in the specific
   // transport's implementation.
-  virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr metadata) = 0;
+  virtual int GetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata);
+  virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata);
 
   // Enables an analysis adaptor to programmatically select the partitioning mode.
-  void SetPartitioner(sensei::PartitionerPtr& partitioner);
+  void SetPartitioner(sensei::Partitioner *partitioner);
 
   // Query the current partitioner.
   // Usage example: this->GetPartitioner()->GetPartition(remote, local) 
-  sensei::PartitionerPtr& GetPartitioner();
+  sensei::Partitioner *GetPartitioner();
 
   // New API that is called before the application is brought down
   virtual int Finalize() = 0;

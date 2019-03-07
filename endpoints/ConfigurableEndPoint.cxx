@@ -8,10 +8,9 @@
 #include <opts/opts.h>
 
 #include <ConfigurableAnalysis.h>
-#include <InTransitDataAdaptorFactory.h>
 #include <InTransitAdaptorFactory.h>
 #include <vtkSmartPointer.h>
-#include <Utils.h>
+#include <XMLUtils.h>
 #include <Error.h>
 
 
@@ -28,83 +27,76 @@ using namespace sensei;
 
 int main(int argc, char** argv)
 {
-	if(argc < 3)
-	{
-		std::cout << "Usage: sensei_end_point <xml config> <stream id>" << std::endl;
-		std::exit(-1);
-	}
-
-	int my_rank, n_ranks;
-
-	MPI_Init(&argc, &argv);
-	MPI_Comm comm = MPI_COMM_WORLD;
-	MPI_Comm_rank(comm, &my_rank);
-	MPI_Comm_size(comm, &n_ranks);
-
-	std::string config_file;
-	std::string stream_id;
-
-	opts::Options ops(argc, argv);
-	ops >> opts::Option('f', "config", config_file, "Sensei data transport and analysis configuration XML (required)")
-	    >> opts::Option('s', "stream", stream_id, "Input stream name (required)");
-
-	bool showHelp = ops >> opts::Present('h', "help", "show help");
-
-	if (!showHelp && stream_id.empty() && (rank == 0))
-		SENSEI_ERROR("Missing input stream")
-
-  	if (!showHelp && config_file.empty() && (rank == 0))
-  		SENSEI_ERROR("Missing XML data transport and analysis configuration")
-
-	if(showHelp || config_file.empty() || stream_id.empty())
-	{
-		if(rank == 0)
-		{
-			std::cerr << "Usage: " << argv[0] << "[OPTIONS]\n\n" << ops << std::endl;
-		}
-		MPI_Finalize();
-    	return showHelp ? 0 : 1;
-	}
-
-	pugi::xml_document doc;
-	if (Utils::parseXML(comm, my_rank, config_file, doc))
+  if(argc < 3)
     {
-    	if (my_rank == 0)
-        	SENSEI_ERROR("failed to parse configuration")
-        MPI_Finalize();
-   		return 1;
+    std::cout << "Usage: sensei_end_point <xml config> <stream id>" << std::endl;
+    std::exit(-1);
     }
 
-    pugi::xml_node root = doc.child("sensei");
+  int myRank, numRanks;
 
-	InTransitDataAdaptor* itda = nullptr;
-	InTransitAdaptorFactory::Initialize(root, comm, itda);
+  MPI_Init(&argc, &argv);
+  MPI_Comm comm = MPI_COMM_WORLD;
+  MPI_Comm_rank(comm, &myRank);
+  MPI_Comm_size(comm, &numRanks);
 
-	InTransitDataAdaptorPtr inTranDataAdaptor = itda;
-	ConfigAnalysisAdaptorPtr analysisAdaptor = ConfigAnalysisAdaptorPtr::New();
+  std::string configFile;
+  std::string streamId;
 
-  	analysisAdaptor->SetCommunicator(comm);
-  	if (analysisAdaptor->Initialize(root))
+  opts::Options ops(argc, argv);
+  ops >> opts::Option('f', "config", configFile, "Sensei data transport and analysis" 
+    "configuration XML (required)");
+
+  bool showHelp = ops >> opts::Present('h', "help", "show help");
+
+  if (!showHelp && configFile.empty() && (myRank == 0))
+    SENSEI_ERROR("Missing XML data transport and analysis configuration")
+
+  if (showHelp || configFile.empty())
     {
-    	SENSEI_ERROR("Failed to initialize analysis")
-    	MPI_Abort(comm, 1);
+    if (myRank == 0)
+      std::cerr << "Usage: " << argv[0] << "[OPTIONS]\n\n" << ops << std::endl;
+
+    MPI_Finalize();
+    return showHelp ? 0 : 1;
     }
 
-	inTranDataAdaptor->OpenStream(stream_id);
+  pugi::xml_document doc;
+  if (XMLUtils::parseXML(comm, myRank, configFile, doc))
+    {
+    if (myRank == 0)
+      SENSEI_ERROR("failed to parse configuration")
+    MPI_Finalize();
+    return 1;
+    }
 
-	// Get metadata
-	inTranDataAdaptor->InititalizeMetadata();
+  pugi::xml_node root = doc.child("sensei");
 
-	while(inTranDataAdaptor->StreamGood())
-	{
-		analysisAdaptor->Execute(inTranDataAdaptor.Get());
+  InTransitDataAdaptor* itda = nullptr;
+  InTransitAdaptorFactory::Initialize(comm, root, itda);
 
-		inTranDataAdaptor->AdvanceStream();
-	}
+  InTransitDataAdaptorPtr inTranDataAdaptor = itda;
+  ConfigAnalysisAdaptorPtr analysisAdaptor = ConfigAnalysisAdaptorPtr::New();
 
-	inTranDataAdaptor->CloseStream();
+  analysisAdaptor->SetCommunicator(comm);
+  if (analysisAdaptor->Initialize(root))
+    {
+    SENSEI_ERROR("Failed to initialize analysis")
+    MPI_Abort(comm, 1);
+    }
 
-	MPI_Finalize():
+  inTranDataAdaptor->OpenStream();
 
-	return 0;
+  while(inTranDataAdaptor->StreamGood())
+    {
+    analysisAdaptor->Execute(inTranDataAdaptor.Get());
+
+    inTranDataAdaptor->AdvanceStream();
+    }
+
+  inTranDataAdaptor->CloseStream();
+
+  MPI_Finalize();
+
+  return 0;
 }

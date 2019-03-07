@@ -1,34 +1,43 @@
 
-#include <PlanarPartitioner.h>
+#include "PlanarPartitioner.h"
 
 
 namespace sensei
 {
 
-PlanarPartitioner::PlanarPartitioner(unsigned int numLocalRanks, unsigned int planeSize) :
-  Partitioner(numLocalRanks), _PlaneSize(planeSize) 
+PlanarPartitioner::PlanarPartitioner(unsigned int planeSize) : PlaneSize(planeSize) 
 {
-
 }
 
 
-int PlanarPartitioner::GetPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local)
+int PlanarPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
+  MeshMetadataPtr &mdOut)
 {
-	// details omitted
-
-	local = remote->NewCopy();
+  mdOut = mdIn->NewCopy();
 	
-	int num_blks = local->BlockIds.size();
-	int blk_cnt = 0;
-	int rank_idx = 0;
+  int blkCnt = 0;
+  int rankIdx = 0;
 
-	while (blk_cnt < num_blks)
-	{
-		for (int j = 0; j < this->_PlaneSize && blk_cnt < num_blks; ++j)
-			local->BlockOwner[blk_cnt++] = rank_idx;
-		rank_idx++;
-	}
+  while (blkCnt < mdOut->NumBlocks)
+    {
+    for (unsigned int j = 0; j < this->PlaneSize && blkCnt < mdOut->NumBlocks; ++j)
+      mdOut->BlockOwner[blkCnt++] = rankIdx;
+    rankIdx++;
+    }
+
+  return 0;
 }
 
+
+int PlanarPartitioner::Initialize(pugi::xml_node &node)
+{
+  pugi::xml_node sizeNode = node.child("plane_size");
+  if (!sizeNode || !sizeNode.text())
+    return -1;
+
+  this->PlaneSize = sizeNode.text().as_uint();
+
+  return 0;
+}
 
 }

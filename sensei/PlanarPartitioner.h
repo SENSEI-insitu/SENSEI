@@ -8,22 +8,26 @@ namespace sensei
 /// @class PlanarPartitioner
 /// @brief PlanarPartitioner is class that represents the planar partitioning mode for in-transit operation.
 ///
-/// In planar partitioning mode the blocks are distributed in blocks of a specified size. The size is 
-///	specified in the 'plane_size' attribute. Note block is a special case of planar with a plane_size of 1.
+/// In planar partitioning mode the blocks are distributed in blocks of a specified size. The  
+///	size is specified in the 'plane_size' attribute. Note block is a special case of planar with 
+/// a plane_size of 1.
 class PlanarPartitioner : public sensei::Partitioner 
 {
 public:
-  PlanarPartitioner(int numLocalRanks, unsigned int planeSize);
-  ~PlanarPartitioner();
+  PlanarPartitioner(unsigned int planeSize = 1);
+  ~PlanarPartitioner() {}
 
   PlanarPartitioner(const PlanarPartitioner&) = delete;
   void operator=(const PlanarPartitioner&) = delete;
 
-  int GetPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local);
+  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in, MeshMetadataPtr &out);
+
+  int Initialize(pugi::xml_node &node);
 
 protected:
-  unsigned int _PlaneSize;
+  unsigned int PlaneSize;
 };
 
 }
+
 #endif

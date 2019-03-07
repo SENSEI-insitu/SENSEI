@@ -1,13 +1,20 @@
 #ifndef sensei_Partitioner_h
 #define sensei_Partitioner_h
 
+#include <mpi.h>
+#include <pugixml.hpp>
+
+#include "MeshMetadata.h"
+
+
 namespace sensei
 {
 /// @class Partitioner
 /// @brief Partitioner is an abstract base class that represents the way data is partitioned for in-transit operation mode.
 ///
-/// Partitioner defines the interface to get the partitioning mode. Each specific partitioning mode is
-/// represented by a class that inherits from Partitioner class. However, the core modes in SENSEI 3 are:
+/// Partitioner defines the interface to get the partitioning mode. Each specific partitioning mode 
+/// is represented by a class that inherits from Partitioner class. However, the core modes in 
+/// SENSEI 3 are:
 ///  
 ///  block  The block distribution method will distribute blocks to a rank
 ///         such that consecutive blocks share a rank.
@@ -28,19 +35,17 @@ namespace sensei
 class Partitioner 
 {
 public:
-  virtual int GetPartition(sensei::MeshMetadataPtr &remote, sensei::MeshMetadataPtr &local) = 0;
+  // given an existing partitioning of data passed in the first MeshMetadata
+  // argument,return a new partittioning in the second MeshMetadata argument.
+  virtual int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
+    MeshMetadataPtr &out) = 0;
 
-protected:
-  Partitioner(int numLocalRanks) : _NumLocalRanks(numLocalRanks) {}
+  // initialize the partitioner from the XML node.
+  virtual int Initialize(pugi::xml_node &) { return 0; }
+
   virtual ~Partitioner() {}
-
-  Partitioner(const Partitioner&) = delete;
-  void operator=(const Partitioner&) = delete;
-
-  int _NumLocalRanks;
 };
 
-using PartitionerPtr = std::shared_ptr<Partitioner>;
-
 }
+
 #endif
