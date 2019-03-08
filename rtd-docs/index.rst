@@ -1,15 +1,18 @@
-.. SENSEI documentation master file, created by
-   sphinx-quickstart on Thu Nov 29 16:59:14 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-Welcome to SENSEI's documentation!
-==================================
+SENSEI User Guide
+=================
+Write once run everywhere. SENSEI provides access to a diverse set of in situ
+analysis back-ends and transport layers through a simple API and data model.
+Simulations instrumented with the SENSEI API can process data using any of
+these back-ends interchangeably. The back-ends are selected and configured at
+run-time via an XML configuration file. This document is targeted at scientists
+and developers wishing to run simulations instrumented with SENSEI, instrument
+a new simulation, or develop new analysis back-ends.
 
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
 
+   installation
    introduction
    system_overview
    analysis_back_ends
@@ -20,6 +23,5 @@ Welcome to SENSEI's documentation!
    analysis_adaptors
    transports
    instrumenting_simulations
-   installation
    developer_guide
    glossary
