@@ -52,6 +52,10 @@ public:
     const std::vector<sensei::MeshMetadataPtr> &metadata,
     const std::vector<vtkCompositeDataSet*> &objects);
 
+  // return true if the file is one of ours and the version the file was
+  // written with is compatible with this revision of the schema
+  bool CanRead(InputStream &iStream);
+
   // creates the mesh matching what is on disk(or stream), including a domain
   // decomposition, but does not read data arrays. If structure_only is true
   // then points and cells are not read from disk.
@@ -80,23 +84,28 @@ private:
 struct InputStream
 {
   InputStream() : File(nullptr),
-    ReadMethod(static_cast<ADIOS_READ_METHOD>(-1)) {}
+    ReadMethod(static_cast<ADIOS_READ_METHOD>(-1)),
+    FileName() {}
 
-  InputStream(ADIOS_FILE *file, ADIOS_READ_METHOD method)
-    : File(file), ReadMethod(method) {}
+  //InputStream(ADIOS_FILE *file, ADIOS_READ_METHOD method)
+  //  : File(file), ReadMethod(method) {}
+
+  int SetReadMethod(const std::string &method);
 
   int Open(MPI_Comm comm, ADIOS_READ_METHOD method,
     const std::string &fileName);
 
-  // verifies that the file is ours
-  int CanRead(MPI_Comm comm);
+  int Open(MPI_Comm Comm);
 
   int AdvanceTimeStep();
 
   int Close();
 
+  int Good() { return File != nullptr; }
+
   ADIOS_FILE *File;
   ADIOS_READ_METHOD ReadMethod;
+  std::string FileName;
 };
 
 }
