@@ -5,7 +5,8 @@
 
 #include <string>
 #include <mpi.h>
-#include <pugixml.hpp>
+
+namespace pugi { class xml_node; }
 
 namespace sensei
 {

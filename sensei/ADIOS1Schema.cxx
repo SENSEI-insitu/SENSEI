@@ -1,6 +1,7 @@
 #include "ADIOS1Schema.h"
 #include "MeshMetadataMap.h"
 #include "BinaryStream.h"
+#include "Partitioner.h"
 #include "VTKUtils.h"
 #include "MPIUtils.h"
 #include "Error.h"
@@ -22,7 +23,6 @@
 #include <vtkUnsignedCharArray.h>
 #include <vtkIdTypeArray.h>
 #include <vtkCellArray.h>
-#include <vtkInformation.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkStructuredPoints.h>
@@ -601,9 +601,7 @@ int BinaryStreamSchema::Write(uint64_t fh, const std::string &path,
 class VersionSchema
 {
 public:
-  VersionSchema() : Revision(2), LowestCompatibleRevision(2) {}
-
-  uint64_t GetSize(){ return sizeof(unsigned int); }
+  VersionSchema() : Revision(3), LowestCompatibleRevision(3) {}
 
   int DefineVariables(int64_t gh);
 
@@ -621,7 +619,6 @@ int VersionSchema::DefineVariables(int64_t gh)
 {
   // all ranks need to write this info for FLEXPATH method
   // but not the MPI method.
-  // /SENSEIDataObjectSchema
   adios_define_var(gh, "DataObjectSchema", "", adios_unsigned_integer,
     "", "", "");
   return 0;
@@ -658,6 +655,40 @@ int VersionSchema::Read(InputStream &iStream)
 }
 
 
+// --------------------------------------------------------------------------
+int InputStream::SetReadMethod(const std::string &method)
+{
+  size_t n = method.size();
+  std::string lcase_method(n, ' ');
+  for (size_t i = 0; i < n; ++i)
+    lcase_method[i] = tolower(method[i]);
+
+  std::map<std::string, ADIOS_READ_METHOD> methods;
+  methods["bp"] = ADIOS_READ_METHOD_BP;
+  methods["bp_aggregate"] = ADIOS_READ_METHOD_BP_AGGREGATE;
+  methods["dataspaces"] = ADIOS_READ_METHOD_DATASPACES;
+  methods["dimes"] = ADIOS_READ_METHOD_DIMES;
+  methods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
+
+  std::map<std::string, ADIOS_READ_METHOD>::iterator it =
+    methods.find(lcase_method);
+
+  if (it == methods.end())
+    {
+    SENSEI_ERROR("Unsupported read method requested \"" << method << "\"")
+    return -1;
+    }
+
+  this->ReadMethod = it->second;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::Open(MPI_Comm comm)
+{
+  return this->Open(comm, this->ReadMethod, this->FileName);
+}
 
 // --------------------------------------------------------------------------
 int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
@@ -681,18 +712,8 @@ int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
 
   this->File = file;
   this->ReadMethod = method;
+  this->FileName = fileName;
 
-/*
-  // verify that it is one of ours
-  DataObjectSchema schema;
-  if (schema.CanRead(comm, *this))
-    {
-    SENSEI_ERROR("Failed to open \"" << fileName << "\". Stream "
-      "was not written in the SENSEI ADIOS schema format")
-    this->Close();
-    return -1;
-    }
-*/
   return 0;
 }
 
@@ -704,7 +725,7 @@ int InputStream::AdvanceTimeStep()
   if (adios_advance_step(this->File, 0,
     streamIsFileBased(this->ReadMethod) ? 0.0f : -1.0f))
     {
-    //SENSEI_ERROR("Failed to advance to the next time step")
+    this->Close();
     return -1;
     }
 
@@ -2842,6 +2863,9 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
     return -1;
     }
 
+  // write the schema version
+  this->Internals->Version.Write(fh);
+
   // all ranks need to write this info for FLEXPATH method
   // but not the MPI method.
   adios_write(fh, "time_step", &time_step);
@@ -2873,6 +2897,12 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
     }
 
   return 0;
+}
+
+// --------------------------------------------------------------------------
+bool DataObjectCollectionSchema::CanRead(InputStream &iStream)
+{
+  return this->Internals->Version.Read(iStream) == 0;
 }
 
 // --------------------------------------------------------------------------

@@ -1,33 +1,43 @@
 #ifndef ADIOS1DataAdaptor_h
 #define ADIOS1DataAdaptor_h
 
-#include "DataAdaptor.h"
+#include "InTransitDataAdaptor.h"
 
-#include <mpi.h>
 #include <adios.h>
 #include <adios_read.h>
+#include <mpi.h>
 #include <map>
 #include <string>
-#include <vtkSmartPointer.h>
+
+namespace pugi { class xml_node; }
 
 namespace sensei
 {
 
-
 /// The read side of the ADIOS 1 transport layer
-class ADIOS1DataAdaptor : public DataAdaptor
+class ADIOS1DataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
   static ADIOS1DataAdaptor* New();
-  senseiTypeMacro(ADIOS1DataAdaptor, ADIOS1DataAdaptor);
+  senseiTypeMacro(ADIOS1DataAdaptor, sensei::InTransitDataAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
-  int Open(const std::string &method, const std::string& filename);
-  int Open(ADIOS_READ_METHOD method, const std::string& filename);
+  int SetFileName(const std::string &fileName);
 
-  int Advance();
+  int SetReadMethod(const std::string &readMethod);
+  int SetReadMethod(ADIOS_READ_METHOD readMethod);
 
-  int Close();
+  /// SENSEI InTransitDataAdaptor control API
+  int Initialize(pugi::xml_node &parent) override;
+  int Finalize() override;
+
+  int OpenStream() override;
+  int CloseStream() override;
+  int AdvanceStream() override;
+  int StreamGood() override;
+
+  /// SENSEI InTransitDataAdaptor explicit paritioning API
+  int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   /// SENSEI DataAdaptor API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
