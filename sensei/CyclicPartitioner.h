@@ -5,21 +5,19 @@
 
 namespace sensei
 {
+
 /// @class CyclicPartitioner
-/// @brief CyclicPartitioner is class that represents the cyclic partitioning mode for in-transit operation.
-///
-/// The cyclic partitioning mode will distribute blocks to a rank such that consecutive blocks 
-/// are distributed over consecutive ranks (in a round-robin fashion).
+/// The cyclic distribution method will distribute blocks to a rank
+/// such that consecutive blocks are distributed over consecutive
+/// ranks (in a round-robin fashion).
 class CyclicPartitioner : public sensei::Partitioner
 {
 public:
-  CyclicPartitioner() {}
-  ~CyclicPartitioner() {}
-
-  CyclicPartitioner(const CyclicPartitioner&) = delete;
-  void operator=(const CyclicPartitioner&) = delete;
-
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in, MeshMetadataPtr &out);
+  // given an existing partitioning of data passed in the first MeshMetadata
+  // argument,return a new partittioning in the second MeshMetadata argument.
+  // blocks are distributed in a round-robin fashion.
+  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
+     MeshMetadataPtr &out) override;
 };
 
 }

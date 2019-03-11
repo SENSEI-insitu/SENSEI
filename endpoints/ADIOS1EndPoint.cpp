@@ -21,7 +21,7 @@ using AnalysisAdaptorPtr = vtkSmartPointer<sensei::ConfigurableAnalysis>;
  * supports histogram and catalyst-slice analysis via the Sensei infrastructure.
  *
  * Usage:
- *  <exec> input-stream-name
+ *  <exec> fileName
  */
 
 using std::cout;
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
-  std::string input;
+  std::string fileName;
   std::string readmethod("bp");
   std::string config_file;
 
@@ -47,10 +47,10 @@ int main(int argc, char **argv)
   bool log = ops >> opts::Present("log", "generate time and memory usage log");
   bool shortlog = ops >> opts::Present("shortlog", "generate a summary time and memory usage log");
   bool showHelp = ops >> opts::Present('h', "help", "show help");
-  bool haveInput = ops >> opts::PosOption(input);
+  bool haveInput = ops >> opts::PosOption(fileName);
 
   if (!showHelp && !haveInput && (rank == 0))
-    SENSEI_ERROR("Missing ADIOS1 input stream")
+    SENSEI_ERROR("Missing ADIOS1 fileName stream")
 
   if (!showHelp && config_file.empty() && (rank == 0))
     SENSEI_ERROR("Missing XML analysis configuration")
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     {
     if (rank == 0)
       {
-      cerr << "Usage: " << argv[0] << "[OPTIONS] input-stream-name\n\n" << ops << endl;
+      cerr << "Usage: " << argv[0] << "[OPTIONS] fileName\n\n" << ops << endl;
       }
     MPI_Finalize();
     return showHelp ? 0 : 1;
@@ -70,15 +70,19 @@ int main(int argc, char **argv)
 
   timer::Initialize();
 
-  SENSEI_STATUS("Opening: \"" << input.c_str() << "\" using method \""
+  SENSEI_STATUS("Opening: \"" << fileName.c_str() << "\" using method \""
     << readmethod.c_str() << "\"")
 
   // open the ADIOS1 stream using the ADIOS1 adaptor
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
+
   dataAdaptor->SetCommunicator(comm);
-  if (dataAdaptor->Open(readmethod, input))
+  dataAdaptor->SetReadMethod(readmethod);
+  dataAdaptor->SetFileName(fileName);
+
+  if (dataAdaptor->OpenStream())
     {
-    SENSEI_ERROR("Failed to open \"" << input << "\"")
+    SENSEI_ERROR("Failed to open \"" << fileName << "\"")
     MPI_Abort(comm, 1);
     }
 
@@ -122,12 +126,14 @@ int main(int argc, char **argv)
 
     timer::MarkEndTimeStep();
     }
-  while (!dataAdaptor->Advance());
+  while (!dataAdaptor->AdvanceStream());
 
   SENSEI_STATUS("Finished processing " << nSteps << " time steps")
 
   // close the ADIOS1 stream
-  dataAdaptor->Close();
+  dataAdaptor->CloseStream();
+  dataAdaptor->Finalize();
+
   analysisAdaptor->Finalize();
 
   // we must force these to be destroyed before mpi finalize

@@ -32,11 +32,13 @@ def check_array(array):
     return -1
   return 0
 
-def read_data(file_name, method):
+def read_data(fileName, method):
   # initialize the data adaptor
-  status_message('initializing ADIOS1DataAdaptor %s %s'%(file_name,method))
+  status_message('initializing ADIOS1DataAdaptor %s %s'%(fileName,method))
   da = ADIOS1DataAdaptor.New()
-  da.Open(method, file_name)
+  da.SetReadMethod(method)
+  da.SetFileName(fileName)
+  da.OpenStream()
   # process all time steps
   n_steps = 0
   retval = 0
@@ -94,20 +96,20 @@ def read_data(file_name, method):
       i += 1
 
     n_steps += 1
-    if (da.Advance()):
+    if (da.AdvanceStream()):
       break
 
   # close down the stream
-  da.Close()
+  da.CloseStream()
   status_message('closed stream after receiving %d steps'%(n_steps))
   return retval
 
 if __name__ == '__main__':
   # process command line
-  file_name = sys.argv[1]
+  fileName = sys.argv[1]
   method = sys.argv[2]
   # write data
-  ierr = read_data(file_name, method)
+  ierr = read_data(fileName, method)
   if ierr:
     error_message('read failed')
   # return the error code

@@ -3,26 +3,43 @@
 
 #include "Partitioner.h"
 
+#include <vector>
+
 namespace sensei
 {
+
 /// @class MappedPartitioner
-/// @brief MappedPartitioner is class that represents the mapped partitioning mode for in-transit operation.
+/// @brief represents the mapped partitioning mode for in-transit operation.
 ///
-/// The mapped partitioning mode will allocate blocks in-order as listed in a nested 'block_owner' 
-/// and 'block_id' elements. Each entry in the block element has a corresponding entry in the proc 
-/// element naming the mpi rank where the block lands.
-class MappedPartitioner : public sensei::Partitioner 
+/// The mapped partitioner enables one to explicitly control a block based
+/// paritioning of the data. The poarallel vectors 'BlockIds' and 'BlockOwner'
+/// contain the block id of each data block and the rank which should own it.
+/// These may be set programatically or through XML.
+class MappedPartitioner : public sensei::Partitioner
 {
 public:
-  MappedPartitioner(const std::vector<int>& blkOwner = {}, const std::vector<int>& blkIds = {});
+  MappedPartitioner() {}
   ~MappedPartitioner() {}
 
-  MappedPartitioner(const MappedPartitioner&) = delete;
-  void operator=(const MappedPartitioner&) = delete;
+  // construct initialzed from vectors of owner and block ids.
+  MappedPartitioner(const std::vector<int> &blkOwner,
+    const std::vector<int> &blkIds);
 
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in, MeshMetadataPtr &out);
+  // Initialize the partitioner from the 'block_owner' and 'block_id' XML
+  // elements nested below the current node.
+  int Initialize(pugi::xml_node &node) override;
 
-  int Initialize(pugi::xml_node &node);
+  // Set the block onwer list
+  void SetBlockOwner(const std::vector<int> &blkOwner);
+
+  // Set the block id list
+  void SetBlockIds(const std::vector<int>& blkIds);
+
+  // given an existing partitioning of data passed in the first MeshMetadata
+  // argument,return a new partittioning in the second MeshMetadata argument.
+  // distributes blocks to a rank such that consecutive blocks share a rank.
+  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
+     MeshMetadataPtr &out) override;
 
 protected:
   std::vector<int> BlockOwner;

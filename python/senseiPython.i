@@ -13,6 +13,11 @@
 #include "senseiConfig.h"
 #include "senseiPyDataAdaptor.h"
 #include "LibsimImageProperties.h"
+#include "Partitioner.h"
+#include "BlockPartitioner.h"
+#include "CyclicPartitioner.h"
+#include "PlanarPartitioner.h"
+#include "MappedPartitioner.h"
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
 #include "VTKUtils.h"
@@ -202,6 +207,11 @@ VTK_DERIVED(LibsimAnalysisAdaptor)
 #endif
 
 /****************************************************************************
+ * InTransitDataAdaptor
+ ***************************************************************************/
+SENSEI_DATA_ADAPTOR(InTransitDataAdaptor)
+
+/****************************************************************************
  * ADIOS1AnalysisAdaptor/DataAdaptor
  ***************************************************************************/
 #ifdef ENABLE_ADIOS1
@@ -222,3 +232,35 @@ VTK_DERIVED(VTKPosthocIO)
 VTK_DERIVED(VTKAmrWriter)
 #endif
 #endif
+
+/****************************************************************************
+ * Partitioners
+ ***************************************************************************/
+%define PARTITIONER_API(cname)
+%extend sensei::##cname
+{
+  sensei::MeshMetadataPtr GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in)
+  {
+    sensei::MeshMetadataPtr out = sensei::MeshMetadata::New();
+    if (self->GetPartition(comm, in, out))
+    {
+      PyErr_Format(PyExc_RuntimeError,
+        "Failed to get partition");
+    }
+    return out;
+  }
+}
+%ingnore sensei::##cname##::GetPartition;
+%enddef
+
+PARTITIONER_API(Partitioner)
+PARTITIONER_API(BlockPartitioner)
+PARTITIONER_API(CyclicPartitioner)
+PARTITIONER_API(PlanarPartitioner)
+PARTITIONER_API(MappedPartitioner)
+
+%include "Partitioner.h"
+%include "BlockPartitioner.h"
+%include "CyclicPartitioner.h"
+%include "PlanarPartitioner.h"
+%include "MappedPartitioner.h"

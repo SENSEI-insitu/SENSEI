@@ -46,4 +46,10 @@ if (BUILD_TESTING)
       ${TEST_NP} ${MPIEXEC_POSTFLAGS} testPythonAnalysis
       ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
     FEATURES ${ENABLE_PYTHON})
+
+  senseiAddTest(testPartitionerPy
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG}
+      ${TEST_NP} ${MPIEXEC_POSTFLAGS} ${PYTHON_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioner.py 13
+    FEATURES ${ENABLE_PYTHON})
 endif()
