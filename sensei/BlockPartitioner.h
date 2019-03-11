@@ -5,23 +5,18 @@
 
 namespace sensei
 {
+
 /// @class BlockPartitioner
-/// @brief BlockPartitioner is class that represents the block partitioning mode for in-transit 
-/// operation.
-///
-/// The block partitioning mode will distribute blocks to a rank such that consecutive blocks 
-/// share a rank.
-///  
+/// The block partitioning mode will distribute blocks to a rank such that
+/// consecutive blocks share a rank.
 class BlockPartitioner : public sensei::Partitioner
 {
 public:
-  BlockPartitioner() {}
-  ~BlockPartitioner() {}
-
-  BlockPartitioner(const BlockPartitioner&) = delete;
-  void operator=(const BlockPartitioner&) = delete;
-
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in, MeshMetadataPtr &out);
+  // given an existing partitioning of data passed in the first MeshMetadata
+  // argument,return a new partittioning in the second MeshMetadata argument.
+  // distributes blocks to a rank such that consecutive blocks share a rank.
+  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
+    MeshMetadataPtr &out) override;
 };
 
 }
