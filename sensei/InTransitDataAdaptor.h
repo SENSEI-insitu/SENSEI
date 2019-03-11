@@ -2,11 +2,13 @@
 #define sensei_InTransitDataAdaptor_h
 
 #include "DataAdaptor.h"
-#include "Partitioner.h"
-#include <pugixml.hpp>
+
+namespace pugi { class xml_node; }
 
 namespace sensei
 {
+class Partitioner;
+
 /// @class InTransitDataAdaptor
 /// @brief InTransitDataAdaptor is an abstract base class that defines the data interface.
 ///
@@ -59,15 +61,12 @@ public:
   // For more information on the 'analysis element' see sensei::ConfigurableAnalysis.
   // For more information on the 'data_adaptor' 'type' attribute see
   // sensei::InTransitAdaptorFactory
-  virtual int Initialize(pugi::xml_node parent) = 0;
+  virtual int Initialize(pugi::xml_node &parent) = 0;
 
-  // New API that enables one to peek at how the data is partitioned on the
-  // simulation/remote side. Analyses that need control over how data lands
-  // can use this to see what data is available, associated metadata such as
-  // block bounds and array metadata and how it's laid out on the sender side.
+  // Get metadta object describing the data that is available in the simulation.
   virtual int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) = 0;
 
-  // New API that enables one to specify how the data is partitioned on the
+  // This API that enables one to specify how the data is partitioned on the
   // analysis/local side. Analyses that need control over how data lands
   // can use this to say where data lands. The metadata object passed here
   // will be returned to the Analysis, and the transport layer will use it
@@ -81,14 +80,16 @@ public:
   // is handled by the transport layer. See comments in InTransitDataAdaptor::Initialize
   // for the universal partioning options as well as comments in the specific
   // transport's implementation.
+  //
+  // The default implementation manages the metadata objects, derived classes
+  // must handle the details of initiallizing these objects. Get calls
+  // will return -1 if no object has been set for a given id.
   virtual int GetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata);
   virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata);
 
-  // Enables an analysis adaptor to programmatically select the partitioning mode.
+  // Set/get the partitioner. The partitioner is used when no receiver mesh
+  // metadata has been set.
   void SetPartitioner(sensei::Partitioner *partitioner);
-
-  // Query the current partitioner.
-  // Usage example: this->GetPartitioner()->GetPartition(remote, local) 
   sensei::Partitioner *GetPartitioner();
 
   // New API that is called before the application is brought down
