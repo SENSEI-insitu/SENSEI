@@ -1,9 +1,11 @@
+#include "XMLUtils.h"
+#include "Error.h"
+
+#include <pugixml.hpp>
+
 #include <cstdio>
 #include <cstring>
 #include <errno.h>
-
-#include "XMLUtils.h"
-#include "Error.h"
 
 
 namespace sensei
@@ -12,7 +14,8 @@ namespace sensei
 namespace XMLUtils
 {
 
-int requireAttributeXML(pugi::xml_node &node, const char *attributeName)
+//----------------------------------------------------------------------------
+int RequireAttribute(pugi::xml_node &node, const char *attributeName)
 {
   if (!node.attribute(attributeName))
     {
@@ -23,9 +26,11 @@ int requireAttributeXML(pugi::xml_node &node, const char *attributeName)
 }
 
 //----------------------------------------------------------------------------
-int parseXML(MPI_Comm comm, int rank, 
-             const std::string &filename, pugi::xml_document &doc)
+int Parse(MPI_Comm comm, const std::string &filename, pugi::xml_document &doc)
 {
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
   unsigned long nbytes = 0;
   char *buffer = nullptr;
   if (rank == 0)
@@ -68,19 +73,20 @@ int parseXML(MPI_Comm comm, int rank,
     buffer = static_cast<char*>(pugi::get_memory_allocation_function()(nbytes));
     MPI_Bcast(buffer, nbytes, MPI_CHAR, 0, comm);
     }
+
   pugi::xml_parse_result result = doc.load_buffer_inplace_own(buffer, nbytes);
   if (!result)
     {
     SENSEI_ERROR("XML [" << filename << "] parsed with errors, attr value: ["
-                 << doc.child("node").attribute("attr").value() << "]" << endl
-                 << "Error description: " << result.description() << endl
-                 << "Error offset: " << result.offset << endl)
+      << doc.child("node").attribute("attr").value() << "]" << endl
+      << "Error description: " << result.description() << endl
+      << "Error offset: " << result.offset << endl)
     return -1;
     }
 
   return 0;
 }
 
-}   // End namespace Utils
+}
 
-}   // End namespace sensei
+}

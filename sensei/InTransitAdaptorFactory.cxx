@@ -7,6 +7,7 @@
 #include "XMLUtils.h"
 #include "Error.h"
 
+#include <pugixml.hpp>
 
 namespace sensei
 {
@@ -20,7 +21,7 @@ int Initialize(MPI_Comm comm, const std::string &fileName, InTransitDataAdaptor 
   MPI_Comm_rank(comm, &myRank);
 
   pugi::xml_document doc;
-  if (XMLUtils::parseXML(comm, myRank, fileName, doc))
+  if (XMLUtils::Parse(comm, fileName, doc))
     {
     if (myRank == 0)
       SENSEI_ERROR("failed to parse configuration")
@@ -33,10 +34,11 @@ int Initialize(MPI_Comm comm, const std::string &fileName, InTransitDataAdaptor 
 
 int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *&dataAdaptor)
 {
-  int numRanks = 0, myRank = 0;
+  int myRank = 0;
   MPI_Comm_rank(comm, &myRank);
-  MPI_Comm_size(comm, &numRanks);
+
   pugi::xml_node node = root.child("data_adaptor");
+  // TODO -- hande error of no data adaptor node is found
 
   std::string type = node.attribute("transport").value();
   if (type == "adios_2")
