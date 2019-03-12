@@ -143,7 +143,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 {
-  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "array"))
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize Histogram");
     return -1;
@@ -190,7 +190,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   return -1;
 #else
 
-  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "array"))
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize VTKmContourAnalysis");
     return -1;
@@ -227,8 +227,8 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
 #else
-  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "field") ||
-    XMLUtils::requireAttributeXML(node, "association") || XMLUtils::requireAttributeXML(node, "reduction"))
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "field") ||
+    XMLUtils::RequireAttribute(node, "association") || XMLUtils::RequireAttribute(node, "reduction"))
     {
     SENSEI_ERROR("Failed to initialize VTKmVolumeReductionAnalysis");
     return -1;
@@ -263,9 +263,9 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
   return -1;
 #else
   if (
-    XMLUtils::requireAttributeXML(node, "mesh") ||
-    XMLUtils::requireAttributeXML(node, "field") ||
-    XMLUtils::requireAttributeXML(node, "association")
+    XMLUtils::RequireAttribute(node, "mesh") ||
+    XMLUtils::RequireAttribute(node, "field") ||
+    XMLUtils::RequireAttribute(node, "association")
     )
     {
     SENSEI_ERROR("Failed to initialize VTKmCDFAnalysis");
@@ -625,7 +625,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 {
-  if (XMLUtils::requireAttributeXML(node, "mesh") || XMLUtils::requireAttributeXML(node, "array"))
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "array"))
     {
     SENSEI_ERROR("Failed to initialize Autocorrelation");
     return -1;
@@ -846,11 +846,8 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
   timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-
   pugi::xml_document doc;
-  if (XMLUtils::parseXML(this->GetCommunicator(), rank, filename, doc))
+  if (XMLUtils::Parse(this->GetCommunicator(), filename, doc))
     {
     SENSEI_ERROR("Failed to load, parse, and share XML configuration")
     MPI_Abort(this->GetCommunicator(), -1);
@@ -866,9 +863,6 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 {
   timer::MarkEvent event("ConfigurableAnalysis::Initialize");
-
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
