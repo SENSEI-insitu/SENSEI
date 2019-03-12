@@ -65,11 +65,15 @@ int ADIOS1DataAdaptor::SetReadMethod(ADIOS_READ_METHOD method)
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1DataAdaptor::Initialize(pugi::xml_node &parent)
+int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
 {
   timer::MarkEvent mark("ADIOS1DataAdaptor::Initialize");
 
-  // TODO -- this will probably forward to Sergei's factory?
+  this->InTransitDataAdaptor::Initialize(node);
+
+  // TODO -- what other params should I grab?
+  // file name? read method? data requirements?
+
   return 0;
 }
 
