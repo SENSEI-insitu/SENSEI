@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     }
 
   pugi::xml_document doc;
-  if (XMLUtils::parseXML(comm, myRank, configFile, doc))
+  if (XMLUtils::Parse(comm, configFile, doc))
     {
     if (myRank == 0)
       SENSEI_ERROR("failed to parse configuration")

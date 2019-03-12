@@ -1,12 +1,9 @@
 #include "InTransitAdaptorFactory.h"
 //#include "ADIOS1DataAdaptor.h"
-#include "BlockPartitioner.h"
-#include "CyclicPartitioner.h"
-#include "MappedPartitioner.h"
-#include "PlanarPartitioner.h"
 #include "XMLUtils.h"
 #include "Error.h"
 
+#include <pugixml.hpp>
 
 namespace sensei
 {
@@ -20,7 +17,7 @@ int Initialize(MPI_Comm comm, const std::string &fileName, InTransitDataAdaptor 
   MPI_Comm_rank(comm, &myRank);
 
   pugi::xml_document doc;
-  if (XMLUtils::parseXML(comm, myRank, fileName, doc))
+  if (XMLUtils::Parse(comm, fileName, doc))
     {
     if (myRank == 0)
       SENSEI_ERROR("failed to parse configuration")
@@ -33,10 +30,11 @@ int Initialize(MPI_Comm comm, const std::string &fileName, InTransitDataAdaptor 
 
 int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *&dataAdaptor)
 {
-  int numRanks = 0, myRank = 0;
+  int myRank = 0;
   MPI_Comm_rank(comm, &myRank);
-  MPI_Comm_size(comm, &numRanks);
+
   pugi::xml_node node = root.child("data_adaptor");
+  // TODO -- hande error of no data adaptor node is found
 
   std::string type = node.attribute("transport").value();
   if (type == "adios_2")
@@ -58,37 +56,14 @@ int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *
     if (myRank == 0)
       SENSEI_ERROR("Failed to add '" << type << "' data adaptor")
     return -1;
-		}
+    }
 
-  pugi::xml_node partitionerNode = node.child("partitioner");
-  std::string partitionerType = partitionerNode.attribute("type").value();
-  Partitioner* partitioner = nullptr;
-  if (partitionerType == "block")
+  if (dataAdaptor->Initialize(node))
     {
-    partitioner = new BlockPartitioner();
-    }
-  else if (partitionerType == "cyclic")
-    {
-    partitioner = new CyclicPartitioner();
-    }
-  else if (partitionerType == "planar")
-    {
-    partitioner = new PlanarPartitioner();
-    }
-  else if (partitionerType == "mapped")
-    {
-    partitioner = new MappedPartitioner();
-    }
-  else
-    {
-    if (myRank == 0)
-      SENSEI_ERROR("Failed to add '" << type << "' data adaptor")
+    SENSEI_ERROR("Failed to initialize \"" << type << "\" data adaptor")
     return -1;
     }
 
-  partitioner->Initialize(partitionerNode);
-  dataAdaptor->SetPartitioner(partitioner);
-  
   return 0;
 }
 

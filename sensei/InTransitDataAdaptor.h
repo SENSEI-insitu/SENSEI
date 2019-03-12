@@ -2,66 +2,37 @@
 #define sensei_InTransitDataAdaptor_h
 
 #include "DataAdaptor.h"
+#include "Partitioner.h"
 
 namespace pugi { class xml_node; }
 
 namespace sensei
 {
-class Partitioner;
 
 /// @class InTransitDataAdaptor
-/// @brief InTransitDataAdaptor is an abstract base class that defines the data interface.
+/// @brief InTransitDataAdaptor defines control API for in transit data movement
 ///
-/// InTransitDataAdaptor defines the data interface. Any simulation code that interfaces with
-/// Sensei needs to provide an implementation for this interface. Analysis routines
-/// (via AnalysisAdator) use the InTransitDataAdaptor implementation to access simulation data.
+/// The InTransitDataAdaptor layers a control API onto the sensei::DataAdaptor
+/// API. In what follows the simulation is the sender of data and the end point
+/// and or sensei::AnalysisAdaptor is the receiver of data. The
+/// InTransitDataAdaptor control API gives end point control over how data
+/// lands. A data receiver may epxlicitly specifiy how data lands (see
+/// SetReceiverMeshMetadata) or use one of a number of common paritioning
+/// strategies (see sensei::Partitioner and derived classes). Typically by an
+/// AnalysisAdaptor which needs explicit control over how data is partitioned
+/// will use SetReceiverMeshMetadata. When no receiver MeshMetadata has been
+/// provided a sensei::Partitioner is used. The partioner may be specified in
+/// XML, and if it is not, then the default is sensei::BlockPartitioner.
 class InTransitDataAdaptor : public sensei::DataAdaptor
 {
 public:
   senseiBaseTypeMacro(InTransitDataAdaptor, sensei::DataAdaptor);
 
-  // New API that enables run-time user based control of how data lands for
-  // sensei::AnalysisAdaptor's which do not need explicit control. The specific
-  // transport layers will implement this, and may support different options.
-  // However, they will all support the 'partitioner' attribute and the following
-  // partitioning modes:
-  //
-  //     block  The block distribution method will distribute blocks to a rank
-  //            such that consecutive blocks share a rank.
-  //
-  //     cyclic The cyclic distribution method will distribute blocks to a rank
-  //            such that consecutive blocks are distributed over consecutive
-  //            ranks (in a round-robin fashion).
-  //
-  //     planar The  blocks are distributed in blocks of a specified size.
-  //            The size is specified in the 'plane_size' attribute. Note
-  //            block is a special case of planar with a plane_size of 1
-  //
-  //     mapped The mapped method of distribution will allocate blocks
-  //            in-order as listed in a nested 'block_owner' and 'block_id'
-  //            elements.  each entry in the block element has a
-  //            corresponding entry in the proc element naming the mpi rank
-  //            where the block lands
-  //
-  // Note, that these are core partitioning supported in SENSEI 3, specific
-  // InTransitDataAdaptor instances are free to support other partitionings
-  // but not required to do so.
-  //
-  // Illustrative example of the XML:
-  //
-  // <sensei>
-  //   <data_adaptor type="adios_2" partitioner="block" ... >
-  //     ...
-  //   </data_adaptor>
-  //   <analysis type="histogram" ... >
-  //     ...
-  //   </analysis>
-  // </sensei>
-  //
-  // For more information on the 'analysis element' see sensei::ConfigurableAnalysis.
-  // For more information on the 'data_adaptor' 'type' attribute see
-  // sensei::InTransitAdaptorFactory
-  virtual int Initialize(pugi::xml_node &parent) = 0;
+  // Initialize the adaptor from an XML node. The default implementation
+  // handles initializing a sensei::ConfigurablePartitioner. If the
+  // ConfigurablePartitioner fails to initialize, then a we fall back to a
+  // default initialized sensei::BlockPartitioner.
+  virtual int Initialize(pugi::xml_node &node);
 
   // Get metadta object describing the data that is available in the simulation.
   virtual int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) = 0;
@@ -88,18 +59,20 @@ public:
   virtual int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata);
 
   // Set/get the partitioner. The partitioner is used when no receiver mesh
-  // metadata has been set.
-  void SetPartitioner(sensei::Partitioner *partitioner);
+  // metadata has been set. The Initialize method will initialize an instance
+  // of a ConfigurablePartitioner using user provided XML, if that fails will
+  // fall back to a default initialized instance of BlockPartitioner.
+  void SetPartitioner(sensei::PartitionerPtr &partitioner);
   sensei::Partitioner *GetPartitioner();
-
-  // New API that is called before the application is brought down
-  virtual int Finalize() = 0;
 
   // Control API
   virtual int OpenStream() = 0;
   virtual int CloseStream() = 0;
   virtual int AdvanceStream() = 0;
   virtual int StreamGood() = 0;
+
+  // Called before the application is brought down
+  virtual int Finalize() = 0;
 
 protected:
   InTransitDataAdaptor();
