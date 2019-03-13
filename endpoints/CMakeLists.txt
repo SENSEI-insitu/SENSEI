@@ -6,6 +6,14 @@ if(ENABLE_ADIOS1)
     RUNTIME DESTINATION bin)
 endif()
 
+if(ENABLE_HDF5)
+  add_executable(HDF5EndPoint HDF5EndPoint.cpp)
+  target_link_libraries(HDF5EndPoint PRIVATE opts sensei timer sDataElevator sMPI)
+
+  install(TARGETS HDF5EndPoint
+    RUNTIME DESTINATION bin)
+endif()
+
 add_executable(ConfigurableEndPoint ConfigurableEndPoint.cxx)
 target_link_libraries(ConfigurableEndPoint PRIVATE opts sensei timer pugixml sMPI)
 
