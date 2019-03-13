@@ -12,6 +12,7 @@
 #cmakedefine ENABLE_CATALYST_PYTHON
 #cmakedefine ENABLE_LIBSIM
 #cmakedefine ENABLE_ADIOS1
+#cmakedefine ENABLE_HDF5
 #cmakedefine ENABLE_VTK_GENERIC_ARRAYS
 #cmakedefine ENABLE_VTK_MPI
 #cmakedefine ENABLE_VTK_IO

@@ -35,6 +35,9 @@
 #ifdef ENABLE_ADIOS1
 #include "ADIOS1AnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_HDF5
+#include "HDF5AnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
 #include "CatalystParticle.h"
@@ -78,6 +81,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios(pugi::xml_node node);
+  int AddHDF5(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
@@ -332,6 +336,50 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   return 0;
 #endif
 }
+
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
+  {
+#ifndef ENABLE_HDF5
+    (void)node;
+    SENSEI_ERROR("HDF5 was requested but is disabled in this build");
+    return -1;
+#else
+    auto dataE = vtkSmartPointer<HDF5AnalysisAdaptor>::New();
+
+    if (this->Comm != MPI_COMM_NULL)
+      dataE->SetCommunicator(this->Comm);
+
+    pugi::xml_attribute filename = node.attribute("filename");
+    pugi::xml_attribute methodAttr = node.attribute("method");
+    
+   
+    if (filename)
+      dataE->SetFileName(filename.value());
+
+    if (methodAttr) {
+      std::string method = methodAttr.value();
+
+      if (method.size() >  0) {
+	bool doStreaming = ('s' == method[0]);
+	bool doCollectiveTxf = ((method.size() > 1) && ('c' == method[1]));
+
+	dataE->SetStreaming(doStreaming);
+	dataE->SetCollective(doCollectiveTxf);
+      }
+    }
+
+    this->TimeInitialization(dataE);
+    this->Analyses.push_back(dataE.GetPointer());
+
+    SENSEI_STATUS("Configured HDF5 AnalysisAdaptor \"" << filename.value())
+
+      return 0;
+#endif
+  }
+
+
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
@@ -874,6 +922,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios") && !this->Internals->AddAdios(node))
+      || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))

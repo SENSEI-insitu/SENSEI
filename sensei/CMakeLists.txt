@@ -35,6 +35,12 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sADIOS1)
   endif()
 
+ if (ENABLE_HDF5)
+       list(APPEND senseiCore_sources HDF5DataAdaptor.cxx HDF5AnalysisAdaptor.cxx
+        HDF5Schema.cxx)
+    list(APPEND senseiCore_libs sDataElevator)
+  endif()
+
   if (ENABLE_VTK_ACCELERATORS)
     list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()

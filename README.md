@@ -41,12 +41,14 @@ information see our [SC16 paper](http://dl.acm.org/citation.cfm?id=3015010).
 | DataAdaptor       | Base class declaring data adaptor API |
 | VTKDataAdaptor    | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
 | ADIOS1DataAdaptor | Implementation that serves up data from ADIOS 1. For use in an ADIOS 1 End point. |
+| HDF5DataAdaptor   | Implementation that serves up data from HDF5. For use in a HDF5  End point. |
 
 #### AnalysisAdaptors
 | Class                   | Description |
 |-------------------------|-------------|
 | AnalysisAdaptor         | Base class declaring analysis adaptor API |
-| ADIOS1AnalysisAdaptor    | Implementation for using ADIOS 1 from your simulation. |
+| ADIOS1AnalysisAdaptor   | Implementation for using ADIOS 1 from your simulation. |
+| HDF5AnalysisAdaptor     | Implementation for using HDF5 from your simulation. |
 | LibsimAnalysisAdaptor   | Implementation for using Libsim from your simulation. |
 | CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulaiton. |
 | Autocorrelation         | Implementation that computes [autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation)  |
@@ -110,6 +112,7 @@ $ make install
 | `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
 | `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
 | `ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
+| `ENABLE_HDF5` | OFF | Enables HDF5 adaptors and endpoints. Set `HDF5_DIR`. |
 | `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
 | `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
 | `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
