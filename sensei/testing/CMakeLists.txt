@@ -1,4 +1,10 @@
 if (BUILD_TESTING)
+  senseiAddTest(testHDF5Write
+    COMMAND testHDF5 w 4 n h5test
+    SOURCES testHDF5.cpp LIBS sensei)
+
+  senseiAddTest(testHDF5Read
+    COMMAND testHDF5 r h5test.n1)
 
   senseiAddTest(testHistogramSerial
     COMMAND testHistogram EXEC_NAME testHistogram
