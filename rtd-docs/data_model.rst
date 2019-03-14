@@ -1,3 +1,5 @@
+.. _data_model:
+
 The SENSEI Data model
 =====================
 aka Mapping Your Simulation Data To SENSEI
