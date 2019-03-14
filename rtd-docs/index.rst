@@ -1,5 +1,7 @@
 SENSEI User Guide
 =================
+Version: |release|
+
 Write once run everywhere. SENSEI provides access to a diverse set of in situ
 analysis back-ends and transport layers through a simple API and data model.
 Simulations instrumented with the SENSEI API can process data using any of

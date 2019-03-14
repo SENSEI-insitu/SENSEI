@@ -6,16 +6,21 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
-# -- Path setup --------------------------------------------------------------
+# -- Path and environment setup ----------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+readTheDocs = os.environ.get('READTHEDOCS', None) != None
+localReadTheDocs = os.environ.get('LOCALREADTHEDOCS', None) != None
+localSkipDoxygen = os.environ.get('LOCALSKIPDOXYGEN', None) != None
+sourcedir = sys.argv[-2]
+builddir = sys.argv[-1]
 
 # -- Project information -----------------------------------------------------
 
@@ -39,6 +44,7 @@ release = u'2.2.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinxcontrib.doxylink'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -154,3 +160,70 @@ texinfo_documents = [
      author, 'SENSEI', 'One line description of project.',
      'Miscellaneous'),
 ]
+
+# -- Doxylink configuration -----------------------------------------------
+
+# The doxylink environment is set up with a dictionary mapping
+# the interpereted text role to a tuple of tag file and prefix:
+tagbase = os.path.join(builddir, '..', '..', 'reference')
+refbase = os.path.join('..', '..', 'reference')
+if readTheDocs or localReadTheDocs:
+    # We store the reference documentation inside the user-doc build
+    # directory on readthedocs so that it will get installed properly.
+    tagbase = os.path.abspath(os.path.join(builddir, 'rtd-docs', 'reference'))
+    refbase = os.path.join('..', 'rtd-docs', 'reference')
+doxylink = {
+    'sensei': (
+        os.path.join(tagbase, 'sensei.tags'),
+        os.path.join(refbase, 'sensei', 'html'))
+}
+
+# A boolean that decides whether parentheses are appended to
+# function and method role text. Default is True.
+# add_function_parentheses = True
+
+# -- Run doxygen on sensei for doxylinks -------------------------------------
+
+def runDoxygen(rtdsrcdir, rtdblddir, doxyfileIn, doxyfileOut):
+    """Run Doxygen as part of generating user documentation.
+
+    This is only meant to be used on readthedocs.org to generate
+    reference documentation for linking into the user's guide and
+    tutorial. It could eventually be replaced by something that
+    fetches tag files, XML files, and references remotely-generated
+    documentation from an full build of sensei.
+    """
+    import re
+    import subprocess
+    dxiname = open(os.path.join(rtdsrcdir, doxyfileIn), 'r')
+    cfg = dxiname.read()
+    orgdir = os.path.abspath(os.getcwd())
+    srcdir = os.path.abspath(os.path.join(os.getcwd(), '..'))
+    bindir = srcdir
+    refdir = os.path.abspath(os.path.join(rtdblddir, 'rtd-docs', 'reference'))
+    cfg2 = re.sub('@sensei_SOURCE_DIR@', srcdir,
+        re.sub('@sensei_BINARY_DIR@', os.path.abspath(rtdblddir),
+            re.sub('@sensei_VERSION@', release, cfg)))
+    try:
+        os.makedirs(refdir)
+    except OSError as e:
+        if e.errno == 17:
+            pass
+    except:
+        print('Failed to create doxygen reference directory %s' % refdir)
+        return
+    dxoname = os.path.abspath(os.path.join(refdir, doxyfileOut))
+    dxo = open(dxoname, 'w')
+    print(cfg2, file=dxo)
+    dxo.close()
+    os.chdir(refdir)
+    print('Running Doxygen on %s' % dxoname)
+    rcode = subprocess.call(('doxygen', dxoname))
+    print('   Doxygen returned %s' % rcode)
+    os.chdir(orgdir)
+
+if readTheDocs or localReadTheDocs:
+    """Configure files and run Doxygen ourselves"""
+    # Run doxygen ourselves on ReadTheDocs.org so that doxylinks will work.
+    if not localSkipDoxygen:
+        runDoxygen(sourcedir, builddir, 'sensei.doxyfile.in', 'sensei.doxyfile')
