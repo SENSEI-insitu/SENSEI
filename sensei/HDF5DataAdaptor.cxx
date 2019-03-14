@@ -15,6 +15,7 @@
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 
+#include <pugixml.hpp>
 #include <sstream>
 
 namespace sensei {
@@ -31,6 +32,32 @@ HDF5DataAdaptor::~HDF5DataAdaptor() { delete m_HDF5Reader; }
 //----------------------------------------------------------------------------
 void HDF5DataAdaptor::SetStreamName(const std::string &name) {
   m_StreamName = name;
+}
+
+int HDF5DataAdaptor::Initialize(pugi::xml_node &node) {
+  timer::MarkEvent mark("HDF5DataAdaptor::Initialize");
+
+  this->InTransitDataAdaptor::Initialize(node);
+
+  pugi::xml_attribute filename = node.attribute("filename");
+  pugi::xml_attribute methodAttr = node.attribute("method");
+
+  if (filename)
+    SetStreamName(filename.value());
+
+  if (methodAttr) {
+    std::string method = methodAttr.value();
+
+    if (method.size() > 0) {
+      bool doStreaming = ('s' == method[0]);
+      bool doCollectiveTxf = ((method.size() > 1) && ('c' == method[1]));
+
+      SetStreaming(doStreaming);
+      SetCollective(doCollectiveTxf);
+    }
+  }
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------
