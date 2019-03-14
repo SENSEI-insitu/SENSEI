@@ -32,7 +32,9 @@ public:
   /// @brief Set the filename.
   ///
   /// Default value is "sensei.bp"
-  void SetFileName(const std::string &filename) { this->m_FileName = filename; }
+  void SetStreamName(const std::string &filename) {
+    this->m_FileName = filename;
+  }
 
   void SetStreaming(bool streamOption) { this->m_DoStreaming = streamOption; }
 

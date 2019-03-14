@@ -55,6 +55,7 @@ public:
   int CloseStream() override;
   int AdvanceStream() override;
   int StreamGood() override;
+  int Initialize(pugi::xml_node &parent) override;
   int Finalize() override;
   int GetSenderMeshMetadata(unsigned int id,
                             MeshMetadataPtr &metadata) override;
