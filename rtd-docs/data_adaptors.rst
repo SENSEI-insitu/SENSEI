@@ -8,8 +8,8 @@ response to requests from analysis endpoints.
 Lifecycle
 ---------
 
-The key event in the lifetime of a `sensei::DataAdaptor` is when it is
-passed to an instance of a `sensei::AnalysisAdaptor` at each time step
+The key event in the lifetime of a :sensei:`sensei::DataAdaptor` is when it is
+passed to an instance of a :sensei:`sensei::AnalysisAdaptor` at each time step
 so that user-configured analyses can be performed.
 
 Many simulations choose to create an instance of the data adaptor and
@@ -34,8 +34,8 @@ in two different contexts:
 Providing data from a simulation
 --------------------------------
 
-SENSEI provides the base `sensei::DataAdaptor` class, which is abstract,
-and a concrete subclass named `sensei::VTKDataAdaptor` that you may choose
+SENSEI provides the base :sensei:`sensei::DataAdaptor` class, which is abstract,
+and a concrete subclass named :sensei:`sensei::VTKDataAdaptor` that you may choose
 to use for simple situations.
 You may also create a custom subclass of the base class;
 this is demonstrated by the oscillators miniapp that comes with SENSEI

@@ -1,0 +1,5 @@
+pyparsing==2.3.1
+Pygments==2.3.1
+Sphinx==1.8.4
+sphinxcontrib-doxylink==1.6
+sphinx_rtd_theme==0.4.3
