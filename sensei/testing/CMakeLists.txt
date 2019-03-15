@@ -1,10 +1,12 @@
 if (BUILD_TESTING)
   senseiAddTest(testHDF5Write
     COMMAND testHDF5 w 4 n h5test
-    SOURCES testHDF5.cpp LIBS sensei)
+    SOURCES testHDF5.cpp LIBS sensei
+    FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHDF5Read
-    COMMAND testHDF5 r h5test.n1)
+    COMMAND testHDF5 r h5test.n1
+    FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHistogramSerial
     COMMAND testHistogram EXEC_NAME testHistogram

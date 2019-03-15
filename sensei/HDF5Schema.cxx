@@ -11,7 +11,6 @@
 #include <vtkDoubleArray.h>
 #include <vtkFloatArray.h>
 #include <vtkHierarchicalBoxDataSet.h>
-#include <vtkHyperOctree.h>
 #include <vtkHyperTreeGrid.h>
 #include <vtkIdTypeArray.h>
 #include <vtkImageData.h>
@@ -290,10 +289,10 @@ void HDF5VarGuard::ReadSlice(void *buf, int ndim, const hsize_t *start,
                              const hsize_t *block) {
   hid_t memDataSpace = H5Screate_simple(ndim, count, NULL);
 
-  hid_t ret = H5Sselect_hyperslab(m_VarSpace, H5S_SELECT_SET, start, stride,
+  H5Sselect_hyperslab(m_VarSpace, H5S_SELECT_SET, start, stride,
                                   count, block);
 
-  ret = H5Dread(m_VarID, m_VarType, memDataSpace, m_VarSpace, H5P_DEFAULT, buf);
+  H5Dread(m_VarID, m_VarType, memDataSpace, m_VarSpace, H5P_DEFAULT, buf);
 
   H5Sclose(memDataSpace);
 }
