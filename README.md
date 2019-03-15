@@ -27,6 +27,8 @@ aimed at evolving to the exascale.
 | [Build and Install](#build-and-install) |
 | [Using the SENSEI Library](#using-the-sensei-library)
 
+[![Documentation Status](https://readthedocs.org/projects/sensei-insitu/badge/?version=rtd_user_guide)](https://sensei-insitu.readthedocs.io/en/rtd_user_guide/?badge=rtd_user_guide)
+
 ## Project Organization
 ### SENSEI library
 The SENSEI library contains core base classes that declare the AnalysisAdaptor
