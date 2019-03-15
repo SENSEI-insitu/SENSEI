@@ -7,12 +7,12 @@ endif()
 message(STATUS "HDF5 found? ${HDF5_FOUND} ${HDF5_INCLUDE_DIRS} ${HDF5_INCLUDE_DIR}")
 
 if(HDF5_FOUND)
-  add_library(sDataElevator INTERFACE)
-  target_link_libraries(sDataElevator INTERFACE ${HDF5_LIBRARIES})
-  target_include_directories(sDataElevator SYSTEM INTERFACE ${HDF5_INCLUDE_DIRS})
+  add_library(sHDF5 INTERFACE)
+  target_link_libraries(sHDF5 INTERFACE ${HDF5_LIBRARIES})
+  target_include_directories(sHDF5 SYSTEM INTERFACE ${HDF5_INCLUDE_DIRS})
 
-  install(TARGETS sDataElevator EXPORT sDataElevator)
-  install(EXPORT sDataElevator DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+  install(TARGETS sHDF5 EXPORT sHDF5)
+  install(EXPORT sHDF5 DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
 endif()
 
 

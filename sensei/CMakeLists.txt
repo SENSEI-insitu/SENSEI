@@ -38,7 +38,7 @@ if (ENABLE_SENSEI)
  if (ENABLE_HDF5)
        list(APPEND senseiCore_sources HDF5DataAdaptor.cxx HDF5AnalysisAdaptor.cxx
         HDF5Schema.cxx)
-    list(APPEND senseiCore_libs sDataElevator)
+    list(APPEND senseiCore_libs sHDF5)
   endif()
 
   if (ENABLE_VTK_ACCELERATORS)
