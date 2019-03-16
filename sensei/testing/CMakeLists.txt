@@ -1,4 +1,9 @@
 if (BUILD_TESTING)
+  senseiAddTest(setupHDF5
+    COMMAND testHDF5 EXEC_NAME testHDF5
+    SOURCES testHDF5.cpp LIBS sensei
+    FEATURES ${ENABLE_HDF5})
+
   senseiAddTest(testHDF5Write
     COMMAND testHDF5 w 4 n h5test
     SOURCES testHDF5.cpp LIBS sensei
@@ -6,6 +11,18 @@ if (BUILD_TESTING)
 
   senseiAddTest(testHDF5Read
     COMMAND testHDF5 r h5test.n1
+    SOURCES testHDF5.cpp LIBS sensei	
+    FEATURES ${ENABLE_HDF5})
+
+
+  senseiAddTest(testHDF5WriteStreaming
+    COMMAND testHDF5 w 4 s h5stream
+    SOURCES testHDF5.cpp LIBS sensei
+    FEATURES ${ENABLE_HDF5})
+
+  senseiAddTest(testHDF5ReadStreaming
+    COMMAND testHDF5 r h5stream.n1 s
+    SOURCES testHDF5.cpp LIBS sensei	
     FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHistogramSerial
