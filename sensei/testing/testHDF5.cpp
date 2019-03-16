@@ -512,7 +512,8 @@ void writeMe(sensei::AnalysisAdaptor *aw, int n_its, MPI_Comm &comm) {
 
 AAWrap *GetWriteAdaptor(const std::string &file_name, const std::string &method,
                         int rank) {
-  if (file_name.find("h5") == 0) {
+  std::size_t found = file_name.find("h5");
+  if (found != std::string::npos) {
     bool doStreaming = false;
     bool doCollective = false;
 
@@ -558,7 +559,8 @@ TimedAdaptorWrap *GetReadAdaptor(const std::string &file_name,
   // std::cout<<"initializing ADIOSDataAdaptor "<<file_name<<std::endl;
   int rank;
   MPI_Comm_rank(comm, &rank);
-  if (file_name.find("h5") == 0) {
+  std::size_t found = file_name.find("h5");
+  if (found != std::string::npos) {
     bool doStreaming = false;
     bool doCollective = false;
 
@@ -615,8 +617,8 @@ int main(int argc, char **argv) {
 
   if (argc == 1) {
     std::cout << " please use the following options: " << std::endl;
-    std::cout << " ./ctest w iter mode file-name " << std::endl;
-    std::cout << " ./ctest r file-name mode" << std::endl;
+    std::cout << argv[0] << "  w iter mode file-name " << std::endl;
+    std::cout << argv[0] << "  r file-name mode" << std::endl;
     return 0;
   }
 
