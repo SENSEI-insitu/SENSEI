@@ -69,10 +69,28 @@ int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
 {
   timer::MarkEvent mark("ADIOS1DataAdaptor::Initialize");
 
-  this->InTransitDataAdaptor::Initialize(node);
+  // let the base class handle initialization of the partitioner etc
+  if (this->InTransitDataAdaptor::Initialize(node))
+    {
+    SENSEI_ERROR("Failed to intialize base class")
+    return -1;
+    }
 
-  // TODO -- what other params should I grab?
-  // file name? read method? data requirements?
+  // for simplicity, assume all configuration is to come from XML
+  if (XMLUtils::RequireAttribute(node, "file_name") ||
+    XMLUtils::RequireAttribute(node, "read_method"))
+    {
+    SENSEI_ERROR("Failed to initialize, missing XML attributes")
+    return -1;
+    }
+
+  this->SetFileName(node.attribute("file_name"));
+
+  if (this->SetReadMethod(node.attribute("read_method")))
+    {
+    SENSEI_ERROR("Failed to initialize, bad read_method")
+    return -1;
+    }
 
   return 0;
 }

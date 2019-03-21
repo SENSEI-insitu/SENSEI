@@ -87,9 +87,6 @@ struct InputStream
     ReadMethod(static_cast<ADIOS_READ_METHOD>(-1)),
     FileName() {}
 
-  //InputStream(ADIOS_FILE *file, ADIOS_READ_METHOD method)
-  //  : File(file), ReadMethod(method) {}
-
   int SetReadMethod(const std::string &method);
 
   int Open(MPI_Comm comm, ADIOS_READ_METHOD method,
