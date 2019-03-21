@@ -35,34 +35,45 @@
 #include <mpi.h>
 #include <vector>
 
-namespace sensei {
+namespace sensei
+{
 
 //----------------------------------------------------------------------------
 senseiNewMacro(HDF5AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
 HDF5AnalysisAdaptor::HDF5AnalysisAdaptor()
-    : m_FileName("no.file"), m_HDF5Writer(nullptr) {}
+  : m_FileName("no.file")
+  , m_HDF5Writer(nullptr)
+{
+}
 
 //----------------------------------------------------------------------------
-HDF5AnalysisAdaptor::~HDF5AnalysisAdaptor() { delete m_HDF5Writer; }
+HDF5AnalysisAdaptor::~HDF5AnalysisAdaptor()
+{
+  delete m_HDF5Writer;
+}
 
 //-----------------------------------------------------------------------------
-int HDF5AnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs) {
+int HDF5AnalysisAdaptor::SetDataRequirements(const DataRequirements& reqs)
+{
   this->Requirements = reqs;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
 int HDF5AnalysisAdaptor::AddDataRequirement(
-    const std::string &meshName, int association,
-    const std::vector<std::string> &arrays) {
+  const std::string& meshName,
+  int association,
+  const std::vector<std::string>& arrays)
+{
   this->Requirements.AddRequirement(meshName, association, arrays);
   return 0;
 }
 
 //----------------------------------------------------------------------------
-bool HDF5AnalysisAdaptor::Execute(DataAdaptor *dataAdaptor) {
+bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+{
   timer::MarkEvent mark("HDF5AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide
@@ -71,20 +82,23 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor *dataAdaptor) {
   flags.SetBlockSize();
 
   MeshMetadataMap mdm;
-  if (mdm.Initialize(dataAdaptor, flags)) {
-    SENSEI_ERROR("Failed to get metadata");
-    return false;
-  }
+  if (mdm.Initialize(dataAdaptor, flags))
+    {
+      SENSEI_ERROR("Failed to get metadata");
+      return false;
+    }
 
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
-  if (this->Requirements.Empty()) {
-    if (this->Requirements.Initialize(dataAdaptor, false)) {
-      SENSEI_ERROR("Failed to initialze dataAdaptor description");
-      return false;
+  if (this->Requirements.Empty())
+    {
+      if (this->Requirements.Initialize(dataAdaptor, false))
+        {
+          SENSEI_ERROR("Failed to initialze dataAdaptor description");
+          return false;
+        }
+      SENSEI_WARNING("No subset specified. Writing all available data");
     }
-    SENSEI_WARNING("No subset specified. Writing all available data");
-  }
 
   if (!this->InitializeHDF5())
     return false;
@@ -101,98 +115,110 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor *dataAdaptor) {
   // std::vector<vtkCompositeDataSet*> objects;
 
   MeshRequirementsIterator mit =
-      this->Requirements.GetMeshRequirementsIterator();
+    this->Requirements.GetMeshRequirementsIterator();
 
   // unsigned int meshCounter = 0;
 
-  while (mit) {
-    // get metadata
-    MeshMetadataPtr md;
-    if (mdm.GetMeshMetadata(mit.MeshName(), md)) {
-      SENSEI_ERROR("Failed to get mesh metadata for mesh \"" << mit.MeshName()
-                                                             << "\"");
-      return false;
-    }
+  while (mit)
+    {
+      // get metadata
+      MeshMetadataPtr md;
+      if (mdm.GetMeshMetadata(mit.MeshName(), md))
+        {
+          SENSEI_ERROR("Failed to get mesh metadata for mesh \""
+                       << mit.MeshName() << "\"");
+          return false;
+        }
 
-    // get the mesh
-    vtkCompositeDataSet *dobj = nullptr;
-    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj)) {
-      SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"");
-      return false;
-    }
+      // get the mesh
+      vtkCompositeDataSet* dobj = nullptr;
+      if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+        {
+          SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"");
+          return false;
+        }
 
-    // add the ghost cell arrays to the mesh
-    if (md->NumGhostCells &&
-        dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName())) {
-      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName()
-                                                           << "\"")
-      return false;
-    }
+      // add the ghost cell arrays to the mesh
+      if (md->NumGhostCells &&
+          dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+        {
+          SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName()
+                                                               << "\"")
+          return false;
+        }
 
-    // add the ghost node arrays to the mesh
-    if (md->NumGhostNodes &&
-        dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName())) {
-      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName()
-                                                           << "\"");
-      return false;
-    }
+      // add the ghost node arrays to the mesh
+      if (md->NumGhostNodes &&
+          dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+        {
+          SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName()
+                                                               << "\"");
+          return false;
+        }
 
-    // add the required arrays
-    ArrayRequirementsIterator ait =
+      // add the required arrays
+      ArrayRequirementsIterator ait =
         this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
 
-    while (ait) {
-      if (dataAdaptor->AddArray(dobj, mit.MeshName(), ait.Association(),
-                                ait.Array())) {
-        SENSEI_ERROR("Failed to add "
-                     << VTKUtils::GetAttributesName(ait.Association())
-                     << " data array \"" << ait.Array() << "\" to mesh \""
-                     << mit.MeshName() << "\"");
-        return false;
-      }
+      while (ait)
+        {
+          if (dataAdaptor->AddArray(
+                dobj, mit.MeshName(), ait.Association(), ait.Array()))
+            {
+              SENSEI_ERROR("Failed to add "
+                           << VTKUtils::GetAttributesName(ait.Association())
+                           << " data array \"" << ait.Array() << "\" to mesh \""
+                           << mit.MeshName() << "\"");
+              return false;
+            }
 
-      ++ait;
+          ++ait;
+        }
+
+      // generate a global view of the metadata. everything we do from here
+      // on out depends on having the global view.
+      if (!md->GlobalView)
+        {
+          MPI_Comm comm = this->GetCommunicator();
+          sensei::MPIUtils::GlobalViewV(comm, md->BlockOwner);
+          sensei::MPIUtils::GlobalViewV(comm, md->BlockIds);
+          sensei::MPIUtils::GlobalViewV(comm, md->BlockNumPoints);
+          sensei::MPIUtils::GlobalViewV(comm, md->BlockNumCells);
+          sensei::MPIUtils::GlobalViewV(comm, md->BlockCellArraySize);
+          sensei::MPIUtils::GlobalViewV(comm, md->BlockExtents);
+          md->GlobalView = true;
+        }
+
+      this->m_HDF5Writer->WriteMesh(md, dobj);
+
+      dobj->Delete();
+
+      ++mit;
     }
-
-    // generate a global view of the metadata. everything we do from here
-    // on out depends on having the global view.
-    if (!md->GlobalView) {
-      MPI_Comm comm = this->GetCommunicator();
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockOwner);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockIds);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumPoints);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumCells);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockCellArraySize);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockExtents);
-      md->GlobalView = true;
-    }
-
-    this->m_HDF5Writer->WriteMesh(md, dobj);
-
-    dobj->Delete();
-
-    ++mit;
-  }
 
   return true;
 }
 
 //----------------------------------------------------------------------------
-bool HDF5AnalysisAdaptor::InitializeHDF5() {
+bool HDF5AnalysisAdaptor::InitializeHDF5()
+{
   timer::MarkEvent mark("HDF5AnalysisAdaptor::IntializeHDF5");
 
-  if (!this->m_HDF5Writer) {
-    this->m_HDF5Writer =
+  if (!this->m_HDF5Writer)
+    {
+      this->m_HDF5Writer =
         new senseiHDF5::WriteStream(this->GetCommunicator(), m_DoStreaming);
-    if (!this->m_HDF5Writer->Init(this->m_FileName)) {
-      return -1;
+      if (!this->m_HDF5Writer->Init(this->m_FileName))
+        {
+          return -1;
+        }
     }
-  }
   return true;
 }
 
 //----------------------------------------------------------------------------
-int HDF5AnalysisAdaptor::Finalize() {
+int HDF5AnalysisAdaptor::Finalize()
+{
   if (this->m_HDF5Writer)
     delete this->m_HDF5Writer;
 
@@ -226,7 +252,8 @@ return ierr;
 }
 */
 //----------------------------------------------------------------------------
-void HDF5AnalysisAdaptor::PrintSelf(ostream &os, vtkIndent indent) {
+void HDF5AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+{
   this->Superclass::PrintSelf(os, indent);
 }
 
