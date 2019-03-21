@@ -15,11 +15,22 @@ namespace XMLUtils
 {
 
 //----------------------------------------------------------------------------
-int RequireAttribute(pugi::xml_node &node, const char *attributeName)
+int RequireAttribute(const pugi::xml_node &node, const char *attributeName)
 {
   if (!node.attribute(attributeName))
     {
     SENSEI_ERROR(<< node.name() << " is missing required attribute " << attributeName)
+    return -1;
+    }
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int RequireChild(const pugi::xml_node &node, const char *childName)
+{
+  if (!node.child(childName))
+    {
+    SENSEI_ERROR(<< node.name() << " is missing required child element " << childName)
     return -1;
     }
   return 0;

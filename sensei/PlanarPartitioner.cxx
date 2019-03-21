@@ -1,6 +1,8 @@
 #include "PlanarPartitioner.h"
+#include "XMLUtils.h"
 
 #include <pugixml.hpp>
+
 
 namespace sensei
 {
@@ -37,12 +39,11 @@ int PlanarPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
 
 // --------------------------------------------------------------------------
 int PlanarPartitioner::Initialize(pugi::xml_node &node)
-{
-  pugi::xml_node sizeNode = node.child("plane_size");
-  if (!sizeNode || !sizeNode.text())
+{ 
+  if (XMLUtils::RequireChild(node, "plane_size"))
     return -1;
 
-  this->PlaneSize = sizeNode.text().as_uint();
+  this->PlaneSize = node.child("plane_size").text().as_uint();
 
   return 0;
 }

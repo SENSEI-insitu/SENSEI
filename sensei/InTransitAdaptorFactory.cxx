@@ -1,5 +1,5 @@
 #include "InTransitAdaptorFactory.h"
-//#include "ADIOS1DataAdaptor.h"
+#include "ADIOS1DataAdaptor.h"
 #include "XMLUtils.h"
 #include "Error.h"
 
@@ -33,15 +33,26 @@ int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *
   int myRank = 0;
   MPI_Comm_rank(comm, &myRank);
 
+  if (XMLUtils::RequireChild(root, "data_adaptor"))
+    {
+    SENSEI_ERROR(
+      "Failed to construct an InTransitDataAdaptor. Missing \"data_adaptor\" element");
+    return -1;
+    }
+
   pugi::xml_node node = root.child("data_adaptor");
-  // TODO -- hande error of no data adaptor node is found
+  
+  if (XMLUtils::RequireAttribute(node, "transport"))
+    {
+    SENSEI_ERROR(
+      "Failed to construct an InTransitDataAdaptor. Missing \"transport\" attribute");
+    return -1;
+    }
 
   std::string type = node.attribute("transport").value();
-  if (type == "adios_2")
+  if (type == "adios_1")
     {
-    // Create ADIOS1DataAdaptor
-    // dataAdaptor = ADIOS1DataAdaptor::New();
-    // dataAdaptor->Initialize(node);
+    dataAdaptor = ADIOS1DataAdaptor::New();
     }
   else if (type == "data_elevators")
     {
@@ -53,8 +64,7 @@ int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *
     }
   else
     {
-    if (myRank == 0)
-      SENSEI_ERROR("Failed to add '" << type << "' data adaptor")
+    SENSEI_ERROR("Failed to add \"" << type << "\" data adaptor")
     return -1;
     }
 

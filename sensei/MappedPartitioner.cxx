@@ -1,6 +1,8 @@
 #include "MappedPartitioner.h"
+#include "XMLUtils.h"
 
 #include <pugixml.hpp>
+
 
 namespace sensei
 {
@@ -40,35 +42,32 @@ int MappedPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
 // --------------------------------------------------------------------------
 int MappedPartitioner::Initialize(pugi::xml_node &node)
 {
+  if (XMLUtils::RequireChild(node, "block_owner") || 
+      XMLUtils::RequireChild(node, "block_id"))
+    return -1;
+
   std::string blkOwnerElem = node.child("block_owner").text().as_string();
   std::string blkIdsElem = node.child("block_id").text().as_string();
 
-  // TODO -- error checking? What should happen if the elements are not
-  //  found? Is that an error?
-
-  // TODO -- use the methods provided by pugi to get the contents
-  // of the elements.
-
   std::string delims = " \t";
 
-  std::size_t curr = blkOwnerElem.find_first_of(delims, 0);
-  std::size_t next = blkOwnerElem.find_first_of(delims, curr + 1);
+  std::size_t curr = blkOwnerElem.find_first_not_of(delims, 0);
+  std::size_t next = std::string::npos;
 
   while (curr != std::string::npos)
     {
-    this->BlockOwner.push_back(std::stoi(blkOwnerElem.substr(curr, next - curr)));
-    curr = next;
     next = blkOwnerElem.find_first_of(delims, curr + 1);
+    this->BlockOwner.push_back(std::stoi(blkOwnerElem.substr(curr, next - curr)));
+    curr = blkOwnerElem.find_first_not_of(delims, next);
     }
 
-  curr = blkIdsElem.find_first_of(delims, 0);
-  next = blkIdsElem.find_first_of(delims, curr + 1);
+  curr = blkIdsElem.find_first_not_of(delims, 0);
 
   while (curr != std::string::npos)
     {
-    this->BlockIds.push_back(std::stoi(blkIdsElem.substr(curr, next - curr)));
-    curr = next;
     next = blkIdsElem.find_first_of(delims, curr + 1);
+    this->BlockIds.push_back(std::stoi(blkIdsElem.substr(curr, next - curr)));
+    curr = blkIdsElem.find_first_not_of(delims, next);
     }
 
   return 0;
