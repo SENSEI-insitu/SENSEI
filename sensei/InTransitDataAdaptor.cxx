@@ -42,7 +42,7 @@ int InTransitDataAdaptor::Initialize(pugi::xml_node &node)
     {
     // create and initialize the partitioner
     PartitionerPtr tmp = PartitionerPtr(new ConfigurablePartitioner);
-    if (tmp->Initialize(node))
+    if (tmp->Initialize(partNode))
       {
       SENSEI_ERROR("Failed to initialize the partitioner from XML")
       return -1;

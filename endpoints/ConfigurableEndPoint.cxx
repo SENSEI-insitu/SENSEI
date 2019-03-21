@@ -27,12 +27,6 @@ using namespace sensei;
 
 int main(int argc, char** argv)
 {
-  if(argc < 3)
-    {
-    std::cout << "Usage: sensei_end_point <xml config> <stream id>" << std::endl;
-    std::exit(-1);
-    }
-
   int myRank, numRanks;
 
   MPI_Init(&argc, &argv);
@@ -41,7 +35,6 @@ int main(int argc, char** argv)
   MPI_Comm_size(comm, &numRanks);
 
   std::string configFile;
-  std::string streamId;
 
   opts::Options ops(argc, argv);
   ops >> opts::Option('f', "config", configFile, "Sensei data transport and analysis" 
@@ -55,7 +48,7 @@ int main(int argc, char** argv)
   if (showHelp || configFile.empty())
     {
     if (myRank == 0)
-      std::cerr << "Usage: " << argv[0] << "[OPTIONS]\n\n" << ops << std::endl;
+      std::cerr << "Usage: " << argv[0] << " [OPTIONS]\n\n" << ops << std::endl;
 
     MPI_Finalize();
     return showHelp ? 0 : 1;
@@ -73,7 +66,13 @@ int main(int argc, char** argv)
   pugi::xml_node root = doc.child("sensei");
 
   InTransitDataAdaptor* itda = nullptr;
-  InTransitAdaptorFactory::Initialize(comm, root, itda);
+  if (InTransitAdaptorFactory::Initialize(comm, root, itda))
+    {
+    if (myRank == 0)
+      SENSEI_ERROR("Failed to construct InTransitDataAdaptor")
+    MPI_Finalize();
+    return 1;
+    }
 
   InTransitDataAdaptorPtr inTranDataAdaptor = itda;
   ConfigAnalysisAdaptorPtr analysisAdaptor = ConfigAnalysisAdaptorPtr::New();
@@ -81,8 +80,10 @@ int main(int argc, char** argv)
   analysisAdaptor->SetCommunicator(comm);
   if (analysisAdaptor->Initialize(root))
     {
-    SENSEI_ERROR("Failed to initialize analysis")
-    MPI_Abort(comm, 1);
+    if (myRank == 0)
+      SENSEI_ERROR("Failed to initialize analysis")
+    MPI_Finalize();
+    return 1;
     }
 
   inTranDataAdaptor->OpenStream();
