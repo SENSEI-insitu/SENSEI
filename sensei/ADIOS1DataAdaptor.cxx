@@ -8,6 +8,7 @@
 #include "Timer.h"
 #include "ADIOS1Schema.h"
 #include "VTKUtils.h"
+#include "XMLUtils.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
@@ -16,6 +17,8 @@
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 #include <vtkDataSet.h>
+
+#include <pugixml.hpp>
 
 #include <sstream>
 
@@ -84,9 +87,9 @@ int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
     return -1;
     }
 
-  this->SetFileName(node.attribute("file_name"));
+  this->SetFileName(node.attribute("file_name").value());
 
-  if (this->SetReadMethod(node.attribute("read_method")))
+  if (this->SetReadMethod(node.attribute("read_method").value()))
     {
     SENSEI_ERROR("Failed to initialize, bad read_method")
     return -1;

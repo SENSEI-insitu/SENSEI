@@ -48,7 +48,7 @@ int HDF5DataAdaptor::Initialize(pugi::xml_node& node)
 
   this->InTransitDataAdaptor::Initialize(node);
 
-  pugi::xml_attribute filename = node.attribute("filename");
+  pugi::xml_attribute filename = node.attribute("file_name");
   pugi::xml_attribute methodAttr = node.attribute("method");
 
   if (filename)
@@ -79,7 +79,7 @@ int HDF5DataAdaptor::OpenStream()
 
   if (m_StreamName.size() == 0)
     {
-      SENSEI_ERROR("Failed to specify stream name:\"");
+      SENSEI_ERROR("Failed to specify stream name:");
       return -1;
     }
 
