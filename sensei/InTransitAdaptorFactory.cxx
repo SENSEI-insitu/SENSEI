@@ -1,5 +1,13 @@
 #include "InTransitAdaptorFactory.h"
+
+#ifdef ENABLE_ADIOS1
 #include "ADIOS1DataAdaptor.h"
+#endif
+
+#ifdef ENABLE_HDF5
+#include "HDF5DataAdaptor.h"
+#endif
+
 #include "XMLUtils.h"
 #include "Error.h"
 
@@ -52,11 +60,21 @@ int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *
   std::string type = node.attribute("transport").value();
   if (type == "adios_1")
     {
+#ifndef ENABLE_ADIOS1
+    SENSEI_ERROR("ADIOS 1 transport requested but is disabled in this build")
+    return -1;
+#else
     dataAdaptor = ADIOS1DataAdaptor::New();
+#endif
     }
-  else if (type == "data_elevators")
+  else if (type == "hdf5")
     {
-    // Create DE InTransitDataAdaptor
+#ifndef ENABLE_HDF5
+    SENSEI_ERROR("HDF5 transport requested but is disabled in this build")
+    return -1;
+#else
+    dataAdaptor = HDF5DataAdaptor::New();
+#endif
     }
   else if (type == "libis")
     {

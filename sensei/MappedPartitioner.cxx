@@ -43,7 +43,7 @@ int MappedPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
 int MappedPartitioner::Initialize(pugi::xml_node &node)
 {
   if (XMLUtils::RequireChild(node, "block_owner") || 
-      XMLUtils::RequireChild(node, "block_id"))
+    XMLUtils::RequireChild(node, "block_id"))
     return -1;
 
   std::string blkOwnerElem = node.child("block_owner").text().as_string();
