@@ -1,6 +1,7 @@
 #include "ProgrammableDataAdaptor.h"
 #include "PythonAnalysis.h"
 #include "ConfigurableAnalysis.h"
+#include "MeshMetadata.h"
 #include "Error.h"
 
 #include <vtkMultiBlockDataSet.h>
@@ -43,38 +44,37 @@ int getNumMeshes(unsigned int &n)
     return 0;
 }
 
-int getMeshName(unsigned int i, std::string &name)
+int getMeshMetadata(unsigned int i, sensei::MeshMetadataPtr &mdp)
 {
-  if (i == 0)
-    {
-    name = "mesh";
-    return 0;
-    }
-  return -1;
-}
+  if (i != 0)
+    return -1;
 
-int getNumberOfArrays(const std::string &meshName, int assoc, unsigned int &num)
-{
-  num = 0;
-  if (meshName == "mesh")
-    {
-    if (assoc == vtkDataObject::CELL)
-      num = 1;
-    return 0;
-    }
+  int rank = 0;
+  int nRanks = 1;
 
-  SENSEI_ERROR("Invalid mesh \"" << meshName << "\"")
-  return -1;
-};
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
 
-int getArrayName(const std::string &meshName, int assoc, unsigned int id, std::string &arrayName)
-{
-  if ((meshName == "mesh") && (assoc == vtkDataObject::CELL) && (id == 0))
-    {
-    arrayName = "values";
-    return 0;
-    }
-  return -1;
+  mdp = sensei::MeshMetadata::New();
+  mdp->MeshName = "mesh";
+  mdp->MeshType = VTK_MULTIBLOCK_DATA_SET;
+  mdp->BlockType = VTK_IMAGE_DATA;
+  mdp->NumBlocks = nRanks;
+  mdp->NumBlocksLocal = {1};
+  mdp->NumArrays = 1;
+
+  mdp->ArrayName = {"values"};
+  mdp->ArrayCentering = {vtkDataObject::CELL};
+  mdp->ArrayComponents = {1};
+  mdp->ArrayType = {VTK_DOUBLE};
+
+  mdp->BlockOwner = {rank};
+  mdp->BlockBounds = {{0.0, 1.0, 0.0, 1.0, double(rank), double(rank+1)}};
+  mdp->BlockExtents = {{0, gnx, 0, gny, rank, rank+1}};
+  mdp->BlockNumCells = {gnx*gny};
+  mdp->BlockNumPoints = {2*gnx*gny};
+
+  return 0;
 }
 
 int getMesh(const std::string &meshName, bool, vtkDataObject *&mesh)
@@ -157,9 +157,7 @@ int main(int argc, char **argv)
 
   sensei::ProgrammableDataAdaptor *da = sensei::ProgrammableDataAdaptor::New();
   da->SetGetNumberOfMeshesCallback(getNumMeshes);
-  da->SetGetMeshNameCallback(getMeshName);
-  da->SetGetNumberOfArraysCallback(getNumberOfArrays);
-  da->SetGetArrayNameCallback(getArrayName);
+  da->SetGetMeshMetadataCallback(getMeshMetadata);
   da->SetGetMeshCallback(getMesh);
   da->SetAddArrayCallback(addArray);
 

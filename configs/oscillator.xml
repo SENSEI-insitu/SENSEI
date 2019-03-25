@@ -33,6 +33,8 @@
          installation, which is required to pick up the Libsim runtime
          libraries (when VisIt is not built statically)
 
+       * "visitdir" isn't needed if you set up PATH and LD_LIBRARY_PATH.
+
     The "mode" attribute can be "batch", "interactive", or "interactive,paused."
        * batch - Executes the analysis prescribed be the slice or session file.
        * interactive - Lets VisIt connect interactively.

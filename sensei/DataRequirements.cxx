@@ -1,5 +1,6 @@
 #include "DataRequirements.h"
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -97,41 +98,33 @@ int DataRequirements::Initialize(pugi::xml_node parent)
 }
 
 //----------------------------------------------------------------------------
-int DataRequirements::Initialize(DataAdaptor *adaptor)
+int DataRequirements::Initialize(DataAdaptor *adaptor, bool structureOnly)
 {
   this->Clear();
 
-  std::vector<std::string> meshNames;
-  if (adaptor->GetMeshNames(meshNames))
+  unsigned int nMeshes = 0;
+  if (adaptor->GetNumberOfMeshes(nMeshes))
     {
-    SENSEI_ERROR("Failed to get mesh names")
+    SENSEI_ERROR("Failed to get the number of meshes")
     return -1;
     }
 
-  unsigned int nMeshes = meshNames.size();
   for (unsigned int i = 0; i < nMeshes; ++i)
     {
-    const std::string &meshName = meshNames[i];
-
-    this->AddRequirement(meshName, false);
-
-    int associations[] = {vtkDataObject::POINT, vtkDataObject::CELL};
-    for (int j = 0; j < 2; ++j)
+    MeshMetadataPtr metadata = MeshMetadata::New();
+    if (adaptor->GetMeshMetadata(i, metadata))
       {
-      int association = associations[j];
-
-      std::vector<std::string> arrays;
-      if (adaptor->GetArrayNames(meshName, association, arrays))
-        {
-        SENSEI_ERROR("Failed to get "
-          << VTKUtils::GetAttributesName(association)
-          << " adaptor arrays on mesh \"" << meshName << "\"")
-        return -1;
-        }
-
-      if (arrays.size())
-        this->AddRequirement(meshName, association, arrays);
+      SENSEI_ERROR("Failed to get metadata for mesh "
+        << i << " of " << nMeshes)
+      return -1;
       }
+
+    this->MeshNames.insert(std::make_pair(metadata->MeshName,
+      structureOnly));
+
+    for (int j = 0; j < metadata->NumArrays; ++j)
+      this->MeshArrayMap[metadata->MeshName][metadata->ArrayCentering[j]].
+        push_back(metadata->ArrayName[j]);
     }
 
   return 0;
@@ -162,6 +155,25 @@ int DataRequirements::AddRequirement(const std::string &meshName,
   // only add arrays if there are any
   if (!arrays.empty())
     this->MeshArrayMap[meshName][association] = arrays;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataRequirements::AddRequirement(const std::string &meshName,
+  int association, const std::string &array)
+{
+  if (meshName.empty())
+    {
+    SENSEI_ERROR("A mesh name is required")
+    return -1;
+    }
+
+  // always add the mesh, mesh geometry can be used without
+  // any arrays
+  this->MeshNames.insert(std::make_pair(meshName, false));
+
+  this->MeshArrayMap[meshName][association].push_back(array);
 
   return 0;
 }

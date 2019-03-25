@@ -17,4 +17,4 @@ target_link_libraries(oscillator ${libs})
 install(TARGETS oscillator
   RUNTIME DESTINATION bin)
 
-#add_subdirectory(testing)
+add_subdirectory(testing)

@@ -1,0 +1,40 @@
+ <!-- SENSEI ConfigurableAnalysis Configuration file.
+      set enabled="1" on analyses you wish to enable -->
+<sensei>
+  <!-- Custom Analyses-->
+  <analysis type="PosthocIO"
+    output_dir="./" file_name="output" mode="visit"
+    enabled="0">
+    <mesh name="AMR_mesh" structure_only="0" ghost_cells="1" ghost_nodes="0">
+      <cell_arrays>mandelbrot</cell_arrays>
+    </mesh>
+  </analysis>
+
+  <analysis type="histogram" mesh="mesh" array="data" association="cell"
+    bins="10" enabled="0" />
+
+  <analysis type="autocorrelation" mesh="mesh" array="data" association="cell" window="10"
+    k-max="3" enabled="0" />
+
+  <!-- VTK-m Analyses -->
+  <analysis type="vtkmcontour" mesh="mesh" array="data" association="cell" value="0.3" enabled="0" write_output="0"/>
+
+  <!-- Catalyst Analyses -->
+  <analysis type="catalyst"
+            pipeline="slice" array="data" association="cell"
+            image-filename="slice-%ts.png" image-width="1920" image-height="1080"
+            slice-normal="0,0,1"
+            color-range="0.0001,1.5" color-log="1"
+            enabled="0" />
+
+  <!-- Libsim Analyses -->
+  <!-- trace="trace" options="-debug 5 -clobber_vlogs -timings" -->
+  <analysis type="libsim" visitdir="/Users/bjw/Development/MAIN/trunk/install" mode="interactive,paused" options="-debug 5 -clobber_vlogs -timings" trace="trace"
+            frequency="1" plots="Pseudocolor,Mesh" plotvars="ucdmesh/data,ucdmesh"
+            image-filename="a%ts" image-width="800" image-height="800" image-format="png"
+            slice-origin="0,0,0" slice-normal="0,0,1"
+            enabled="1"/>
+
+  <!-- ADIOS Analyses -->
+  <analysis type="adios" filename="oscillators.bp" method="MPI" enabled="0" />
+</sensei>

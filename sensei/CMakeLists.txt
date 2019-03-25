@@ -4,9 +4,12 @@ if (ENABLE_SENSEI)
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
-    DataAdaptor.cxx DataRequirements.cxx Error.cxx Histogram.cxx
-    ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
-    VTKUtils.cxx)
+    BinaryStream.cxx BlockPartitioner.cxx ConfigurablePartitioner.cxx
+    CyclicPartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
+    Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
+    MappedPartitioner.cxx MeshMetadata.cxx MeshMetadataMap.cxx
+    PlanarPartitioner.cxx ProgrammableDataAdaptor.cxx VTKHistogram.cxx
+    VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
 
   set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
 
@@ -26,10 +29,16 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sVTKm)
   endif()
 
-  if (ENABLE_ADIOS)
-    list(APPEND senseiCore_sources ADIOSSchema.cxx ADIOSAnalysisAdaptor.cxx
-      ADIOSDataAdaptor.cxx)
-    list(APPEND senseiCore_libs sADIOS)
+  if (ENABLE_ADIOS1)
+    list(APPEND senseiCore_sources ADIOS1Schema.cxx ADIOS1AnalysisAdaptor.cxx
+      ADIOS1DataAdaptor.cxx)
+    list(APPEND senseiCore_libs sADIOS1)
+  endif()
+
+ if (ENABLE_HDF5)
+       list(APPEND senseiCore_sources HDF5DataAdaptor.cxx HDF5AnalysisAdaptor.cxx
+        HDF5Schema.cxx)
+    list(APPEND senseiCore_libs sHDF5)
   endif()
 
   if (ENABLE_VTK_ACCELERATORS)

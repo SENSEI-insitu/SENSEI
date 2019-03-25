@@ -1,117 +1,211 @@
 #ifndef MeshMetadata_h
 #define MeshMetadata_h
 
+#include "BinaryStream.h"
+
+#include <mpi.h>
+#include <ostream>
+#include <vector>
 #include <vector>
 #include <string>
-#include <vtkDataObject.h> // for enums
+#include <memory>
 
 namespace sensei
 {
-
-/// A container for capturing metadata describing a mesh, and optionally
-/// cache a mesh object itself.
-///
-/// The followiing metadata is captured
-///
-/// StaticMesh -- a flag indicating if the mesh geometry evolves in time
-///               defaults to false
-///
-/// StructureOnly -- a flag indicating if the current cached object was
-///                  created with structure only. (see data adaptor for
-///                  explanation of structure only)
-///
-/// NumberOfGhostCellLayers -- 0 if no ghost cell arrays are present or
-///                            the mesh has no ghost cells. if 1 or larger
-///                            ghost cells are flagged by cell data array
-///                            named vtkGhostType
-///
-/// NumberOfGhostNodeLayers -- 0 if no ghost node arrays are present or
-///                            the mesh has no ghost nodes. if 1 or larger
-///                            ghost nodes are flagged by point data array
-///                            named vtkGhostType
-///
-/// PointDataArrayNames -- vector of the available point data arrays
-///
-/// CellDataArrayNames -- vector of the available cell data arrays
-///
-struct MeshMetadata
+/// a set of flags describing which optional fields in the MeshMetadata structure
+/// should be generated.
+class MeshMetadataFlags
 {
-  MeshMetadata() : MeshName(), StaticMesh(0), StructureOnly(0),
-    NumberOfGhostCellLayers(0), NumberOfGhostNodeLayers(0),
-    PointDataArrayNames(), CellDataArrayNames() {}
+public:
+  MeshMetadataFlags() : Flags(0) {}
+  MeshMetadataFlags(long long flags) : Flags(flags) {}
 
-  MeshMetadata(const std::string &meshName) : MeshName(meshName), StaticMesh(0),
-    StructureOnly(0), NumberOfGhostCellLayers(0), NumberOfGhostNodeLayers(0),
-    PointDataArrayNames(), CellDataArrayNames() {}
+  void SetAll(){ Flags = 0xffffffffffffffff; }
+  void ClearAll(){ Flags = 0; }
 
-  template <typename StringContainerType>
-  MeshMetadata(const std::string &meshName, int staticMesh,
-    bool structureOnly, int nGhostCellLayers, int nGhostNodeLayers,
-    const StringContainerType &cellDataArrayNames,
-    const StringContainerType &pointDataArrayNames);
+  // The following API is used to enable optional metadata. This
+  // metadata is crucial for some appilications but can be expensive
+  // to generate, thus it is only provided when requested.
 
-  virtual ~MeshMetadata() {}
+  // set, clear, or check flag to generate arrays describing
+  // the domain decomposition. This incudles MPI rank block ownership
+  // arrays (MeshMetadata.BlockOwner and MeshMetadata.BlockIds)
+  void SetBlockDecomp(){ Flags |= DECOMP; }
+  void ClearBlockDecomp(){ Flags &= ~DECOMP; }
+  bool BlockDecompSet() const { return Flags & DECOMP; }
 
-  // TODO -- implement BinaryStream and these methods
-  /// serialize/deserialize metadata to a binary stream for communication
-  /// and/or I/O
-  using BinaryStream = char*;
-  virtual int ToStream(BinaryStream &){ return -1; }
-  virtual int FromStream(BinaryStream &){ return -1; }
+  // set, clear, or check flag to generate global and block size arrays
+  // MeshMetadata.BlockNumPoints, MeshMetadata.BlockNumCells, and
+  // MeshMetadata.BlockCellArraySize)
+  void SetBlockSize(){ Flags |= SIZE; }
+  void ClearBlockSize(){ Flags &= ~SIZE; }
+  bool BlockSizeSet() const { return Flags & SIZE; }
 
-  // helper returns the list of names given a valid association
-  // no error checking is done so be sure that you pass a valid
-  // association
-  std::vector<std::string> &GetArrayNames(int association)
-  {
-    if (association == vtkDataObject::POINT)
-      return this->PointDataArrayNames;
-    return this->CellDataArrayNames;
-  }
+  // set, clear, or check flag to generate block extent arrays
+  // MeshMetadata.BlockExtents
+  void SetBlockExtents(){ Flags |= EXTENTS; }
+  void ClearBlockExtents(){ Flags &= ~EXTENTS; }
+  bool BlockExtentsSet() const { return Flags & EXTENTS; }
 
-  // helper to set array names given a valid association
-  // no error checking is done so be sure that you pass a valid
-  // association
-  template <typename StringContainerType>
-  void SetArrayNames(int association, const StringContainerType &arrayNames);
+  // set, clear, or check flag to generate block bounds arrays
+  // MeshMetaData.BlockBounds
+  void SetBlockBounds(){ Flags |= BOUNDS; }
+  void ClearBlockBounds(){ Flags &= ~BOUNDS; }
+  bool BlockBoundsSet() const { return Flags & BOUNDS; }
 
-  std::string MeshName;
-  int StaticMesh;
-  int StructureOnly;
-  int NumberOfGhostCellLayers;
-  int NumberOfGhostNodeLayers;
-  std::vector<std::string> PointDataArrayNames;
-  std::vector<std::string> CellDataArrayNames;
+  // set, clear, or check flag to generate block neighbor arrays
+  // (MeshMetadata.BlockNeighbors)
+  void SetBlockNeighbors(){ Flags |= NEIGHBORS; }
+  void ClearBlockNeighbors(){ Flags &= ~NEIGHBORS; }
+  bool BlockNeighborsSet() const { return Flags & NEIGHBORS; }
+
+  // set, clear, or check flag to generate block parent arrays
+  // (MeshMetadata.BlockParents)
+  void SetBlockParents(){ Flags |= PARENTS; }
+  void ClearBlockParents(){ Flags &= ~PARENTS; }
+  bool BlockParentsSet() const { return Flags & PARENTS; }
+
+  // set, clear, or check flag to generate block children arrays
+  // (MeshMetadata.BlockChildren)
+  void SetBlockChildren(){ Flags |= CHILDREN; }
+  void ClearBlockChildren(){ Flags &= ~CHILDREN; }
+  bool BlockChildrenSet() const { return Flags & CHILDREN; }
+
+  /// serialize/deserialize for communication and/or I/O
+  int ToStream(sensei::BinaryStream &str) const;
+  int FromStream(sensei::BinaryStream &str);
+
+  int ToStream(ostream &str) const;
+
+private:
+  long long Flags;  // flags indicate which optional fields are needed
+                    // some feilds are optional because they are costly
+                    // to generate and not universally used on the analysis
+                    // side. see Set/Clear methods above.
+
+ // flag values
+ enum { DECOMP = 0x1, SIZE = 0x2, NEIGHBORS = 0x4,
+   PARENTS = 0x8, CHILDREN = 0x10, EXTENTS = 0x20,
+   BOUNDS = 0x40 };
 };
 
-// --------------------------------------------------------------------------
-template <typename StringContainerType>
-MeshMetadata::MeshMetadata(const std::string &meshName, int staticMesh,
-  bool structureOnly, int nGhostCellLayers, int nGhostNodeLayers,
-  const StringContainerType &cellDataArrayNames,
-  const StringContainerType &pointDataArrayNames) : MeshName(meshName),
-  StaticMesh(staticMesh), StructureOnly(structureOnly),
-  NumberOfGhostCellLayers(nGhostCellLayers),
-  NumberOfGhostNodeLayers(nGhostNodeLayers),
-  PointDataArrayNames(), CellDataArrayNames()
-{
-  this->CellDataArrayNames.assign(cellDataArrayNames.begin(),
-    cellDataArrayNames.end());
 
-  this->PointDataArrayNames.assign(pointDataArrayNames.begin(),
-    pointDataArrayNames.end());
-}
 
-// --------------------------------------------------------------------------
-template <typename StringContainerType>
-void MeshMetadata::SetArrayNames(int association,
-  const StringContainerType &arrayNames)
+struct MeshMetadata;
+using MeshMetadataPtr = std::shared_ptr<MeshMetadata>;
+
+/// A container for capturing metadata describing a mesh.
+struct MeshMetadata
 {
-  if (association == vtkDataObject::POINT)
-    this->PointDataArrayNames.assign(arrayNames.begin(), arrayNames.end());
-  else if (association == vtkDataObject::CELL)
-    this->CellDataArrayNames.assign(arrayNames.begin(), arrayNames.end());
-}
+  static
+  MeshMetadataPtr New() { return MeshMetadataPtr(new MeshMetadata); }
+
+  static
+  MeshMetadataPtr New(const MeshMetadataFlags flags)
+  {
+    MeshMetadataPtr mdp = MeshMetadataPtr(new MeshMetadata);
+    mdp->Flags = flags;
+    return mdp;
+  }
+
+  MeshMetadataPtr NewCopy()
+  {
+      MeshMetadataPtr md = MeshMetadata::New();
+      *md = *this;
+      return md;
+  }
+
+  /// serialize/deserialize for communication and/or I/O
+  int ToStream(sensei::BinaryStream &str) const;
+  int FromStream(sensei::BinaryStream &str);
+
+  int ToStream(ostream &str) const;
+
+  // return true if the Flags match the arrays. will return false
+  // if the a flag is set and a coresponding array is empty. an
+  // error message will be printed naming the missing the array
+  // this method tries to be context sensative. for instance if
+  // the extents flag was set but the simulation reports unstructured
+  // data no error will be issued. Optionally a set of required flags
+  // may be specified. Only errors in fields with corresponding bits set are
+  // reported. This lets you have optional fields and handle the error on
+  // your own. Finally some convenience functionality is packaged here
+  // for instance global extents and bounds are automatically generated
+  // if requested but not provided.
+  int Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags = 0xffffffffffffffff);
+
+  // metadata: the following metadata fields are available.  fields marked
+  // "all" are required for all mesh types.  other fields may be required for
+  // specific mesh types as indicated and/or be optional. optional fields are
+  // expensive to generate and only generated when their corresponding flag is
+  // see. See MeshMetadataFlags. AMR metadata is stored in flat arrays, first
+  // level 0, then level 1 and so on until the finest level. The index of the
+  // array will give you the VTK composite dataset index,
+
+  bool GlobalView;       // tells if the information describes data
+                         // on this rank or all ranks. Passed into
+                         // Set methods, Get methods generate the
+                         // desired view.
+
+  std::string MeshName;              // name of mesh (all)
+  int MeshType;                      // container mesh type (all)
+  int BlockType;                     // block mesh type (all)
+  int NumBlocks;                     // global number of blocks (all)
+  std::vector<int> NumBlocksLocal;   // number of blocks on each rank (all)
+  std::array<int,6> Extent;          // global index space extent (Cartesian, AMR, optional)
+  std::array<double,6> Bounds;       // global bounding box (all, optional)
+  int CoordinateType;                // type enum of point data (unstructured, optional)
+  int NumArrays;                     // number of arrays (all)
+  int NumGhostCells;                 // number of ghost cell layers (all)
+  int NumGhostNodes;                 // number of ghost node layers (all)
+  int NumLevels;                     // number of AMR levels (AMR)
+  int StaticMesh;                    // non zero if the mesh does not change in time (all)
+
+  std::vector<std::string> ArrayName; // name of each data array (all)
+  std::vector<int> ArrayCentering;    // centering of each data array (all)
+  std::vector<int> ArrayComponents;   // number of components of each array (all)
+  std::vector<int> ArrayType;         // type enum of each data array (all)
+
+  std::vector<int> BlockOwner;             // rank where each block resides (all, optional)
+  std::vector<int> BlockIds;               // global id of each block (all, optional)
+
+                                           // note: for AMR BlockNumPoints and BlockNumCells are always global
+  std::vector<long> BlockNumPoints;        // number of points for each block (all, optional)
+  std::vector<long> BlockNumCells;         // number of cells for each block (all, optional)
+  std::vector<long> BlockCellArraySize;    // cell array size for each block (unstructured, optional)
+
+                                                 // note: for AMR BlockExtents and BlockBounds are always global
+  std::vector<std::array<int,6>> BlockExtents;   // index space extent of each block [i0,i1, j0,j1, k0,k1] (Cartesian, AMR, optional)
+  std::vector<std::array<double,6>> BlockBounds; // bounds of each block [x0,x1, y0,y1, z0,z1] (all, optional)
+
+  std::vector<std::array<int,3>> RefRatio; // refinement ratio in i,j, and k directions for each level (AMR)
+  std::vector<int> BlocksPerLevel;         // number of blocks in each level (AMR)
+  std::vector<int> BlockLevel;             // AMR level of each block (AMR)
+  std::vector<std::vector<int>> BoxArray;  // box array for AMR mesh (AMR)
+  std::array<int,6> PeriodicBoundary;      // flag indicating presence of a periodic boundary (all)
+
+                                                // the following only contain information about local blocks
+  std::vector<std::vector<int>> BlockNeighbors; // ids of adjacent blocks (Cartesian, AMR, optional)
+  std::vector<std::vector<int>> BlockParents;   // ids of overlapping blocks in next coarser level (AMR, optional)
+  std::vector<std::vector<int>> BlockChildren;  // ids of overlapping blocks in next finer level (AMR, optional)
+
+  MeshMetadataFlags Flags;  // flags indicate which optional fields are needed
+                            // some feilds are optional because they are costly
+                            // to generate and not universally used on the analysis
+                            // side.
+
+protected:
+  MeshMetadata() : GlobalView(false), MeshName(),
+    MeshType(VTK_MULTIBLOCK_DATA_SET), BlockType(VTK_DATA_SET), NumBlocks(0),
+    NumBlocksLocal(), Extent(), Bounds(), CoordinateType(VTK_DOUBLE),
+    NumArrays(0), NumGhostCells(0), NumGhostNodes(0), NumLevels(0),
+    StaticMesh(0), ArrayName(), ArrayCentering(), ArrayType(), BlockOwner(),
+    BlockIds(), BlockNumPoints(), BlockNumCells(), BlockCellArraySize(),
+    BlockExtents(), BlockBounds(), RefRatio(), BlocksPerLevel(), BlockLevel(),
+    BoxArray(), PeriodicBoundary(), BlockNeighbors(), BlockParents(),
+    BlockChildren(), Flags()
+    {}
+};
 
 };
 

@@ -1,9 +1,12 @@
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
+#include "MPIUtils.h"
 #include "Timer.h"
 #include "Error.h"
+#include "BinaryStream.h"
 
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
@@ -20,6 +23,11 @@
 #include <vtkRectilinearGrid.h>
 #include <vtkStructuredGrid.h>
 #include <vtkUnstructuredGrid.h>
+#include <vtkAMRBox.h>
+#include <vtkAMRInformation.h>
+#include <vtkOverlappingAMR.h>
+#include <vtkUniformGrid.h>
+#include <vtkDataObject.h>
 
 #include <VisItControlInterface_V2.h>
 #include <VisItDataInterface_V2.h>
@@ -35,6 +43,8 @@
 #define VISIT_COMMAND_PROCESS 0
 #define VISIT_COMMAND_SUCCESS 1
 #define VISIT_COMMAND_FAILURE 2
+
+using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
 
 namespace sensei
 {
@@ -115,79 +125,6 @@ std::ostream &operator << (std::ostream &os, const PlotRecord &obj)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-struct MeshInfo
-{
-    MeshInfo() : dataObj(nullptr), datasets(), doms_per_rank(nullptr), size(1)
-    {
-    }
-
-    ~MeshInfo()
-    {
-        if(doms_per_rank != nullptr)
-            delete [] doms_per_rank;
-
-        if(dataObj != nullptr)
-        {
-            dataObj->Delete();
-            dataObj = nullptr;
-        }
-
-        for(size_t i = 0; i < datasets.size(); ++i)
-        {
-            if(datasets[i] != nullptr)
-            {
-                datasets[i]->Delete();
-                datasets[i] = nullptr;
-            }
-        }
-    }
-
-    void SetDataObject(vtkDataObject *obj)
-    {
-        if(dataObj != nullptr)
-            dataObj->Delete();
-        dataObj = obj;
-        if(dataObj != nullptr)
-            dataObj->Register(nullptr);
-    }
-
-    vtkDataObject *GetDataObject()
-    {
-        return dataObj;
-    }
-
-    void SetDataSet(int idx, vtkDataSet *ds)
-    {
-        if(idx >= 0 && idx < (int)datasets.size())
-        {
-            if(datasets[idx] != nullptr)
-                datasets[idx]->Delete();
-
-            datasets[idx] = ds;
-            if(ds != nullptr)
-                ds->Register(nullptr);
-        }
-    }
-
-    vtkDataObject            *dataObj;       // The data object returned from SENSEI.
-    std::vector<vtkDataSet *> datasets;      // The leaf datasets of dataObj or dataObj itself if it was a simple vtkDataSet.
-    int                      *doms_per_rank;
-    int                       size;
-};
-
-std::ostream &operator << (std::ostream &os, const MeshInfo &obj)
-{
-    os <<"{dataObj=" << (void*)obj.dataObj << ", datasets=[";
-    for(size_t i = 0; i < obj.datasets.size(); ++i)
-        os << (void*)obj.datasets[i] << ", ";
-    os << "], doms_per_rank=[";
-    for(int i = 0; i < obj.size; ++i)
-        os << obj.doms_per_rank[i] << ", ";
-    os << "]}";
-    return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 class LibsimAnalysisAdaptor::PrivateData
 {
 public:
@@ -197,11 +134,13 @@ public:
     void SetTraceFile(const std::string &s);
     void SetOptions(const std::string &s);
     void SetVisItDirectory(const std::string &s);
-    void SetComm(MPI_Comm comm);
+    void SetComm(MPI_Comm Comm);
     void SetMode(const std::string &mode);
 
     void PrintSelf(ostream& os, vtkIndent indent);
+
     bool Initialize();
+
     bool Execute(sensei::DataAdaptor *DataAdaptor);
 
     bool AddRender(int freq, const std::string &session,
@@ -209,14 +148,17 @@ public:
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
-	          const LibsimImageProperties &imgProps);
+	              const LibsimImageProperties &imgProps);
+
     bool AddExport(int freq, const std::string &session,
                   const std::string &plots,
                   const std::string &plotVars,
                   bool slice, bool project2d,
                   const double origin[3], const double normal[3],
-	          const std::string &filename);
+	              const std::string &filename);
+
 private:
+    // libsim callbacks.
     static int broadcast_int(int *value, int sender, void *cbdata);
     static int broadcast_string(char *str, int len, int sender, void *cbdata);
     static void ControlCommandCallback(const char *cmd, const char *args, void *cbdata);
@@ -225,36 +167,45 @@ private:
     static visit_handle GetMesh(int dom, const char *name, void *cbdata);
     static visit_handle GetVariable(int dom, const char *name, void *cbdata);
     static visit_handle GetDomainList(const char *name, void *cbdata);
+    static visit_handle GetDomainNesting(const char *name, void *cbdata);
 
+    // helpers
     int ProcessVisItCommand(int rank);
     bool Execute_Batch(int rank);
     bool Execute_Interactive(int rank);
 
-    void ClearMeshDataCache();
-    MeshInfo *AddMeshDataCacheEntry(const std::string &meshName, int ndatasets);
+    int GetMesh(const std::string &meshName, vtkDataObjectPtr &cdp);
+    int GetMesh(int dom, const std::string &meshName, vtkDataObject *&mesh);
+    int GetVariable(int dom, const std::string &varName, vtkDataArray *&array);
 
-    void FetchMesh(const std::string &meshName);
-    int  AddArray(const std::string &meshName, int association, const std::string &arrayName);
-    void GetArrayInfoFromVariableName(const std::string &varName,
-                                      std::string &meshName, std::string &var, int &association);
-    int *GetDomains(const std::string &meshName, int &size);
+    int GetDomainList(const std::string &meshName,
+         std::vector<int> &localDomains, int &numDomains);
 
-    int GetTotalDomains(const std::string &meshName) const;
-    int GetLocalDomain(const std::string &meshName, int globaldomain) const;
-    int GetNumDataSets(const std::string &meshName) const;
-    vtkDataSet *GetDataSet(const std::string &meshName, int localdomain) const;
+    int GetDomainNesting(const std::string &meshName,
+        std::vector<std::vector<int>> &children);
+
+    int DecodeVarName(const std::string &varName, std::string &meshName,
+        std::string &arrayName, int &association);
 
     int TopologicalDimension(const int dims[3]) const;
-    std::string MakeFileName(const std::string &f, int timestep, double time) const;
-    void DetermineExportFilename(const std::string &f, 
-                                 std::string &fnoext, std::string &fmt) const;
 
-    sensei::DataAdaptor              *da;
-    std::map<std::string, MeshInfo *> meshData;
+    std::string MakeFileName(const std::string &f,
+        int timestep, double time) const;
+
+    void DetermineExportFilename(const std::string &f,
+        std::string &fnoext, std::string &fmt) const;
+
+    void ClearCache();
+
+    // state
+    MPI_Comm Comm;
+    sensei::DataAdaptor *Adaptor;
+
+    std::map<std::string, vtkDataObjectPtr> Meshes;
+    std::map<std::string, sensei::MeshMetadataPtr> Metadata;
 
     std::string               traceFile, options, visitdir;
     std::vector<PlotRecord>   plots;
-    MPI_Comm                  comm;
     std::string               mode;
     bool                      paused;
     static bool               initialized;
@@ -265,20 +216,18 @@ bool LibsimAnalysisAdaptor::PrivateData::initialized = false;
 int  LibsimAnalysisAdaptor::PrivateData::instances = 0;
 
 // --------------------------------------------------------------------------
-LibsimAnalysisAdaptor::PrivateData::PrivateData() : da(nullptr),
-  meshData(), traceFile(), options(), visitdir(), mode("batch"), 
-  paused(false)
+LibsimAnalysisAdaptor::PrivateData::PrivateData() : Comm(MPI_COMM_WORLD),
+  Adaptor(nullptr), traceFile(), options(), visitdir(),
+  mode("batch"), paused(false)
 {
-    comm = MPI_COMM_WORLD;
     ++instances;
 }
 
 // --------------------------------------------------------------------------
 LibsimAnalysisAdaptor::PrivateData::~PrivateData()
 {
-    ClearMeshDataCache();
-
     --instances;
+
     if(instances == 0 && initialized)
     {
         timer::MarkEvent mark("libsim::finalize");
@@ -312,7 +261,7 @@ LibsimAnalysisAdaptor::PrivateData::SetVisItDirectory(const std::string &s)
 void
 LibsimAnalysisAdaptor::PrivateData::SetComm(MPI_Comm c)
 {
-    comm = c;
+    Comm = c;
 }
 
 // --------------------------------------------------------------------------
@@ -327,28 +276,22 @@ void
 LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
 {
     int rank = 0, size = 1;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_rank(comm, &size);
-    if(rank == 0)
+    MPI_Comm_rank(Comm, &rank);
+    MPI_Comm_rank(Comm, &size);
+
+    if (rank == 0)
     {
         os << "traceFile = " << traceFile << endl;
         os << "options = " << options << endl;
         os << "visitdir = " << visitdir << endl;
         os << "mode = " << mode << endl;
         os << "initialized = " << (initialized ? "true" : "false") << endl;
-        os << "meshData = {" << endl;
-        std::map<std::string, MeshInfo*>::const_iterator it = meshData.begin();
-        for( ; it != meshData.end(); ++it)
-        {
-             os << "\"" << it->first << "\" : " << *(it->second) << endl;
-        }  
-        os << "}" << endl;
     }
 }
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddRender(int freq, 
+LibsimAnalysisAdaptor::PrivateData::AddRender(int freq,
     const std::string &session,
     const std::string &plts,
     const std::string &plotVars,
@@ -381,7 +324,7 @@ LibsimAnalysisAdaptor::PrivateData::AddRender(int freq,
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::AddExport(int freq, 
+LibsimAnalysisAdaptor::PrivateData::AddExport(int freq,
     const std::string &session,
     const std::string &plts,
     const std::string &plotVars,
@@ -412,7 +355,6 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(int freq,
     }
     if(!session.empty())
         retval = true;
-//    cout << "Libsim Export: " << (retval?"true":"false") << ", " << p << endl;
 
     return retval;
 }
@@ -421,88 +363,89 @@ LibsimAnalysisAdaptor::PrivateData::AddExport(int freq,
 bool
 LibsimAnalysisAdaptor::PrivateData::Initialize()
 {
-    // Load the runtime if we have not done it before.
-    if(!initialized)
-    {
-        timer::MarkEvent mark("libsim::initialize");
+    if (initialized)
+        return true;
 
-        int rank = 0, size = 1;
-        MPI_Comm_rank(comm, &rank);
-        MPI_Comm_size(comm, &size);
-
-        if(!traceFile.empty())
-        {
-            char suffix[100];
-            snprintf(suffix, 100, ".%04d", rank);
-            VisItOpenTraceFile((traceFile + suffix).c_str());
-        }
-
+     timer::MarkEvent mark("libsim::initialize");
 #ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Initialize\n");
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Initialize\n");
 #endif
 
-        if(!options.empty())
-            VisItSetOptions(const_cast<char*>(options.c_str()));
+     int rank = 0, size = 1;
+     MPI_Comm_rank(Comm, &rank);
+     MPI_Comm_size(Comm, &size);
 
-        if(!visitdir.empty())
-            VisItSetDirectory(const_cast<char *>(visitdir.c_str()));
+     if(!traceFile.empty())
+     {
+         char suffix[100];
+         snprintf(suffix, 100, ".%04d", rank);
+         VisItOpenTraceFile((traceFile + suffix).c_str());
+     }
 
-        // Install callback functions for global communication.
-        VisItSetBroadcastIntFunction2(broadcast_int, this);
-        VisItSetBroadcastStringFunction2(broadcast_string, this);
+     if(!options.empty())
+         VisItSetOptions(const_cast<char*>(options.c_str()));
 
-        // Tell libsim whether the simulation is parallel.
-        VisItSetParallel(size > 1);
-        VisItSetParallelRank(rank);
+     if(!visitdir.empty())
+         VisItSetDirectory(const_cast<char *>(visitdir.c_str()));
 
-        // Install comm into VisIt.
-        VisItSetMPICommunicator((void *)&comm);
+     // Install callback functions for global communication.
+     VisItSetBroadcastIntFunction2(broadcast_int, this);
+     VisItSetBroadcastStringFunction2(broadcast_string, this);
 
-        // Set up the environment.
-        char *env = nullptr;
-        if(rank == 0)
-            env = VisItGetEnvironment();
-        VisItSetupEnvironment2(env);
-        if(env != nullptr)
-            free(env);
+     // Tell libsim whether the simulation is parallel.
+     VisItSetParallel(size > 1);
+     VisItSetParallelRank(rank);
 
-        bool i0 = mode == "interactive";
-        bool i1 = mode == "interactive,paused";
-        if(i0 || i1)
-        {
-            // We can start paused if desired.
-            this->paused = i1;
+     // Install Comm into VisIt.
+     VisItSetMPICommunicator((void *)&Comm);
 
-            // Write out .sim file that VisIt uses to connect.
-            if(rank == 0)
-            {
-                VisItInitializeSocketAndDumpSimFile(
-                    "sensei",
-                    "Connected via SENSEI",
-                    "/path/to/where/sim/was/started",
-                    NULL, NULL, "sensei.sim2");
-            }
-            initialized = true;
-        }
-        else
-        {
-            // Try and initialize the runtime.
-            if(VisItInitializeRuntime() == VISIT_ERROR)
-            {
-                SENSEI_ERROR("Could not initialize the VisIt runtime library.")
-            }
-            else
-            {
-                // Register Libsim callbacks.
-                VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
-                VisItSetGetMetaData(GetMetaData, (void*)this);
-                VisItSetGetMesh(GetMesh, (void*)this);
-                VisItSetGetVariable(GetVariable, (void*)this);
-                VisItSetGetDomainList(GetDomainList, (void*)this);
+     // Set up the environment.
+     char *env = nullptr;
+     if(rank == 0)
+         env = VisItGetEnvironment();
+     VisItSetupEnvironment2(env);
+     if(env != nullptr)
+         free(env);
 
-                initialized = true;
-            }
-        }
+     bool i0 = mode == "interactive";
+     bool i1 = mode == "interactive,paused";
+     if(i0 || i1)
+     {
+         // We can start paused if desired.
+         this->paused = i1;
+
+         // Write out .sim file that VisIt uses to connect.
+         if (rank == 0)
+         {
+             VisItInitializeSocketAndDumpSimFile(
+                 "sensei",
+                 "Connected via SENSEI",
+                 "/path/to/where/sim/was/started",
+                 NULL, NULL, "sensei.sim2");
+         }
+
+         initialized = true;
+     }
+     else
+     {
+         // Try and initialize the runtime.
+         if(VisItInitializeRuntime() == VISIT_ERROR)
+         {
+             SENSEI_ERROR("Could not initialize the VisIt runtime library.")
+             return false;
+         }
+         else
+         {
+             // Register Libsim callbacks.
+             VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
+             VisItSetGetMetaData(GetMetaData, (void*)this);
+             VisItSetGetMesh(GetMesh, (void*)this);
+             VisItSetGetVariable(GetVariable, (void*)this);
+             VisItSetGetDomainList(GetDomainList, (void*)this);
+             VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
+
+             initialized = true;
+         }
     }
 
     return initialized;
@@ -609,25 +552,33 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Execute\n");
 #endif
 
+    if (!initialized)
+    {
+        SENSEI_ERROR("Execute before initialization")
+        return false;
+    }
+
     // Keep a pointer to the data adaptor so the callbacks can access it.
-    da = DataAdaptor;
+    Adaptor = DataAdaptor;
 
-    // If we for some reason have not initialized by now, do it.
     int rank = 0;
-    MPI_Comm_rank(comm, &rank);
-    bool retval = Initialize();
+    MPI_Comm_rank(Comm, &rank);
 
-    // Let's get new metadata.
+    // Let visit get new metadata.
     VisItTimeStepChanged();
 
-    if(mode.substr(0, 11) == "interactive")
+    // Execute
+    bool retval = true;
+    if (mode.substr(0, 11) == "interactive")
         retval = Execute_Interactive(rank);
     else
         retval = Execute_Batch(rank);
 
-    // Clear out any data that we've cached over the lifetime of this
-    // Execute function.
-    ClearMeshDataCache();
+    // during execution data and metadata are cached due to
+    // the differnece between how sensei presents data and
+    // visit consumes it. you must clear the cache after each
+    // execute.
+    ClearCache();
 
     return retval;
 }
@@ -638,14 +589,11 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
 {
     bool retval = true;
 
-    // NOTE: this executes a set of really simple pipelines prescribed by the
-    //       options from the SENSEI config file.
-
     // Now that the runtime stuff is loaded, we can execute some plots.
     for(size_t i = 0; i < plots.size(); ++i)
     {
         // Skip if we're not executing now.
-        if(da->GetDataTimeStep() % plots[i].frequency != 0)
+        if(Adaptor->GetDataTimeStep() % plots[i].frequency != 0)
             continue;
 
         // If we have a session file for this plot output, then add it now.
@@ -703,8 +651,8 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
         {
             std::string filename;
             filename = MakeFileName(plots[i].imageProps.GetFilename(),
-                                    da->GetDataTimeStep(),
-                                    da->GetDataTime());
+                                    Adaptor->GetDataTimeStep(),
+                                    Adaptor->GetDataTime());
 
             if(plots[i].doExport)
             {
@@ -767,7 +715,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Batch(int rank)
             retval = false;
         }
 
-        // Delete the plots. We don't have a "DeleteAllPlots" so just delete a 
+        // Delete the plots. We don't have a "DeleteAllPlots" so just delete a
         // bunch of times in the case of sessions so we are most likely going to
         // cause all plots to be deleted (after each deletion, plot 0 becomes active)
         for(int p = 0; p < 10; ++p)
@@ -783,19 +731,19 @@ LibsimAnalysisAdaptor::PrivateData::ProcessVisItCommand(int rank)
 {
     int command = VISIT_COMMAND_PROCESS;
     if (rank==0)
-    {  
+    {
         int success = VisItProcessEngineCommand();
 
         if (success == VISIT_OKAY)
         {
             command = VISIT_COMMAND_SUCCESS;
-            MPI_Bcast(&command, 1, MPI_INT, 0, this->comm);
+            MPI_Bcast(&command, 1, MPI_INT, 0, this->Comm);
             return 1;
         }
         else
         {
             command = VISIT_COMMAND_FAILURE;
-            MPI_Bcast(&command, 1, MPI_INT, 0, this->comm);
+            MPI_Bcast(&command, 1, MPI_INT, 0, this->Comm);
             return 0;
         }
     }
@@ -806,7 +754,7 @@ LibsimAnalysisAdaptor::PrivateData::ProcessVisItCommand(int rank)
          * instruction to the non-rank 0 processes. */
         while (1)
         {
-            MPI_Bcast(&command, 1, MPI_INT, 0, this->comm);
+            MPI_Bcast(&command, 1, MPI_INT, 0, this->Comm);
             switch (command)
             {
             case VISIT_COMMAND_PROCESS:
@@ -847,7 +795,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
             visitstate = VisItDetectInputWithTimeout(blocking, 200, -1);
         }
         // Broadcast the return value of VisItDetectInput to all procs.
-        MPI_Bcast(&visitstate, 1, MPI_INT, 0, this->comm);
+        MPI_Bcast(&visitstate, 1, MPI_INT, 0, this->Comm);
 
         // Do different things depending on the output from VisItDetectInput.
         switch(visitstate)
@@ -866,11 +814,12 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
                 VisItSetGetMesh(GetMesh, (void*)this);
                 VisItSetGetVariable(GetVariable, (void*)this);
                 VisItSetGetDomainList(GetDomainList, (void*)this);
+                VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
 
                 // Pause when we connect.
                 this->paused = true;
             }
-            else 
+            else
             {
                 // Print the error message
                 if(rank == 0)
@@ -905,252 +854,6 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
 }
 
 // --------------------------------------------------------------------------
-void
-LibsimAnalysisAdaptor::PrivateData::ClearMeshDataCache()
-{
-    std::map<std::string, MeshInfo *>::iterator it = meshData.begin();
-    for( ; it != meshData.end(); ++it)
-        delete it->second;
-    meshData.clear();
-}
-
-// --------------------------------------------------------------------------
-MeshInfo *
-LibsimAnalysisAdaptor::PrivateData::AddMeshDataCacheEntry(const std::string &meshName,
-    int ndatasets)
-{
-    MeshInfo *mInfo = new MeshInfo;
-
-    std::map<std::string, MeshInfo *>::iterator it = meshData.find(meshName);
-    if(it != meshData.end())
-    {
-        // Delete the old information.
-        delete it->second;
-        // Add the new struct.
-        it->second = mInfo;
-    }
-    else
-    {
-        // We found no entry so add it.
-        meshData[meshName] = mInfo;
-    }
-
-    // We'll insert nullptr pointers for the datasets since we don't have their
-    // complete definitions yet.
-    for(int i = 0; i < ndatasets; ++i)
-        mInfo->datasets.push_back(nullptr);
-
-    // Determine the number of domains on each rank so we can
-    // make the right metadata and later do the domain list right.
-    int rank = 0, size = 1;
-    MPI_Comm_rank(this->comm, &rank);
-    MPI_Comm_size(this->comm, &size);
-    mInfo->size = size;
-    mInfo->doms_per_rank = new int[size];
-    memset(mInfo->doms_per_rank, 0, sizeof(int) * size);
-    int ndoms = ndatasets;
-#ifdef DEDBUG_PRINT
-    char tmp[100];
-    sprintf(tmp, "SENSEI: Rank %d has %d domains.\n", rank, ndoms);
-    VisItDebug5(tmp);
-#endif
-    MPI_Allgather(&ndoms, 1, MPI_INT,
-                  mInfo->doms_per_rank, 1, MPI_INT, this->comm);
-
-#ifdef DEDBUG_PRINT
-    VisItDebug5("SENSEI: doms_per_rank = {");
-    for(int i = 0; i < size; ++i)
-    {
-        sprintf(tmp, "%d, ", mInfo->doms_per_rank[i]);
-        VisItDebug5(tmp);
-    }
-    VisItDebug5("}\n");
-#endif
-    return mInfo;
-}
-
-// --------------------------------------------------------------------------
-int
-LibsimAnalysisAdaptor::PrivateData::GetTotalDomains(const std::string &meshName) const
-{
-    int total = 0;
-    std::map<std::string, MeshInfo *>::const_iterator it;
-    if((it = meshData.find(meshName)) != meshData.end())
-    {
-        int size = 1;
-        MPI_Comm_size(comm, &size);
-        for(int i = 0; i < size; ++i)
-            total += it->second->doms_per_rank[i];
-    }
-    return total;
-}
-
-// --------------------------------------------------------------------------
-int *
-LibsimAnalysisAdaptor::PrivateData::GetDomains(const std::string &meshName, int &size)
-{
-    int *iptr = nullptr;
-    size = 0;
-    std::map<std::string, MeshInfo *>::const_iterator it;
-    if((it = meshData.find(meshName)) != meshData.end())
-    {
-        int rank = 0;
-        MPI_Comm_rank(this->comm, &rank);
-        MPI_Comm_size(this->comm, &size);
-
-        // Compute the offset to this rank's domains.
-        int offset = 0;
-        for(int i = 0; i < rank; ++i)
-            offset += it->second->doms_per_rank[i];
-
-        // Make a list of this rank's domains using global domain ids.
-        iptr = (int *)malloc(sizeof(int) * it->second->doms_per_rank[rank]);
-        for(int i = 0; i < it->second->doms_per_rank[rank]; ++i)
-            iptr[i] = offset + i;
-
-        size = it->second->doms_per_rank[rank];
-    }
-    return iptr;
-}
-
-// --------------------------------------------------------------------------
-int
-LibsimAnalysisAdaptor::PrivateData::GetLocalDomain(const std::string &meshName, int globaldomain) const
-{
-    int dom = -1;
-    std::map<std::string, MeshInfo *>::const_iterator it;
-    if((it = meshData.find(meshName)) != meshData.end())
-    {
-        int rank = 0;
-        MPI_Comm_rank(comm, &rank);
-        int offset = 0;
-        for(int i = 0; i < rank; ++i)
-            offset += it->second->doms_per_rank[i];
-
-        if(globaldomain >= offset && globaldomain < offset+it->second->doms_per_rank[rank])
-            dom = globaldomain - offset;
-    }
-
-    return dom;
-}
-
-// --------------------------------------------------------------------------
-// @brief Returns the number of datasets for the mesh on this MPI rank.
-int
-LibsimAnalysisAdaptor::PrivateData::GetNumDataSets(const std::string &meshName) const
-{
-    int ndom = 0;
-    std::map<std::string, MeshInfo *>::const_iterator it;
-    if((it = meshData.find(meshName)) != meshData.end())
-    {
-        int rank = 0;
-        MPI_Comm_rank(comm, &rank);
-        ndom = it->second->doms_per_rank[rank];
-    }
-    return ndom;
-}
-
-// --------------------------------------------------------------------------
-// @brief Returns the VTK dataset for the mesh given the local domain numbering.
-//        This may return nullptr if our real mesh has not been cached yet. that
-//        happens in the GetMesh Libsim callback. 
-vtkDataSet *
-LibsimAnalysisAdaptor::PrivateData::GetDataSet(const std::string &meshName, int localdomain) const
-{
-    vtkDataSet *ds = nullptr;
-    std::map<std::string, MeshInfo *>::const_iterator it;
-    if((it = meshData.find(meshName)) != meshData.end())
-    {
-        if(localdomain >= 0 && localdomain < (int)it->second->datasets.size())
-            ds = it->second->datasets[localdomain];
-    }
-
-    return ds;
-}
-
-// --------------------------------------------------------------------------
-void
-LibsimAnalysisAdaptor::PrivateData::FetchMesh(const std::string &meshName)
-{
-    std::map<std::string, MeshInfo *>::const_iterator mit;
-    if((mit = meshData.find(meshName)) != meshData.end())
-    {
-        // Get the mesh, the whole thing. No vars though.
-        vtkDataObject *obj = nullptr;
-        bool structureOnly = false;
-        if (da->GetMesh(meshName, structureOnly, obj))
-        {
-            SENSEI_ERROR("GetMesh request failed.")
-        }
-        else
-        {
-            // SENSEI gave us the data object. Save it off. We'll use it in
-            // other callbacks to get vars, etc.
-            mit->second->SetDataObject(obj);
-
-            // Unpack the data object into a vector of vtkDataSets if it is a
-            // compound dataset.
-            int dsId = 0;
-            vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
-            if(cds != nullptr)
-            {
-                vtkCompositeDataIterator *it = cds->NewIterator();
-                it->SkipEmptyNodesOn();
-                it->InitTraversal();
-                while(!it->IsDoneWithTraversal())
-                {
-                    vtkDataObject *obj2 = cds->GetDataSet(it);
-                    if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
-                        mit->second->SetDataSet(dsId++, vtkDataSet::SafeDownCast(obj2));
-                    it->GoToNextItem();
-                }
-            }
-            else if(vtkDataSet::SafeDownCast(obj) != nullptr)
-            {
-                mit->second->SetDataSet(0, vtkDataSet::SafeDownCast(obj));
-            }
-
-            // If the data adaptor can provide a ghost nodes array, add it to the
-            // data object now. The datasets we've registered will then have that
-            // as a point data array.
-            int nLayers = 0;
-            if(da->GetMeshHasGhostNodes(meshName, nLayers) == 0)
-            {
-                if(nLayers > 0)
-                    da->AddGhostNodesArray(obj, meshName);
-            }
-
-            // If the data adaptor can provide a ghost cells array, add it to the
-            // data object now. The datasets we've registered will then have that
-            // as a point data array.
-            if(da->GetMeshHasGhostCells(meshName, nLayers) == 0)
-            {
-                if(nLayers > 0)
-                    da->AddGhostCellsArray(obj, meshName);
-            }
-        }
-    }
-}
-
-// --------------------------------------------------------------------------
-int
-LibsimAnalysisAdaptor::PrivateData::AddArray(const std::string &meshName, 
-    int association, const std::string &arrayName)
-{
-    int retval = 1;
-    std::map<std::string, MeshInfo *>::iterator mit;
-    if((mit = meshData.find(meshName)) != meshData.end())
-    {
-        retval = da->AddArray(mit->second->dataObj, meshName, association, arrayName);
-#ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: da->AddArray returned %d\n", retval);
-#endif
-    }
-    return retval;
-}
-
-// --------------------------------------------------------------------------
-int
 LibsimAnalysisAdaptor::PrivateData::TopologicalDimension(const int dims[3]) const
 {
     int d = 0;
@@ -1161,64 +864,48 @@ LibsimAnalysisAdaptor::PrivateData::TopologicalDimension(const int dims[3]) cons
 }
 
 // --------------------------------------------------------------------------
-void
-LibsimAnalysisAdaptor::PrivateData::GetArrayInfoFromVariableName(
-    const std::string &varName,
-    std::string &meshName, std::string &var, int &association)
+int
+LibsimAnalysisAdaptor::PrivateData::DecodeVarName(const std::string &varName,
+    std::string &meshName, std::string &arrayName, int &association)
 {
-    // Get the mesh names from the data adaptor and figure out the mesh name
-    // that we're using for this variable.
-    std::vector<std::string> meshNames;
-    da->GetMeshNames(meshNames);
-    bool findAssociation = false;
-    if(meshNames.size() > 1)
+    size_t slash1 = varName.find('/', 0);
+    if (slash1 == std::string::npos)
     {
-        std::string::size_type pos = varName.find("/");
-        if(pos != std::string::npos)
-        {
-            meshName = varName.substr(0, pos);
-            std::string tmpVar = varName.substr(pos+1, std::string::npos);
-            if(tmpVar.substr(0, 5) == "cell_")
-            {
-                var = tmpVar.substr(5, std::string::npos);
-                association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
-            }
-            else
-            {
-                var = tmpVar;
-                findAssociation = true;
-            }
-        }
+        SENSEI_ERROR("Invalid variable name \"" << varName << "\""
+            << " Expected the format <mesh>/<centering>/<array>")
+        return -1;
+    }
+
+
+    size_t slash2 = varName.find('/', slash1+1);
+    if (slash2 == std::string::npos)
+    {
+        SENSEI_ERROR("Invalid variable name \"" << varName << "\""
+            << " Expected the format <mesh>/<centering>/<array>")
+        return -1;
+    }
+
+    meshName = varName.substr(0, slash1);
+
+    std::string centering = varName.substr(slash1+1, slash2 - slash1 - 1);
+    if (centering == "point")
+    {
+        association = vtkDataObject::POINT;
+    }
+    else if (centering == "cell")
+    {
+        association = vtkDataObject::CELL;
     }
     else
     {
-        meshName = meshNames[0];
-        if(varName.substr(0, 5) == "cell_")
-        {
-            var = varName.substr(5, std::string::npos);
-            association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
-        }
-        else
-        {
-            var = varName;
-            findAssociation = true;
-        }
+        SENSEI_ERROR("Invalid centering " << centering
+          << " for variable " << varName)
+        return -1;
     }
 
-    if(findAssociation)
-    {
-        std::vector<std::string> pointvars;
-        da->GetArrayNames(meshName, vtkDataObject::FIELD_ASSOCIATION_POINTS, pointvars);
-        if(std::find(pointvars.begin(), pointvars.end(), var) != pointvars.end())
-            association = vtkDataObject::FIELD_ASSOCIATION_POINTS;
-        else
-        {
-            std::vector<std::string> cellvars;
-            da->GetArrayNames(meshName, vtkDataObject::FIELD_ASSOCIATION_CELLS, cellvars);
-            if(std::find(cellvars.begin(), cellvars.end(), var) != cellvars.end())
-                association = vtkDataObject::FIELD_ASSOCIATION_CELLS;
-        }
-    }
+    arrayName = varName.substr(slash2+1, std::string::npos);
+
+    return 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -1340,7 +1027,7 @@ vtkDataSet_GhostData(vtkDataSetAttributes *dsa, const std::string &name)
     visit_handle h = VISIT_INVALID_HANDLE;
     // Check that we have the array and it is of allowed types.
     vtkDataArray *arr = dsa->GetArray(name.c_str());
-    if(arr && 
+    if(arr &&
        arr->GetNumberOfComponents() == 1 &&
        arr->GetNumberOfTuples() > 0 &&
        (vtkUnsignedCharArray::SafeDownCast(arr) ||
@@ -1355,8 +1042,16 @@ vtkDataSet_GhostData(vtkDataSetAttributes *dsa, const std::string &name)
 
 // -----------------------------------------------------------------------------
 static visit_handle
-vtkDataSet_to_VisIt_Mesh(vtkDataSet *ds, DataAdaptor */*da*/)
+vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
 {
+    vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj);
+    /*if (!ds)
+    {
+        SENSEI_ERROR("Can't convert a "
+           << (dobj ? dobj->GetClassName() : "nullptr"))
+        return VISIT_INVALID_HANDLE;
+    }*/
+
     visit_handle mesh = VISIT_INVALID_HANDLE;
     vtkImageData *igrid = vtkImageData::SafeDownCast(ds);
     vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds);
@@ -1404,8 +1099,8 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
             float *z = (float *)malloc(sizeof(float) * nz);
             if(x != nullptr && y != nullptr && z != nullptr)
             {
-                visit_handle xc = VISIT_INVALID_HANDLE, 
-                             yc = VISIT_INVALID_HANDLE, 
+                visit_handle xc = VISIT_INVALID_HANDLE,
+                             yc = VISIT_INVALID_HANDLE,
                              zc = VISIT_INVALID_HANDLE;
                 if(VisIt_VariableData_alloc(&xc) == VISIT_OKAY &&
                    VisIt_VariableData_alloc(&yc) == VISIT_OKAY &&
@@ -1415,12 +1110,20 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
                         x[i] = x0[0] + (ext[0] + i)*dx[0];
                     for(int i = 0; i < ny; ++i)
                         y[i] = x0[1] + (ext[2] + i)*dx[1];
-                    for(int i = 0; i < nz; ++i)
-                        z[i] = x0[2] + (ext[4] + i)*dx[2];
                     VisIt_VariableData_setDataF(xc, VISIT_OWNER_VISIT, 1, nx, x);
                     VisIt_VariableData_setDataF(yc, VISIT_OWNER_VISIT, 1, ny, y);
-                    VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
-                    VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+                    if(nz > 1)
+                    {
+                        for(int i = 0; i < nz; ++i)
+                            z[i] = x0[2] + (ext[4] + i)*dx[2];
+                        VisIt_VariableData_setDataF(zc, VISIT_OWNER_VISIT, 1, nz, z);
+                        VisIt_RectilinearMesh_setCoordsXYZ(mesh, xc, yc, zc);
+                    }
+                    else
+                    {
+                        VisIt_VariableData_free(zc); // didn't use it.
+                        VisIt_RectilinearMesh_setCoordsXY(mesh, xc, yc);
+                    }
 
                     // Try and make some ghost nodes.
                     visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
@@ -1590,7 +1293,7 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
                     }
                     else
                     {
-                        // We got a cell type we don't support. Make a vertex cell 
+                        // We got a cell type we don't support. Make a vertex cell
                         // so we at least don't mess up the cell data later.
                         *lsconn++ = VISIT_CELL_POINT;
                         const vtkIdType *cellConn = vtkconn + offsets[cellid];
@@ -1653,7 +1356,7 @@ int
 LibsimAnalysisAdaptor::PrivateData::broadcast_int(int *value, int sender, void *cbdata)
 {
     PrivateData *This = (PrivateData *)cbdata;
-    return MPI_Bcast(value, 1, MPI_INT, sender, This->comm);
+    return MPI_Bcast(value, 1, MPI_INT, sender, This->Comm);
 }
 
 // --------------------------------------------------------------------------
@@ -1661,7 +1364,7 @@ int
 LibsimAnalysisAdaptor::PrivateData::broadcast_string(char *str, int len, int sender, void *cbdata)
 {
     PrivateData *This = (PrivateData *)cbdata;
-    return MPI_Bcast(str, len, MPI_CHAR, sender, This->comm);
+    return MPI_Bcast(str, len, MPI_CHAR, sender, This->Comm);
 }
 
 // --------------------------------------------------------------------------
@@ -1689,32 +1392,13 @@ LibsimAnalysisAdaptor::PrivateData::ControlCommandCallback(
 visit_handle
 LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 {
-    PrivateData *This = (PrivateData *)cbdata;
-    sensei::DataAdaptor *da = This->da;
-
 #ifdef VISIT_DEBUG_LOG
-    char msg[1000];
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetMetaData\n");
 #endif
+    PrivateData *This = (PrivateData *)cbdata;
+    sensei::DataAdaptor *Adaptor = This->Adaptor;
 
-    // Get the mesh names.
-    std::vector<std::string> meshNames;
-    if (da->GetMeshNames(meshNames))
-    {
-        SENSEI_ERROR("Failed to get mesh names")
-        return VISIT_INVALID_HANDLE;
-    }
-#ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: meshNames = {");
-    for(size_t i = 0; i < meshNames.size(); ++i)
-    {
-        sprintf(msg, "%s,", meshNames[i].c_str());
-        VisItDebug5(msg);
-    }
-    VisItDebug5("}\n");
-#endif
-
-    // Create metadata.
+    // allocate sturcture to tell VisIt about the simulation data
     visit_handle md = VISIT_INVALID_HANDLE;
     if (VisIt_SimulationMetaData_alloc(&md) != VISIT_OKAY)
     {
@@ -1723,245 +1407,129 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
     }
 
     // Set the simulation state.
-    VisIt_SimulationMetaData_setMode(md, This->paused ? VISIT_SIMMODE_STOPPED : VISIT_SIMMODE_RUNNING);
-    VisIt_SimulationMetaData_setCycleTime(md, da->GetDataTimeStep(), da->GetDataTime());
+    VisIt_SimulationMetaData_setMode(md,
+      This->paused ? VISIT_SIMMODE_STOPPED : VISIT_SIMMODE_RUNNING);
 
-    unsigned int nMeshes = meshNames.size();
-    for (unsigned int j = 0; j < nMeshes; ++j)
+    VisIt_SimulationMetaData_setCycleTime(md,
+      Adaptor->GetDataTimeStep(), Adaptor->GetDataTime());
+
+    // for each mesh we'll pass metadata onto VisIt
+    unsigned int nMeshes = 0;
+    if (Adaptor->GetNumberOfMeshes(nMeshes))
     {
-        const std::string &meshName = meshNames[j];
+        SENSEI_ERROR("Failed to get the number of meshes")
+        return VISIT_INVALID_HANDLE;
+    }
 
-#if 1
-// NOTE: This stupid big block of code basically does 3 things.
-// 1. Make an attempt to get the actual mesh types by querying SENSEI for the mesh structure.
-//    How important is this? Could I just tell VisIt I don't know the mesh type? Downsides?
-// 2. Take the VTK data object and see if it is really a collection of domains.
-//    if it is then we keep track of the leaves as separate domains that we'll
-//    tell VisIt about since VisIt probably won't be too happy about getting a
-//    multiblock dataset. It might work for GetMesh but GetVar would probably flop.
-// 3. (future) see if there are AMR settings we can glean from the mesh structure.
+    // set up the metadata cache
+    This->Metadata.clear();
 
-#ifdef VISIT_DEBUG_LOG
-        sprintf(msg, "SENSEI: GetMesh(%s) structure only\n", meshName.c_str());
-        VisItDebug5(msg);
-#endif
+    for (unsigned int i = 0; i < nMeshes; ++i)
+    {
+        sensei::MeshMetadataPtr mmd = sensei::MeshMetadata::New();
 
-        // Get the mesh, structure only.
-        vtkDataObject *obj = nullptr;
+        // enable optional metadata
+        mmd->Flags.SetBlockDecomp();
+        mmd->Flags.SetBlockExtents();
+        mmd->Flags.SetBlockChildren();
+        mmd->Flags.SetBlockBounds();
 
-        // Do not bother with structure-only. Most data adaptors are stupid and
-        // it causes problems if we later call GetMesh with different values
-        // of structureOnly.
-        bool structureOnly = false;
-
-        if (da->GetMesh(meshName, structureOnly, obj))
+        if (Adaptor->GetMeshMetadata(i, mmd))
         {
-            SENSEI_ERROR("GetMesh request failed. Skipping that mesh.")
-            continue;
+            SENSEI_ERROR("Failed to get metadata for mesh " << i)
+            return VISIT_INVALID_HANDLE;
         }
 
-        // Unpack the data object into a vector of vtkDataSets if it is a compound 
-        // dataset. These datasets will be incomplete and just for the structure 
-        // and number of domains only.
-        std::vector<vtkDataSet *> datasets;
-        vtkCompositeDataSet *cds = vtkCompositeDataSet::SafeDownCast(obj);
-        if(cds != nullptr)
+        // check if the sim gave us what we asked for
+        MeshMetadataFlags reqFlags = mmd->Flags;
+        reqFlags.ClearBlockBounds();
+
+        if (!mmd->Validate(This->Comm, reqFlags))
         {
-            vtkCompositeDataIterator *it = cds->NewIterator();
-            it->SkipEmptyNodesOn();
-            it->InitTraversal();
-            while(!it->IsDoneWithTraversal())
-            {
-                vtkDataObject *obj2 = cds->GetDataSet(it);
-                if(obj2 != nullptr && vtkDataSet::SafeDownCast(obj2) != nullptr)
-                    datasets.push_back(vtkDataSet::SafeDownCast(obj2));
-                it->GoToNextItem();
-            }
+            SENSEI_ERROR("Invalid metadata for mesh " << i)
+            return VISIT_INVALID_HANDLE;
         }
-        else if(vtkDataSet::SafeDownCast(obj) != nullptr)
-        {
-            datasets.push_back(vtkDataSet::SafeDownCast(obj));
-        }
-        else
-        {
-            SENSEI_ERROR("The data object is not supported data type. Skipping it.")
-            continue;
-        }
-#ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: datasets.size() = %d\n", (int)datasets.size());
-#endif
 
-        // Let's create a new mesh information object to contain the data object and
-        // its sub-datasets.
-        MeshInfo *mInfo = This->AddMeshDataCacheEntry(meshName, (int)datasets.size());
+        // cache the metadata
+        This->Metadata[mmd->MeshName] = mmd;
 
-        // Now, let's create some metadata for the object.
-
-        // Not all ranks might have data when we have multiple meshes. Figure out
-        // which rank has data and we'll let that one broadcast the information 
-        // about this mesh to all ranks.
-        int rank = 0, size = 1;
-        MPI_Comm_rank(This->comm, &rank);
-        MPI_Comm_size(This->comm, &size);
-        int bcast_rank = -1;
-        for(int i = 0; i < size; ++i)
-        {
-            if(mInfo->doms_per_rank[i] > 0)
-            {
-                bcast_rank = i;
-                break;
-            }
-        }
-        if(bcast_rank == -1)
-            continue;
-#ifdef VISIT_DEBUG_LOG
-        std::stringstream ss;
-        ss << "SENSEI: " << *mInfo << endl;
-        VisItDebug5(ss.str().c_str());
-
-        sprintf(msg, "SENSEI: bcast_rank=%d\n", bcast_rank);
-        VisItDebug5(msg);
-#endif
-
-        // Populate mesh information on bcast_rank.
-        int dims[3] = {0,0,0};
-        int iMesh[5] = {-1,0,0,0,0};
-        if(bcast_rank == rank)
-        {
-            // ASSUMPTION FOR NOW: datasets will be the same type data on all ranks.
-            vtkDataSet *ds = datasets[0];
-
-            if (vtkImageData *igrid = vtkImageData::SafeDownCast(ds))
-            {
-// TODO: if cds != nullptr, can we get some AMR properties?
-                igrid->GetDimensions(dims);
-                iMesh[0] = VISIT_MESHTYPE_RECTILINEAR;
-                iMesh[1] = dims[0];
-                iMesh[2] = dims[1];
-                iMesh[3] = dims[2];
-            }
-            else if (vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds))
-            {
-// TODO: if cds != nullptr, can we get some AMR properties?
-                rgrid->GetDimensions(dims);
-                iMesh[0] = VISIT_MESHTYPE_RECTILINEAR;
-                iMesh[1] = dims[0];
-                iMesh[2] = dims[1];
-                iMesh[3] = dims[2];
-            }
-            else if (vtkStructuredGrid *sgrid = vtkStructuredGrid::SafeDownCast(ds))
-            {
-                sgrid->GetDimensions(dims);
-                iMesh[0] = VISIT_MESHTYPE_CURVILINEAR;
-                iMesh[1] = dims[0];
-                iMesh[2] = dims[1];
-                iMesh[3] = dims[2];
-            }
-            else if (vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::SafeDownCast(ds))
-            {
-                (void)ugrid;
-                iMesh[0] = VISIT_MESHTYPE_UNSTRUCTURED;
-                iMesh[1] = 3;// just do 3.
-                iMesh[2] = 3;
-            }
-            else if (vtkPolyData *pgrid = vtkPolyData::SafeDownCast(ds))
-            {
-                if (pgrid->GetVerts())
-                {
-                    iMesh[0] = VISIT_MESHTYPE_POINT;
-                    iMesh[1] = 0;
-                    iMesh[2] = 3;
-                }
-            }
-            else
-            {
-                cout << "Libsim adaptor does not currently support: "
-                     << ds->GetClassName() << " datasets." << endl;
-            }
-        }
-        // Broadcast the iMesh data to all.
-#ifdef VISIT_DEBUG_LOG
-        MPI_Bcast(iMesh, 5, MPI_INT, bcast_rank, This->comm);
-        VisItDebug5("SENSEI: iMesh = {%d, %d, %d, %d, %d}\n",
-                    iMesh[0],iMesh[1],iMesh[2],iMesh[3],iMesh[4]);
-#endif
+        // pass to VisIt
         // Add mesh metadata.
-        visit_handle mmd = VISIT_INVALID_HANDLE;
-        if (VisIt_MeshMetaData_alloc(&mmd) != VISIT_OKAY)
+        visit_handle vmmd = VISIT_INVALID_HANDLE;
+        if (VisIt_MeshMetaData_alloc(&vmmd) != VISIT_OKAY)
         {
             SENSEI_ERROR("Failed to allocate mesh metadata")
             return VISIT_INVALID_HANDLE;
         }
 
-        // Use the iMesh data to make metadata.
-        bool supported = true;
-        switch(iMesh[0])
+        if (mmd->MeshType == VTK_OVERLAPPING_AMR)
         {
-        case VISIT_MESHTYPE_RECTILINEAR:
-            dims[0] = iMesh[1];
-            dims[1] = iMesh[2];
-            dims[2] = iMesh[3];
-            VisIt_MeshMetaData_setTopologicalDimension(mmd, This->TopologicalDimension(dims));
-            VisIt_MeshMetaData_setMeshType(mmd, VISIT_MESHTYPE_RECTILINEAR);
-            VisIt_MeshMetaData_setSpatialDimension(mmd, This->TopologicalDimension(dims));
-            break;
-        case VISIT_MESHTYPE_CURVILINEAR:
-            dims[0] = iMesh[1];
-            dims[1] = iMesh[2];
-            dims[2] = iMesh[3];
-            VisIt_MeshMetaData_setTopologicalDimension(mmd, This->TopologicalDimension(dims));
-            VisIt_MeshMetaData_setMeshType(mmd, VISIT_MESHTYPE_CURVILINEAR);
-            VisIt_MeshMetaData_setSpatialDimension(mmd, This->TopologicalDimension(dims));
-            break;
-        case VISIT_MESHTYPE_UNSTRUCTURED:
-            VisIt_MeshMetaData_setMeshType(mmd, VISIT_MESHTYPE_UNSTRUCTURED);
-            VisIt_MeshMetaData_setTopologicalDimension(mmd, iMesh[1]);
-            VisIt_MeshMetaData_setSpatialDimension(mmd, iMesh[2]);
-            break;
-        case VISIT_MESHTYPE_POINT:
-            VisIt_MeshMetaData_setMeshType(mmd, VISIT_MESHTYPE_POINT);
-            VisIt_MeshMetaData_setTopologicalDimension(mmd, iMesh[1]);
-            VisIt_MeshMetaData_setSpatialDimension(mmd, iMesh[2]);
-            break;
-        default:
-            supported = false;
-            break;
-        }
+            int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
+                mmd->Extent[3] - mmd->Extent[2] + 1,
+                mmd->Extent[5] - mmd->Extent[4] + 1};
 
-        // If we had a supported mesh type then add the mesh to the metadata.
-        if(supported)
-        {
-#ifdef VISIT_DEBUG_LOG
-            VisItDebug5("SENSEI: mesh: %s\n", meshName.c_str());
-#endif
-            VisIt_MeshMetaData_setName(mmd, meshName.c_str());
-            VisIt_MeshMetaData_setNumDomains(mmd, This->GetTotalDomains(meshName));
-            VisIt_SimulationMetaData_addMesh(md, mmd);
+            int topoDims = This->TopologicalDimension(dims);
+
+            VisIt_MeshMetaData_setMeshType(vmmd, VISIT_MESHTYPE_AMR);
+            VisIt_MeshMetaData_setTopologicalDimension(vmmd, topoDims);
+            VisIt_MeshMetaData_setSpatialDimension(vmmd, topoDims);
+
+            VisIt_MeshMetaData_setDomainTitle(vmmd, "Patches");
+            VisIt_MeshMetaData_setDomainPieceName(vmmd, "patch");
+
+            VisIt_MeshMetaData_setNumGroups(vmmd, mmd->NumLevels);
+            VisIt_MeshMetaData_setGroupTitle(vmmd, "Levels");
+            VisIt_MeshMetaData_setGroupPieceName(vmmd, "level");
+
+            for (int j = 0; j < mmd->NumBlocks; ++j)
+              VisIt_MeshMetaData_addGroupId(vmmd, mmd->BlockLevel[j]);
         }
         else
         {
-            SENSEI_ERROR("Unsupported mesh type for \"" << meshName << "\"")
-            continue;
+            switch (mmd->BlockType)
+            {
+                case VTK_STRUCTURED_GRID:
+                case VTK_RECTILINEAR_GRID:
+                case VTK_IMAGE_DATA:
+                {
+                    int meshType = mmd->BlockType == VTK_STRUCTURED_GRID ?
+                        VISIT_MESHTYPE_CURVILINEAR : VISIT_MESHTYPE_RECTILINEAR;
+
+                    int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
+                        mmd->Extent[3] - mmd->Extent[2] + 1,
+                        mmd->Extent[5] - mmd->Extent[4] + 1};
+
+                    int topoDims = This->TopologicalDimension(dims);
+
+                    VisIt_MeshMetaData_setMeshType(vmmd, meshType);
+                    VisIt_MeshMetaData_setTopologicalDimension(vmmd, topoDims);
+                    VisIt_MeshMetaData_setSpatialDimension(vmmd, topoDims);
+                }
+                break;
+
+                case VTK_UNSTRUCTURED_GRID:
+                case VTK_POLY_DATA:
+                {
+                    VisIt_MeshMetaData_setMeshType(vmmd, VISIT_MESHTYPE_UNSTRUCTURED);
+                    VisIt_MeshMetaData_setTopologicalDimension(vmmd, 3);
+                    VisIt_MeshMetaData_setSpatialDimension(vmmd, 3);
+                }
+                break;
+
+                default:
+                {
+                    SENSEI_ERROR("Unsupported block type " << mmd->BlockType)
+                    return VISIT_INVALID_HANDLE;
+                }
+            }
         }
-#endif 
-        //
-        // Add variables.
-        //
 
-        // ISSUE: The SENSEI API doesn't tell us the number of components for
-        //        the variables so we don't know whether it's a scalar, vector, etc.
+        VisIt_MeshMetaData_setName(vmmd, mmd->MeshName.c_str());
+        VisIt_MeshMetaData_setNumDomains(vmmd, mmd->NumBlocks);
+        VisIt_SimulationMetaData_addMesh(md, vmmd);
 
-        // get point data arrays. It seems that data adaptors are allowed to fail
-        // on this so don't bother checking the return value. Just check the
-        // vector of names.
-        int assoc = vtkDataObject::FIELD_ASSOCIATION_POINTS;
-        std::vector<std::string> node_vars;
-        da->GetArrayNames(meshName, assoc, node_vars);
-        unsigned int nArrays = node_vars.size();
-#ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: #node vars: %d\n", nArrays);
-#endif
-        for(unsigned int i = 0; i < nArrays; ++i)
+        // Add variables
+        for (int j = 0; j < mmd->NumArrays; ++j)
         {
             visit_handle vmd = VISIT_INVALID_HANDLE;
             if (VisIt_VariableMetaData_alloc(&vmd) != VISIT_OKAY)
@@ -1969,79 +1537,50 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 SENSEI_ERROR("Failed to allocate variable metadata")
                 return VISIT_INVALID_HANDLE;
             }
-            std::string arrayName(node_vars[i]);
-            if(nMeshes > 1)
-                arrayName = (meshName + "/") + arrayName;
-#ifdef VISIT_DEBUG_LOG
-            VisItDebug5("SENSEI: point var: %s\n", arrayName.c_str());
-#endif
+
+            // naming convention: <mesh>/<centering>/<var>
+            std::string arrayName = mmd->MeshName + "/" +
+                (mmd->ArrayCentering[j] == vtkDataObject::POINT ? "node" : "cell") +
+                "/" + mmd->ArrayName[j];
+
             VisIt_VariableMetaData_setName(vmd, arrayName.c_str());
-            VisIt_VariableMetaData_setMeshName(vmd, meshName.c_str());
-            VisIt_VariableMetaData_setType(vmd, VISIT_VARTYPE_SCALAR);
-            VisIt_VariableMetaData_setCentering(vmd, VISIT_VARCENTERING_NODE);
-            VisIt_SimulationMetaData_addVariable(md, vmd);
-        }
 
-        // get cell data arrays
-        assoc = vtkDataObject::FIELD_ASSOCIATION_CELLS;
-        std::vector<std::string> cell_vars;
-        da->GetArrayNames(meshName, assoc, cell_vars);
-        nArrays = cell_vars.size();
-#ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: #cell vars: %d\n", nArrays);
-#endif
-        for(unsigned int i = 0; i < nArrays; ++i)
-        {
-            visit_handle vmd = VISIT_INVALID_HANDLE;
-            if (VisIt_VariableMetaData_alloc(&vmd) != VISIT_OKAY)
+            VisIt_VariableMetaData_setMeshName(vmd, mmd->MeshName.c_str());
+
+            int varType = -1;
+            switch (mmd->ArrayComponents[j])
             {
-                SENSEI_ERROR("Failed to allocate variable metadata")
-                return VISIT_INVALID_HANDLE;
+                case 1:
+                    varType = VISIT_VARTYPE_SCALAR;
+                    break;
+                case 3:
+                    varType = VISIT_VARTYPE_VECTOR;
+                    break;
+                case 6:
+                    varType = VISIT_VARTYPE_SYMMETRIC_TENSOR;
+                    break;
+                case 9:
+                    varType = VISIT_VARTYPE_TENSOR;
+                    break;
+                default:
+                    SENSEI_ERROR("Failed to proccess an array with "
+                      << mmd->ArrayComponents[j] << " compnents")
+                    return VISIT_INVALID_HANDLE;
             }
+            VisIt_VariableMetaData_setType(vmd, varType);
 
-            // TODO -- the below logic may change the variable names
-            // depending on how the code is run. for example running
-            // in tightly coupled mode we might see many meshes, however
-            // in a loosely coupled run with the same simulation we may
-            // see only one of them. Also, there is some complication
-            // with session file generated completely outside of sensei.
-            // for example session files generated using AMReX plot files
-            // read into VisIt with the boxlib reader. The below logic
-            // makes that work sometimes, and not others.
+            int varCen = mmd->ArrayCentering[j] == vtkDataObject::POINT ?
+                VISIT_VARCENTERING_NODE : VISIT_VARCENTERING_ZONE;
 
-            std::string arrayName = cell_vars[i];
+            VisIt_VariableMetaData_setCentering(vmd, varCen);
 
-            // See if the variable is already in the nodal vars. If so,
-            // we prepend "cell_" to the name.
-            bool alreadyDefined = std::find(node_vars.begin(),
-                 node_vars.end(), arrayName) != node_vars.end();
-
-            if (alreadyDefined)
-            {
-                if(nMeshes > 1)
-                    arrayName = (meshName + "/cell_") + arrayName;
-                else
-                    arrayName = std::string("cell_") + arrayName;
-            }
-            else if(nMeshes > 1)
-            {
-                arrayName = (meshName + "/") + arrayName;
-            }
-
-#ifdef VISIT_DEBUG_LOG
-            VisItDebug5("SENSEI: cell var: %s\n", arrayName.c_str());
-#endif
-            VisIt_VariableMetaData_setName(vmd, arrayName.c_str());
-            VisIt_VariableMetaData_setMeshName(vmd, meshName.c_str());
-            VisIt_VariableMetaData_setType(vmd, VISIT_VARTYPE_SCALAR);
-            VisIt_VariableMetaData_setCentering(vmd, VISIT_VARCENTERING_ZONE);
             VisIt_SimulationMetaData_addVariable(md, vmd);
         }
     }
 
     // Add some commands.
     static const char *cmd_names[] = {"pause", "run"};
-    for(int i = 0; i < static_cast<int>(sizeof(cmd_names)/sizeof(const char *)); ++i)
+    for(int i = 0; i < 2; ++i)
     {
         visit_handle cmd = VISIT_INVALID_HANDLE;
         if(VisIt_CommandMetaData_alloc(&cmd) == VISIT_OKAY)
@@ -2055,17 +1594,22 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 }
 
 // --------------------------------------------------------------------------
-visit_handle
-LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbdata)
+void LibsimAnalysisAdaptor::PrivateData::ClearCache()
 {
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetMesh\n");
 #endif
-    PrivateData *This = (PrivateData *)cbdata;
+    this->Meshes.clear();
+    this->Metadata.clear();
+}
 
-    std::string meshName(name);
-    int localdomain = This->GetLocalDomain(meshName, dom);
-    visit_handle mesh = VISIT_INVALID_HANDLE;
+// --------------------------------------------------------------------------
+int
+LibsimAnalysisAdaptor::PrivateData::GetDomainList(const std::string &meshName,
+  std::vector<int> &localDomains, int &numDomains)
+{
+    numDomains = 0;
+    localDomains.clear();
 
 #ifdef VISIT_DEBUG_LOG
     char tmp[200];
@@ -2074,119 +1618,716 @@ LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom, const char *name, void *cbd
     VisItDebug5(tmp);
 #endif
 
-    if(localdomain >= 0)
+    int rank = 0;
+    int nRanks = 1;
+
+    MPI_Comm_rank(this->Comm, &rank);
+    MPI_Comm_size(this->Comm, &nRanks);
+
+    // get the metadata, it should already be available
+    auto mdit = this->Metadata.find(meshName);
+    if (mdit == this->Metadata.end())
     {
-        // Get the dataset for localdomain.
-        vtkDataSet *ds = This->GetDataSet(meshName, localdomain);
+        SENSEI_ERROR("No metadata for mesh \"" << meshName << "\"")
+        return -1;
+    }
+    MeshMetadataPtr mmd = mdit->second;
 
-        // If we have not retrieved the dataset for localdomain, do that now.
-        if(ds == nullptr)
+    // not all simulations have rank orderd blocks
+    // simulation provided block ids and block owner arrays can be used
+    // to iterate over local blocks. this works for bothj global and
+    // local metadata views
+    int nIds = mmd->BlockIds.size();
+    for (int i = 0; i < nIds; ++i)
+    {
+        if (rank == mmd->BlockOwner[i])
         {
-            This->FetchMesh(meshName);
-            ds = This->GetDataSet(meshName, localdomain);
+            localDomains.push_back(mmd->BlockIds[i]);
         }
-
-        mesh = vtkDataSet_to_VisIt_Mesh(ds, This->da);
     }
 
-    return mesh;
+    numDomains = mmd->NumBlocks;
+
+    return 0;
+}
+
+// --------------------------------------------------------------------------
+int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
+    vtkDataObjectPtr &dobjp)
+{
+    dobjp = nullptr;
+
+    // get the mesh. it's cached because visit wants things block
+    // by block but sensei only works with the whole object
+    auto it = this->Meshes.find(meshName);
+    if (it  == this->Meshes.end())
+    {
+        // mesh was not in the cache add it now
+        vtkDataObject *dobj = nullptr;
+        if (this->Adaptor->GetMesh(meshName, false, dobj))
+        {
+            SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+            return -1;
+        }
+
+        dobjp.TakeReference(dobj);
+        this->Meshes[meshName] = dobjp;
+    }
+    else
+    {
+        dobjp = it->second;
+    }
+
+    return 0;
+}
+
+// --------------------------------------------------------------------------
+int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
+    const std::string &varName, vtkDataArray *&array)
+{
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetVariable\n");
+#endif
+    array = nullptr;
+
+    // convert from visit variable name into sensei's mesh, centering, and
+    // array name
+    std::string meshName;
+    std::string arrayName;
+    int association = -1;
+    if (this->DecodeVarName(varName, meshName, arrayName, association))
+        return -1;
+
+    // get the mesh
+    vtkDataObjectPtr dobj;
+    if (this->GetMesh(meshName, dobj))
+        return -1;
+
+    vtkCompositeDataSetPtr cd =
+      VTKUtils::AsCompositeData(this->Comm, dobj.GetPointer(), false);
+
+    // see if we already have this array
+    vtkCompositeDataIterator *cdit = cd->NewIterator();
+
+    // this rank has no local data
+    if (cdit->IsDoneWithTraversal())
+    {
+        cdit->Delete();
+        return 0;
+    }
+
+    // read the array if we have not yet
+    if (!cdit->GetCurrentDataObject()->GetAttributes(association)->GetArray(arrayName.c_str()))
+    {
+        if (this->Adaptor->AddArray(dobj.GetPointer(), meshName, association, arrayName))
+        {
+            SENSEI_ERROR("Failed to add " << VTKUtils::GetAttributesName(association)
+              << " data array \"" << arrayName << "\"")
+            cdit->Delete();
+            return -1;
+        }
+    }
+
+    // extract array from the requested block
+    for (; !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
+    {
+        long blockId = std::max(0u, cdit->GetCurrentFlatIndex() - 1);
+        if (blockId == dom)
+        {
+            array = cdit->GetCurrentDataObject()->GetAttributes(association)->GetArray(arrayName.c_str());
+            break;
+        }
+    }
+
+    cdit->Delete();
+    return 0;
+}
+
+// --------------------------------------------------------------------------
+int LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom,
+    const std::string &meshName, vtkDataObject *&mesh)
+{
+    mesh = nullptr;
+
+    // get the metadata, it should already be available
+    auto mdit = this->Metadata.find(meshName);
+    if (mdit == this->Metadata.end())
+    {
+        SENSEI_ERROR("No metadata for mesh \"" << meshName << "\"")
+        return -1;
+    }
+    MeshMetadataPtr mmd = mdit->second;
+
+    // get the mesh
+    vtkDataObjectPtr dobj;
+    if (this->GetMesh(meshName, dobj))
+        return -1;
+
+    vtkCompositeDataSetPtr cd =
+      VTKUtils::AsCompositeData(this->Comm, dobj.GetPointer(), false);
+
+    // get the block that visit is after
+    vtkCompositeDataIterator *cdit = cd->NewIterator();
+    for (; !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
+    {
+        long blockId = std::max(0u, cdit->GetCurrentFlatIndex() - 1);
+        if (blockId == dom)
+        {
+            mesh = cdit->GetCurrentDataObject();
+            break;
+        }
+    }
+
+    cdit->Delete();
+    return 0;
 }
 
 // --------------------------------------------------------------------------
 visit_handle
-LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *name, void *cbdata)
+LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom, const char *meshName,
+  void *cbdata)
 {
+    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetMesh ====\n");
+
     PrivateData *This = (PrivateData *)cbdata;
-#ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetVariable\n");
-#endif
-    // Given the VisIt variable name, turn it back into the SENSEI variable name.
-    std::string meshName, varName;
-    int association;
-    This->GetArrayInfoFromVariableName(name, meshName, varName, association);
-#ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: dom=%d, name=%s\n", dom, name);
-    VisItDebug5("SENSEI: meshName=%s, varName=%s, association=%d\n",
-                meshName.c_str(), varName.c_str(), association);
-#endif
 
-    // Get the local domain.
-    int localdomain = This->GetLocalDomain(meshName, dom);
+    vtkDataObject *block = nullptr;
+
+    if (This->GetMesh(dom, std::string(meshName), block))
+        return VISIT_INVALID_HANDLE;
+
+    return vtkDataSet_to_VisIt_Mesh(block);
+}
+
+// --------------------------------------------------------------------------
+visit_handle
+LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *varName,
+  void *cbdata)
+{
+    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetVariable ====\n");
+
+    PrivateData *This = (PrivateData *)cbdata;
+
+    // get the array for this block
+    vtkDataArray *array = nullptr;
+
+    if (This->GetVariable(dom, std::string(varName), array))
+        return VISIT_INVALID_HANDLE;
+
+    // this rank has no local blocks
+    if (!array)
+        return VISIT_INVALID_HANDLE;
+
+    return vtkDataArray_To_VisIt_VariableData(array);
+}
+
+// --------------------------------------------------------------------------
+visit_handle
+LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *meshName, void *cbdata)
+{
+    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainList ====\n");
+
+    PrivateData *This = (PrivateData *)cbdata;
+
+    // Create a list of domains owned by this rank.
+    int nGlobalDomains = 0;
+    std::vector<int> localDomains;
+    This->GetDomainList(meshName, localDomains, nGlobalDomains);
+
     visit_handle h = VISIT_INVALID_HANDLE;
-#ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: localdomain=%d\n", localdomain);
-#endif
-
-    if(localdomain >= 0)
+    if (localDomains.size() > 0)
     {
-        // See if the right data array exists in the VTK dataset.
-        vtkDataSet *ds = This->GetDataSet(meshName, localdomain);
+        VisIt_DomainList_alloc(&h);
 
-        // See if the array is present.
-        vtkDataArray *arr = nullptr;
-        if(association == vtkDataObject::FIELD_ASSOCIATION_POINTS)
-            arr = ds->GetPointData()->GetArray(varName.c_str());
-        else
-            arr = ds->GetCellData()->GetArray(varName.c_str());
+        visit_handle hdl;
+        VisIt_VariableData_alloc(&hdl);
 
-#ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: arr=%p\n", arr);
-#endif
+        VisIt_VariableData_setDataI(hdl, VISIT_OWNER_COPY,
+            1, localDomains.size(), localDomains.data());
 
-        // If we did not find the array then get it from SENSEI's
-        // data adaptor.
-        if(arr == nullptr)
-        {
-            This->AddArray(meshName, association, varName);
-
-            // Look for the data array again.
-            if(association == vtkDataObject::FIELD_ASSOCIATION_POINTS)
-                arr = ds->GetPointData()->GetArray(varName.c_str());
-            else
-                arr = ds->GetCellData()->GetArray(varName.c_str());
-#ifdef VISIT_DEBUG_LOG
-            VisItDebug5("SENSEI: After AddArray: arr=%p\n", arr);
-#endif
-        }
-
-        // Wrap the VTK data array's data as a VisIt_VariableData.
-        if(arr != nullptr)
-        {
-#ifdef VISIT_DEBUG_LOG
-            VisItDebug5("SENSEI: Converting to VisIt_VariableData\n");
-#endif
-            h = vtkDataArray_To_VisIt_VariableData(arr);
-        }
+        VisIt_DomainList_setDomains(h, nGlobalDomains, hdl);
     }
 
     return h;
 }
 
+
+inline bool
+in_range(int value, int v0, int v1)
+{
+    return value >= v0 && value <= v1;
+}
+
+inline bool
+box_intersect(const int *ext, const int *extChild, int ratio)
+{
+    // box is low,high, low,high, low,high
+    int parent[6];
+    parent[0] = ext[0]*ratio;
+    parent[1] = ext[1]*ratio;
+    parent[2] = ext[2]*ratio;
+    parent[3] = ext[3]*ratio;
+    parent[4] = ext[4]*ratio;
+    parent[5] = ext[5]*ratio;
+
+    bool inX = in_range(extChild[0], parent[0], parent[1]) ||
+               in_range(extChild[1], parent[0], parent[1]);
+    bool inY = in_range(extChild[2], parent[2], parent[3]) ||
+               in_range(extChild[3], parent[2], parent[3]);
+    // Ignore Z if 2D.
+    bool inZ = true;
+    if(parent[4] != parent[5] || parent[4] != 0)
+    {
+        inZ = in_range(extChild[4], parent[4], parent[5]) ||
+              in_range(extChild[5], parent[4], parent[5]);
+    }
+    return inX && inY && inZ;
+}
+
+// --------------------------------------------------------------------------
+int
+LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const std::string &meshName,
+    std::vector<std::vector<int>> &children)
+{
+    int rank = 0;
+    int nRanks = 1;
+
+    MPI_Comm_rank(this->Comm, &rank);
+    MPI_Comm_size(this->Comm, &nRanks);
+
+    // get the metadata, it should already be available
+    auto mdit = this->Metadata.find(meshName);
+    if (mdit == this->Metadata.end())
+    {
+        SENSEI_ERROR("No metadata for mesh \"" << meshName << "\"")
+        return -1;
+    }
+    MeshMetadataPtr mmd = mdit->second;
+
+    // construct a global view of the child relation ships.
+    // this is one thing we decided should always be a local
+    // view as it can take a lot of space.
+    BinaryStream bss;
+    bss.Pack(mmd->BlockIds);
+    bss.Pack(mmd->BlockChildren);
+
+    std::vector<int> sizes(nRanks);
+    sizes[rank] = bss.Size();
+
+    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+        sizes.data(), 1, MPI_INT, this->Comm);
+
+    int totalSize = 0;
+    std::vector<int> offset(nRanks);
+    for (int i = 0; i < nRanks; ++i)
+    {
+        offset[i] = totalSize;
+        totalSize += sizes[i];
+    }
+
+    BinaryStream bsr;
+    bsr.Resize(totalSize);
+    int nLocal = bss.Size();
+    unsigned char *pbss = bss.GetData();
+    unsigned char *pbsr = bsr.GetData() + offset[rank];
+    for (int i = 0; i < nLocal; ++i)
+        pbsr[i] = pbss[i];
+
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+        bsr.GetData(), sizes.data(), offset.data(), MPI_BYTE,
+        this->Comm);
+
+    bss.Clear();
+    bsr.SetReadPos(0);
+
+    // put the info into block order
+    // things have been communicated in rank order but we need
+    // to preserve block order.
+    children.resize(mmd->NumBlocks);
+    for (int i = 0; i < nRanks; ++i)
+    {
+        std::vector<int> blockIds;
+        std::vector<std::vector<int>> blockChildren;
+
+        bsr.Unpack(blockIds);
+        bsr.Unpack(blockChildren);
+
+        int nri = blockIds.size();
+        for (int j = 0; j < nri; ++j)
+            children[blockIds[j]] = blockChildren[j];
+    }
+    bsr.Clear();
+
+    return 0;
+}
+
 // --------------------------------------------------------------------------
 visit_handle
-LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *name, void *cbdata)
+LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *meshName, void *cbdata)
+{
+    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
+
+    PrivateData *This = (PrivateData *)cbdata;
+
+    MeshMetadataPtr mmd = This->Metadata[meshName];
+
+    // skip non-amr datasets
+    if (mmd->MeshType != VTK_OVERLAPPING_AMR)
+        return VISIT_INVALID_HANDLE;
+
+    // invalid metadata
+    if (mmd->BlockChildren.empty())
+        return VISIT_INVALID_HANDLE;
+
+    // Populate the domain nesting structure.
+    visit_handle h = VISIT_INVALID_HANDLE;
+    VisIt_DomainNesting_alloc(&h);
+
+    int topdim = ((mmd->Extent[5] - mmd->Extent[4]) > 1) ? 3 : 2;
+
+    VisIt_DomainNesting_set_dimensions(h, mmd->NumBlocks,
+        mmd->NumLevels, topdim);
+
+    // Set the refinement ratios.
+    for (int i = 0; i < mmd->NumLevels; ++i)
+    {
+        std::array<int,3> rr = mmd->RefRatio[i];
+        rr[2] = (topdim > 2 ? rr[2] : 1);
+        VisIt_DomainNesting_set_levelRefinement(h, i, rr.data());
+    }
+
+    // set the child nesting info
+    for (int i = 0; i < mmd->NumBlocks; ++i)
+    {
+        const int *bext = mmd->BlockExtents[i].data();
+
+        // this would convert from vtk's extent convention
+        //int vbext[6] = {bext[0], bext[2], bext[4],
+        //    bext[1], bext[3], bext[5]};
+
+        int nc = mmd->BlockChildren[i].size();
+        int *pc = nc ? mmd->BlockChildren[i].data() : nullptr;
+        int lev = mmd->BlockLevel[i];
+
+        VisIt_DomainNesting_set_nestingForPatch(h, i, lev, pc, nc, bext);
+    }
+
+    return h;
+}
+
+// notes 8/2/2018 metadata revamp
+// the below comment is not 100% correct. AMReX has all the block info on
+// all ranks and passing that into ParaView and VTK seems to be necessary.
+// in conversation with Gunther he has indicated that it the domain bounds
+// structure in VisIt that is problematic. Based on those discussion we
+// decided that neighbor, parent, and child info in sensei will never be global.
+// however since AMR codes like AMReX, and CHOMBO have other block info in
+// all ranks we can expect global views of those.
+//
+// the below code does not work with the AMReX adaptor because below it is
+// assumed that block info in VTK data structures is local. as mentioned I
+// think that assumption is incorrect.
+//
+// I think we need to pass both ghost cell array and domain nesting to VisIt.
+// without domain nesting info VisIt can't do selections even if it has ghost
+// zones.
+//
+// I'm commenting this code out, but I think if we can resolve the issues it worth
+// having this or something like it to generate the domain nexting structure for
+// the miniapps. if nothing else this code would move into the mandelbrot miniapp
+
+// --------------------------------------------------------------------------
+// NOTE: VisIt's domain nesting structure needs to include all of the patches
+//       in the dataset across all ranks. This is may somewhat limit scalability
+//       since we have to deduce that stuff from the distributed VTK dataset.
+//       On the other hand, we don't even have to do this if we ghost the data
+//       ourselves.
+//
+/*
+visit_handle
+LibsimAnalysisAdaptor::PrivateData::GetDomainNestingOrig(const char *name, void *cbdata)
 {
     PrivateData *This = (PrivateData *)cbdata;
     visit_handle h = VISIT_INVALID_HANDLE;
     std::string meshName(name);
-#ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetDomainList\n");
-#endif
+    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
 
-    if(VisIt_DomainList_alloc(&h) != VISIT_ERROR)
+    // See if there is a MeshInfo for the mesh.
+    std::map<std::string, MeshInfo *>::const_iterator it;
+    it = This->meshData.find(meshName);
+    if(it == This->meshData.end())
     {
-        visit_handle hdl;
-        int *iptr = nullptr, size = 0;
-
-        // Create a list of domains owned by this rank.
-        iptr = This->GetDomains(name, size);
-
-        VisIt_VariableData_alloc(&hdl);
-        VisIt_VariableData_setDataI(hdl, VISIT_OWNER_VISIT, 1, size, iptr);
-        VisIt_DomainList_setDomains(h, This->GetTotalDomains(meshName), hdl);
+        VisItDebug5("failed to locate mesh entry for %s\n", name);
+        return VISIT_INVALID_HANDLE;
     }
+
+    // See if we know if the mesh datasets already had ghost cells. If so, return.
+    if(it->second->datasetsHaveGhostCells)
+    {
+        VisItDebug5("The mesh %s already had vtkGhostType ghost cells. "
+                    "We can skip creating the domain nesting object.\n", name);
+        return VISIT_INVALID_HANDLE;
+    }
+
+    // We might have made a mesh entry with nothing in it. If so, we need the data.
+    if(it->second->dataObj == nullptr)
+    {
+        VisItDebug5("Trying to fetch actual mesh for %s\n", meshName.c_str());
+        This->FetchMesh(meshName);
+        it = This->meshData.find(meshName);
+    }
+
+    // Make sure that the data were overlappingAMR.
+    vtkOverlappingAMR *overlappingAMR = vtkOverlappingAMR::SafeDownCast(it->second->dataObj);
+    if(overlappingAMR == nullptr)
+    {
+        VisItDebug5("The VTK dataset was not a vtkOverlappingAMR dataset.");
+        return VISIT_INVALID_HANDLE;
+    }
+
+    // Try and allocate the domain nesting object.
+    if(VisIt_DomainNesting_alloc(&h) == VISIT_ERROR)
+    {
+        VisItDebug5("failed to allocate DomainNesting object.\n");
+        return VISIT_INVALID_HANDLE;
+    }
+
+    timer::MarkEvent mark("libsim::getdomainnesting");
+    int rank, size;
+    MPI_Comm_rank(This->Comm, &rank);
+    MPI_Comm_size(This->Comm, &size);
+
+    // Now, we need the AMR box information for each patch. We don't have
+    // all data on each rank so we need to allreduce.
+    int sz = 6 * overlappingAMR->GetTotalNumberOfBlocks();
+    int *allext = new int[sz];
+    for(int i = 0; i < sz; ++i)
+        allext[i] = -1;
+    for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
+    {
+        unsigned int mylevel, mypatch;
+        overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
+        const vtkAMRBox &box = overlappingAMR->GetAMRBox(mylevel, mypatch);
+        if(!box.Empty())
+        {
+            box.GetDimensions(&allext[6*i]);
+        }
+    }
+    MPI_Allreduce(MPI_IN_PLACE, allext, sz, MPI_INT, MPI_MAX, This->Comm);
+//#define DEBUG_GETDOMAINNESTING
+#ifdef DEBUG_GETDOMAINNESTING
+    for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
+    {
+        unsigned int mylevel, mypatch;
+        overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
+        std::stringstream ss;
+        if(i == 0)
+            ss << "TotalNumberOfBlocks = " << overlappingAMR->GetTotalNumberOfBlocks() << endl;
+        ss << "patch " << i << ": level=" << mylevel << ", id=" << mypatch
+                 << ",  box={"
+                 << allext[6*i+0] << ", "
+                 << allext[6*i+1] << ", "
+                 << allext[6*i+2] << ", "
+                 << allext[6*i+3] << ", "
+                 << allext[6*i+4] << ", "
+                 << allext[6*i+5] << "}"
+                 << endl;
+        VisItDebug5(ss.str().c_str());
+    }
+#endif
+    int topdim = ((allext[5] - allext[4]) > 1) ? 3 : 2;
+
+    // Populate the domain nesting structure.
+    VisIt_DomainNesting_set_dimensions(h,
+        overlappingAMR->GetTotalNumberOfBlocks(),
+        overlappingAMR->GetNumberOfLevels(),
+        topdim);
+
+    // Set the refinement ratios.
+    for(unsigned int i = 0; i < overlappingAMR->GetNumberOfLevels(); ++i)
+    {
+        int ratios[3] = {1,1,1};
+        ratios[0] = overlappingAMR->GetRefinementRatio(i);
+        ratios[1] = ratios[0];
+        ratios[2] = (topdim > 2) ? ratios[0] : 1;
+        VisIt_DomainNesting_set_levelRefinement(h, i, ratios);
+    }
+
+    // We don't have perfect parent/child data in the VTK AMR dataset. Maybe VTK
+    // isn't happy computing it when only some of the ranks have data. We have
+    // gathered the boxes for all patches in the dataset at this point.
+    // We can use that to determine parent/child. Make a list of all non-leaf
+    // patches that we can divide among ranks for computing parent/child.
+    std::vector<unsigned int> work;
+    for(unsigned int level = 0; level < overlappingAMR->GetNumberOfLevels()-1; ++level)
+    {
+        unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
+        for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
+            work.push_back(overlappingAMR->GetCompositeIndex(level, i));
+    }
+
+    // Now, there were a bunch of patches for which we need to compute the children.
+    // Figure out which ranks do which patches.
+    std::vector<unsigned int> mywork;
+    int ws = static_cast<int>(work.size());
+    int *rankn = new int[size];
+    memset(rankn, 0, sizeof(int)*size);
+    for(int i = 0; i < ws; ++i)
+        rankn[i % size]++;
+    int offset = 0;
+    for(int i = 0; i < rank; ++i)
+        offset += rankn[i];
+    for(int i = 0; i < rankn[rank]; ++i)
+        mywork.push_back(work[offset + i]);
+    delete [] rankn;
+
+    // Compute the children. We'll store them as {compositeIndex nChildren c0 c1 ...}...
+    std::vector<int> childData;
+    for(size_t i = 0; i < mywork.size(); ++i)
+    {
+        unsigned int dom = mywork[i];
+        int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
+
+        size_t start = childData.size();
+        childData.push_back(static_cast<int>(dom));
+        childData.push_back(0);
+
+        unsigned int level, patch;
+        overlappingAMR->GetLevelAndIndex(dom, level, patch);
+        unsigned int nextLevel = level+1;
+        int ratio = overlappingAMR->GetRefinementRatio(level);
+        unsigned int nDataSetsNextLevel = overlappingAMR->GetNumberOfDataSets(nextLevel);
+#ifdef DEBUG_GETDOMAINNESTING
+        std::stringstream ss;
+        ss << "Finding children of patch " << dom << ": level=" << level
+           << ", id=" << patch << ", start=" << start
+           << ", nextLevel=" << nextLevel << ", ndsnextlevel=" << nDataSetsNextLevel
+           << ", childData={";
+#endif
+        for(unsigned int j = 0; j < nDataSetsNextLevel; ++j)
+        {
+            unsigned int childDom = overlappingAMR->GetCompositeIndex(nextLevel, j);
+            const int *extChild = &allext[6*childDom]; // lowi highi lowj highj lowk highk
+            if(box_intersect(ext, extChild, ratio))
+            {
+                childData.push_back(static_cast<int>(childDom));
+                childData[start+1]++;
+            }
+        }
+#ifdef DEBUG_GETDOMAINNESTING
+        for(size_t j = start; j < childData.size(); ++j)
+            ss << childData[j] << ", ";
+        ss << "}" << endl;
+        VisItDebug5(ss.str().c_str());
+#endif
+    }
+
+    // Get the work sizes on each rank.
+    int *worksize = new int[size];
+    memset(worksize, 0, sizeof(int)*size);
+    worksize[rank] = static_cast<int>(childData.size());
+    MPI_Allreduce(MPI_IN_PLACE, worksize, size, MPI_INT, MPI_MAX, This->Comm);
+
+    // Get the work results from each rank.
+    int n = 0;
+    for(int i =0; i < size; ++i)
+        n += worksize[i];
+    int *displs = new int[size];
+    displs[0] = 0;
+    for(int i = 1; i < size; ++i)
+        displs[i] = displs[i-1] + worksize[i-1];
+#ifdef DEBUG_GETDOMAINNESTING
+    std::stringstream ss;
+    ss << "\nworksize={";
+    for(int i = 0; i < size; ++i)
+        ss << worksize[i] << ", ";
+    ss << "}" << endl;
+    ss << "n=" << n << ", displs={";
+    for(int i = 0; i < size; ++i)
+        ss << displs[i] << ", ";
+    ss << "}\n" << endl;
+    VisItDebug5(ss.str().c_str());
+#endif
+    int *workresults = new int[n];
+    childData.push_back(0); // make sure that childData has at least 1 element now.
+    MPI_Allgatherv(&childData[0], worksize[rank], MPI_INT,
+                   workresults, worksize, displs, MPI_INT, This->Comm);
+    delete [] worksize;
+    delete [] displs;
+
+    // Now we have the work results, use them.
+    int *w = workresults;
+    int *end = workresults + n;
+    while(w < end)
+    {
+        unsigned int dom = static_cast<unsigned int>(w[0]);
+        int nChildren = w[1];
+        int *children = nChildren > 0 ? &w[2] : nullptr;
+
+        int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
+        int logicalExt[6]; // lowi lowj lowk highi highj highk
+        logicalExt[0] = ext[0];
+        logicalExt[1] = ext[2];
+        logicalExt[2] = ext[4];
+        logicalExt[3] = ext[1];
+        logicalExt[4] = ext[3];
+        logicalExt[5] = ext[5];
+
+        unsigned int level, patch;
+        overlappingAMR->GetLevelAndIndex(dom, level, patch);
+        VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
+            children, nChildren, logicalExt);
+#ifdef DEBUG_GETDOMAINNESTING
+        std::stringstream ss;
+        ss << "patch " << dom << ": level=" << level << ", id=" << patch << ": children = {";
+        for(int r = 0; r < nChildren; ++r)
+            ss << children[r] << ", ";
+        ss << "}, ext={";
+        for(int r = 0; r < 6; ++r)
+            ss << logicalExt[r] << ", ";
+        ss << "}" << endl;
+        VisItDebug5(ss.str().c_str());
+#endif
+        w += (nChildren + 2);
+    }
+
+    // Add the leaves.
+    unsigned int level = overlappingAMR->GetNumberOfLevels()-1;
+    unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
+    // There are no child patches here and the most patches should
+    // live here.
+    int children[2] ={0,0};
+    for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
+    {
+        unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
+        int *ext = &allext[6*dom];
+        int logicalExt[6];
+        logicalExt[0] = ext[0];
+        logicalExt[1] = ext[2];
+        logicalExt[2] = ext[4];
+        logicalExt[3] = ext[1];
+        logicalExt[4] = ext[3];
+        logicalExt[5] = ext[5];
+        VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
+                    children, 0, logicalExt);
+#ifdef DEBUG_GETDOMAINNESTING
+        std::stringstream ss;
+        ss << "patch " << dom << ": level=" << level << ", id=" << i
+           << ": children = {}, logicalExt={";
+        for(int r = 0; r < 6; ++r)
+            ss << logicalExt[r] << ", ";
+        ss << "}" << endl;
+        VisItDebug5(ss.str().c_str());
+#endif
+    }
+
+    delete [] allext;
+    delete [] workresults;
+
     return h;
-}
+}*/
+
+
 
 //-----------------------------------------------------------------------------
 // LibsimAnalysisAdaptor PUBLIC INTERFACE

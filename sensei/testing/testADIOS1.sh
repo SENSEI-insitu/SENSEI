@@ -9,6 +9,10 @@ fi
 mpiexec=`basename $1`
 npflag=$2
 nproc=$3
+nproc_write=$nproc
+let nproc_read=$nproc-1
+nproc_read=$(( nproc_read < 1 ? 1 : nproc_read ))
+
 srcdir=$4
 file=$5
 writeMethod=$6
@@ -22,8 +26,9 @@ trap 'echo $BASH_COMMAND' DEBUG
 rm -f ${file}
 
 echo "testing ${writeMethod} -> ${readMethod}"
+echo "M=${nproc_write} x N=${nproc_read}"
 
-${mpiexec} ${npflag} ${nproc} python ${srcdir}/testADIOSWrite.py ${file} ${writeMethod} ${nits} &
+${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testADIOS1Write.py ${file} ${writeMethod} ${nits} &
 writePid=$!
 
 if [[ "${readMethod}" == "BP" ]]
@@ -53,5 +58,5 @@ then
   done
 fi
 
-${mpiexec} ${npflag} ${nproc} python ${srcdir}/testADIOSRead.py ${file} ${readMethod}
+${mpiexec} ${npflag} ${nproc_read} python ${srcdir}/testADIOS1Read.py ${file} ${readMethod}
 exit 0

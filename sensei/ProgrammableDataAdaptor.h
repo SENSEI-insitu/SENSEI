@@ -55,24 +55,23 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
-  /// Set the callable that will be invoked when GetMeshName is called
-  /// See GetMeshName for details of what the callback must do.
-  using GetMeshNameFunction =
-    std::function<int(unsigned int, std::string &)>;
+  /// Set the callable that will be invoked when GetMeshMetadata is called
+  /// See GetMeshMetadata for details of what the callback must do.
+  using GetMeshMetadataFunction =
+    std::function<int(unsigned int, MeshMetadataPtr &)>;
 
-  void SetGetMeshNameCallback(const GetMeshNameFunction &callback);
+  void SetGetMeshMetadataCallback(const GetMeshMetadataFunction &callback);
 
-  /// @breif Get the name of the i'th mesh
+  /// @brief Get metadata of the i'th mesh
   ///
-  /// The caller passes the integer id of the mesh for which the name is
-  /// desired, and a reference to string where the name is stored. See
-  /// GetNumberOfMeshes. If successfull the method returns 0, a non-zero
-  /// return indicates an error occurred.
+  /// The caller passes the integer id of the mesh for which the metadata is
+  /// desired, and a pointer to a MeshMetadata instance  where the metadata is
+  /// stored.
   ///
   /// @param[in] id index of the mesh to access
-  /// @param[out] meshName reference to a string where the name can be stored
+  /// @param[out] metadata a pointer to instance where metadata is stored
   /// @returns zero if successful, non zero if an error occurred
-  int GetMeshName(unsigned int id, std::string &meshName) override;
+  int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   /// Set the callable that will be invoked when GetMesh is called
   /// See GetMesh for details of what the callback must do.
@@ -120,50 +119,6 @@ public:
   int AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
-  /// Set the callable that will be invokde when GetNumberOfArrays is called.
-  /// See GetNumberOfArrays for details of what the callback must do
-  using GetNumberOfArraysFunction = std::function<int(const std::string &,
-    int, unsigned int &)>;
-
-  void SetGetNumberOfArraysCallback(const GetNumberOfArraysFunction &callback);
-
-  /// @brief Return the number of field arrays available.
-  ///
-  /// This method will return the number of field arrays available. For data
-  /// adaptors producing composite datasets, this is a union of arrays available
-  /// on all parts of the composite dataset.
-  ///
-  /// @param association field association; one of
-  /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @return the number of arrays.
-  int GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays) override;
-
-  /// Set the callable that will be invoked when GetArrayName is called.
-  /// See GetArrayName for details of what the callback must do.
-  using GetArrayNameFunction =
-    std::function<int(const std::string &, int, unsigned int, std::string &)>;
-
-  void SetGetArrayNameCallback(const GetArrayNameFunction &callback);
-
-  /// @brief Return the name for a field array.
-  ///
-  /// This method will return the name for a field array given its index.
-  ///
-  /// @param association field association; one of
-  /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @param index index for the array. Must be less than value returned
-  /// GetNumberOfArrays().
-  ///
-  /// @param[in] meshName name of mesh
-  /// @param[in] association field association; one of
-  ///            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @param[in] index of the array
-  /// @param[out] arrayName reference to a string where the name will be stored
-  /// @returns zero if successful, non zero if an error occurred
-  int GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName) override;
-
   ///Set the callable that will be invoked when ReleaseData is called.
   /// See ReleaseData for details about wwhat the callback should do.
   using ReleaseDataFunction = std::function<int()>;
@@ -184,11 +139,9 @@ protected:
 
   // callbacks
   GetNumberOfMeshesFunction GetNumberOfMeshesCallback;
-  GetMeshNameFunction GetMeshNameCallback;
+  GetMeshMetadataFunction GetMeshMetadataCallback;
   GetMeshFunction GetMeshCallback;
   AddArrayFunction AddArrayCallback;
-  GetNumberOfArraysFunction GetNumberOfArraysCallback;
-  GetArrayNameFunction GetArrayNameCallback;
   ReleaseDataFunction ReleaseDataCallback;
 
 private:

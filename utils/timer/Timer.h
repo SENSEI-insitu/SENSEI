@@ -6,6 +6,7 @@
 
 namespace timer
 {
+
 /// Initialize logging from environment variables, and/or the timer
 /// API below. This is a collective call with respect to the timer's
 /// communicator.

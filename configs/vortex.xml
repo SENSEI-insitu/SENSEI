@@ -1,0 +1,37 @@
+ <!-- SENSEI ConfigurableAnalysis Configuration file.
+      set enabled="1" on analyses you wish to enable -->
+<sensei>
+  <!-- Custom Analyses-->
+  <analysis type="PosthocIO"
+    output_dir="./" file_name="output" mode="visit"
+    enabled="0">
+    <mesh name="AMR_mesh" structure_only="0" ghost_cells="1" ghost_nodes="0">
+      <cell_arrays>vortex</cell_arrays>
+    </mesh>
+  </analysis>
+
+  <!-- Libsim Analyses -->
+  <!-- NOTE: make the visitdir path point to your VisIt directory. -->
+  <analysis type="libsim" visitdir="/Users/bjw/Development/MAIN/trunk/build"
+            mode="batch" 
+            frequency="1" session="vortex_slice.session"
+            image-filename="a%ts" image-width="1600" image-height="400" image-format="png"
+            enabled="1"/>
+
+  <!-- idea for changing Libsim adaptor config
+  <analysis type="libsim" visitdir="/Users/bjw/Development/MAIN/trunk/build" mode="interactive,paused" options="-debug 5" enabled="0">
+      <render frequency="1" filename="a%ts.png" width="800" height="800">
+          <session filename="foo.session"/>
+      </render>
+      <extract frequency="1" filename="b%ts.silo">
+          <session filename="foo.session"/>
+      </extract>
+      <extract frequency="1" filename="c%ts.silo">
+          <plot type="Pseudocolor" variable="pressure"/>
+          <plot type="Mesh" variable="mesh"/>
+          <operator type="Slice" origin="0,0,0" normal="0,0,1">
+      </extract>
+  </analysis>
+  -->
+
+</sensei>

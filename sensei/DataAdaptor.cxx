@@ -1,8 +1,10 @@
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
 #include <vtkDataObject.h>
+#include <vtkCompositeDataSet.h>
 #include <vtkInformation.h>
 #include <vtkInformationIntegerKey.h>
 #include <vtkObjectFactory.h>
@@ -15,9 +17,6 @@
 namespace sensei
 {
 
-using AssocArrayMapType = std::map<int, std::vector<std::string>>;
-using MeshArrayMapType = std::map<std::string, AssocArrayMapType>;
-
 struct DataAdaptor::InternalsType
 {
   InternalsType() : Information(vtkInformation::New()) {}
@@ -27,12 +26,10 @@ struct DataAdaptor::InternalsType
   {
     this->Information->Delete();
     this->Information = vtkInformation::New();
-    this->MeshNames.clear();
-    this->MeshArrayMap.clear();
   }
 
-  std::vector<std::string> MeshNames;
-  MeshArrayMapType MeshArrayMap;
+  MeshMetadataFlags Flags;
+  std::vector<MeshMetadataPtr> Metadata;
   vtkInformation *Information;
 };
 
@@ -118,77 +115,25 @@ void DataAdaptor::SetDataTimeStep(vtkInformation* info, int index)
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::GetMeshNames(std::vector<std::string> &meshNames)
+int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
+    vtkCompositeDataSet *&mesh)
 {
-  if (!this->Internals->MeshNames.empty())
-    {
-    meshNames = this->Internals->MeshNames;
-    return 0;
-    }
+  mesh = nullptr;
 
-  unsigned int nMeshes = 0;
-  if (this->GetNumberOfMeshes(nMeshes))
+  // get the object from the simulation
+  vtkDataObject *dobj = nullptr;
+  if (this->GetMesh(meshName, structureOnly, dobj))
     {
-    SENSEI_ERROR("Failed to get the number of meshes")
+    SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
     return -1;
     }
 
-  for (unsigned int i = 0; i < nMeshes; ++i)
-    {
-    std::string meshName;
-    if (this->GetMeshName(i, meshName))
-      {
-      SENSEI_ERROR("Failed to get the mesh name at " << i)
-      return -1;
-      }
-    this->Internals->MeshNames.push_back(meshName);
-    }
+  vtkCompositeDataSetPtr meshptr = VTKUtils::AsCompositeData(
+    this->GetCommunicator(), dobj, true);
 
-  meshNames = this->Internals->MeshNames;
-  return 0;
-}
+  mesh = meshptr.GetPointer();
+  mesh->Register(nullptr);
 
-//----------------------------------------------------------------------------
-int DataAdaptor::GetArrayNames(const std::string &meshName, int association,
-    std::vector<std::string> &arrayNames)
-{
-  MeshArrayMapType::iterator it =
-    this->Internals->MeshArrayMap.find(meshName);
-
-  if (it != this->Internals->MeshArrayMap.end())
-    {
-    AssocArrayMapType::iterator ait = it->second.find(association);
-    if (ait != it->second.end())
-      {
-      arrayNames = ait->second;
-      return 0;
-      }
-    }
-
-  unsigned int nArrays = 0;
-  if (this->GetNumberOfArrays(meshName, association, nArrays))
-    {
-    SENSEI_ERROR("Failed to get number of "
-      << VTKUtils::GetAttributesName(association)
-      << " data arrays for mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  for (unsigned int i = 0; i < nArrays; ++i)
-    {
-    std::string arrayName;
-    if (this->GetArrayName(meshName, association, i, arrayName))
-      {
-      SENSEI_ERROR("Failed to get the name of "
-        << VTKUtils::GetAttributesName(association)
-        << " data array " << i << " on mesh \"" << meshName << "\"")
-      return -1;
-      }
-    arrayNames.push_back(arrayName);
-    }
-
-  // cache the list
-  this->Internals->MeshArrayMap[meshName][association] = arrayNames;
   return 0;
 }
 
@@ -211,100 +156,8 @@ int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
-    int association)
-{
-  std::vector<std::string> arrayNames;
-  if (this->GetArrayNames(meshName, association, arrayNames))
-    {
-    SENSEI_ERROR("Failed to get "
-       << VTKUtils::GetAttributesName(association)
-       << " data array names for mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  if (this->AddArrays(mesh, meshName, association, arrayNames))
-    return -1;
-
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-int DataAdaptor::GetCompleteMesh(const std::string &meshName,
-  bool structureOnly, vtkDataObject *&mesh)
-{
-  mesh = nullptr;
-  if (this->GetMesh(meshName, structureOnly, mesh))
-    {
-    SENSEI_ERROR("failed to get mesh \"" << meshName << "\"")
-    return -1;
-    }
-  if (mesh == nullptr)
-    {
-    SENSEI_ERROR("data adaptor returned null mesh for \"" << meshName << "\"")
-    return -1;
-    }
-
-  if (this->AddArrays(mesh, meshName, vtkDataObject::CELL))
-    {
-    SENSEI_ERROR("Failed to add cell arrays to mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  if (this->AddArrays(mesh, meshName, vtkDataObject::POINT))
-    {
-    SENSEI_ERROR("Failed to add point arrays to mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  int nLayers = 0;
-  if (this->GetMeshHasGhostNodes(meshName, nLayers) == 0)
-    {
-    if(nLayers > 0)
-      {
-      if(this->AddGhostNodesArray(mesh, meshName))
-        {
-        SENSEI_ERROR("Failed to add ghost nodes to mesh \"" << meshName << "\"")
-        return -1;
-        }
-      }
-    }
-
-  nLayers = 0;
-  if (this->GetMeshHasGhostCells(meshName, nLayers) == 0)
-    {
-    if(nLayers > 0)
-      {
-      if(this->AddGhostCellsArray(mesh, meshName))
-        {
-        SENSEI_ERROR("Failed to add ghost cells to mesh \"" << meshName << "\"")
-        return -1;
-        }
-      }
-    }
-
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-int DataAdaptor::GetMeshHasGhostNodes(const std::string &/*meshName*/, 
-  int &nLayers)
-{
-  nLayers = 0;
-  return 0;
-}
-
-//----------------------------------------------------------------------------
 int DataAdaptor::AddGhostNodesArray(vtkDataObject*, const std::string &)
 {
-  return 0;
-}
-
-//----------------------------------------------------------------------------
-int DataAdaptor::GetMeshHasGhostCells(const std::string &/*meshName*/, 
-  int &nLayers)
-{
-  nLayers = 0;
   return 0;
 }
 

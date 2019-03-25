@@ -11,77 +11,70 @@
 
 namespace bridge
 {
-static vtkSmartPointer<oscillators::DataAdaptor> GlobalDataAdaptor;
-static vtkSmartPointer<sensei::ConfigurableAnalysis> GlobalAnalysisAdaptor;
+static vtkSmartPointer<oscillators::DataAdaptor> DataAdaptor;
+static vtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
 
 //-----------------------------------------------------------------------------
-void initialize(MPI_Comm comm, size_t window, size_t nblocks,
-  size_t n_local_blocks, int domain_shape_x, int domain_shape_y,
-  int domain_shape_z, int* gid, int* from_x, int* from_y, int* from_z,
-  int* to_x, int* to_y, int* to_z, int* shape, int ghostLevels,
-  const std::string& config_file)
+int initialize(size_t nblocks, size_t n_local_blocks, int domain_shape_x,
+  int domain_shape_y, int domain_shape_z, int *gid, int *from_x, int *from_y,
+  int *from_z, int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels,
+  const std::string &config_file)
 {
   timer::MarkEvent mark("oscillators::bridge::initialize");
 
-  (void)window;
-  (void)comm;
+  DataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
 
-  GlobalDataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
-  GlobalDataAdaptor->Initialize(nblocks, shape, ghostLevels);
-  GlobalDataAdaptor->SetDataTimeStep(-1);
+  DataAdaptor->Initialize(nblocks, n_local_blocks,
+    domain_shape_x, domain_shape_y, domain_shape_z,
+    gid, from_x, from_y, from_z, to_x, to_y, to_z,
+    shape, ghostLevels);
 
-  for (size_t cc=0; cc < n_local_blocks; ++cc)
+  AnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
+  if (AnalysisAdaptor->Initialize(config_file))
     {
-    GlobalDataAdaptor->SetBlockExtent(gid[cc],
-      from_x[cc], to_x[cc], from_y[cc], to_y[cc],
-      from_z[cc], to_z[cc]);
+    std::cerr << "Failed to initialize the analysis adaptor" << std::endl;
+    return -1;
     }
 
-  int dext[6] = {0, domain_shape_x, 0, domain_shape_y, 0, domain_shape_z};
-  GlobalDataAdaptor->SetDataExtent(dext);
-
-  GlobalAnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
-  GlobalAnalysisAdaptor->Initialize(config_file);
+  return 0;
 }
 
 //-----------------------------------------------------------------------------
 void set_data(int gid, float* data)
 {
-  GlobalDataAdaptor->SetBlockData(gid, data);
+  DataAdaptor->SetBlockData(gid, data);
 }
 
 //-----------------------------------------------------------------------------
 void set_particles(int gid, const std::vector<Particle> &particles)
 {
-  GlobalDataAdaptor->SetParticles(gid, particles);
+  DataAdaptor->SetParticleData(gid, particles);
 }
 
 //-----------------------------------------------------------------------------
-void analyze(float time)
+void execute(long step, float time)
 {
-  GlobalDataAdaptor->SetDataTime(time);
-  GlobalDataAdaptor->SetDataTimeStep(GlobalDataAdaptor->GetDataTimeStep() + 1);
+  timer::MarkStartEvent("oscillators::bridge::Execute");
 
-  timer::MarkStartEvent("oscillators::bridge::analyze");
-  GlobalAnalysisAdaptor->Execute(GlobalDataAdaptor.GetPointer());
-  timer::MarkEndEvent("oscillators::bridge::analyze");
+  DataAdaptor->SetDataTimeStep(step);
+  DataAdaptor->SetDataTime(time);
 
-  timer::MarkStartEvent("oscillators::bridge::release-data");
-  GlobalDataAdaptor->ReleaseData();
-  timer::MarkEndEvent("oscillators::bridge::release-data");
+  AnalysisAdaptor->Execute(DataAdaptor.GetPointer());
+
+  DataAdaptor->ReleaseData();
+
+  timer::MarkEndEvent("oscillators::bridge::Execute");
 }
 
 //-----------------------------------------------------------------------------
-void finalize(size_t k_max, size_t nblocks)
+void finalize()
 {
-  (void)k_max;
-  (void)nblocks;
   timer::MarkStartEvent("oscillators::bridge::finalize");
 
-  GlobalAnalysisAdaptor->Finalize();
+  AnalysisAdaptor->Finalize();
 
-  GlobalAnalysisAdaptor = nullptr;
-  GlobalDataAdaptor = nullptr;
+  AnalysisAdaptor = nullptr;
+  DataAdaptor = nullptr;
 
   timer::MarkEndEvent("oscillators::bridge::finalize");
 }

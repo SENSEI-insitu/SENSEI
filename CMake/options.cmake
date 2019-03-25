@@ -16,8 +16,12 @@ cmake_dependent_option(ENABLE_CATALYST_PYTHON
   "Enable analysis methods that use Catalyst Python scripts" OFF
   "ENABLE_CATALYST" OFF)
 
-cmake_dependent_option(ENABLE_ADIOS
-  "Enable analysis methods that use ADIOS" OFF
+cmake_dependent_option(ENABLE_ADIOS1
+  "Enable analysis methods that use ADIOS 1" OFF
+  "ENABLE_SENSEI" OFF)
+
+cmake_dependent_option(ENABLE_HDF5
+  "Enable analysis methods that use HDF5" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_CONDUIT
@@ -56,13 +60,16 @@ option(ENABLE_PARALLEL3D "Enable Parallel3D miniapp" ON)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 option(ENABLE_CONDUITTEST "Enable Conduit miniapp" OFF)
 option(ENABLE_KRIPKE "Enable Kripke miniapp" OFF)
+option(ENABLE_MANDELBROT "Enable Mandelbrot miniapp" ON)
+option(ENABLE_VORTEX "Enable Vortex miniapp" ON)
 
 message(STATUS "ENABLE_SENSEI=${ENABLE_SENSEI}")
 message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
 message(STATUS "ENABLE_VTK_GENERIC_ARRAYS=${ENABLE_VTK_GENERIC_ARRAYS}")
 message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
-message(STATUS "ENABLE_ADIOS=${ENABLE_ADIOS}")
+message(STATUS "ENABLE_ADIOS1=${ENABLE_ADIOS1}")
+message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
