@@ -173,7 +173,7 @@ if readTheDocs or localReadTheDocs:
     # We store the reference documentation inside the user-doc build
     # directory on readthedocs so that it will get installed properly.
     tagbase = os.path.abspath(os.path.join(builddir, 'rtd-docs', 'reference'))
-    refbase = os.path.join('rtd_user_guide', 'rtd-docs', 'reference')
+    refbase = os.path.join('rtd-docs', 'reference')
 #print('tagbase %s refbase %s' % (tagbase, refbase))
 doxylink = {
     'sensei': (
