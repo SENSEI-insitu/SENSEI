@@ -167,13 +167,14 @@ texinfo_documents = [
 
 # The doxylink environment is set up with a dictionary mapping
 # the interpereted text role to a tuple of tag file and prefix:
-tagbase = os.path.join(builddir, '..', '..', 'reference')
-refbase = os.path.join('..', '..', 'reference')
+tagbase = os.path.join(builddir, 'rtd-docs', 'reference')
+refbase = os.path.join('rtd-docs', 'reference')
 if readTheDocs or localReadTheDocs:
     # We store the reference documentation inside the user-doc build
     # directory on readthedocs so that it will get installed properly.
     tagbase = os.path.abspath(os.path.join(builddir, 'rtd-docs', 'reference'))
-    refbase = os.path.join('..', 'rtd-docs', 'reference')
+    refbase = os.path.join('rtd-docs', 'reference')
+#print('tagbase %s refbase %s' % (tagbase, refbase))
 doxylink = {
     'sensei': (
         os.path.join(tagbase, 'sensei.tags'),
