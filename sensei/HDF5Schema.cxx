@@ -47,6 +47,8 @@
 
 #include <unistd.h>
 
+#include "BlockPartitioner.h"
+
 namespace senseiHDF5
 {
 static const std::string ATTRNAME_TIMESTEP = "timestep";
@@ -878,7 +880,7 @@ bool ReadStream::ReadMetadata(unsigned int& nMesh)
   for (unsigned int i = 0; i < nMesh; ++i)
     {
       std::string path;
-      gGetNameStr(path, i, "methdata");
+      gGetNameStr(path, i, "meshdata");
 
       sensei::BinaryStream bs;
       if (!ReadBinary(path, bs))
@@ -886,8 +888,18 @@ bool ReadStream::ReadMetadata(unsigned int& nMesh)
 
       sensei::MeshMetadataPtr md = sensei::MeshMetadata::New();
       md->FromStream(bs);
-
+#ifdef NEVER
       m_AllMeshInfo.PushBack(md);
+#else
+      // using block partitioner to render the read side
+      // metadata. Better to add the update function in the
+      // MeshMetadataMap class
+      sensei::BlockPartitioner part;
+      sensei::MeshMetadataPtr rd;
+      part.GetPartition(m_Comm, md, rd);
+
+      m_AllMeshInfo.PushBack(rd);
+#endif
     }
   return true;
 }
@@ -922,6 +934,7 @@ bool ReadStream::ReadMesh(std::string name,
     }
 
   dobj = m.m_VtkPtr;
+
   return true;
 }
 
@@ -954,6 +967,8 @@ MeshFlow::MeshFlow(vtkCompositeDataSet* cd, unsigned int meshID)
   , m_MeshID(meshID)
 {
 }
+
+MeshFlow::~MeshFlow() {}
 
 bool MeshFlow::ValidateMetaData(const sensei::MeshMetadataPtr& md)
 {
@@ -1001,7 +1016,8 @@ bool MeshFlow::ReadArray(ReadStream* reader,
           // define the variable for a local block
           if (md->BlockOwner[j] == reader->m_Rank)
             {
-              arrayFlow.load(j, it, reader);
+              if (!arrayFlow.load(j, it, reader))
+                return false;
             }
           arrayFlow.update(j);
           // next block
@@ -1017,37 +1033,13 @@ bool MeshFlow::ReadArray(ReadStream* reader,
 bool MeshFlow::Initialize(const sensei::MeshMetadataPtr& md, ReadStream* input)
 {
   //
-  // this is the default partition
-  // different partitions should act here
-  //
-
   m_VtkPtr = nullptr;
   vtkMultiBlockDataSet* mbds = vtkMultiBlockDataSet::New();
   int num_blocks = md->NumBlocks;
 
   int rank = input->m_Rank;
   /*
-  int size = input->m_Size;
-  // compute the domain decomposition
-  int n_local = md->NumBlocks / size;
-  int n_large = md->NumBlocks % size;
-
-  int id0 = n_local*rank + (rank < n_large ? rank : n_large);
-  int id1 = id0 + n_local + (rank < n_large ? 1 : 0);
-
-  // allocate the local dataset
-
-  for (int i = 0; i < num_blocks; ++i)
-    {
-      if (i < id0 || i > id1) {
-          md->BlockOwner[i] = -1;
-      } else {
-          md->BlockOwner[i] = rank;
-          vtkDataObject *ds = newDataObject(md->BlockType);
-          mbds->SetBlock(md->BlockIds[i], ds);
-      }
-    }
-  */
+   */
 
   for (int i = 0; i < num_blocks; ++i)
     {
@@ -1055,6 +1047,7 @@ bool MeshFlow::Initialize(const sensei::MeshMetadataPtr& md, ReadStream* input)
         {
           vtkDataObject* ds = newDataObject(md->BlockType);
           mbds->SetBlock(md->BlockIds[i], ds);
+          ds->Delete();
         }
     }
 
@@ -1067,6 +1060,7 @@ bool MeshFlow::ReadFrom(ReadStream* input, bool structure_only)
 {
   sensei::MeshMetadataPtr md;
   input->ReadMeshMetaData(m_MeshID, md);
+
   unsigned int num_blocks = md->NumBlocks;
 
   // create the data object
@@ -1243,6 +1237,7 @@ ArrayFlow::ArrayFlow(const sensei::MeshMetadataPtr& md,
   m_NumArrayComponent = md->ArrayComponents[arrayID];
 
   gGetArrayNameStr(m_ArrayPath, m_MeshID, arrayID);
+  m_ArrayVarID = -1;
 
   for (int j = 0; j < md->NumBlocks; ++j)
     {
@@ -1252,6 +1247,11 @@ ArrayFlow::ArrayFlow(const sensei::MeshMetadataPtr& md,
   m_ElementTotal *= m_NumArrayComponent;
 }
 
+ArrayFlow::~ArrayFlow()
+{
+  if (-1 != m_ArrayVarID)
+    H5Dclose(m_ArrayVarID);
+}
 bool ArrayFlow::load(unsigned int block_id,
                      vtkCompositeDataIterator* it,
                      ReadStream* reader)
@@ -1278,7 +1278,8 @@ bool ArrayFlow::load(unsigned int block_id,
   vtkDataSet* ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
   if (!ds)
     {
-      SENSEI_ERROR("Failed to get block " << block_id);
+      SENSEI_ERROR("Failed to get block " << block_id << " rank"
+                                          << reader->m_Rank);
       return false;
     }
 
@@ -1325,9 +1326,17 @@ bool ArrayFlow::unload(unsigned int block_id,
   hid_t h5TypeCurrArray = gGetHDF5Type(da);
   unsigned long long num_elem_local =
     m_NumArrayComponent * getLocalElement(block_id);
+
   HDF5SpaceGuard arraySpace(m_ElementTotal, m_BlockOffset, num_elem_local);
-  output->WriteVar1D(
-    m_ArrayPath, arraySpace, h5TypeCurrArray, da->GetVoidPointer(0));
+
+  // if (-1 == m_ArrayVarID)
+  // m_ArrayVarID = output->CreateVar(m_ArrayPath, arraySpace, h5TypeCurrArray);
+
+  output->WriteVar(m_ArrayVarID,
+                   m_ArrayPath,
+                   arraySpace,
+                   h5TypeCurrArray,
+                   da->GetVoidPointer(0));
 
   return true;
 }
@@ -1572,13 +1581,27 @@ bool PolydataCellFlow::unload(unsigned int block_id,
 
   HDF5SpaceGuard cellArraySpace(
     m_TotalArraySize, m_CellArrayBlockOffset, cell_array_size_local);
-  output->WriteVar1D(
-    m_CellArrayVarName, cellArraySpace, h5TypeCellArray, cells.data());
+
+  // if (-1 == m_CellArrayVarID)
+  // m_CellArrayVarID = output->CreateVar(    m_CellArrayVarName,
+  // cellArraySpace, h5TypeCellArray);
+  output->WriteVar(m_CellArrayVarID,
+                   m_CellArrayVarName,
+                   cellArraySpace,
+                   h5TypeCellArray,
+                   cells.data());
 
   HDF5SpaceGuard cellTypeSpace(
     m_TotalCell, m_CellTypesBlockOffset, num_cells_local);
-  output->WriteVar1D(
-    m_CellTypeVarName, cellTypeSpace, h5TypeCellType, types.data());
+
+  // if (-1 == m_CellTypeVarID)
+  // m_CellTypeVarID = output->CreateVar(m_CellTypeVarName, cellTypeSpace,
+  // h5TypeCellType);
+  output->WriteVar(m_CellTypeVarID,
+                   m_CellTypeVarName,
+                   cellTypeSpace,
+                   h5TypeCellType,
+                   types.data());
 
   return true;
 }
@@ -1699,17 +1722,19 @@ bool UnstructuredCellFlow::unload(unsigned int block_id,
 
   HDF5SpaceGuard cellArraySpace(
     m_TotalArraySize, m_CellArrayBlockOffset, cell_array_size_local);
-  output->WriteVar1D(m_CellArrayVarName,
-                     cellArraySpace,
-                     h5TypeCellArray,
-                     ds->GetCells()->GetData()->GetVoidPointer(0));
+  output->WriteVar(m_CellArrayVarID,
+                   m_CellArrayVarName,
+                   cellArraySpace,
+                   h5TypeCellArray,
+                   ds->GetCells()->GetData()->GetVoidPointer(0));
 
   HDF5SpaceGuard cellTypeSpace(
     m_TotalCell, m_CellTypesBlockOffset, num_cells_local);
-  output->WriteVar1D(m_CellTypeVarName,
-                     cellTypeSpace,
-                     h5TypeCellType,
-                     ds->GetCellTypesArray()->GetVoidPointer(0));
+  output->WriteVar(m_CellTypeVarID,
+                   m_CellTypeVarName,
+                   cellTypeSpace,
+                   h5TypeCellType,
+                   ds->GetCellTypesArray()->GetVoidPointer(0));
 
   return true;
 }
@@ -1737,6 +1762,18 @@ VTKObjectFlow::VTKObjectFlow(const sensei::MeshMetadataPtr& md,
     }
 
   m_PointType = senseiHDF5::gVTKToH5Type(m_Metadata->CoordinateType);
+}
+
+VTKObjectFlow::~VTKObjectFlow()
+{
+  if (-1 != m_CellTypeVarID)
+    H5Dclose(m_CellTypeVarID);
+
+  if (-1 != m_CellArrayVarID)
+    H5Dclose(m_CellArrayVarID);
+
+  if (-1 != m_PointVarID)
+    H5Dclose(m_PointVarID);
 }
 
 //
@@ -1809,10 +1846,15 @@ bool PointFlow::unload(unsigned int block_id,
     }
 
   HDF5SpaceGuard space(3 * m_GlobalTotal, start, count);
-  output->WriteVar1D(m_PointVarName,
-                     space,
-                     m_PointType,
-                     ds->GetPoints()->GetData()->GetVoidPointer(0));
+
+  // if (-1 == m_PointVarID)
+  // m_PointVarID = output->CreateVar(m_PointVarName, space, m_PointType);
+
+  output->WriteVar(m_PointVarID,
+                   m_PointVarName,
+                   space,
+                   m_PointType,
+                   ds->GetPoints()->GetData()->GetVoidPointer(0));
 
   return true;
 }
@@ -1833,6 +1875,18 @@ UniformCartesianFlow::UniformCartesianFlow(const sensei::MeshMetadataPtr& md,
 {
   gGetNameStr(m_OriginPath, m_MeshID, "origin");
   gGetNameStr(m_SpacingPath, m_MeshID, "spacing");
+
+  m_OriginVarID = -1;
+  m_SpacingVarID = -1;
+}
+
+UniformCartesianFlow::~UniformCartesianFlow()
+{
+  if (-1 != m_OriginVarID)
+    H5Dclose(m_OriginVarID);
+
+  if (-1 != m_SpacingVarID)
+    H5Dclose(m_SpacingVarID);
 }
 
 bool UniformCartesianFlow::load(unsigned int block_id,
@@ -1878,9 +1932,17 @@ bool UniformCartesianFlow::unload(unsigned int block_id,
       SENSEI_ERROR("Failed to get block " << block_id << " not image data");
       return false;
     }
-  output->WriteVar1D(m_OriginPath, space, H5T_NATIVE_DOUBLE, ds->GetOrigin());
 
-  output->WriteVar1D(m_SpacingPath, space, H5T_NATIVE_DOUBLE, ds->GetSpacing());
+  // if (0 == block_id) {
+  // m_OriginVarID  = output->CreateVar(m_OriginPath, space, H5T_NATIVE_DOUBLE);
+  // m_SpacingVarID = output->CreateVar(m_SpacingPath, space,
+  // H5T_NATIVE_DOUBLE);
+  //}
+
+  output->WriteVar(
+    m_OriginVarID, m_OriginPath, space, H5T_NATIVE_DOUBLE, ds->GetOrigin());
+  output->WriteVar(
+    m_SpacingVarID, m_SpacingPath, space, H5T_NATIVE_DOUBLE, ds->GetSpacing());
 
   return true;
 }
@@ -1894,6 +1956,13 @@ LogicallyCartesianFlow::LogicallyCartesianFlow(
   : VTKObjectFlow(md, meshID)
 {
   gGetNameStr(m_ExtentPath, m_MeshID, "extent");
+  m_ExtentID = -1;
+}
+
+LogicallyCartesianFlow::~LogicallyCartesianFlow()
+{
+  if (-1 < m_ExtentID)
+    H5Dclose(m_ExtentID);
 }
 
 bool LogicallyCartesianFlow::unload(unsigned int block_id,
@@ -1911,25 +1980,31 @@ bool LogicallyCartesianFlow::unload(unsigned int block_id,
   unsigned int num_blocks = m_Metadata->NumBlocks;
   HDF5SpaceGuard space(6 * num_blocks, 6 * block_id, 6);
 
+  // if (-1 == m_ExtentID)
+  // m_ExtentID = output->CreateVar(m_ExtentPath, space, H5T_NATIVE_INT);
+
   switch (m_Metadata->BlockType)
     {
     case VTK_RECTILINEAR_GRID:
-      output->WriteVar1D(m_ExtentPath,
-                         space,
-                         H5T_NATIVE_INT,
-                         dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent());
+      output->WriteVar(m_ExtentID,
+                       m_ExtentPath,
+                       space,
+                       H5T_NATIVE_INT,
+                       dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent());
       break;
     case VTK_IMAGE_DATA:
-      output->WriteVar1D(m_ExtentPath,
-                         space,
-                         H5T_NATIVE_INT,
-                         dynamic_cast<vtkImageData*>(dobj)->GetExtent());
+      output->WriteVar(m_ExtentID,
+                       m_ExtentPath,
+                       space,
+                       H5T_NATIVE_INT,
+                       dynamic_cast<vtkImageData*>(dobj)->GetExtent());
       break;
     case VTK_STRUCTURED_GRID:
-      output->WriteVar1D(m_ExtentPath,
-                         space,
-                         H5T_NATIVE_INT,
-                         dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent());
+      output->WriteVar(m_ExtentID,
+                       m_ExtentPath,
+                       space,
+                       H5T_NATIVE_INT,
+                       dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent());
       break;
     }
 
@@ -1991,6 +2066,15 @@ StretchedCartesianFlow::StretchedCartesianFlow(
     }
 }
 
+StretchedCartesianFlow::~StretchedCartesianFlow()
+{
+  if (-1 != m_PosID[0])
+    {
+      H5Dclose(m_PosID[0]);
+      H5Dclose(m_PosID[1]);
+      H5Dclose(m_PosID[2]);
+    }
+}
 void StretchedCartesianFlow::GetLocal(int block_id,
                                       unsigned long long (&out)[3])
 {
@@ -2071,18 +2155,35 @@ bool StretchedCartesianFlow::unload(unsigned int block_id,
 
   {
     HDF5SpaceGuard spaceX(m_Total[0], m_BlockOffset[0], local[0]);
-    output->WriteVar1D(
-      m_XPath, spaceX, m_PointType, ds->GetXCoordinates()->GetVoidPointer(0));
+    // if (-1 == m_PosID[0])
+    // m_PosID[0] = output->CreateVar(m_XPath, spaceX, m_PointType);
+
+    output->WriteVar(m_PosID[0],
+                     m_XPath,
+                     spaceX,
+                     m_PointType,
+                     ds->GetXCoordinates()->GetVoidPointer(0));
   }
   {
     HDF5SpaceGuard spaceY(m_Total[1], m_BlockOffset[1], local[1]);
-    output->WriteVar1D(
-      m_YPath, spaceY, m_PointType, ds->GetYCoordinates()->GetVoidPointer(0));
+    // if (-1 == m_PosID[1])
+    // m_PosID[1] = output->CreateVar(m_YPath, spaceY, m_PointType);
+
+    output->WriteVar(m_PosID[1],
+                     m_YPath,
+                     spaceY,
+                     m_PointType,
+                     ds->GetYCoordinates()->GetVoidPointer(0));
   }
   {
     HDF5SpaceGuard spaceZ(m_Total[2], m_BlockOffset[2], local[2]);
-    output->WriteVar1D(
-      m_ZPath, spaceZ, m_PointType, ds->GetZCoordinates()->GetVoidPointer(0));
+    // if (-1 == m_PosID[2])
+    // m_PosID[2] = output->CreateVar(m_ZPath, spaceZ, m_PointType);
+    output->WriteVar(m_PosID[2],
+                     m_ZPath,
+                     spaceZ,
+                     m_PointType,
+                     ds->GetZCoordinates()->GetVoidPointer(0));
   }
 
   return true;
@@ -2158,7 +2259,42 @@ bool WriteStream::WriteNativeAttr(const std::string& name,
   return true;
 }
 
-bool WriteStream::WriteVar1D(const std::string& name,
+hid_t WriteStream::CreateVar(const std::string& name,
+                             const HDF5SpaceGuard& space,
+                             hid_t h5Type)
+{
+  hid_t varID = H5Dcreate(m_Streamer->m_TimeStepId,
+                          name.c_str(),
+                          h5Type,
+                          space.m_FileSpaceID,
+                          H5P_DEFAULT,
+                          H5P_DEFAULT,
+                          H5P_DEFAULT);
+
+  return varID;
+}
+
+bool WriteStream::WriteVar(hid_t& varID,
+                           const std::string& name,
+                           const HDF5SpaceGuard& space,
+                           hid_t h5Type,
+                           void* data)
+{
+  if (-1 == varID)
+    varID = CreateVar(name, space, h5Type);
+
+  H5Dwrite(varID,
+           h5Type,
+           space.m_MemSpaceID,
+           space.m_FileSpaceID,
+           m_CollectiveTxf,
+           data);
+
+  return true;
+}
+
+/*
+bool WriteStream::WriteVar(const std::string& name,
                              const HDF5SpaceGuard& space,
                              hid_t h5Type,
                              void* data)
@@ -2171,25 +2307,18 @@ bool WriteStream::WriteVar1D(const std::string& name,
                           H5P_DEFAULT,
                           H5P_DEFAULT);
 
-  H5Dwrite(varID,
-           h5Type,
-           space.m_MemSpaceID,
-           space.m_FileSpaceID,
-           m_CollectiveTxf,
-           data);
-
-  // H5Dwrite(varID, h5Type, space.m_MemSpaceID, space.m_FileSpaceID,
-  // H5P_DEFAULT, data);
+  WriteVar(varID, space, h5Type, data);
 
   H5Dclose(varID);
 
   return true;
 }
+*/
 
 bool WriteStream::WriteMetadata(sensei::MeshMetadataPtr& md)
 {
   std::string path;
-  gGetNameStr(path, m_MeshCounter, "methdata");
+  gGetNameStr(path, m_MeshCounter, "meshdata");
 
   sensei::BinaryStream bs;
   md->ToStream(bs);
