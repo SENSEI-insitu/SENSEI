@@ -27,7 +27,7 @@ int BlockPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
     int id1 = id0 + nLocal + (rank < nLarge ? 1 : 0);
 
     // allocate the local dataset
-    for (int i = id0; i <= id1; ++i)
+    for (int i = id0; i < id1; ++i)
       mdOut->BlockOwner[i] = rank;
     }
 
