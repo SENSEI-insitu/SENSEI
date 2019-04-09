@@ -74,29 +74,31 @@ int main(int argc, char** argv)
     return 1;
     }
 
-  InTransitDataAdaptorPtr inTranDataAdaptor = itda;
-  ConfigAnalysisAdaptorPtr analysisAdaptor = ConfigAnalysisAdaptorPtr::New();
+  {
+    InTransitDataAdaptorPtr inTranDataAdaptor = itda;
+    ConfigAnalysisAdaptorPtr analysisAdaptor = ConfigAnalysisAdaptorPtr::New();
 
-  analysisAdaptor->SetCommunicator(comm);
-  if (analysisAdaptor->Initialize(root))
-    {
-    if (myRank == 0)
-      SENSEI_ERROR("Failed to initialize analysis")
-    MPI_Finalize();
-    return 1;
-    }
+    analysisAdaptor->SetCommunicator(comm);
+    if (analysisAdaptor->Initialize(root))
+      {
+      if (myRank == 0)
+        SENSEI_ERROR("Failed to initialize analysis")
+      MPI_Finalize();
+      return 1;
+      }
 
-  inTranDataAdaptor->OpenStream();
+    inTranDataAdaptor->OpenStream();
 
-  while(inTranDataAdaptor->StreamGood())
-    {
-    analysisAdaptor->Execute(inTranDataAdaptor.Get());
+    while(inTranDataAdaptor->StreamGood())
+      {
+      analysisAdaptor->Execute(inTranDataAdaptor.Get());
+      inTranDataAdaptor->AdvanceStream();
+      }
 
-    inTranDataAdaptor->AdvanceStream();
-    }
-
-  inTranDataAdaptor->CloseStream();
-
+    inTranDataAdaptor->CloseStream();
+    analysisAdaptor->Finalize();
+  }
+  
   MPI_Finalize();
 
   return 0;
