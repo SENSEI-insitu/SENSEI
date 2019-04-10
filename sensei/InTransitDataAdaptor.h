@@ -63,7 +63,7 @@ public:
   // of a ConfigurablePartitioner using user provided XML, if that fails will
   // fall back to a default initialized instance of BlockPartitioner.
   void SetPartitioner(sensei::PartitionerPtr &partitioner);
-  sensei::Partitioner *GetPartitioner();
+  sensei::PartitionerPtr GetPartitioner();
 
   // Control API
   virtual int OpenStream() = 0;

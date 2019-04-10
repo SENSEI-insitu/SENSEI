@@ -61,19 +61,19 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
   std::string partType = partNode.attribute("type").value();
   if (partType == "block")
     {
-    tmp = PartitionerPtr(new sensei::BlockPartitioner);
+    tmp = BlockPartitioner::New();
     }
   else if (partType == "cyclic")
     {
-    tmp = PartitionerPtr(new sensei::CyclicPartitioner);
+    tmp = CyclicPartitioner::New();
     }
   else if (partType == "planar")
     {
-    tmp = PartitionerPtr(new sensei::PlanarPartitioner);
+    tmp = PlanarPartitioner::New();
     }
   else if (partType == "mapped")
     {
-    tmp = PartitionerPtr(new sensei::MappedPartitioner);
+    tmp = MappedPartitioner::New();
     }
   else
     {

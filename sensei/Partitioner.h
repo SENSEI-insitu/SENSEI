@@ -11,7 +11,7 @@ namespace pugi { class xml_node; }
 namespace sensei
 {
 class Partitioner;
-using PartitionerPtr = std::unique_ptr<sensei::Partitioner>;
+using PartitionerPtr = std::shared_ptr<sensei::Partitioner>;
 
 /// @class Partitioner
 /// @brief represents the way data is partitioned for in-transit operation mode.

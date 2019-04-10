@@ -2,11 +2,13 @@
 #define sensei_MappedPartitioner_h
 
 #include "Partitioner.h"
-
 #include <vector>
 
 namespace sensei
 {
+
+class MappedPartitioner;
+using MappedPartitionerPtr = std::shared_ptr<MappedPartitioner>;
 
 /// @class MappedPartitioner
 /// @brief represents the mapped partitioning mode for in-transit operation.
@@ -18,8 +20,8 @@ namespace sensei
 class MappedPartitioner : public sensei::Partitioner
 {
 public:
-  MappedPartitioner() {}
-  ~MappedPartitioner() {}
+  static MappedPartitionerPtr New()
+  { return MappedPartitionerPtr(new MappedPartitioner); }
 
   // construct initialzed from vectors of owner and block ids.
   MappedPartitioner(const std::vector<int> &blkOwner,
@@ -33,7 +35,7 @@ public:
   void SetBlockOwner(const std::vector<int> &blkOwner);
 
   // Set the block id list
-  void SetBlockIds(const std::vector<int>& blkIds);
+  void SetBlockIds(const std::vector<int> &blkIds);
 
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
@@ -42,6 +44,10 @@ public:
      MeshMetadataPtr &out) override;
 
 protected:
+  MappedPartitioner() = default;
+  MappedPartitioner(const MappedPartitioner &) = default;
+
+private:
   std::vector<int> BlockOwner;
   std::vector<int> BlockIds;
 };

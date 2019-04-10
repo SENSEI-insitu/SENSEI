@@ -20,10 +20,10 @@ namespace sensei
 
 struct InTransitDataAdaptor::InternalsType
 {
-  InternalsType() : Part(new BlockPartitioner) {}
+  InternalsType() : Part(BlockPartitioner::New()) {}
   ~InternalsType() {}
 
-  std::unique_ptr<sensei::Partitioner> Part;
+  PartitionerPtr Part;
   std::map<unsigned int, MeshMetadataPtr> ReceiverMetadata;
 };
 
@@ -47,7 +47,7 @@ int InTransitDataAdaptor::Initialize(pugi::xml_node &node)
       SENSEI_ERROR("Failed to initialize the partitioner from XML")
       return -1;
       }
-    this->Internals->Part = std::move(tmp);
+    this->Internals->Part = tmp;
     }
 
   return 0;
@@ -62,13 +62,13 @@ InTransitDataAdaptor::~InTransitDataAdaptor()
 //----------------------------------------------------------------------------
 void InTransitDataAdaptor::SetPartitioner(sensei::PartitionerPtr &partitioner)
 {
-  this->Internals->Part = std::move(partitioner);
+  this->Internals->Part = partitioner;
 }
 
 //----------------------------------------------------------------------------
-sensei::Partitioner *InTransitDataAdaptor::GetPartitioner()
+sensei::PartitionerPtr InTransitDataAdaptor::GetPartitioner()
 {
-  return this->Internals->Part.get();
+  return this->Internals->Part;
 }
 
 //----------------------------------------------------------------------------

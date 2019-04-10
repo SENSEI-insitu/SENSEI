@@ -5,6 +5,10 @@
 
 namespace sensei
 {
+
+class PlanarPartitioner;
+using PlanarPartitionerPtr = std::shared_ptr<PlanarPartitioner>;
+
 /// @class PlanarPartitioner
 /// @brief Represents the planar partitioning mode for in-transit operation.
 ///
@@ -14,10 +18,8 @@ namespace sensei
 class PlanarPartitioner : public sensei::Partitioner
 {
 public:
-  PlanarPartitioner() : PlaneSize(1) {}
-  ~PlanarPartitioner() {}
-
-  PlanarPartitioner(unsigned int planeSize);
+  static PlanarPartitionerPtr New()
+  { return PlanarPartitionerPtr(new PlanarPartitioner); }
 
   // Set the plane size
   void SetPlaneSize(unsigned int planeSize)
@@ -34,6 +36,10 @@ public:
   int Initialize(pugi::xml_node &node) override;
 
 protected:
+  PlanarPartitioner() : PlaneSize(1) {}
+  PlanarPartitioner(unsigned int planeSize);
+  PlanarPartitioner(const PlanarPartitioner &) = default;
+
   unsigned int PlaneSize;
 };
 
