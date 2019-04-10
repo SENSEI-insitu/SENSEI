@@ -894,9 +894,9 @@ bool ReadStream::ReadMetadata(unsigned int& nMesh)
       // using block partitioner to render the read side
       // metadata. Better to add the update function in the
       // MeshMetadataMap class
-      sensei::BlockPartitioner part;
+      sensei::BlockPartitionerPtr part = sensei::BlockPartitioner::New();
       sensei::MeshMetadataPtr rd;
-      part.GetPartition(m_Comm, md, rd);
+      part->GetPartition(m_Comm, md, rd);
 
       m_AllMeshInfo.PushBack(rd);
 #endif

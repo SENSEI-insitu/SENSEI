@@ -26,14 +26,14 @@ if rank == 0:
     sys.stderr.write('sender MeshMetadata = %s\n'%(str(mdIn)))
 
 # run the partitioners
-p = BlockPartitioner()
+p = BlockPartitioner.New()
 mdOut = p.GetPartition(comm, mdIn)
 
 if rank == 0:
     sys.stderr.write('== BlockPartitioner ==\n')
     sys.stderr.write('receiver MeshMetadata = %s\n'%(str(mdOut)))
 
-p = CyclicPartitioner()
+p = CyclicPartitioner.New()
 mdOut = p.GetPartition(comm, mdIn)
 
 if rank == 0:
@@ -41,14 +41,15 @@ if rank == 0:
     sys.stderr.write('receiver MeshMetadata = %s\n'%(str(mdOut)))
 
 planeSize = 2
-p = PlanarPartitioner(planeSize)
+p = PlanarPartitioner.New()
+p.SetPlaneSize(planeSize)
 mdOut = p.GetPartition(comm, mdIn)
 
 if rank == 0:
     sys.stderr.write('== PlanarPartitioner(%d) ==\n'%(planeSize))
     sys.stderr.write('receiver MeshMetadata = %s\n'%(str(mdOut)))
 
-p = MappedPartitioner()
+p = MappedPartitioner.New()
 bids = []
 owner = []
 i = 0
