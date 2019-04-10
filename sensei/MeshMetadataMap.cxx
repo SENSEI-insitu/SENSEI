@@ -43,6 +43,21 @@ int MeshMetadataMap::Initialize(DataAdaptor *da, MeshMetadataFlags flags)
 }
 
 // --------------------------------------------------------------------------
+int MeshMetadataMap::SetMeshMetadata(unsigned int id, MeshMetadataPtr &md)
+{
+  unsigned int n = this->Metadata.size();
+  if (id >= n)
+    {
+    SENSEI_ERROR("Id " << id << " is out of bounds in map of size " << n)
+    return -1;
+    }
+
+  this->Metadata[id] = md;
+  this->IdMap[md->MeshName] = id;
+  return 0;
+}
+
+// --------------------------------------------------------------------------
 void MeshMetadataMap::PushBack(MeshMetadataPtr &md)
 {
   unsigned int id = this->Metadata.size();
