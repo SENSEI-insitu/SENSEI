@@ -1000,7 +1000,6 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 }
 
 
-
 struct PointSchema
 {
   int DefineVariables(MPI_Comm comm, int64_t gh,
@@ -2640,32 +2639,15 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
   dobj = nullptr;
 
   int rank = 0;
-  int n_ranks = 1;
-
   MPI_Comm_rank(comm, &rank);
-  MPI_Comm_size(comm, &n_ranks);
-
-  // compute the domain decomposition
-  int n_local = md->NumBlocks / n_ranks;
-  int n_large = md->NumBlocks % n_ranks;
-
-  int id0 = n_local*rank + (rank < n_large ? rank : n_large);
-  int id1 = id0 + n_local + (rank < n_large ? 1 : 0);
 
   // allocate the local dataset
   vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
-  int num_blocks = md->NumBlocks;
-  for (int i = 0; i < num_blocks; ++i)
+  mbds->SetNumberOfBlocks(md->NumBlocks);
+  for (int i = 0; i < md->NumBlocks; ++i)
     {
-    // this is a hack that will be solved by the new
-    // in transit api's
-    if (i < id0 || i > id1)
+    if (md->BlockOwner[i] == rank)
       {
-      md->BlockOwner[i] = -1;
-      }
-    else
-      {
-      md->BlockOwner[i] = rank;
       vtkDataObject *ds = newDataObject(md->BlockType);
       mbds->SetBlock(md->BlockIds[i], ds);
       }
@@ -2682,7 +2664,8 @@ struct DataObjectCollectionSchema::InternalsType
 {
   VersionSchema Version;
   DataObjectSchema DataObject;
-  sensei::MeshMetadataMap MdMap;
+  sensei::MeshMetadataMap SenderMdMap;
+  sensei::MeshMetadataMap ReceiverMdMap;
 };
 
 // --------------------------------------------------------------------------
@@ -2702,7 +2685,8 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 {
   (void)comm;
 
-  this->Internals->MdMap.Clear();
+  this->Internals->SenderMdMap.Clear();
+  this->Internals->ReceiverMdMap.Clear();
 
   // /number_of_data_objects
   unsigned int n_objects = 0;
@@ -2722,6 +2706,7 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
       }
     }
 
+  // read the sender mesh metadta
   for (unsigned int i = 0; i < n_objects; ++i)
     {
     std::ostringstream oss;
@@ -2737,8 +2722,25 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
     sensei::MeshMetadataPtr md = sensei::MeshMetadata::New();
     md->FromStream(bs);
 
-    this->Internals->MdMap.PushBack(md);
+    // add internally generated arrays
+    md->ArrayName.push_back("SenderBlockOwner");
+    md->ArrayCentering.push_back(vtkDataObject::CELL);
+    md->ArrayComponents.push_back(1);
+    md->ArrayType.push_back(VTK_INT);
+
+    md->ArrayName.push_back("ReceiverBlockOwner");
+    md->ArrayCentering.push_back(vtkDataObject::CELL);
+    md->ArrayComponents.push_back(1);
+    md->ArrayType.push_back(VTK_INT);
+
+    md->NumArrays += 2;
+
+    this->Internals->SenderMdMap.PushBack(md);
     }
+
+  // resize the receiver mesh metatadata, this will be set
+  // later by the whomever is controling how the data lands
+  this->Internals->ReceiverMdMap.Resize(n_objects);
 
   if (sel)
     adios_selection_delete(sel);
@@ -2747,16 +2749,31 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 }
 
 // --------------------------------------------------------------------------
-int DataObjectCollectionSchema::GetMeshMetadata(unsigned int id,
+int DataObjectCollectionSchema::GetSenderMeshMetadata(unsigned int id,
   sensei::MeshMetadataPtr &md)
 {
-  if (!this->Internals->MdMap.Size())
+  if (this->Internals->SenderMdMap.GetMeshMetadata(id, md))
     {
-    SENSEI_ERROR("No objects are available")
+    SENSEI_ERROR("Failed to get mesh metadata for object " << id)
     return -1;
     }
 
-  if (this->Internals->MdMap.GetMeshMetadata(id, md))
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::SetReceiverMeshMetadata(unsigned int id,
+  sensei::MeshMetadataPtr &md)
+{
+  return this->Internals->ReceiverMdMap.SetMeshMetadata(id, md);
+}
+
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::GetReceiverMeshMetadata(unsigned int id,
+  sensei::MeshMetadataPtr &md)
+{
+  if (this->Internals->ReceiverMdMap.GetMeshMetadata(id, md))
     {
     SENSEI_ERROR("Failed to get mesh metadata for object " << id)
     return -1;
@@ -2768,16 +2785,7 @@ int DataObjectCollectionSchema::GetMeshMetadata(unsigned int id,
 // --------------------------------------------------------------------------
 int DataObjectCollectionSchema::GetNumberOfObjects(unsigned int &num)
 {
-  num = 0;
-
-  if (!this->Internals->MdMap.Size())
-    {
-    SENSEI_ERROR("No objects are available")
-    return -1;
-    }
-
-  num = this->Internals->MdMap.Size();
-
+  num = this->Internals->SenderMdMap.Size();
   return 0;
 }
 
@@ -2789,13 +2797,7 @@ int DataObjectCollectionSchema::GetObjectId(MPI_Comm comm,
 
   doid = 0;
 
-  if (!this->Internals->MdMap.Size())
-    {
-    SENSEI_ERROR("Must read metadata before calling GetObjectId")
-    return -1;
-    }
-
-  if (this->Internals->MdMap.GetMeshId(object_name, doid))
+  if (this->Internals->SenderMdMap.GetMeshId(object_name, doid))
     {
     SENSEI_ERROR("Failed to get the id of \"" << object_name << "\"")
     return -1;
@@ -2920,7 +2922,7 @@ int DataObjectCollectionSchema::ReadObject(MPI_Comm comm,
     }
 
   sensei::MeshMetadataPtr md;
-  if (this->Internals->MdMap.GetMeshMetadata(doid, md))
+  if (this->Internals->ReceiverMdMap.GetMeshMetadata(doid, md))
     {
     SENSEI_ERROR("Failed to get metadata for  \"" << object_name << "\"")
     return -1;
@@ -2944,6 +2946,7 @@ int DataObjectCollectionSchema::ReadArray(MPI_Comm comm,
   InputStream &iStream, const std::string &object_name, int association,
   const std::string &array_name, vtkDataObject *dobj)
 {
+  // convert the mesh name into its id
   unsigned int doid = 0;
   if (this->GetObjectId(comm, object_name, doid))
     {
@@ -2951,15 +2954,52 @@ int DataObjectCollectionSchema::ReadArray(MPI_Comm comm,
     return -1;
     }
 
-  sensei::MeshMetadataPtr md;
-  if (this->Internals->MdMap.GetMeshMetadata(doid, md))
+  // our factory will create vtkMultiBlock even if the sender has a legacy
+  // dataset type. this enables block based re-partitioning.
+  vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(dobj);
+  if (!cds)
     {
-    SENSEI_ERROR("Failed to get metadata for  \"" << object_name << "\"")
+    SENSEI_ERROR("Composite data required")
     return -1;
     }
 
-  if (this->Internals->DataObject.ReadArray(comm, iStream.File, doid,
-    array_name, association, md,  dynamic_cast<vtkCompositeDataSet*>(dobj)))
+  // get the receiver metadata. this tells how the data should land on the
+  // receiver side.
+  sensei::MeshMetadataPtr md;
+  if (this->Internals->ReceiverMdMap.GetMeshMetadata(doid, md))
+    {
+    SENSEI_ERROR("Failed to get receiver metadata for  \"" << object_name << "\"")
+    return -1;
+    }
+
+  // handle a special case to let us visualize block owner for debugging
+  if (array_name.rfind("BlockOwner") != std::string::npos)
+    {
+    // if not generating owner for the receiver, get the sender metadata
+    sensei::MeshMetadataPtr omd = md;
+    if (array_name.find("Sender") == 0)
+      {
+      if (this->Internals->SenderMdMap.GetMeshMetadata(doid, omd))
+        {
+        SENSEI_ERROR("Failed to get sender metadata for  \"" << object_name << "\"")
+        return -1;
+        }
+      }
+
+    // add an array filled with BlockOwner, from either sender or receiver
+    // metadata
+    if (this->AddBlockOwnerArray(comm, array_name, association, omd, cds))
+      {
+      SENSEI_ERROR("Failed to add \"" << array_name << "\"")
+      return -1;
+      }
+
+    return 0;
+    }
+
+  // read the array from the stream. this will pull data across the wire
+  if (this->Internals->DataObject.ReadArray(comm,
+    iStream.File, doid, array_name, association, md, cds))
     {
     SENSEI_ERROR("Failed to read "
       << sensei::VTKUtils::GetAttributesName(association)
@@ -2983,6 +3023,55 @@ int DataObjectCollectionSchema::ReadTimeStep(MPI_Comm comm,
 
   if (adiosInq(iStream, "time_step", time_step))
       return -1;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int DataObjectCollectionSchema::AddBlockOwnerArray(MPI_Comm comm,
+  const std::string &name, int centering, const sensei::MeshMetadataPtr &md,
+  vtkCompositeDataSet *dobj)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  unsigned int num_blocks = md->NumBlocks;
+  int array_cen = centering;
+
+  vtkCompositeDataIterator *it = dobj->NewIterator();
+  it->SetSkipEmptyNodes(0);
+  it->InitTraversal();
+
+  // read each block
+  for (unsigned int j = 0; j < num_blocks; ++j)
+    {
+    // get the block size
+    unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
+      md->BlockNumPoints[j] : md->BlockNumCells[j]);
+
+    // define the variable for a local block
+    vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+    if (ds)
+      {
+      // create arrays filled with sender and receiver ranks
+      vtkDataArray *bo = vtkIntArray::New();
+      bo->SetNumberOfTuples(num_elem_local);
+      bo->SetName(name.c_str());
+      bo->Fill(md->BlockOwner[j]);
+
+      vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
+        dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
+        dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
+
+      dsa->AddArray(bo);
+      bo->Delete();
+      }
+
+    // next block
+    it->GoToNextItem();
+    }
+
+  it->Delete();
 
   return 0;
 }
