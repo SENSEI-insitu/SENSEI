@@ -25,6 +25,7 @@ using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 //
 // The supported transport types are:
 //
+//   adios_1
 //   adios_2
 //   data_elevators
 //   libis
