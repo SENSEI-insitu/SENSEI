@@ -24,6 +24,8 @@ public:
 
   unsigned int Size() const { return this->Metadata.size(); }
 
+  void Resize(unsigned int n){ this->Metadata.resize(n); }
+
   void Clear();
 
   // get the id of the object by name
@@ -32,8 +34,9 @@ public:
   // get the metadata associated with the named object
   int GetMeshMetadata(const std::string &name, MeshMetadataPtr &md);
 
-  // get the i'th object's metadata
+  // set/get the i'th object's metadata
   int GetMeshMetadata(unsigned int i, MeshMetadataPtr &md);
+  int SetMeshMetadata(unsigned int i, MeshMetadataPtr &md);
 
 private:
   // a vector of metadata for each data object provided by

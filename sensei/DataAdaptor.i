@@ -3,6 +3,12 @@
 #include "VTKUtils.h"
 #include "MeshMetadata.h"
 #include "DataAdaptor.h"
+#include "InTransitDataAdaptor.h"
+#include "Partitioner.h"
+#include "BlockPartitioner.h"
+#include "CyclicPartitioner.h"
+#include "PlanarPartitioner.h"
+#include "MappedPartitioner.h"
 #include "Error.h"
 #include "senseiPyString.h"
 #include <sstream>
@@ -30,6 +36,25 @@ using namespace std;
 VTK_DERIVED(DA)
 %enddef
 
+%define SENSEI_IN_TRANSIT_DATA_ADAPTOR(DA)
+/* Modify the DataAdaptor API for Python. Python doesn't
+   support pass by reference. Hence, we need to wrap the
+   core API. Rather than return an error code we will ask
+   that Python codes raise and exception if there is an
+   error and return function results(or void for cases when
+   there are none) instead of using pass by reference/output
+   parameters */
+%ignore sensei::DA::GetNumberOfMeshes;
+%ignore sensei::DA::GetMeshMetadata;
+%ignore sensei::DA::GetMesh;
+%ignore sensei::DA::AddArray;
+%ignore sensei::DA::ReleaseData;
+%ignore sensei::DA::GetSenderMeshMetadata;
+%ignore sensei::DA::GetReceiverMeshMetadata;
+%ignore sensei::DA::SetReceiverMeshMetadata;
+/* memory management */
+VTK_DERIVED(DA)
+%enddef
 
 /****************************************************************************
  * BinaryStream
@@ -175,3 +200,92 @@ VTK_DERIVED(DA)
   }
 }
 SENSEI_DATA_ADAPTOR(DataAdaptor)
+%include "DataAdaptor.h"
+
+/****************************************************************************
+ * Partitioners
+ ***************************************************************************/
+%shared_ptr(sensei::Partitioner)
+%shared_ptr(sensei::BlockPartitioner)
+%shared_ptr(sensei::CyclicPartitioner)
+%shared_ptr(sensei::PlanarPartitioner)
+%shared_ptr(sensei::MappedPartitioner)
+
+%define PARTITIONER_API(cname)
+%extend sensei::##cname
+{
+  sensei::MeshMetadataPtr GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in)
+  {
+    sensei::MeshMetadataPtr out = sensei::MeshMetadata::New();
+    if (self->GetPartition(comm, in, out))
+    {
+      PyErr_Format(PyExc_RuntimeError,
+        "Failed to get partition");
+    }
+    return out;
+  }
+}
+%ingnore sensei::##cname##::GetPartition;
+%enddef
+
+PARTITIONER_API(Partitioner)
+PARTITIONER_API(BlockPartitioner)
+PARTITIONER_API(CyclicPartitioner)
+PARTITIONER_API(PlanarPartitioner)
+PARTITIONER_API(MappedPartitioner)
+
+%include "Partitioner.h"
+%include "BlockPartitioner.h"
+%include "CyclicPartitioner.h"
+%include "PlanarPartitioner.h"
+%include "MappedPartitioner.h"
+
+/****************************************************************************
+ * InTransitDataAdaptor
+ ***************************************************************************/
+%extend sensei::InTransitDataAdaptor
+{
+  // ------------------------------------------------------------------------
+  sensei::MeshMetadataPtr GetSenderMeshMetadata(unsigned int id)
+  {
+    sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New();
+
+    if (self->GetSenderMeshMetadata(id, pmd) || !pmd)
+      {
+      PyErr_Format(PyExc_RuntimeError,
+        "Failed to get sender metadata for mesh %d", id);
+      PyErr_Print();
+      }
+
+    return pmd;
+  }
+
+  // ------------------------------------------------------------------------
+  sensei::MeshMetadataPtr GetReceiverMeshMetadata(unsigned int id)
+  {
+    sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New();
+
+    if (self->GetReceiverMeshMetadata(id, pmd) || !pmd)
+      {
+      PyErr_Format(PyExc_RuntimeError,
+        "Failed to get receiver metadata for mesh %d", id);
+      PyErr_Print();
+      }
+
+    return pmd;
+  }
+
+  // ------------------------------------------------------------------------
+  void SetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md)
+  {
+    if (self->SetReceiverMeshMetadata(id, md))
+      {
+      PyErr_Format(PyExc_RuntimeError,
+        "Failed to set receiver metadata for mesh %d", id);
+      PyErr_Print();
+      }
+  }
+}
+
+SENSEI_IN_TRANSIT_DATA_ADAPTOR(InTransitDataAdaptor)
+%include "InTransitDataAdaptor.h"
