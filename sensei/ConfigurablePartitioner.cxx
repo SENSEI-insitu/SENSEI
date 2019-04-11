@@ -51,8 +51,8 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
 
   if (XMLUtils::RequireAttribute(partNode, "type"))
     {
-    SENSEI_ERROR(
-      "Failed to construct a partitioner. Missing \"type\" attribute");
+    SENSEI_ERROR("Failed to construct a partitioner. "
+      "Missing \"type\" attribute");
     return -1;
     }
 
@@ -90,7 +90,10 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
     }
 
   // everything is good, update internal state
-  this->Internals->Part = std::move(tmp);
+  this->Internals->Part = tmp;
+
+  SENSEI_STATUS("Configured \"" << tmp->GetClassName())
+
   return 0;
 }
 
