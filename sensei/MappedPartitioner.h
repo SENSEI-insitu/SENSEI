@@ -23,6 +23,8 @@ public:
   static MappedPartitionerPtr New()
   { return MappedPartitionerPtr(new MappedPartitioner); }
 
+  const char *GetClassName() override { return "MappedPartitioner"; }
+
   // construct initialzed from vectors of owner and block ids.
   MappedPartitioner(const std::vector<int> &blkOwner,
     const std::vector<int> &blkIds);
