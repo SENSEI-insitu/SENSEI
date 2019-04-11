@@ -18,6 +18,8 @@ public:
   static BlockPartitionerPtr New()
   { return BlockPartitionerPtr(new BlockPartitioner); }
 
+  const char *GetClassName() override { return "BlockPartitioner"; }
+
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
   // distributes blocks to a rank such that consecutive blocks share a rank.

@@ -24,6 +24,9 @@ using PartitionerPtr = std::shared_ptr<sensei::Partitioner>;
 class Partitioner
 {
 public:
+  // return the name of the class
+  virtual const char *GetClassName() = 0;
+
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
   virtual int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,

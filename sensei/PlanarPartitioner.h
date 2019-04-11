@@ -21,6 +21,8 @@ public:
   static PlanarPartitionerPtr New()
   { return PlanarPartitionerPtr(new PlanarPartitioner); }
 
+  const char *GetClassName() override { return "PlanarPartitioner"; }
+
   // Set the plane size
   void SetPlaneSize(unsigned int planeSize)
   { this->PlaneSize = planeSize; }
