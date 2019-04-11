@@ -1,14 +1,16 @@
 %{
 #include "senseiConfig.h"
-#include "VTKUtils.h"
 #include "MeshMetadata.h"
 #include "DataAdaptor.h"
 #include "InTransitDataAdaptor.h"
+#include "ConfigurableInTransitDataAdaptor.h"
 #include "Partitioner.h"
 #include "BlockPartitioner.h"
 #include "CyclicPartitioner.h"
 #include "PlanarPartitioner.h"
 #include "MappedPartitioner.h"
+#include "ConfigurablePartitioner.h"
+#include "VTKUtils.h"
 #include "Error.h"
 #include "senseiPyString.h"
 #include <sstream>
@@ -210,6 +212,7 @@ SENSEI_DATA_ADAPTOR(DataAdaptor)
 %shared_ptr(sensei::CyclicPartitioner)
 %shared_ptr(sensei::PlanarPartitioner)
 %shared_ptr(sensei::MappedPartitioner)
+%shared_ptr(sensei::ConfigurablePartitioner)
 
 %define PARTITIONER_API(cname)
 %extend sensei::##cname
@@ -233,12 +236,14 @@ PARTITIONER_API(BlockPartitioner)
 PARTITIONER_API(CyclicPartitioner)
 PARTITIONER_API(PlanarPartitioner)
 PARTITIONER_API(MappedPartitioner)
+PARTITIONER_API(ConfigurablePartitioner)
 
 %include "Partitioner.h"
 %include "BlockPartitioner.h"
 %include "CyclicPartitioner.h"
 %include "PlanarPartitioner.h"
 %include "MappedPartitioner.h"
+%include "ConfigurablePartitioner.h"
 
 /****************************************************************************
  * InTransitDataAdaptor
@@ -289,3 +294,6 @@ PARTITIONER_API(MappedPartitioner)
 
 SENSEI_IN_TRANSIT_DATA_ADAPTOR(InTransitDataAdaptor)
 %include "InTransitDataAdaptor.h"
+
+SENSEI_IN_TRANSIT_DATA_ADAPTOR(ConfigurableInTransitDataAdaptor)
+%include "ConfigurableInTransitDataAdaptor.h"
