@@ -2,6 +2,7 @@
 #define sensei_Partitioner_h
 
 #include "MeshMetadata.h"
+#include "Error.h"
 
 #include <memory>
 #include <mpi.h>
@@ -33,7 +34,11 @@ public:
     MeshMetadataPtr &out) = 0;
 
   // initialize the partitioner from the XML node.
-  virtual int Initialize(pugi::xml_node &) { return 0; }
+  virtual int Initialize(pugi::xml_node &)
+  {
+      SENSEI_STATUS("Configured " << this->GetClassName())
+      return 0;
+  }
 
   virtual ~Partitioner() {}
 };
