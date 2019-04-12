@@ -1,7 +1,6 @@
 #include "ConfigurablePartitioner.h"
 #include "Partitioner.h"
 #include "BlockPartitioner.h"
-#include "CyclicPartitioner.h"
 #include "MappedPartitioner.h"
 #include "PlanarPartitioner.h"
 #include "XMLUtils.h"
@@ -63,10 +62,6 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
     {
     tmp = BlockPartitioner::New();
     }
-  else if (partType == "cyclic")
-    {
-    tmp = CyclicPartitioner::New();
-    }
   else if (partType == "planar")
     {
     tmp = PlanarPartitioner::New();
@@ -91,8 +86,6 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
 
   // everything is good, update internal state
   this->Internals->Part = tmp;
-
-  SENSEI_STATUS("Configured \"" << tmp->GetClassName())
 
   return 0;
 }

@@ -6,7 +6,6 @@
 #include "ConfigurableInTransitDataAdaptor.h"
 #include "Partitioner.h"
 #include "BlockPartitioner.h"
-#include "CyclicPartitioner.h"
 #include "PlanarPartitioner.h"
 #include "MappedPartitioner.h"
 #include "ConfigurablePartitioner.h"
@@ -208,7 +207,6 @@ SENSEI_DATA_ADAPTOR(DataAdaptor)
  ***************************************************************************/
 %shared_ptr(sensei::Partitioner)
 %shared_ptr(sensei::BlockPartitioner)
-%shared_ptr(sensei::CyclicPartitioner)
 %shared_ptr(sensei::PlanarPartitioner)
 %shared_ptr(sensei::MappedPartitioner)
 %shared_ptr(sensei::ConfigurablePartitioner)
@@ -232,14 +230,12 @@ SENSEI_DATA_ADAPTOR(DataAdaptor)
 
 PARTITIONER_API(Partitioner)
 PARTITIONER_API(BlockPartitioner)
-PARTITIONER_API(CyclicPartitioner)
 PARTITIONER_API(PlanarPartitioner)
 PARTITIONER_API(MappedPartitioner)
 PARTITIONER_API(ConfigurablePartitioner)
 
 %include "Partitioner.h"
 %include "BlockPartitioner.h"
-%include "CyclicPartitioner.h"
 %include "PlanarPartitioner.h"
 %include "MappedPartitioner.h"
 %include "ConfigurablePartitioner.h"
