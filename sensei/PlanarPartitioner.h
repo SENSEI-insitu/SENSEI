@@ -10,11 +10,11 @@ class PlanarPartitioner;
 using PlanarPartitionerPtr = std::shared_ptr<PlanarPartitioner>;
 
 /// @class PlanarPartitioner
-/// @brief Represents the planar partitioning mode for in-transit operation.
-///
-/// In planar partitioning mode the blocks are distributed in blocks of a
-/// specified size. The size is specified in the 'plane_size' attribute. Note
-/// cyclic partitioner is a special case of the planar with a plane_size of 1.
+/// The cyclic distribution method will distribute blocks to a rank
+/// such that consecutive blocks are distributed over consecutive
+/// ranks in a round-robin fashion in chunks of length specified by
+/// the PlaneSize. The class looks for PlaneSize in the XML attribute
+/// `cycle_size`.
 class PlanarPartitioner : public sensei::Partitioner
 {
 public:
@@ -23,23 +23,23 @@ public:
 
   const char *GetClassName() override { return "PlanarPartitioner"; }
 
-  // Set the plane size
-  void SetPlaneSize(unsigned int planeSize)
-  { this->PlaneSize = planeSize; }
-
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
-  // distributes blocks to a rank such that are assigned round ribbin in chuncks
-  // of plane size blocks.
+  // blocks are distributed in a round-robin fashion in chunks of length
+  // specified by the PlaneSize.
   int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-    MeshMetadataPtr &out) override;
+     MeshMetadataPtr &out) override;
 
-  // Initialize from the XML attribute 'plane_size' of node.
+  // Set/get the PlaneSize. This controls how many blocks are assigned to
+  // each rank in each iteration of the partitioning process.
+  void SetPlaneSize(unsigned int size) { this->PlaneSize = size; }
+  unsigned int GetPlaneSize(){ return this->PlaneSize; }
+
+  // Initialize from XML
   int Initialize(pugi::xml_node &node) override;
 
 protected:
   PlanarPartitioner() : PlaneSize(1) {}
-  PlanarPartitioner(unsigned int planeSize);
   PlanarPartitioner(const PlanarPartitioner &) = default;
 
   unsigned int PlaneSize;
