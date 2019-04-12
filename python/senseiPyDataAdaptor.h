@@ -11,24 +11,6 @@
 #include <vtkDataObject.h>
 #include <vtkPythonUtil.h>
 #include <string>
-
-// we are going to be overly verbose in an effort to help
-// the user debug their code. package this up for use in all
-// the callbacks.
-#define SENSEI_PY_CALLBACK_ERROR(_method, _cb_obj)        \
-  {                                                       \
-  PyObject *cb_str = PyObject_Str(_cb_obj);               \
-  const char *cb_c_str = PY_STRING_TO_C_STRING(cb_str);   \
-                                                          \
-  SENSEI_ERROR("An exception ocurred when invoking the "  \
-  "user supplied Python callback \"" << cb_c_str << "\""  \
-  "for DataAdaptor::" #_method ". The exception that "    \
-  " occurred is:")                                        \
-                                                          \
-  PyErr_Print();                                          \
-                                                          \
-  Py_XDECREF(cb_str);                                     \
-  }
 #include <iostream>
 using std::cerr;
 using std::endl;
@@ -66,7 +48,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, nullptr)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetNumberOfMeshesCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetNumberOfMeshesCallback, f)
       return -1;
       }
 
@@ -123,7 +105,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetMeshMetadataCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetMeshMetadataCallback, f)
       return -1;
       }
 
@@ -137,10 +119,10 @@ public:
       SWIGTYPE_p_std__shared_ptrT_sensei__MeshMetadata_t, 0, &newmem);
 
     if (ierr == SWIG_ERROR)
-    {
+      {
       SENSEI_ERROR("GetMeshMetadata callback returned an invalid object")
       return -1;
-    }
+      }
 
     /* newmem = 1 SWIG_CAST_NEW_MEMORY = 2 tmpvp = 0x557e358ea080
     std::cerr << "newmem = " << newmem << " SWIG_CAST_NEW_MEMORY = "
@@ -199,7 +181,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetMeshCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetMeshCallback, f)
       return -1;
       }
 
@@ -256,7 +238,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(AddArrayCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::AddArrayCallback, f)
       return -1;
       }
 
@@ -302,7 +284,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetNumberOfArraysCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetNumberOfArraysCallback, f)
       return -1;
       }
 
@@ -358,7 +340,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetArrayNameCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetArrayNameCallback, f)
       return -1;
       }
 
@@ -410,7 +392,7 @@ public:
     PyObject_CallObject(f, nullptr);
     if (PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(ReleaseDataCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::ReleaseDataCallback, f)
       }
 
     return 0;

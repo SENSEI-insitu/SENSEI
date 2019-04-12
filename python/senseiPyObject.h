@@ -6,6 +6,24 @@
 #include "senseiPyString.h"
 #include "senseiPyInteger.h"
 
+// we are going to be overly verbose in an effort to help
+// the user debug their code. package this up for use in all
+// the callbacks.
+#define SENSEI_PY_CALLBACK_ERROR(_method, _cb_obj)        \
+  {                                                       \
+  PyObject *cb_str = PyObject_Str(_cb_obj);               \
+  const char *cb_c_str = PyString_AsString(cb_str);       \
+                                                          \
+  SENSEI_ERROR("An exception ocurred when invoking the "  \
+  "user supplied Python callback \"" << cb_c_str << "\""  \
+  "for " #_method ". The exception that "                 \
+  " occurred is:")                                        \
+                                                          \
+  PyErr_Print();                                          \
+                                                          \
+  Py_XDECREF(cb_str);                                     \
+  }
+
 namespace senseiPyObject
 {
 /// senseiPyObject::CppTT, A traits class for working with PyObject's
