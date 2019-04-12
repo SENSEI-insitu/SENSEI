@@ -74,25 +74,16 @@ int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
   // let the base class handle initialization of the partitioner etc
   if (this->InTransitDataAdaptor::Initialize(node))
     {
-    SENSEI_ERROR("Failed to intialize base class")
+    SENSEI_ERROR("Failed to intialize InTransitDataAdaptor")
     return -1;
     }
 
-  // for simplicity, assume all configuration is to come from XML
-  if (XMLUtils::RequireAttribute(node, "file_name") ||
-    XMLUtils::RequireAttribute(node, "read_method"))
-    {
-    SENSEI_ERROR("Failed to initialize, missing XML attributes")
-    return -1;
-    }
+  if (node.attribute("file_name"))
+    this->SetFileName(node.attribute("file_name").value());
 
-  this->SetFileName(node.attribute("file_name").value());
-
-  if (this->SetReadMethod(node.attribute("read_method").value()))
-    {
-    SENSEI_ERROR("Failed to initialize, bad read_method")
+  if (node.attribute("read_method") &&
+    this->SetReadMethod(node.attribute("read_method").value()))
     return -1;
-    }
 
   return 0;
 }
