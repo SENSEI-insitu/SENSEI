@@ -62,8 +62,8 @@ public:
   // metadata has been set. The Initialize method will initialize an instance
   // of a ConfigurablePartitioner using user provided XML, if that fails will
   // fall back to a default initialized instance of BlockPartitioner.
-  void SetPartitioner(sensei::PartitionerPtr &partitioner);
-  sensei::PartitionerPtr GetPartitioner();
+  virtual void SetPartitioner(sensei::PartitionerPtr &partitioner);
+  virtual sensei::PartitionerPtr GetPartitioner();
 
   // Control API
   virtual int OpenStream() = 0;

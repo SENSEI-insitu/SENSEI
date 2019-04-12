@@ -69,20 +69,15 @@ int ConfigurableInTransitDataAdaptor::Initialize(const std::string &fileName)
 // -------------------------------------------------------------------------------
 int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
 {
-  // get the transport element
+  // get the transport element and its type attribute
   if (XMLUtils::RequireChild(root, "transport"))
-    {
-    SENSEI_ERROR("Missing a transport element")
     return -1;
-    }
+
   pugi::xml_node node = root.child("transport");
 
-  // get its type attribute
   if (XMLUtils::RequireAttribute(node, "type"))
-    {
-    SENSEI_ERROR("transport element is misisng type attribute")
     return -1;
-    }
+
   std::string type = node.attribute("type").value();
 
   // construct the requested adaptor type
@@ -187,6 +182,29 @@ int ConfigurableInTransitDataAdaptor::SetReceiverMeshMetadata(unsigned int id,
     }
 
   return this->Internals->Adaptor->SetReceiverMeshMetadata(id, metadata);
+}
+
+// -------------------------------------------------------------------------------
+void ConfigurableInTransitDataAdaptor::SetPartitioner(sensei::PartitionerPtr &partitioner)
+{
+  if (!this->Internals->Adaptor)
+    {
+    SENSEI_ERROR("No InTransitDataAdaptor instance")
+    }
+
+  return this->Internals->Adaptor->SetPartitioner(partitioner);
+}
+
+// -------------------------------------------------------------------------------
+sensei::PartitionerPtr ConfigurableInTransitDataAdaptor::GetPartitioner()
+{
+  if (!this->Internals->Adaptor)
+    {
+    SENSEI_ERROR("No InTransitDataAdaptor instance")
+    return nullptr;
+    }
+
+  return this->Internals->Adaptor->GetPartitioner();
 }
 
 // -------------------------------------------------------------------------------
@@ -362,6 +380,30 @@ int ConfigurableInTransitDataAdaptor::ReleaseData()
     }
 
   return this->Internals->Adaptor->ReleaseData();
+}
+
+// -------------------------------------------------------------------------------
+double ConfigurableInTransitDataAdaptor::GetDataTime()
+{
+  return this->Internals->Adaptor->GetDataTime();
+}
+
+// -------------------------------------------------------------------------------
+void ConfigurableInTransitDataAdaptor::SetDataTime(double time)
+{
+  this->Internals->Adaptor->SetDataTime(time);
+}
+
+// -------------------------------------------------------------------------------
+long ConfigurableInTransitDataAdaptor::GetDataTimeStep()
+{
+  return this->Internals->Adaptor->GetDataTimeStep();
+}
+
+// -------------------------------------------------------------------------------
+void ConfigurableInTransitDataAdaptor::SetDataTimeStep(long index)
+{
+  this->Internals->Adaptor->SetDataTimeStep(index);
 }
 
 }

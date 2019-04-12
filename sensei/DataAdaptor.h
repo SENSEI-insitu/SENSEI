@@ -143,12 +143,12 @@ public:
   virtual int ReleaseData() = 0;
 
   /// @brief Set/get the current simulated time.
-  double GetDataTime();
-  void SetDataTime(double time);
+  virtual double GetDataTime();
+  virtual void SetDataTime(double time);
 
   /// @brief Set/get the current time step
-  long GetDataTimeStep();
-  void SetDataTimeStep(long index);
+  virtual long GetDataTimeStep();
+  virtual void SetDataTimeStep(long index);
 
 protected:
   DataAdaptor();
