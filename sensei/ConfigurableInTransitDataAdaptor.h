@@ -24,26 +24,22 @@ namespace sensei
 // concrete InTransitDataAdaptors.
 //
 // @section XML
-// Configurartion shold be placed in an element of type `data_adaptor`, the
-// `transport` attribute names the concrete class to create and initialize.  All of
-// the concrete classes support the `partitioner` attribute.  Each concrete
-// class will have a number of attributes used for configuration.
+// Configurartion shold be placed in an element of type `transport`, the
+// `type` attribute names the concrete class to create and initialize.
+// Each concrete class will have a number of attributes used for configuration.
 //
 // The supported transport types are:
 //
-//   adios_1
-//   adios_2
-//   data_elevators
-//   libis
+//   adios_1, adios_2, hdf5, libis
 //
 // Illustrative example of the XML:
 //
 // <sensei>
-//   <data_adaptor transport="adios_2" partitioner="block" ... >
-//     ...
-//   </data_adaptor>
-//   ...
+//   <transport type="adios_1" file_name="test.bp" read_method="FLEXPATH">
+//     <paritioner type="block"/>
+//   </transport>
 // <sensei>
+//
 class ConfigurableInTransitDataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
@@ -52,11 +48,21 @@ public:
 
   int Initialize(const std::string &fileName);
 
-  // sensei::DataAdaptor API
+  // sensei::InTransitDataAdaptor API
   int Initialize(pugi::xml_node &node) override;
-  int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
-  int GetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
-  int SetReceiverMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
+
+  int GetSenderMeshMetadata(unsigned int id,
+    MeshMetadataPtr &metadata) override;
+
+  int GetReceiverMeshMetadata(unsigned int id,
+    MeshMetadataPtr &metadata) override;
+
+  int SetReceiverMeshMetadata(unsigned int id,
+     MeshMetadataPtr &metadata) override;
+
+  void SetPartitioner(sensei::PartitionerPtr &partitioner) override;
+  sensei::PartitionerPtr GetPartitioner() override;
+
   int OpenStream() override;
   int CloseStream() override;
   int AdvanceStream() override;
@@ -66,13 +72,30 @@ public:
   // sensei::DataAdaptor API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
   int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
-  int GetMesh(const std::string &meshName, bool structureOnly, vtkDataObject *&mesh) override;
-  int GetMesh(const std::string &meshName, bool structureOnly, vtkCompositeDataSet *&mesh) override;
-  int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName) override;
-  int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
-  int AddArray(vtkDataObject* mesh, const std::string &meshName, int association, const std::string &arrayName) override;
-  int AddArrays(vtkDataObject* mesh, const std::string &meshName, int association, const std::vector<std::string> &arrayName) override;
+
+  int GetMesh(const std::string &meshName,
+    bool structureOnly, vtkDataObject *&mesh) override;
+
+  int GetMesh(const std::string &meshName,
+    bool structureOnly, vtkCompositeDataSet *&mesh) override;
+
+  int AddGhostNodesArray(vtkDataObject* mesh,
+    const std::string &meshName) override;
+
+  int AddGhostCellsArray(vtkDataObject* mesh,
+    const std::string &meshName) override;
+
+  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+    int association, const std::string &arrayName) override;
+
+  int AddArrays(vtkDataObject* mesh, const std::string &meshName,
+    int association, const std::vector<std::string> &arrayName) override;
+
   int ReleaseData() override;
+  double GetDataTime() override;
+  void SetDataTime(double time) override;
+  long GetDataTimeStep() override;
+  void SetDataTimeStep(long index) override;
 
 protected:
   ConfigurableInTransitDataAdaptor();
