@@ -61,7 +61,7 @@ int MappedPartitioner::Initialize(pugi::xml_node &node)
     next = blkOwnerElem.find_first_of(delims, curr + 1);
     std::string tmp = blkOwnerElem.substr(curr, next - curr);
     this->BlockOwner.push_back(std::stoi(tmp));
-    oss << tmp;
+    oss << ", " << tmp;
     curr = blkOwnerElem.find_first_not_of(delims, next);
     }
 
@@ -72,7 +72,7 @@ int MappedPartitioner::Initialize(pugi::xml_node &node)
     next = blkIdsElem.find_first_of(delims, curr + 1);
     std::string tmp = blkIdsElem.substr(curr, next - curr);
     this->BlockIds.push_back(std::stoi(tmp));
-    oss << tmp;
+    oss << ", " << tmp;
     curr = blkIdsElem.find_first_not_of(delims, next);
     }
   oss << "}";

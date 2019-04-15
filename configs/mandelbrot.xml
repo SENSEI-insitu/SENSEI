@@ -36,5 +36,5 @@
             enabled="1"/>
 
   <!-- ADIOS Analyses -->
-  <analysis type="adios" filename="oscillators.bp" method="MPI" enabled="0" />
+  <analysis type="adios1" filename="oscillators.bp" method="MPI" enabled="0" />
 </sensei>

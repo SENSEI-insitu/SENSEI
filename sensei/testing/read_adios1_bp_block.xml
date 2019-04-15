@@ -1,0 +1,5 @@
+<sensei>
+  <transport type="adios1" file_name="test.bp" read_method="BP">
+    <partitioner type="block"/>
+  </transport>
+</sensei>
