@@ -73,4 +73,13 @@ if (BUILD_TESTING)
       ${TEST_NP} ${MPIEXEC_POSTFLAGS} ${PYTHON_EXECUTABLE}
       ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioner.py 13
     FEATURES ${ENABLE_PYTHON})
+
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/catalyst_render_partition.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/catalyst_render_partition.xml  @ONLY)
+
+  senseiAddTest(testPartitionersADIOS1BP
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
+      ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
+      ${CMAKE_CURRENT_SOURCE_DIR} adios1_bp 3 3 3 0
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 endif()
