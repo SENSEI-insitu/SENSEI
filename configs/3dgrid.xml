@@ -7,7 +7,7 @@
   <analysis type="histogram" mesh="mesh" array="temperature" association="cell" bins="10" enabled="1" />
 
   <!-- ADIOS Analyses -->
-  <analysis type="adios" filename="3D_Grid.bp" method="MPI" enabled ="0"/>
+  <analysis type="adios1" filename="3D_Grid.bp" method="MPI" enabled ="0"/>
 
   <!-- Catalyst Analyses -->
   <analysis type="catalyst" pipeline="slice" enabled="0" />
