@@ -1,7 +1,7 @@
 from mpi4py import *
 from multiprocessing import Process,Lock,Value
 from sensei import VTKDataAdaptor,ADIOS1DataAdaptor, \
-  ADIOS1AnalysisAdaptor,BlockPartitioner,CyclicPartitioner
+  ADIOS1AnalysisAdaptor,BlockPartitioner,PlanarPartitioner
 import sys,os
 import numpy as np
 import vtk, vtk.util.numpy_support as vtknp
