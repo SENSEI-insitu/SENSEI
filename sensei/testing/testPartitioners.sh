@@ -25,6 +25,10 @@ nblocks=`echo ${nblock_x}*${nblock_y} | bc`
 
 trap 'echo $BASH_COMMAND' DEBUG
 
+# TODO -- clean up old files, this is not generic
+file=test.bp
+rm -f $file ${file}_writer_info.txt
+
 ${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
   -6.2832 6.2832 -6.2832 6.2832 0 6.2832 &
@@ -49,6 +53,7 @@ then
     elif [[ ${maxDelay} -le 0 ]]
     then
       echo "ERROR: max delay exceded"
+      kill -15 ${writePid}
       exit -1
     else
       sleep ${delay}s

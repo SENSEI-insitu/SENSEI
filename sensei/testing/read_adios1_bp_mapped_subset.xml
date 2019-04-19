@@ -1,8 +1,0 @@
-<sensei>
-  <transport type="adios1" file_name="test.bp" read_method="BP">
-    <partitioner type="mapped">
-      <block_id>    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 </block_id>
-      <block_owner> 0 1 2 3 4  0 -1 -1 -1 4  0 -1 2 -1 4  0 -1 -1 -1 4  0 1 2 3 4  </block_owner>
-    </partitioner>
-  </transport>
-</sensei>
