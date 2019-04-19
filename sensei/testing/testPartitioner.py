@@ -33,13 +33,6 @@ if rank == 0:
     sys.stderr.write('== BlockPartitioner ==\n')
     sys.stderr.write('receiver MeshMetadata = %s\n'%(str(mdOut)))
 
-p = CyclicPartitioner.New()
-mdOut = p.GetPartition(comm, mdIn)
-
-if rank == 0:
-    sys.stderr.write('== CyclicPartitioner ==\n')
-    sys.stderr.write('receiver MeshMetadata = %s\n'%(str(mdOut)))
-
 planeSize = 2
 p = PlanarPartitioner.New()
 p.SetPlaneSize(planeSize)
