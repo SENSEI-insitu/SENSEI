@@ -82,4 +82,13 @@ if (BUILD_TESTING)
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
       ${CMAKE_CURRENT_SOURCE_DIR} adios1_bp 3 3 3 0
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
+
+  # in adios 1.13.1 flexpath has a limitation of 1 sender block per
+  # MPI rank. there's also a deadlock if some blocks are not sent.
+  # hence this test current has to run with M=9 N=2
+  senseiAddTest(testPartitionersADIOS1FLEXPATH
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
+      ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 9 2
+      ${CMAKE_CURRENT_SOURCE_DIR} adios1_flexpath 3 3 3 1
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 endif()
