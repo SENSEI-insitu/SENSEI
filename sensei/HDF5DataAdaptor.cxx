@@ -226,10 +226,10 @@ int HDF5DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr& metadata)
         }
 
       // get the partitioner, default to the block based layout
-      Partitioner* part = this->GetPartitioner();
+      PartitionerPtr part = this->GetPartitioner();
       if (!part)
         {
-          part = new BlockPartitioner();
+          part = BlockPartitioner::New();
         }
 
       MeshMetadataPtr recverMd;

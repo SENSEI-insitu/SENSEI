@@ -4,8 +4,8 @@ if (ENABLE_SENSEI)
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
-    BinaryStream.cxx BlockPartitioner.cxx ConfigurablePartitioner.cxx
-    CyclicPartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
+    BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
+    ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
     Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
     MappedPartitioner.cxx MeshMetadata.cxx MeshMetadataMap.cxx
     PlanarPartitioner.cxx ProgrammableDataAdaptor.cxx VTKHistogram.cxx

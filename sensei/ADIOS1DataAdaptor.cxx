@@ -12,7 +12,6 @@
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataSetAttributes.h>
-#include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
@@ -75,25 +74,16 @@ int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
   // let the base class handle initialization of the partitioner etc
   if (this->InTransitDataAdaptor::Initialize(node))
     {
-    SENSEI_ERROR("Failed to intialize base class")
+    SENSEI_ERROR("Failed to intialize InTransitDataAdaptor")
     return -1;
     }
 
-  // for simplicity, assume all configuration is to come from XML
-  if (XMLUtils::RequireAttribute(node, "file_name") ||
-    XMLUtils::RequireAttribute(node, "read_method"))
-    {
-    SENSEI_ERROR("Failed to initialize, missing XML attributes")
-    return -1;
-    }
+  if (node.attribute("file_name"))
+    this->SetFileName(node.attribute("file_name").value());
 
-  this->SetFileName(node.attribute("file_name").value());
-
-  if (this->SetReadMethod(node.attribute("read_method").value()))
-    {
-    SENSEI_ERROR("Failed to initialize, bad read_method")
+  if (node.attribute("read_method") &&
+    this->SetReadMethod(node.attribute("read_method").value()))
     return -1;
-    }
 
   return 0;
 }
@@ -195,7 +185,7 @@ int ADIOS1DataAdaptor::UpdateTimeStep()
 int ADIOS1DataAdaptor::GetSenderMeshMetadata(unsigned int id,
   MeshMetadataPtr &metadata)
 {
-  if (this->Internals->Schema.GetMeshMetadata(id, metadata))
+  if (this->Internals->Schema.GetSenderMeshMetadata(id, metadata))
     {
     SENSEI_ERROR("Failed to get metadata for object " << id)
     return -1;
@@ -216,34 +206,50 @@ int ADIOS1DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 //----------------------------------------------------------------------------
 int ADIOS1DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 {
-  // check if some uber analysis told us how the data should land by
+  // check if an analysis told us how the data should land by
   // passing in reciever metadata
   if (this->GetReceiverMeshMetadata(id, metadata))
     {
-    // none set, we'll use the partitioner to figure it out
-    // first take a look at what's available
+    // layout was set by an analysis. did we do this already?
+    if (this->Internals->Schema.GetReceiverMeshMetadata(id, metadata))
+      {
+      SENSEI_ERROR("Failed to get mesh metadata")
+      this->CloseStream();
+      return -1;
+      }
+
+    // we did this already, return cached layout
+    if (metadata)
+       return 0;
+
+    // first time through. use the partitioner to figure it out.
+    // get the sender layout.
     MeshMetadataPtr senderMd;
     if (this->GetSenderMeshMetadata(id, senderMd))
       {
       SENSEI_ERROR("Failed to get sender metadata")
+      this->CloseStream();
       return -1;
       }
 
-    // get the partitioner, default to the block based layout
-    Partitioner *part = this->GetPartitioner();
+    // get the partitioner, default to the block partitioner
+    PartitionerPtr part = this->GetPartitioner();
     if (!part)
       {
-      part = new BlockPartitioner();
+      SENSEI_WARNING("No partitoner specified, using BlockParititoner")
+      part = BlockPartitioner::New();
       }
 
-    MeshMetadataPtr recverMd;
-    if (part->GetPartition(this->GetCommunicator(), senderMd, recverMd))
+    MeshMetadataPtr receiverMd;
+    if (part->GetPartition(this->GetCommunicator(), senderMd, receiverMd))
       {
       SENSEI_ERROR("Failed to determine a suitable layout to receive the data")
       this->CloseStream();
       }
 
-    metadata = recverMd;
+    // cache and return the new layout
+    this->Internals->Schema.SetReceiverMeshMetadata(id, receiverMd);
+    metadata = receiverMd;
     }
 
   return 0;

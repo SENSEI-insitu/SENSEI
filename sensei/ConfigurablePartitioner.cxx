@@ -1,7 +1,6 @@
 #include "ConfigurablePartitioner.h"
 #include "Partitioner.h"
 #include "BlockPartitioner.h"
-#include "CyclicPartitioner.h"
 #include "MappedPartitioner.h"
 #include "PlanarPartitioner.h"
 #include "XMLUtils.h"
@@ -51,8 +50,8 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
 
   if (XMLUtils::RequireAttribute(partNode, "type"))
     {
-    SENSEI_ERROR(
-      "Failed to construct a partitioner. Missing \"type\" attribute");
+    SENSEI_ERROR("Failed to construct a partitioner. "
+      "Missing \"type\" attribute");
     return -1;
     }
 
@@ -61,19 +60,15 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
   std::string partType = partNode.attribute("type").value();
   if (partType == "block")
     {
-    tmp = PartitionerPtr(new sensei::BlockPartitioner);
-    }
-  else if (partType == "cyclic")
-    {
-    tmp = PartitionerPtr(new sensei::CyclicPartitioner);
+    tmp = BlockPartitioner::New();
     }
   else if (partType == "planar")
     {
-    tmp = PartitionerPtr(new sensei::PlanarPartitioner);
+    tmp = PlanarPartitioner::New();
     }
   else if (partType == "mapped")
     {
-    tmp = PartitionerPtr(new sensei::MappedPartitioner);
+    tmp = MappedPartitioner::New();
     }
   else
     {
@@ -90,7 +85,8 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
     }
 
   // everything is good, update internal state
-  this->Internals->Part = std::move(tmp);
+  this->Internals->Part = tmp;
+
   return 0;
 }
 

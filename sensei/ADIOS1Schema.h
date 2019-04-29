@@ -42,7 +42,14 @@ public:
   int ReadMeshMetadata(MPI_Comm comm, InputStream &iStream);
 
   // get cached metadata for object i. Available after ReadMeshMetadata
-  int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
+  // this shows how the data is layed out on the sender side
+  int GetSenderMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
+
+  // set/get cached metadata for object i. this must be set before
+  // reading any data. this controls how thye data is layed out on
+  // the receiver side
+  int GetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
+  int SetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
 
   // get the number of meshes available. Available after ReadMeshMetadata
   int GetNumberOfObjects(unsigned int &num);
@@ -75,6 +82,10 @@ private:
   // given a name get the id
   int GetObjectId(MPI_Comm comm,
     const std::string &object_name, unsigned int &doid);
+
+  // generate an array on each block of the object filled with the BlockOwner
+  int AddBlockOwnerArray(MPI_Comm comm, const std::string &name, int centering,
+    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
   struct InternalsType;
   InternalsType *Internals;

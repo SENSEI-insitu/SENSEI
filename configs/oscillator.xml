@@ -50,7 +50,7 @@
 
     -->
   <!-- Libsim Slice, render -->
-  <analysis type="libsim" 
+  <analysis type="libsim"
             frequency="1"
             visitdir="/Users/bjw/Development/MAIN/trunk/release" mode="batch"
             plots="Pseudocolor,Mesh" plotvars="ucdmesh/data,ucdmesh" slice-origin="0,0,0" slice-normal="0,0,1"
@@ -59,7 +59,7 @@
             enabled="0"/>
 
   <!-- Libsim Iso mesh, render -->
-  <analysis type="libsim" 
+  <analysis type="libsim"
             frequency="1"
             visitdir="/Users/bjw/Development/MAIN/trunk/release" mode="batch"
             session="oscillator.session"
@@ -67,7 +67,7 @@
             enabled="0"/>
 
   <!-- Libsim Iso ucdmesh, render -->
-  <analysis type="libsim" 
+  <analysis type="libsim"
             frequency="1"
             visitdir="/Users/bjw/Development/MAIN/trunk/release" mode="batch"
             session="oscillator-ucdmesh.session"
@@ -75,7 +75,7 @@
             enabled="0"/>
 
   <!-- Libsim particles, render -->
-  <analysis type="libsim" 
+  <analysis type="libsim"
             frequency="1"
             visitdir="/Users/bjw/Development/MAIN/trunk/release" mode="batch"
             session="oscillator-particles.session"
@@ -83,5 +83,5 @@
             enabled="1"/>
 
   <!-- ADIOS Analyses -->
-  <analysis type="adios" filename="oscillators.bp" method="MPI" enabled="0" />
+  <analysis type="adios1" filename="oscillators.bp" method="MPI" enabled="0" />
 </sensei>

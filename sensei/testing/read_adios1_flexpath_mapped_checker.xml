@@ -1,0 +1,8 @@
+<sensei>
+  <transport type="adios1" file_name="test.bp" read_method="FLEXPATH">
+    <partitioner type="mapped">
+      <block_id>    0 1 2 3 4 5 6 7 8 </block_id>
+      <block_owner> 0 1 0 1 0 1 0 1 0 </block_owner>
+    </partitioner>
+  </transport>
+</sensei>

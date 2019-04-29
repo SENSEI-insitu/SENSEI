@@ -8,8 +8,6 @@
 #include <vector>
 #include <string>
 
-class vtkInformation;
-class vtkCompositeDataSet;
 
 namespace sensei
 {

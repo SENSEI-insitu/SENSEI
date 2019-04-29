@@ -5,8 +5,6 @@
 
 #include <vtkDataObject.h>
 #include <vtkCompositeDataSet.h>
-#include <vtkInformation.h>
-#include <vtkInformationIntegerKey.h>
 #include <vtkObjectFactory.h>
 
 #include <map>
@@ -19,22 +17,14 @@ namespace sensei
 
 struct DataAdaptor::InternalsType
 {
-  InternalsType() : Information(vtkInformation::New()) {}
-  ~InternalsType(){ this->Information->Delete(); }
-
-  void Clear()
-  {
-    this->Information->Delete();
-    this->Information = vtkInformation::New();
-  }
+  InternalsType() : Time(0.0), TimeStep(0) {}
+  ~InternalsType() {}
 
   MeshMetadataFlags Flags;
   std::vector<MeshMetadataPtr> Metadata;
-  vtkInformation *Information;
+  double Time;
+  long TimeStep;
 };
-
-//----------------------------------------------------------------------------
-vtkInformationKeyMacro(DataAdaptor, DATA_TIME_STEP_INDEX, Integer);
 
 //----------------------------------------------------------------------------
 DataAdaptor::DataAdaptor()
@@ -59,59 +49,27 @@ int DataAdaptor::SetCommunicator(MPI_Comm comm)
 }
 
 //----------------------------------------------------------------------------
-vtkInformation* DataAdaptor::GetInformation()
-{
-  return this->Internals->Information;
-}
-
-//----------------------------------------------------------------------------
 double DataAdaptor::GetDataTime()
 {
-  return this->GetDataTime(this->Internals->Information);
+  return this->Internals->Time;
 }
 
 //----------------------------------------------------------------------------
 void DataAdaptor::SetDataTime(double time)
 {
-  this->SetDataTime(this->Internals->Information, time);
+  this->Internals->Time = time;
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::GetDataTimeStep()
+long DataAdaptor::GetDataTimeStep()
 {
-  return this->GetDataTimeStep(this->Internals->Information);
+  return this->Internals->TimeStep;
 }
 
 //----------------------------------------------------------------------------
-double DataAdaptor::GetDataTime(vtkInformation* info)
+void DataAdaptor::SetDataTimeStep(long index)
 {
-  return info->Has(vtkDataObject::DATA_TIME_STEP()) ?
-    info->Get(vtkDataObject::DATA_TIME_STEP()) : 0.0;
-}
-
-//----------------------------------------------------------------------------
-void DataAdaptor::SetDataTime(vtkInformation* info, double time)
-{
-  info->Set(vtkDataObject::DATA_TIME_STEP(), time);
-}
-
-//----------------------------------------------------------------------------
-void DataAdaptor::SetDataTimeStep(int index)
-{
-  this->SetDataTimeStep(this->Internals->Information, index);
-}
-
-//----------------------------------------------------------------------------
-int DataAdaptor::GetDataTimeStep(vtkInformation* info)
-{
-  return info->Has(DataAdaptor::DATA_TIME_STEP_INDEX()) ?
-    info->Get(DataAdaptor::DATA_TIME_STEP_INDEX()) : 0;
-}
-
-//----------------------------------------------------------------------------
-void DataAdaptor::SetDataTimeStep(vtkInformation* info, int index)
-{
-  info->Set(DataAdaptor::DATA_TIME_STEP_INDEX(), index);
+  this->Internals->TimeStep = index;
 }
 
 //----------------------------------------------------------------------------
