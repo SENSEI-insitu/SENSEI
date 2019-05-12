@@ -188,7 +188,7 @@ int HDF5DataAdaptor::UpdateTimeStep()
 int HDF5DataAdaptor::GetSenderMeshMetadata(unsigned int id,
                                            MeshMetadataPtr& metadata)
 {
-  if (this->m_HDF5Reader->ReadMeshMetaData(id, metadata))
+  if (this->m_HDF5Reader->ReadSenderMeshMetaData(id, metadata))
     return 0;
   else
     {
@@ -212,7 +212,7 @@ int HDF5DataAdaptor::GetNumberOfMeshes(unsigned int& numMeshes)
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr& metadata)
 {
-  // check if some uber analysis told us how the data should land by
+  // check if some user analysis told us how the data should land by
   // passing in reciever metadata
   if (this->GetReceiverMeshMetadata(id, metadata))
     {
@@ -241,6 +241,10 @@ int HDF5DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr& metadata)
         }
 
       metadata = recverMd;
+      //
+      // use this meshmetadata to read objects
+      //
+      this->m_HDF5Reader->m_AllMeshInfoReceiver.SetMeshMetadata(id, recverMd);
     }
 
   return 0;
