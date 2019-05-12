@@ -69,10 +69,11 @@ int main(int argc, char **argv) {
     return showHelp ? 0 : 1;
   }
 
+  timer::Initialize();
+
   if (log | shortlog)
     timer::Enable(shortlog);
 
-  timer::Initialize();
 
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
   dataAdaptor->SetCommunicator(comm);
