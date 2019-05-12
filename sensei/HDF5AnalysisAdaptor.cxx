@@ -31,7 +31,6 @@
 #include <vtkUnsignedLongArray.h>
 #include <vtkUnstructuredGrid.h>
 
-#include <adios.h>
 #include <mpi.h>
 #include <vector>
 
