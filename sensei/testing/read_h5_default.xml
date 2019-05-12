@@ -1,0 +1,3 @@
+<sensei>
+  <transport type="hdf5" file_name="test.h5" />
+</sensei>
