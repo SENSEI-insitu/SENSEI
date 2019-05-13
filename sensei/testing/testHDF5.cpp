@@ -594,6 +594,7 @@ AAWrap* GetWriteAdaptor(const std::string& file_name,
     {
       if (rank == 0)
         std::cout << " ======>>>> [ADIOS] Analysis  Adaptor <<<<<======"
+	          << " with config file:"<<file_name
                   << std::endl;
 
       // initialize the analysis adaptor
@@ -705,7 +706,7 @@ int main(int argc, char** argv)
           base_file_name = argv[4];
         }
 
-      char file_name[20];
+      char file_name[base_file_name.size()];
       sprintf(file_name, "%s.n%d", base_file_name.c_str(), n_ranks);
 
       if (rank == 0)
