@@ -24,6 +24,10 @@ cmake_dependent_option(ENABLE_HDF5
   "Enable analysis methods that use HDF5" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_LIBIS
+  "Enable analysis methods that use libIS" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_CONDUIT
   "Enable analysis methods that use Conduit" OFF
   "ENABLE_SENSEI" OFF)
@@ -70,6 +74,7 @@ message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_ADIOS1=${ENABLE_ADIOS1}")
 message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
+message(STATUS "ENABLE_LIBIS=${ENABLE_LIBIS}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")

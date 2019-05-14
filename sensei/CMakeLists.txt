@@ -41,6 +41,12 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sHDF5)
   endif()
 
+  if (ENABLE_LIBIS)
+    list(APPEND senseiCore_sources libISDataAdaptor.cxx libISAnalysisAdaptor.cxx
+      libISSchema.cxx)
+    #list(APPEND senseiCore_libs slibIS)
+  endif()    
+
   if (ENABLE_VTK_ACCELERATORS)
     list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()

@@ -14,6 +14,14 @@ if(ENABLE_HDF5)
     RUNTIME DESTINATION bin)
 endif()
 
+if(ENABLE_LIBIS)
+  add_executable(libISEndPoint libISEndPoint.cpp)
+  target_link_libraries(libISEndPoint PRIVATE opts sensei timer sADIOS1 sMPI)
+
+  install(TARGETS libISEndPoint
+    RUNTIME DESTINATION bin)
+endif()
+
 add_executable(ConfigurableEndPoint ConfigurableEndPoint.cxx)
 target_link_libraries(ConfigurableEndPoint PRIVATE opts sensei timer pugixml sMPI)
 
