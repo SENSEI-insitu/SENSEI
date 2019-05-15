@@ -44,7 +44,7 @@ if (ENABLE_SENSEI)
   if (ENABLE_LIBIS)
     list(APPEND senseiCore_sources libISDataAdaptor.cxx libISAnalysisAdaptor.cxx
       libISSchema.cxx)
-    #list(APPEND senseiCore_libs slibIS)
+    list(APPEND senseiCore_libs sLIBIS)
   endif()    
 
   if (ENABLE_VTK_ACCELERATORS)
