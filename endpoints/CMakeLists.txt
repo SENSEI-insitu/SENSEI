@@ -16,7 +16,7 @@ endif()
 
 if(ENABLE_LIBIS)
   add_executable(libISEndPoint libISEndPoint.cpp)
-  target_link_libraries(libISEndPoint PRIVATE opts sensei timer sADIOS1 sMPI)
+  target_link_libraries(libISEndPoint PRIVATE opts sensei timer sLIBIS sMPI)
 
   install(TARGETS libISEndPoint
     RUNTIME DESTINATION bin)
