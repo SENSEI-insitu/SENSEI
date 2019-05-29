@@ -1,4 +1,5 @@
 #include "libISDataAdaptor.h"
+#include "libIS/is_sim.h"
 
 
 #include "MeshMetadata.h"
@@ -46,25 +47,32 @@ libISDataAdaptor::~libISDataAdaptor()
   delete this->Internals;
 }
 
+/***
 //----------------------------------------------------------------------------
 int libISDataAdaptor::SetFileName(const std::string &fileName)
 {
   this->Internals->Stream.FileName = fileName;
   return 0;
 }
+***/
 
+/***
 //----------------------------------------------------------------------------
 int libISDataAdaptor::SetReadMethod(const std::string &method)
 {
   return this->Internals->Stream.SetReadMethod(method);
 }
+***/
 
+
+/***
 //----------------------------------------------------------------------------
 int libISDataAdaptor::SetReadMethod(ADIOS_READ_METHOD method)
 {
   this->Internals->Stream.ReadMethod = method;
   return 0;
 }
+***/
 
 //----------------------------------------------------------------------------
 int libISDataAdaptor::Initialize(pugi::xml_node &node)
@@ -78,12 +86,12 @@ int libISDataAdaptor::Initialize(pugi::xml_node &node)
     return -1;
     }
 
-  if (node.attribute("file_name"))
-    this->SetFileName(node.attribute("file_name").value());
+  //if (node.attribute("file_name"))
+  //  this->SetFileName(node.attribute("file_name").value());
 
-  if (node.attribute("read_method") &&
-    this->SetReadMethod(node.attribute("read_method").value()))
-    return -1;
+  //if (node.attribute("read_method") &&
+  //  this->SetReadMethod(node.attribute("read_method").value()))
+  //  return -1;
 
   return 0;
 }
@@ -236,7 +244,7 @@ int libISDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata
     PartitionerPtr part = this->GetPartitioner();
     if (!part)
       {
-      SENSEI_WARNING("No partitoner specified, using BlockParititoner")
+      SENSEI_WARNING("No partitioner specified, using BlockParititoner")
       part = BlockPartitioner::New();
       }
 

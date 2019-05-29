@@ -31,7 +31,7 @@
 #include <vtkSmartPointer.h>
 
 #include <mpi.h>
-#include <adios.h>
+//#include <adios.h>
 #include <vector>
 
 namespace sensei
@@ -199,18 +199,18 @@ int libISAnalysisAdaptor::InitializelibIS(
   if (!this->Schema)
     {
     // initialize adios
-    adios_init_noxml(this->GetCommunicator());
+    //adios_init_noxml(this->GetCommunicator());
 
-#if ADIOS_VERSION_GE(1,11,0)
-    adios_set_max_buffer_size(this->MaxBufferSize);
-    adios_declare_group(&this->GroupHandle, "SENSEI", "",
-      static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_no));
-#else
-    adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
-    adios_declare_group(&this->GroupHandle, "SENSEI", "", adios_flag_no);
-#endif
+//#if ADIOS_VERSION_GE(1,11,0)
+    //adios_set_max_buffer_size(this->MaxBufferSize);
+    //adios_declare_group(&this->GroupHandle, "SENSEI", "",
+    //  static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_no));
+//#else
+    //adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
+    //adios_declare_group(&this->GroupHandle, "SENSEI", "", adios_flag_no);
+//#endif
 
-    adios_select_method(this->GroupHandle, this->Method.c_str(), "", "");
+    //adios_select_method(this->GroupHandle, this->Method.c_str(), "", "");
 
     // define libIS variables
     this->Schema = new senseilibIS::DataObjectCollectionSchema;
@@ -232,7 +232,7 @@ int libISAnalysisAdaptor::FinalizelibIS()
 {
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
-  adios_finalize(rank);
+  //adios_finalize(rank);
   return 0;
 }
 
@@ -260,8 +260,8 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   int ierr = 0;
   int64_t handle = 0;
 
-  adios_open(&handle, "sensei", this->FileName.c_str(),
-    timeStep == 0 ? "w" : "a", this->GetCommunicator());
+  //adios_open(&handle, "sensei", this->FileName.c_str(),
+  //  timeStep == 0 ? "w" : "a", this->GetCommunicator());
 
   // TODO -- what are the implications of not setting the group
   // size? it's a lot of work to calculate the size. user manual
@@ -280,7 +280,7 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     ierr = -1;
     }
 
-  adios_close(handle);
+  //adios_close(handle);
 
   return ierr;
 }

@@ -3,6 +3,9 @@
 #include "Timer.h"
 #include "Error.h"
 
+#include "libIS/is_client.h"
+
+
 #include <opts/opts.h>
 
 #include <mpi.h>
@@ -77,8 +80,8 @@ int main(int argc, char **argv)
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
 
   dataAdaptor->SetCommunicator(comm);
-  dataAdaptor->SetReadMethod(readmethod);
-  dataAdaptor->SetFileName(fileName);
+  //dataAdaptor->SetReadMethod(readmethod);
+  //dataAdaptor->SetFileName(fileName);
 
   if (dataAdaptor->OpenStream())
     {

@@ -1,5 +1,4 @@
-#ifndef libISAnalysisAdaptor_h
-#define libISAnalysisAdaptor_h
+#pragma once
 
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
@@ -26,26 +25,26 @@ public:
 
   /// Sets the maximum buffer allocated by libIS in MB
   /// takes affect on first Execute
-  void SetMaxBufferSize(unsigned int size)
-  { this->MaxBufferSize = size; }
+  //void SetMaxBufferSize(unsigned int size)
+  //{ this->MaxBufferSize = size; }
 
   /// @brief Set the libIS method e.g. MPI, FLEXPATH etc.
   ///
   /// Default value is "MPI".
-  void SetMethod(const std::string &method)
-  { this->Method = method; }
+  //void SetMethod(const std::string &method)
+  //{ this->Method = method; }
 
-  std::string GetMethod() const
-  { return this->Method; }
+  //std::string GetMethod() const
+  //{ return this->Method; }
 
   /// @brief Set the filename.
   ///
   /// Default value is "sensei.bp"
-  void SetFileName(const std::string &filename)
-  { this->FileName = filename; }
+  //void SetFileName(const std::string &filename)
+  //{ this->FileName = filename; }
 
-  std::string GetFileName() const
-  { return this->FileName; }
+  //std::string GetFileName() const
+  //{ return this->FileName; }
 
   /// data requirements tell the adaptor what to push
   /// if none are given then all data is pushed.
@@ -87,4 +86,4 @@ private:
 
 }
 
-#endif
+

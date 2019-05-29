@@ -1,13 +1,12 @@
-#ifndef libISDataAdaptor_h
-#define libISDataAdaptor_h
+#pragma once
 
 #include "InTransitDataAdaptor.h"
 
-#include <adios.h>
-#include <adios_read.h>
-#include <mpi.h>
-#include <map>
-#include <string>
+//#include <adios.h>
+//#include <adios_read.h>
+//#include <mpi.h>
+//#include <map>
+//#include <string>
 
 namespace pugi { class xml_node; }
 
@@ -22,10 +21,10 @@ public:
   senseiTypeMacro(libISDataAdaptor, sensei::InTransitDataAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
-  int SetFileName(const std::string &fileName);
+  //int SetFileName(const std::string &fileName);
 
-  int SetReadMethod(const std::string &readMethod);
-  int SetReadMethod(ADIOS_READ_METHOD readMethod);
+  //int SetReadMethod(const std::string &readMethod);
+  //int SetReadMethod(ADIOS_READ_METHOD readMethod);
 
   /// SENSEI InTransitDataAdaptor control API
   int Initialize(pugi::xml_node &parent) override;
@@ -36,7 +35,7 @@ public:
   int AdvanceStream() override;
   int StreamGood() override;
 
-  /// SENSEI InTransitDataAdaptor explicit paritioning API
+  /// SENSEI InTransitDataAdaptor explicit partitioning API
   int GetSenderMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   /// SENSEI DataAdaptor API
@@ -72,5 +71,3 @@ private:
 };
 
 }
-
-#endif
