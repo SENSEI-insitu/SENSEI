@@ -1,9 +1,0 @@
-<sensei>
-  <analysis type="catalyst" pipeline="pythonscript"
-    filename="/Users/srizzi/Documents/senseiInTransit/src/sensei/sensei/testing/catalyst_render_receiver_partition.py"
-    enabled="1" />
-
-  <analysis type="catalyst" pipeline="pythonscript"
-    filename="/Users/srizzi/Documents/senseiInTransit/src/sensei/sensei/testing/catalyst_render_sender_partition.py"
-    enabled="1" />
-</sensei>
