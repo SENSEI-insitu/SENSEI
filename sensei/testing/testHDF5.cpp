@@ -251,13 +251,16 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
                         bds->GetCellData()->GetArray(mmd->ArrayName[j].c_str());
                     }
 
-                  if (check_array(array))
-                    {
-                      std::cerr << "Test failed on array " << j
-                                << " name=" << array->GetName() << std::endl;
-                      retval = -1;
-                      break;
-                    }
+		  if (mmd->ArrayName[j].find("BlockOwner") == std::string::npos) 
+		    {
+		      if (check_array(array))
+			{
+			  std::cerr << "Test failed on array " << j
+				    << " name=" << array->GetName() << std::endl;
+			  retval = -1;
+			  break;
+			}
+		    }
                 }
 #endif
               it->GoToNextItem();
@@ -594,6 +597,7 @@ AAWrap* GetWriteAdaptor(const std::string& file_name,
     {
       if (rank == 0)
         std::cout << " ======>>>> [ADIOS] Analysis  Adaptor <<<<<======"
+	          << " with config file:"<<file_name
                   << std::endl;
 
       // initialize the analysis adaptor
@@ -705,7 +709,7 @@ int main(int argc, char** argv)
           base_file_name = argv[4];
         }
 
-      char file_name[20];
+      char file_name[base_file_name.size()];
       sprintf(file_name, "%s.n%d", base_file_name.c_str(), n_ranks);
 
       if (rank == 0)
@@ -714,7 +718,6 @@ int main(int argc, char** argv)
       AAWrap* aw = GetWriteAdaptor(file_name, method, rank);
       writeMe(aw->GetAA(), n_its, comm);
 
-      return 0;
     }
   else
     {
@@ -735,5 +738,6 @@ int main(int argc, char** argv)
       delete result;
     }
 
+  MPI_Finalize();
   return 0;
 }
