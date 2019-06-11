@@ -11,7 +11,7 @@ The [course materials](https://data.kitware.com/#collection/5a007cb58d777f31ac64
 are available here:
 
 + [Slides (PDF, 57 MB)](https://data.kitware.com/api/v1/item/5cf7f5268d777f072b15eaf1/download)
-+ [Virtual machine disk image (OVA, 8.9GB)](https://data.kitware.com/api/v1/item/5cf7f5268d777f072b15eaf5/download)
++ [Virtual machine disk image (OVA, 8.9GB)](https://drive.google.com/open?id=1N1OoynU8dADIXoY5YEQ5VtrSayCO4qDS)
 
 The disk image is based on Ubuntu 18.04 and can be used with VirtualBox to try SENSEI out
 without having to build it yourself.
