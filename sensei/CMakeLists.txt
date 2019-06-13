@@ -8,8 +8,9 @@ if (ENABLE_SENSEI)
     ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
     Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
     MappedPartitioner.cxx MeshMetadata.cxx MeshMetadataMap.cxx
-    PlanarPartitioner.cxx ProgrammableDataAdaptor.cxx VTKHistogram.cxx
-    VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
+    PlanarPartitioner.cxx PlanarSlicePartitioner.cxx
+    ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
+    VTKUtils.cxx XMLUtils.cxx)
 
   set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
 
