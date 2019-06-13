@@ -313,20 +313,43 @@ int SetGhostLayerMetadata(vtkDataObject *mesh,
 int GetArrayMetadata(vtkDataSetAttributes *dsa, int centering,
   std::vector<std::string> &arrayNames, std::vector<int> &arrayCen,
   std::vector<int> &arrayComps, std::vector<int> &arrayType,
+  std::vector<std::array<double,2>> &arrayRange,
   int &hasGhostArray)
 {
   int na = dsa->GetNumberOfArrays();
   for (int i = 0; i < na; ++i)
     {
     vtkDataArray *da = dsa->GetArray(i);
+
     const char *name = da->GetName();
     arrayNames.emplace_back((name ? name : "unkown"));
+
     arrayCen.emplace_back(centering);
     arrayComps.emplace_back(da->GetNumberOfComponents());
     arrayType.emplace_back(da->GetDataType());
 
+    arrayRange.emplace_back(std::array<double,2>({std::numeric_limits<double>::max(),
+      std::numeric_limits<double>::lowest()}));
+
     if (!hasGhostArray && name && !strcmp("vtkGhostType", name))
       hasGhostArray = 1;
+    }
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int GetArrayMetadata(vtkDataSetAttributes *dsa,
+  std::vector<std::array<double,2>> &arrayRange)
+{
+  int na = dsa->GetNumberOfArrays();
+  for (int i = 0; i < na; ++i)
+    {
+    vtkDataArray *da = dsa->GetArray(i);
+
+    double rng[2];
+    da->GetRange(rng);
+
+    arrayRange.emplace_back(std::array<double,2>({rng[0], rng[1]}));
     }
   return 0;
 }
@@ -336,11 +359,11 @@ int GetArrayMetadata(vtkDataSet *ds, MeshMetadataPtr &metadata)
 {
   VTKUtils::GetArrayMetadata(ds->GetPointData(), vtkDataObject::POINT,
     metadata->ArrayName, metadata->ArrayCentering, metadata->ArrayComponents,
-    metadata->ArrayType, metadata->NumGhostNodes);
+    metadata->ArrayType, metadata->ArrayRange, metadata->NumGhostNodes);
 
   VTKUtils::GetArrayMetadata(ds->GetCellData(), vtkDataObject::CELL,
     metadata->ArrayName, metadata->ArrayCentering, metadata->ArrayComponents,
-    metadata->ArrayType, metadata->NumGhostCells);
+    metadata->ArrayType, metadata->ArrayRange, metadata->NumGhostCells);
 
   metadata->NumArrays = metadata->ArrayName.size();
 
@@ -353,7 +376,8 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
   std::vector<int> &blockIds, std::vector<long> &blockPoints,
   std::vector<long> &blockCells, std::vector<long> &blockCellArraySize,
   std::vector<std::array<int,6>> &blockExtents,
-  std::vector<std::array<double,6>> &blockBounds)
+  std::vector<std::array<double,6>> &blockBounds,
+  std::vector<std::vector<std::array<double,2>>> &blockArrayRange)
 {
   if (!ds)
     return -1;
@@ -413,6 +437,14 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
     blockBounds.emplace_back(std::move(bounds));
     }
 
+  if (flags.BlockArrayRangeSet())
+    {
+    std::vector<std::array<double,2>> arrayRange;
+    GetArrayMetadata(ds->GetPointData(), arrayRange);
+    GetArrayMetadata(ds->GetCellData(), arrayRange);
+    blockArrayRange.emplace_back(std::move(arrayRange));
+    }
+
   return 0;
 }
 
@@ -422,7 +454,7 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds, MeshMetadataPtr metadata)
     return GetBlockMetadata(rank, id, ds, metadata->Flags,
       metadata->BlockOwner, metadata->BlockIds, metadata->BlockNumPoints,
       metadata->BlockNumCells, metadata->BlockCellArraySize,
-      metadata->BlockExtents, metadata->BlockBounds);
+      metadata->BlockExtents, metadata->BlockBounds, metadata->BlockArrayRange);
 }
 
 // --------------------------------------------------------------------------
@@ -452,14 +484,19 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
 
   // get block metadata
   int numBlocks = 0;
-  while (!cdit->IsDoneWithTraversal())
+  int numBlocksLocal = 0;
+  cdit->SetSkipEmptyNodes(0);
+
+  for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
     {
+    numBlocks += 1;
+
     vtkDataObject *dobj = cd->GetDataSet(cdit);
     int bid = std::max(0, int(cdit->GetCurrentFlatIndex() - 1));
 
     if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
       {
-      numBlocks += 1;
+      numBlocksLocal += 1;
 
       if (VTKUtils::GetBlockMetadata(rank, bid, ds, metadata))
         {
@@ -469,21 +506,11 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
         return -1;
         }
       }
-    cdit->GoToNextItem();
     }
 
   // set block counts
-  metadata->NumBlocksLocal = {numBlocks};
-
-  metadata->NumBlocks = 0;
-  cdit->SetSkipEmptyNodes(0);
-  cdit->InitTraversal();
-  while (!cdit->IsDoneWithTraversal())
-    {
-    metadata->NumBlocks += 1;
-    cdit->GoToNextItem();
-    }
-
+  metadata->NumBlocks = numBlocks;
+  metadata->NumBlocksLocal = {numBlocksLocal};
   cdit->Delete();
 
   // get global bounds and extents

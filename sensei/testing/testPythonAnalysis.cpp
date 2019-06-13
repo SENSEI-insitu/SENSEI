@@ -68,11 +68,15 @@ int getMeshMetadata(unsigned int i, sensei::MeshMetadataPtr &mdp)
   mdp->ArrayComponents = {1};
   mdp->ArrayType = {VTK_DOUBLE};
 
+  mdp->BlockIds = {0};
   mdp->BlockOwner = {rank};
   mdp->BlockBounds = {{0.0, 1.0, 0.0, 1.0, double(rank), double(rank+1)}};
   mdp->BlockExtents = {{0, gnx, 0, gny, rank, rank+1}};
   mdp->BlockNumCells = {gnx*gny};
   mdp->BlockNumPoints = {2*gnx*gny};
+
+  mdp->BlockArrayRange = {{{std::numeric_limits<double>::lowest(),
+    std::numeric_limits<double>::max()}}};
 
   return 0;
 }

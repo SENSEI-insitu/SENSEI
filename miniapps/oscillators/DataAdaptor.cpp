@@ -312,6 +312,7 @@ vtkUnsignedCharArray *newGhostCellsArray(int *shape,
 
     return g;
 }
+
 namespace oscillators
 {
 
@@ -693,6 +694,31 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
       metadata->BlockOwner.push_back(rank);
       metadata->BlockIds.push_back(it->first);
       }
+    }
+
+  if (metadata->Flags.BlockArrayRangeSet())
+    {
+    float gmin = std::numeric_limits<float>::max();
+    float gmax = std::numeric_limits<float>::lowest();
+    std::map<long, float*>::iterator it = this->Internals->BlockData.begin();
+    std::map<long, float*>::iterator end = this->Internals->BlockData.end();
+    for (; it != end; ++it)
+      {
+      unsigned long nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
+      float *pdata = it->second;
+      float bmin = std::numeric_limits<float>::max();
+      float bmax = std::numeric_limits<float>::lowest();
+      for (unsigned long i = 0; i < nCells; ++i)
+        {
+        bmin = std::min(bmin, pdata[i]);
+        bmax = std::max(bmax, pdata[i]);
+        }
+      gmin = std::min(gmin, bmin);
+      gmax = std::max(gmax, bmax);
+      std::vector<std::array<double,2>> blkRange{{bmin,bmax}};
+      metadata->BlockArrayRange.push_back(blkRange);
+      }
+    metadata->ArrayRange.push_back({gmin, gmax});
     }
 
   return 0;
