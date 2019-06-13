@@ -23,7 +23,7 @@ maxDelay=30
 
 nblocks=`echo ${nblock_x}*${nblock_y} | bc`
 
-trap 'echo $BASH_COMMAND' DEBUG
+trap 'eval echo $BASH_COMMAND' DEBUG
 
 # TODO -- clean up old files, this is not generic
 # this does not affect h5. which uses the file name in the xml
