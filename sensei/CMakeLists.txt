@@ -8,7 +8,7 @@ if (ENABLE_SENSEI)
     ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
     Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
     MappedPartitioner.cxx MeshMetadata.cxx MeshMetadataMap.cxx
-    PlanarPartitioner.cxx PlanarSlicePartitioner.cxx
+    IsoSurfacePartitioner.cxx PlanarPartitioner.cxx PlanarSlicePartitioner.cxx
     ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
     VTKUtils.cxx XMLUtils.cxx)
 
