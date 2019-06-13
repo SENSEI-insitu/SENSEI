@@ -90,6 +90,9 @@ public:
   template <typename T, unsigned long N> void Pack(const std::array<T,N> &arr);
   template <typename T, unsigned long N> void Unpack(std::array<T,N> &arr);
 
+  template <typename K, typename V> void Pack(const std::map<K,V> &amap);
+  template <typename K, typename V> void Unpack(std::map<K,V> &amap);
+
   template<typename T> void Pack(const std::vector<T> &v, typename std::enable_if<std::is_class<T>::value>::type* = 0);
   template<typename T> void Unpack(std::vector<T> &v, typename std::enable_if<std::is_class<T>::value>::type* = 0);
 
@@ -193,6 +196,40 @@ template <typename T, unsigned long N>
 void BinaryStream::Unpack(std::array<T,N> &arr)
 {
   this->Unpack(arr.data(), N);
+}
+
+//-----------------------------------------------------------------------------
+template <typename K, typename V>
+void BinaryStream::Pack(const std::map<K,V> &amap)
+{
+  unsigned long len = amap.size();
+  this->Pack(len);
+
+  typename std::map<K,V>::const_iterator it = amap.begin();
+  for (unsigned long i = 0; i < len; ++i, ++it)
+    {
+    this->Pack(it->first);
+    this->Pack(it->second);
+    }
+}
+
+//-----------------------------------------------------------------------------
+template <typename K, typename V>
+void BinaryStream::Unpack(std::map<K,V> &amap)
+{
+  unsigned long len = 0;
+  this->Unpack(len);
+
+  for (unsigned long i = 0; i < len; ++i)
+    {
+    K key;
+    V val;
+
+    this->Unpack(key);
+    this->Unpack(val);
+
+    amap[key] = std::move(val);
+    }
 }
 
 //-----------------------------------------------------------------------------
