@@ -81,6 +81,35 @@ void GlobalBounds(MPI_Comm comm, const std::vector<std::array<cpp_t,6>> &lbounds
     gbounds[i] = -gbounds[i];
 }
 
+// helper function to compute glpbal array range
+template <typename cpp_t>
+void GlobalRange(MPI_Comm comm, const std::vector<std::array<cpp_t,2>> &lrange,
+    std::array<cpp_t,6> &grange)
+{
+  int nLocal = lrange.size();
+
+  grange = {std::numeric_limits<cpp_t>::max(),
+    std::numeric_limits<cpp_t>::lowest()};
+
+  // find the range over local blocks
+  for (int q = 0; q < nLocal; ++q)
+    {
+    const cpp_t *plrange = lrange[q].data();
+    grange[0] = std::min(grange[0], plrange[0]);
+    grange[1] = std::max(grange[1], plrange[1]);
+    }
+
+  // so we can use MPI_MAX
+  grange[0] = -grange[0];
+
+  // find the smallest bounding covering all distributed
+  MPI_Allreduce(MPI_IN_PLACE, grange.data(), 6,
+    mpi_tt<cpp_t>::datatype(), MPI_MAX, comm);
+
+  // because we used MPI_MAX
+  grange[0] = -grange[0];
+}
+
 // helper function to generate a global view from a local view.
 // here it is assumed that all ranks have the number of items
 // in local data. If that is not the case see GlobalViewV
@@ -171,7 +200,22 @@ void GlobalViewV(MPI_Comm comm, std::vector<cpp_t> &ldata)
   std::vector<int> counts, offsets;
   std::vector<cpp_t> gdata;
   GlobalViewV(comm, ldata, counts, offsets, gdata);
-  ldata = gdata;
+  ldata = std::move(gdata);
+}
+
+// use this if you don't need counts & offsets and want the result
+// to replace the input.
+template <typename cpp_t>
+void GlobalViewV(MPI_Comm comm, std::vector<std::vector<cpp_t>> &vldata)
+{
+  unsigned int vlen = vldata.size();
+  for (unsigned int i = 0; i < vlen; ++i)
+    {
+    std::vector<int> counts, offsets;
+    std::vector<cpp_t> gdata;
+    GlobalViewV(comm, vldata[i], counts, offsets, gdata);
+    vldata[i] = std::move(gdata);
+    }
 }
 
 // helper function to generate a global view from a local view. A vector of
@@ -221,7 +265,21 @@ void GlobalViewV(MPI_Comm comm, std::vector<std::array<cpp_t,N>> &ldata)
 {
   std::vector<std::array<cpp_t,N>> gdata;
   GlobalViewV(comm, ldata, gdata);
-  ldata = gdata;
+  ldata = std::move(gdata);
+}
+
+// use this if you don't need counts & offsets and want the result
+// to replace the input.
+template <typename cpp_t, std::size_t N>
+void GlobalViewV(MPI_Comm comm, std::vector<std::vector<std::array<cpp_t,N>>> &vldata)
+{
+  unsigned int vlen = vldata.size();
+  for (unsigned int i = 0; i < vlen; ++i)
+    {
+    std::vector<std::array<cpp_t,N>> gdata;
+    GlobalViewV(comm, vldata[i], gdata);
+    vldata[i] = std::move(gdata);
+    }
 }
 
 }
