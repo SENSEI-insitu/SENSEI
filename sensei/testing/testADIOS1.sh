@@ -21,7 +21,7 @@ nits=$8
 delay=1
 maxDelay=30
 
-trap 'echo $BASH_COMMAND' DEBUG
+trap 'eval echo $BASH_COMMAND' DEBUG
 
 rm -f ${file}
 
