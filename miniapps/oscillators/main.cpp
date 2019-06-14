@@ -10,6 +10,7 @@
 #include <diy/io/bov.hpp>
 #include <diy/grid.hpp>
 #include <diy/vertices.hpp>
+#include <diy/point.hpp>
 
 #include "Oscillator.h"
 #include "Particles.h"
@@ -26,6 +27,8 @@
 
 using Grid   = diy::Grid<float,3>;
 using Vertex = Grid::Vertex;
+using SpPoint = diy::Point<float,3>;
+using Bounds = diy::Point<float,6>;
 
 using Link   = diy::RegularGridLink;
 using Master = diy::Master;
@@ -56,17 +59,18 @@ int main(int argc, char** argv)
     size_t                      k_max     = 3;
 #endif
     int                         threads   = 1;
-    int                         ghostLevels = 0;
-    int                         numberOfParticles = -1;
-    // Use a fixed seed by default for regression tests:
+    int                         ghostCells = 1;
+    int                         numberOfParticles = 0;
     int                         seed = 0x240dc6a9;
     std::string                 config_file;
     std::string                 out_prefix = "";
+    Bounds                      bounds{0.,-1.,0.,-1.,0.,-1.};
 
     Options ops(argc, argv);
     ops
         >> Option('b', "blocks", nblocks,   "number of blocks to use. must greater or equal to number of MPI ranks.")
-        >> Option('s', "shape",  shape,     "domain shape")
+        >> Option('s', "shape",  shape,     "global number of cells in the domain")
+        >> Option('e', "bounds", bounds,    "global bounds of the domain")
         >> Option('t', "dt",     dt,        "time step")
 #ifdef ENABLE_SENSEI
         >> Option('f', "config", config_file, "Sensei analysis configuration xml (required)")
@@ -77,9 +81,9 @@ int main(int argc, char** argv)
         >> Option(     "t-end",  t_end,     "end time")
         >> Option('j', "jobs",   threads,   "number of threads to use")
         >> Option('o', "output", out_prefix, "prefix to save output")
-        >> Option('g', "ghost levels", ghostLevels, "number of ghost levels")
+        >> Option('g', "ghost-cells", ghostCells, "number of ghost cells")
         >> Option('p', "particles", numberOfParticles, "number of random particles to generate")
-        >> Option('v', "velocity scale", velocity_scale, "scale factor to convert function gradient to velocity")
+        >> Option('v', "v-scale", velocity_scale, "scale factor to convert function gradient to velocity")
         >> Option(     "seed", seed, "specify a random seed")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
@@ -175,9 +179,27 @@ int main(int argc, char** argv)
     for (unsigned i = 0; i < 3; ++i)
       domain.max[i] = shape[i] - 1;
 
+    SpPoint origin{0.,0.,0.};
+    SpPoint spacing{1.,1.,1.};
+    if (bounds[1] >= bounds[0])
+      {
+      // valid bounds specififed on the command line, calculate the
+      // global origin and spacing.
+      for (int i = 0; i < 3; ++i)
+        origin[i] = bounds[2*i];
+
+      for (int i = 0; i < 3; ++i)
+        spacing[i] = (bounds[2*i+1] - bounds[2*i])/shape[i];
+      }
+
     if (verbose && (world.rank() == 0))
-        std::cerr << world.rank() << " domain = " << domain.min
-            << ", " << domain.max << std::endl;
+      {
+      std::cerr << world.rank() << " domain = " << domain.min
+         << ", " << domain.max << std::endl
+         << world.rank() << "bounds = " << bounds << std::endl
+         << world.rank() << "origin = " << origin << std::endl
+         << world.rank() << "spacing = " << spacing << std::endl;
+      }
 
     // record various parameters to initialize analysis
     std::vector<int> gids,
@@ -186,14 +208,15 @@ int main(int argc, char** argv)
 
     diy::RegularDecomposer<diy::DiscreteBounds>::BoolVector share_face;
     diy::RegularDecomposer<diy::DiscreteBounds>::BoolVector wrap(3, true);
-    diy::RegularDecomposer<diy::DiscreteBounds>::CoordinateVector ghosts = {ghostLevels, ghostLevels, ghostLevels};
+    diy::RegularDecomposer<diy::DiscreteBounds>::CoordinateVector ghosts = {ghostCells, ghostCells, ghostCells};
 
     // decompose the domain
     diy::decompose(3, world.rank(), domain, assigner,
                    [&](int gid, const diy::DiscreteBounds &, const diy::DiscreteBounds &bounds,
                        const diy::DiscreteBounds &domain, const Link& link)
                    {
-                      Block *b = new Block(gid, bounds, domain, ghostLevels, oscillators, velocity_scale);
+                      Block *b = new Block(gid, bounds, domain, origin,
+                        spacing, ghostCells, oscillators, velocity_scale);
 
                       // generate particles
                       int start = particlesPerBlock * gid;
@@ -226,12 +249,12 @@ int main(int argc, char** argv)
 
     timer::MarkStartEvent("oscillators::analysis::initialize");
 #ifdef ENABLE_SENSEI
-    bridge::initialize(nblocks, gids.size(),
+    bridge::initialize(nblocks, gids.size(), origin.data(), spacing.data(),
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
                        &gids[0],
                        &from_x[0], &from_y[0], &from_z[0],
                        &to_x[0],   &to_y[0],   &to_z[0],
-                       &shape[0], ghostLevels,
+                       &shape[0], ghostCells,
                        config_file);
 #else
     init_analysis(world, window, gids.size(),

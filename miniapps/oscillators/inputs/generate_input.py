@@ -7,28 +7,33 @@ pi = 3.1415
 # using random values within a set of ranges
 
 # nosc -- number of osciallators to genrate
-# nx,ny -- grid dimensions
+# x0,x1 -- grid dimensions
 # r0,r1 -- min/max width of the Guassian splat
 # w0,w1 -- min/max frequency
-# z0,z1 -- min/max damping coeficient
+# n0,n1 -- min/max damping coeficient
 # dfrac -- ratio of damped to periodic type
 
-nosc = 128
-nx = ny = 2048
+nosc = 5
 
-r0 = 8
-r1 = 96
+r0 = 0.01
+r1 = 0.1
 
 w0 = pi/4.
 w1 = 16.*pi
 
-z0 = 0.0
-z1 = 1.0
+n0 = 0.0
+n1 = 1.0
 
 dfrac = 0.75
 
 x0 = r1
-x1 = nx - r1
+x1 = 1.0 - r1
+
+y0 = r1
+y1 = 1.0 - r1
+
+z0 = r1
+z1 = 1.0 - r1
 
 def rng(x0, x1):
     return x0 + (x1 - x0)*random.random()
@@ -44,12 +49,13 @@ pts = []
 i = 0
 while i < nosc:
     x = rng(x0, x1)
-    y = rng(x0, x1)
+    y = rng(y0, y1)
+    z = rng(z0, z1)
     w = rng(w0, w1)
     r = rng(r0, r1)
-    z = rng(z0, z1)
+    n = rng(n0, n1)
     t = 'damped' if random.random() < dfrac else 'periodic'
-    sys.stderr.write('%s    %d %d %d    %f    %f    %f\n'%(t,x,y,0.,r,w,z))
+    sys.stderr.write('%s    %f %f %f    %f    %f    %f\n'%(t,x,y,z,r,w,n))
     pts += [x,y,z]
     i += 1
 
