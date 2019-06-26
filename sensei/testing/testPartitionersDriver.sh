@@ -23,8 +23,17 @@ parts_m=( block )
 
 # different transports have different capabilities. for each capability
 # to test, include an XML following the pattern: read_<transport>_<partitioner>.xml
-parts_n=`find ${src_dir} -name read_${transport}'*'.xml -exec basename \{\} \; | sed s/read_${transport}_//g | cut -d. -f1 | sort`
-
+# parts_n=`find ${src_dir} -name read_${transport}*.xml -exec basename \{\} \; | sed s/read_${transport}_//g | cut -d. -f1 | sort`
+# 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+# mac:
+   echo "find ${src_dir}/read_${transport}*.xml -exec basename \{\} \; | sed s/read_${transport}_//g | cut -d. -f1 | sort"
+   parts_n=`find ${src_dir}/read_${transport}*.xml -exec basename \{\} \; | sed s/read_${transport}_//g | cut -d. -f1 | sort`
+else
+# other os:
+   echo "find ${src_dir} -name read_${transport}*.xml -exec basename \{\} \; | sed s/read_${transport}_//g | cut -d. -f1 | sort"
+   parts_n=`find ${src_dir} -name read_${transport}*.xml -exec basename \{\} \; | sed s/read_${transport}_//g | cut -d. -f1 | sort`
+fi
 for part_m in ${parts_m[*]}
 do
   for part_n in ${parts_n[*]}
