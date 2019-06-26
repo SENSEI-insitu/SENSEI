@@ -26,7 +26,9 @@ nblocks=`echo ${nblock_x}*${nblock_y} | bc`
 trap 'echo $BASH_COMMAND' DEBUG
 
 # TODO -- clean up old files, this is not generic
+# this does not affect h5. which uses the file name in the xml
 file=test.bp
+
 rm -f $file ${file}_writer_info.txt
 
 ${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testPartitionersWrite.py \
