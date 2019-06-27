@@ -31,7 +31,6 @@
 #include <vtkSmartPointer.h>
 
 #include <mpi.h>
-//#include <adios.h>
 #include <vector>
 
 namespace sensei

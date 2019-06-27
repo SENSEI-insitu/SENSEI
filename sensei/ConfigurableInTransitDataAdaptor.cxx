@@ -8,6 +8,9 @@
 #ifdef ENABLE_HDF5
 #include "HDF5DataAdaptor.h"
 #endif
+#ifdef ENABLE_LIBIS
+#include "libISDataAdaptor.h"
+#endif
 
 #include <pugixml.hpp>
 #include <string>
@@ -116,8 +119,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     SENSEI_ERROR("libis transport requested but is disabled in this build")
     return -1;
 #else
-    SENSEI_ERROR("libis not yet available")
-    return -1;
+    adaptor = libISDataAdaptor::New();
 #endif
     }
   else
