@@ -1,6 +1,7 @@
 #include "libISAnalysisAdaptor.h"
 
 #include "libISSchema.h"
+#include "libis/is_sim.h"
 #include "DataAdaptor.h"
 #include "MeshMetadataMap.h"
 #include "VTKUtils.h"
@@ -89,7 +90,7 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     {
     if (this->Requirements.Initialize(dataAdaptor, false))
       {
-      SENSEI_ERROR("Failed to initialze dataAdaptor description")
+      SENSEI_ERROR("Failed to initialize dataAdaptor description")
       return false;
       }
     SENSEI_WARNING("No subset specified. Writing all available data")
@@ -200,6 +201,9 @@ int libISAnalysisAdaptor::InitializelibIS(
     // initialize adios
     //adios_init_noxml(this->GetCommunicator());
 
+    int port=29374;
+    libISInit(this->GetCommunicator(), port);
+
 //#if ADIOS_VERSION_GE(1,11,0)
     //adios_set_max_buffer_size(this->MaxBufferSize);
     //adios_declare_group(&this->GroupHandle, "SENSEI", "",
@@ -215,7 +219,7 @@ int libISAnalysisAdaptor::InitializelibIS(
     this->Schema = new senseilibIS::DataObjectCollectionSchema;
     }
 
-  // (re)define variables to support meshes that evovle in time
+  // (re)define variables to support meshes that evolve in time
   if (this->Schema->DefineVariables(this->GetCommunicator(),
     this->GroupHandle, metadata))
     {
@@ -232,6 +236,7 @@ int libISAnalysisAdaptor::FinalizelibIS()
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
   //adios_finalize(rank);
+  libISFinalize();
   return 0;
 }
 
@@ -271,6 +276,48 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     this->GetCommunicator(), metadata, objects);
   adios_group_size(handle, group_size, &group_size);*/
 
+  libISSimState *libis_state = libISMakeSimState();
+
+  // may need to get size from schema here
+
+
+
+  // from libIS example, just to make sure the code builds for now
+
+  struct Particle {
+	//vec3<float> pos;
+	int attrib;
+  };
+
+  size_t NUM_PARTICLES = 2000;
+
+  std::vector<float> field_one;
+  std::vector<uint8_t> field_two;
+  const std::array<uint64_t, 3> field_dims({32, 32, 32});
+
+  std::vector<Particle> particle;
+
+  libISBox3f bounds;
+  /////////////////////////////////////////////////////////////////
+
+  libISVec3f world_min{0.f, 0.f, 0.f};
+  //libISVec3f world_max{grid.x, grid.y, grid.z};
+  libISVec3f world_max{10.0, 10.0, 10.0};
+  libISBox3f world_bounds = libISMakeBox3f();
+  libISBoxExtend(&world_bounds, &world_min);
+  libISBoxExtend(&world_bounds, &world_max);
+  libISSetWorldBounds(libis_state, world_bounds);
+
+  libISSetLocalBounds(libis_state, bounds);
+  libISSetGhostBounds(libis_state, bounds);
+
+  // Setup the shared pointers to our particle and field data
+  libISSetParticles(libis_state, NUM_PARTICLES, 0, sizeof(Particle), particle.data());
+  libISSetField(libis_state, "field_one", field_dims.data(), FLOAT, field_one.data());
+  libISSetField(libis_state, "field_two", field_dims.data(), UINT8, field_two.data());
+
+
+
   if (this->Schema->Write(this->GetCommunicator(),
     handle, timeStep, time, metadata, objects))
     {
@@ -280,6 +327,7 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     }
 
   //adios_close(handle);
+  libISFreeSimState(libis_state);
 
   return ierr;
 }
