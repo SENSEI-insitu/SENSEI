@@ -8,7 +8,8 @@ endif()
 
 if(ENABLE_HDF5)
   add_executable(HDF5EndPoint HDF5EndPoint.cpp)
-  target_link_libraries(HDF5EndPoint PRIVATE opts sensei timer sHDF5 sMPI)
+  #target_link_libraries(HDF5EndPoint PRIVATE opts sensei timer sHDF5 sMPI)
+  target_link_libraries(HDF5EndPoint PRIVATE opts sensei sHDF5 sMPI)	
 
   install(TARGETS HDF5EndPoint
     RUNTIME DESTINATION bin)
