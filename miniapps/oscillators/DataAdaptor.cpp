@@ -621,6 +621,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
   metadata->MeshName = (id == 0 ? "mesh" : "ucdmesh");
   metadata->MeshType = VTK_MULTIBLOCK_DATA_SET;
   metadata->BlockType = (id == 0 ? VTK_IMAGE_DATA : VTK_UNSTRUCTURED_GRID);
+  metadata->NumBlocks = this->Internals->NumBlocks;
   metadata->NumBlocksLocal = {nBlocks};
   metadata->NumGhostCells = this->Internals->NumGhostCells;
   metadata->NumArrays = 1;
