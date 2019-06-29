@@ -1,5 +1,5 @@
 #include "HDF5Schema.h"
-#include "timer.h"
+#include "Timer.h"
 #include "VTKUtils.h"
 
 #include <vtkCellArray.h>
