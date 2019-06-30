@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 #include <ostream>
-
+#include <limits>
 
 namespace sensei
 {
@@ -56,7 +56,8 @@ void ReduceRange(const std::array<con_t,n> &in, std::array<con_t,n> &out)
 
 // --------------------------------------------------------------------------
 template<typename con_t, unsigned long n>
-void ReduceRange(const std::vector<std::array<con_t,n>> &in, std::array<con_t,n> &out)
+void ReduceRange(const std::vector<std::array<con_t,n>> &in,
+  std::array<con_t,n> &out)
 {
   InitializeRange(out);
   unsigned long nElem = in.size();
@@ -66,7 +67,8 @@ void ReduceRange(const std::vector<std::array<con_t,n>> &in, std::array<con_t,n>
 
 // --------------------------------------------------------------------------
 template<typename con_t, unsigned long n>
-void ReduceRange(const std::vector<std::array<con_t,n>> &in, std::vector<std::array<con_t,n>> &out)
+void ReduceRange(const std::vector<std::array<con_t,n>> &in,
+  std::vector<std::array<con_t,n>> &out)
 {
   unsigned long nElem = in.size();
   for (unsigned long j = 0; j < nElem; ++j)
