@@ -203,21 +203,6 @@ void GlobalViewV(MPI_Comm comm, std::vector<cpp_t> &ldata)
   ldata = std::move(gdata);
 }
 
-// use this if you don't need counts & offsets and want the result
-// to replace the input.
-template <typename cpp_t>
-void GlobalViewV(MPI_Comm comm, std::vector<std::vector<cpp_t>> &vldata)
-{
-  unsigned int vlen = vldata.size();
-  for (unsigned int i = 0; i < vlen; ++i)
-    {
-    std::vector<int> counts, offsets;
-    std::vector<cpp_t> gdata;
-    GlobalViewV(comm, vldata[i], counts, offsets, gdata);
-    vldata[i] = std::move(gdata);
-    }
-}
-
 // helper function to generate a global view from a local view. A vector of
 // local data items is passed in, this vector could be a different length on
 // each rank. a vector of the global data items is returned along with an array
@@ -270,16 +255,55 @@ void GlobalViewV(MPI_Comm comm, std::vector<std::array<cpp_t,N>> &ldata)
 
 // use this if you don't need counts & offsets and want the result
 // to replace the input.
-template <typename cpp_t, std::size_t N>
-void GlobalViewV(MPI_Comm comm, std::vector<std::vector<std::array<cpp_t,N>>> &vldata)
+template <typename cpp_t>
+void GlobalViewV(MPI_Comm comm, std::vector<std::vector<cpp_t>> &ldata)
 {
-  unsigned int vlen = vldata.size();
-  for (unsigned int i = 0; i < vlen; ++i)
+  // gather local sizes
+  std::vector<long> lsizes;
+  int nLocal = ldata.size();
+  for (int i = 0; i < nLocal; ++i)
+    lsizes.push_back(ldata[i].size());
+
+  std::vector<int> scounts, soffsets;
+  std::vector<long> gsizes;
+
+  GlobalViewV(comm, lsizes, scounts, soffsets, gsizes);
+
+  // flatten local data
+  std::vector<cpp_t> lfdata;
+  for (int i = 0; i < nLocal; ++i)
     {
-    std::vector<std::array<cpp_t,N>> gdata;
-    GlobalViewV(comm, vldata[i], gdata);
-    vldata[i] = std::move(gdata);
+    const std::vector<cpp_t> &elem = ldata[i];
+    long nElem = elem.size();
+    for (int j = 0; j < nElem; ++j)
+      lfdata.push_back(elem[j]);
     }
+
+  // gather flattened data
+  std::vector<cpp_t> gfdata;
+  GlobalViewV(comm, lfdata, gfdata);
+
+  // un-flatten
+  std::vector<std::vector<cpp_t>> gdata;
+  unsigned int nranks = scounts.size();
+  for (unsigned int i = 0, q  = 0; i < nranks; ++i)
+    {
+    int nVec = scounts[i];
+    int vecOffs = soffsets[i];
+    for (int j = 0; j < nVec; ++j)
+      {
+      long nElem = gsizes[vecOffs + j];
+      std::vector<cpp_t> vec;
+      for (long k = 0; k < nElem; ++k,++q)
+        {
+        vec.push_back(gfdata[q]);
+        }
+      gdata.push_back(vec);
+      }
+    }
+
+  // return global view
+  ldata.swap(gdata);
 }
 
 }
