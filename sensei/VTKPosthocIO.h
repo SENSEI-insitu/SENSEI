@@ -5,6 +5,8 @@
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
 
+#include <vtkSmartPointer.h>
+
 #include <mpi.h>
 #include <vector>
 #include <string>
@@ -12,6 +14,9 @@
 
 namespace sensei
 {
+class VTKPosthocIO;
+using VTKPosthocIOPtr = vtkSmartPointer<VTKPosthocIO>;
+
 /// @class VTKPosthocIO
 /// brief sensei::VTKPosthocIO is a AnalysisAdaptor that writes
 /// data to disk. This can be useful for generating preview datasets
