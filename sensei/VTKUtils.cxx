@@ -32,7 +32,13 @@
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkSOADataArrayTemplate.h>
 #endif
+#include <vtkUnstructuredGridWriter.h>
+#include <vtkPoints.h>
+#include <vtkDoubleArray.h>
+#include <vtkIdTypeArray.h>
+#include <vtkUnsignedCharArray.h>
 
+#include <sstream>
 #include <functional>
 #include <mpi.h>
 
@@ -941,6 +947,157 @@ int GetLocalGeometrySizes(MPI_Comm comm,
   return 0;
 }
 */
+
+// helper for creating hexahedron
+static
+void HexPoints(long cid, const std::array<double,6> &bds, double *pCoords)
+{
+    long ii = 8*3*cid;
+    pCoords[ii     ] = bds[0];
+    pCoords[ii + 1 ] = bds[2];
+    pCoords[ii + 2 ] = bds[4];
+
+    pCoords[ii + 3 ] = bds[1];
+    pCoords[ii + 4 ] = bds[2];
+    pCoords[ii + 5 ] = bds[4];
+
+    pCoords[ii + 6 ] = bds[1];
+    pCoords[ii + 7 ] = bds[3];
+    pCoords[ii + 8 ] = bds[4];
+
+    pCoords[ii + 9 ] = bds[0];
+    pCoords[ii + 10] = bds[3];
+    pCoords[ii + 11] = bds[4];
+
+    pCoords[ii + 12] = bds[0];
+    pCoords[ii + 13] = bds[2];
+    pCoords[ii + 14] = bds[5];
+
+    pCoords[ii + 15] = bds[1];
+    pCoords[ii + 16] = bds[2];
+    pCoords[ii + 17] = bds[5];
+
+    pCoords[ii + 18] = bds[1];
+    pCoords[ii + 19] = bds[3];
+    pCoords[ii + 20] = bds[5];
+
+    pCoords[ii + 21] = bds[0];
+    pCoords[ii + 22] = bds[3];
+    pCoords[ii + 23] = bds[5];
+}
+
+// helper to make hexahedron cell
+static
+void HexCell(long cid, unsigned char *pCta, vtkIdType *pClocs, vtkIdType *pCids)
+{
+    // cell types & location
+    pCta[cid] = VTK_HEXAHEDRON;
+    pClocs[cid] = cid*9;
+
+    // cells
+    long ii = 8*cid;
+    long jj = 9*cid;
+    pCids[jj    ] = 8;
+    pCids[jj + 1] = ii;
+    pCids[jj + 2] = ii + 1;
+    pCids[jj + 3] = ii + 2;
+    pCids[jj + 4] = ii + 3;
+    pCids[jj + 5] = ii + 4;
+    pCids[jj + 6] = ii + 5;
+    pCids[jj + 7] = ii + 6;
+    pCids[jj + 8] = ii + 7;
+}
+
+// --------------------------------------------------------------------------
+int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
+  const std::string fileName)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  if (rank != 0)
+    return 0;
+
+  if (!md->GlobalView)
+    {
+    SENSEI_ERROR("A global view is required")
+    return -1;
+    }
+
+  int numPoints = 8*(md->NumBlocks + 1);
+  int numCells = md->NumBlocks + 1;
+
+  vtkDoubleArray *coords = vtkDoubleArray::New();
+  coords->SetNumberOfComponents(3);
+  coords->SetNumberOfTuples(numPoints);
+  double *pCoords = coords->GetPointer(0);
+
+  vtkIdTypeArray *cids = vtkIdTypeArray::New();
+  cids->SetNumberOfTuples(numPoints+numCells);
+  vtkIdType *pCids = cids->GetPointer(0);
+
+  vtkUnsignedCharArray *cta = vtkUnsignedCharArray::New();
+  cta->SetNumberOfTuples(numCells);
+  unsigned char *pCta = cta->GetPointer(0);
+
+  vtkIdTypeArray *clocs = vtkIdTypeArray::New();
+  clocs->SetNumberOfTuples(numCells);
+  vtkIdType *pClocs = clocs->GetPointer(0);
+
+  vtkDoubleArray *owner = vtkDoubleArray::New();
+  owner->SetNumberOfTuples(numCells);
+  owner->SetName("BlockOwner");
+  double *pOwner = owner->GetPointer(0);
+
+  vtkDoubleArray *ids = vtkDoubleArray::New();
+  ids->SetNumberOfTuples(numCells);
+  ids->SetName("BlockIds");
+  double *pIds = ids->GetPointer(0);
+
+  // define a hex for every block
+  for (int i = 0; i < md->NumBlocks; ++i)
+    {
+    HexPoints(i, md->BlockBounds[i], pCoords);
+    HexCell(i, pCta, pClocs, pCids);
+    pIds[i] = md->BlockIds[i];
+    pOwner[i] = md->BlockOwner[i];
+    }
+
+  // and one for an enclosing box
+  HexPoints(md->NumBlocks, md->Bounds, pCoords);
+  HexCell(md->NumBlocks, pCta, pClocs, pCids);
+  pIds[md->NumBlocks] = -2;
+  pOwner[md->NumBlocks] = -2;
+
+  vtkPoints *pts = vtkPoints::New();
+  pts->SetData(coords);
+  coords->Delete();
+
+  vtkCellArray *ca = vtkCellArray::New();
+  ca->SetCells(numCells, cids);
+  cids->Delete();
+
+  vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
+  ug->SetPoints(pts);
+  ug->SetCells(cta, clocs, ca);
+  ug->GetCellData()->AddArray(ids);
+  ug->GetCellData()->AddArray(owner);
+
+  ids->Delete();
+  owner->Delete();
+  pts->Delete();
+  ca->Delete();
+
+  vtkUnstructuredGridWriter *w = vtkUnstructuredGridWriter::New();
+  w->SetInputData(ug);
+  w->SetFileName(fileName.c_str());
+  w->Write();
+
+  w->Delete();
+  ug->Delete();
+
+  return 0;
+}
 
 }
 }
