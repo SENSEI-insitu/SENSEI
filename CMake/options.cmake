@@ -48,6 +48,10 @@ cmake_dependent_option(ENABLE_VTK_ACCELERATORS
   "Enable analysis methods that use VTK-m via VTK's Accelerators module" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_VTK_FILTERS
+  "Enable use of VTK's generic filters library" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_VTKM
   "Enable analysis methods that use VTK-m" OFF
   "ENABLE_SENSEI" OFF)
@@ -76,6 +80,7 @@ message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
 message(STATUS "ENABLE_VTK_RENDERING=${ENABLE_VTK_RENDERING}")
 message(STATUS "ENABLE_VTK_ACCELERATORS=${ENABLE_VTK_ACCELERATORS}")
+message(STATUS "ENABLE_VTK_FILTERS=${ENABLE_VTK_FILTERS}")
 message(STATUS "ENABLE_VTKM=${ENABLE_VTKM}")
 message(STATUS "ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")
 message(STATUS "ENABLE_PARALLEL3D=${ENABLE_PARALLEL3D}")

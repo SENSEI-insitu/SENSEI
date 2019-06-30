@@ -15,6 +15,7 @@
 #include "Timer.h"
 #include "VTKUtils.h"
 #include "XMLUtils.h"
+#include "STLUtils.h"
 #include "DataRequirements.h"
 
 #include "Autocorrelation.h"
@@ -50,12 +51,18 @@
 #ifdef ENABLE_PYTHON
 #include "PythonAnalysis.h"
 #endif
+#if defined(ENABLE_VTK_IO) && defined(ENABLE_VTK_FILTERS)
+#define ENABLE_SLICE_EXTRACT
+#include "SliceExtract.h"
+#endif
 
 using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 
 namespace sensei
 {
+using namespace STLUtils; // for operator<< overloads
+
 
 struct ConfigurableAnalysis::InternalsType
 {
@@ -88,6 +95,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddPosthocIO(pugi::xml_node node);
   int AddVTKAmrWriter(pugi::xml_node node);
   int AddPythonAnalysis(pugi::xml_node node);
+  int AddSliceExtract(pugi::xml_node node);
 
 public:
   // list of all analyses. api calls are forwareded to each
@@ -822,7 +830,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
   std::string initSource;
   pugi::xml_node inode = node.child("initialize_source");
   if (inode)
-      initSource = inode.text().as_string();
+    initSource = inode.text().as_string();
 
   auto pyAnalysis = vtkSmartPointer<PythonAnalysis>::New();
 
@@ -852,6 +860,132 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
   return 0;
 #endif
 }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
+{
+#ifndef ENABLE_SLICE_EXTRACT
+  (void)node;
+  SENSEI_ERROR("SliceExtract requested but is disabled in this build")
+  return -1;
+#else
+
+  std::ostringstream oss;
+  oss << "Configured SliceExtract ";
+
+  // initialize the slice extract
+  auto adaptor = vtkSmartPointer<SliceExtract>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    adaptor->SetCommunicator(this->Comm);
+
+  // parse data requirements
+  DataRequirements req;
+  if (req.Initialize(node) || adaptor->SetDataRequirements(req))
+    return -1;
+
+  // parse writer parameters
+  pugi::xml_node writerNode = node.child("writer");
+  if (writerNode)
+    {
+    std::string outputDir = writerNode.attribute("output_dir").as_string("./");
+    std::string mode = writerNode.attribute("mode").as_string("visit");
+    std::string writer = writerNode.attribute("writer").as_string("xml");
+
+    if (adaptor->SetWriterOutputDir(outputDir) || adaptor->SetWriterMode(mode) ||
+      adaptor->SetWriterWriter(writer))
+      return -1;
+
+    oss << " writer.mode=" << mode << " writer.outputDir=" << outputDir
+      << " writer.writer=" << writer;
+    }
+
+  // operation specific parsing
+  if (XMLUtils::RequireAttribute(node, "operation"))
+    return -1;
+
+  std::string operation = node.attribute("operation").as_string();
+
+  if (adaptor->SetOperation(operation))
+    return -1;
+
+  oss << " operation=" << operation;
+
+  if (operation == "planar_slice")
+    {
+    // parse point and normal
+    pugi::xml_node pointNode = node.child("point");
+    if (pointNode)
+      {
+      std::array<double,3> point{0.0,0.0,0.0};
+      if (XMLUtils::ParseNumeric(node.child("point"), point) ||
+        adaptor->SetPoint(point))
+        return -1;
+
+      oss << " point=" << point;
+      }
+
+    pugi::xml_node normalNode = node.child("normal");
+    if (normalNode)
+      {
+      std::array<double,3> normal{0.0,0.0,0.0};
+      if (XMLUtils::ParseNumeric(node.child("normal"), normal) ||
+        adaptor->SetNormal(normal))
+        return -1;
+
+      oss << " normal=" << normal;
+      }
+    }
+  else if (operation == "iso_surface")
+    {
+    // parse iso values parameters
+    if (XMLUtils::RequireChild(node, "iso_values"))
+      return -1;
+
+    pugi::xml_node valsNode = node.child("iso_values");
+
+    std::vector<double> isoVals;
+    if (XMLUtils::ParseNumeric(valsNode, isoVals))
+      return -1;
+
+    if (XMLUtils::RequireAttribute(valsNode, "mesh_name") ||
+      XMLUtils::RequireAttribute(valsNode, "array_name") ||
+      XMLUtils::RequireAttribute(valsNode, "array_centering"))
+      return -1;
+
+    std::string meshName = valsNode.attribute("mesh_name").as_string();
+    std::string arrayName = valsNode.attribute("array_name").as_string();
+    std::string arrayCenStr = valsNode.attribute("array_centering").as_string();
+
+    int arrayCen = 0;
+    if (VTKUtils::GetAssociation(arrayCenStr.c_str(), arrayCen))
+      return -1;
+
+    adaptor->SetIsoValues(meshName, arrayName, arrayCen, isoVals);
+
+    oss << " mesh_name=" << meshName << " array_name=" << arrayName
+      << " array_centering=" << arrayCenStr << " iso_values=" << isoVals;
+    }
+  else
+    {
+    SENSEI_ERROR("Invalid operation \"" << operation << "\"")
+    return -1;
+    }
+
+  // get other settings
+  int verbose = node.attribute("verbose").as_int(0);
+  adaptor->SetVerbose(verbose);
+
+  // call intialize and add to the pipeline
+  this->TimeInitialization(adaptor);
+  this->Analyses.push_back(adaptor.GetPointer());
+
+  SENSEI_STATUS(<< oss.str())
+
+  return 0;
+#endif
+}
+
 
 
 
@@ -931,7 +1065,8 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
       || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
       || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
-      || ((type == "python") && !this->Internals->AddPythonAnalysis(node))))
+      || ((type == "python") && !this->Internals->AddPythonAnalysis(node))
+      || ((type == "SliceExtract") && !this->Internals->AddSliceExtract(node))))
       {
       SENSEI_ERROR("Failed to add '" << type << "' analysis")
       MPI_Abort(this->GetCommunicator(), -1);

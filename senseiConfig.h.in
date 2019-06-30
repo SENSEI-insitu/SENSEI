@@ -18,6 +18,7 @@
 #cmakedefine ENABLE_VTK_IO
 #cmakedefine ENABLE_VTK_RENDERING
 #cmakedefine ENABLE_VTK_ACCELERATORS
+#cmakedefine ENABLE_VTK_FILTERS
 #cmakedefine ENABLE_VTKM
 
 #cmakedefine SENSEI_PYTHON_VERSION @SENSEI_PYTHON_VERSION@
