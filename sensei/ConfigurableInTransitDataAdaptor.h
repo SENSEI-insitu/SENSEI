@@ -60,7 +60,7 @@ public:
   int SetReceiverMeshMetadata(unsigned int id,
      MeshMetadataPtr &metadata) override;
 
-  void SetPartitioner(sensei::PartitionerPtr &partitioner) override;
+  void SetPartitioner(const sensei::PartitionerPtr &partitioner) override;
   sensei::PartitionerPtr GetPartitioner() override;
 
   int OpenStream() override;
