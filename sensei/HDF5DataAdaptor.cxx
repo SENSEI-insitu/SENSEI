@@ -291,9 +291,10 @@ int HDF5DataAdaptor::AddArray(vtkDataObject* mesh,
 {
   std::ostringstream  oss;
   oss<<"HDF5DataAdaptor::AddArray mesh="<<meshName<<" array="<<arrayName;
-  
+
+  std::string evtName = oss.str();
+  timer::MarkEvent mark(evtName.c_str());
   //timer::MarkEvent mark("HDF5DataAdaptor::AddArray");
-  timer::MarkEvent mark(oss.str().c_str());
 
   // the mesh should never be null. there must have been an error
   // upstream.
