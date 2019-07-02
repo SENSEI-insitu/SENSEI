@@ -4,7 +4,7 @@ namespace sensei
 {
 
 //----------------------------------------------------------------------------
-AnalysisAdaptor::AnalysisAdaptor()
+AnalysisAdaptor::AnalysisAdaptor() : Verbose(0)
 {
   MPI_Comm_dup(MPI_COMM_WORLD, &this->Comm);
 }

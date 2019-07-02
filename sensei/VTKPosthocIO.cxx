@@ -265,7 +265,9 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
       return false;
       }
-    SENSEI_WARNING("No subset specified. Writing all available data")
+
+    if (this->GetVerbose())
+      SENSEI_WARNING("No subset specified. Writing all available data")
     }
 
   MeshRequirementsIterator mit =
