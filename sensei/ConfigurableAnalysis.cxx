@@ -733,6 +733,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   std::string mode = node.attribute("mode").as_string("visit");
   std::string writer = node.attribute("writer").as_string("xml");
   std::string ghostArrayName = node.attribute("ghost_array_name").as_string("");
+  int verbose = node.attribute("verbose").as_int(0);
 
   auto adaptor = vtkSmartPointer<VTKPosthocIO>::New();
 
@@ -740,6 +741,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
     adaptor->SetCommunicator(this->Comm);
 
   adaptor->SetGhostArrayName(ghostArrayName);
+  adaptor->SetVerbose(verbose);
 
   if (adaptor->SetOutputDir(outputDir) || adaptor->SetMode(mode) ||
     adaptor->SetWriter(writer) || adaptor->SetDataRequirements(req))
