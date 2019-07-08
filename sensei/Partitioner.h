@@ -40,7 +40,15 @@ public:
       return 0;
   }
 
+  // enable/disable generation of debugging output
+  virtual void SetVerbose(int val){ this->Verbose = val; }
+  virtual int GetVerbose(){ return this->Verbose; }
+
+  Partitioner() : Verbose(0) {}
   virtual ~Partitioner() {}
+
+protected:
+  int Verbose;
 };
 
 }
