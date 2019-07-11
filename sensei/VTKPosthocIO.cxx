@@ -246,8 +246,11 @@ int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
 bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 {
   // see what the simulation is providing
+  MeshMetadataFlags flags;
+  flags.SetBlockDecomp();
+
   MeshMetadataMap mdMap;
-  if (mdMap.Initialize(dataAdaptor))
+  if (mdMap.Initialize(dataAdaptor, flags))
     {
     SENSEI_ERROR("Failed to get metadata")
     return false;
@@ -279,6 +282,10 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"")
       return false;
       }
+
+    // generate a global view of the metadata.
+    if (!mmd->GlobalView)
+      mmd->GlobalizeView(this->GetCommunicator());
 
     // get the mesh
     vtkDataObject* dobj = nullptr;
@@ -334,22 +341,13 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
     // figure out block distribution, assume that it does not change, and
     // that block types are homgeneous
-    if (!this->HaveBlockInfo[meshName])
+    if (!it->IsDoneWithTraversal() && !this->HaveBlockInfo[meshName])
       {
-      if (!it->IsDoneWithTraversal())
-        this->BlockExt[meshName] = this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY ?
-          ".vtk" : getBlockExtension(it->GetCurrentDataObject());
+      this->BlockExt[meshName] = this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY ?
+        ".vtk" : getBlockExtension(it->GetCurrentDataObject());
 
-      this->FileId[meshName] = 0;
       this->HaveBlockInfo[meshName] = 1;
       }
-
-    // compute the number of blocks, this could change in time
-    long nBlocks = 0;
-    it->SetSkipEmptyNodes(0);
-    for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
-      ++nBlocks;
-    it->SetSkipEmptyNodes(1);
 
     // amr meshes indices start from 0 while multiblock starts at 1
     long bidShift = 1;
@@ -406,6 +404,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       }
     it->Delete();
 
+    // this is default initialized to 0 by definition of std::map. & we count
+    // empty steps
     this->FileId[meshName] += 1;
 
     // rank 0 keeps track of time info for meta file
@@ -420,7 +420,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       long step = dataAdaptor->GetDataTimeStep();
       this->TimeStep[meshName].push_back(step);
 
-      this->NumBlocks[meshName].push_back(nBlocks);
+      this->Metadata[meshName].push_back(mmd);
       }
 
     dobj->Delete();
@@ -460,7 +460,7 @@ int VTKPosthocIO::Finalize()
       return -1;
       }
 
-    const std::vector<long> &numBlocks = this->NumBlocks[meshName];
+    const std::vector<MeshMetadataPtr> &mmd = this->Metadata[meshName];
 
     std::vector<double> &times = this->Time[meshName];
     long nSteps = times.size();
@@ -485,11 +485,10 @@ int VTKPosthocIO::Finalize()
 
       for (long i = 0; i < nSteps; ++i)
         {
-        long nBlocks = numBlocks[i];
-        for (long j = 0; j < nBlocks; ++j)
+        for (long j = 0; j < mmd[i]->NumBlocks; ++j)
           {
           std::string fileName =
-            getBlockFileName("./", meshName, j, i, blockExt);
+            getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
 
           pvdFile << "<DataSet timestep=\"" << times[i]
             << "\" group=\"\" part=\"" << j << "\" file=\"" << fileName
@@ -508,10 +507,10 @@ int VTKPosthocIO::Finalize()
       // if so dump one visit file per timestep, otherwise one visit file for
       // the series
       int staticMesh = 1;
-      long nBlocks = numBlocks[0];
-      for (long i = 0; i < nSteps; ++i)
+      int nBlocks = mmd[0]->NumBlocks;
+      for (long i = 1; i < nSteps; ++i)
         {
-        if (numBlocks[i] != nBlocks)
+        if (nBlocks != mmd[i]->NumBlocks)
           {
           staticMesh = 0;
           break;
@@ -530,17 +529,17 @@ int VTKPosthocIO::Finalize()
           return -1;
           }
 
-        visitFile << "!NBLOCKS " << nBlocks << std::endl;
+        visitFile << "!NBLOCKS " << mmd[0]->NumBlocks << std::endl;
 
         for (long i = 0; i < nSteps; ++i)
           visitFile << "!TIME " << times[i] << std::endl;
 
         for (long i = 0; i < nSteps; ++i)
           {
-          for (long j = 0; j < nBlocks; ++j)
+          for (long j = 0; j < mmd[i]->NumBlocks; ++j)
             {
             std::string fileName =
-              getBlockFileName("./", meshName, j, i, blockExt);
+              getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
 
             visitFile << fileName << std::endl;
             }
@@ -553,6 +552,9 @@ int VTKPosthocIO::Finalize()
         // write a .visit file per step
         for (long i = 0; i < nSteps; ++i)
           {
+          if (mmd[i]->NumBlocks < 1)
+            continue;
+
           std::ostringstream oss;
           oss << this->OutputDir << "/" << meshName << "_"
             <<  std::setw(5) << std::setfill('0') << i << ".visit";
@@ -562,18 +564,18 @@ int VTKPosthocIO::Finalize()
           ofstream visitFile(visitFileName);
           if (!visitFile)
             {
-            SENSEI_ERROR("Failed to open " << visitFileName << " for writing")
+            SENSEI_ERROR("Failed to open \"" << visitFileName << "\" for writing")
             return -1;
             }
 
-          nBlocks = numBlocks[i];
-
-          visitFile << "!NBLOCKS " << nBlocks << std::endl;
+          visitFile << "!NBLOCKS " << mmd[i]->NumBlocks << std::endl;
           visitFile << "!TIME " << times[i] << std::endl;
 
-          for (long j = 0; j < nBlocks; ++j)
+          for (long j = 0; j < mmd[i]->NumBlocks; ++j)
             {
-            std::string fileName = getBlockFileName("./", meshName, j, i, blockExt);
+            std::string fileName =
+              getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
+
             visitFile << fileName << std::endl;
             }
 

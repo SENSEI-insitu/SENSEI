@@ -3,6 +3,7 @@
 
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
+#include "MeshMetadata.h"
 
 #include <mpi.h>
 #include <vector>
@@ -76,7 +77,7 @@ private:
 
   NameMap<std::vector<double>> Time;
   NameMap<std::vector<long>> TimeStep;
-  NameMap<std::vector<long>> NumBlocks;
+  NameMap<std::vector<MeshMetadataPtr>> Metadata;
   NameMap<std::string> BlockExt;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;
