@@ -21,11 +21,6 @@ if (BUILD_TESTING)
       testADIOS1MPIBP.bp MPI BP 3
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 
-  senseiAddTest(setupHDF5
-    COMMAND testHDF5 EXEC_NAME testHDF5
-    SOURCES testHDF5.cpp LIBS sensei
-    FEATURES ${ENABLE_HDF5})
-
   senseiAddTest(testHDF5Write
     #COMMAND testHDF5 w 4 n h5test
     COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} testHDF5 w 4 n h5test

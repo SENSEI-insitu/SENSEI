@@ -1051,7 +1051,7 @@ bool MeshFlow::ReadBlockOwnerArray(ReadStream *reader,
           vtkDataArray *bo = vtkIntArray::New();
           bo->SetNumberOfTuples(num_elem_local);
           bo->SetName(array_name.c_str());
-          bo->Fill(md->BlockOwner[j]);
+          bo->FillComponent(0, md->BlockOwner[j]);
 
           vtkDataSetAttributes *dsa = association == vtkDataObject::POINT ?
                                       dynamic_cast<vtkDataSetAttributes *>(ds->GetPointData()) :
