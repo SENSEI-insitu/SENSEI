@@ -751,37 +751,125 @@ int InputStream::Close()
 struct ArraySchema
 {
   int DefineVariables(MPI_Comm comm, int64_t gh,
-    const std::string &ons,  const sensei::MeshMetadataPtr &md);
+    const std::string &ons, const sensei::MeshMetadataPtr &md);
+
+  int DefineVariable(MPI_Comm comm, int64_t gh, const std::string &ons,
+    int i, int array_type, int num_components, int array_cen,
+    unsigned long long num_points_total, unsigned long long num_cells_total,
+    unsigned int num_blocks, const std::vector<long> &block_num_points,
+    const std::vector<long> &block_num_cells,
+    const std::vector<int> &block_owner, std::vector<int64_t> &write_ids);
 
   int Write(MPI_Comm comm, int64_t fh,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
+  int Write(MPI_Comm comm, int64_t fh, unsigned int i,
+    const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
+    unsigned int num_blocks, const std::vector<int> &block_owner,
+    const std::vector<int64_t> &writeIds);
+
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
     const std::string &array_name, int centering,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+
+  int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+    unsigned int i, const std::string &array_name, int array_type,
+    unsigned long long num_components, int array_cen, unsigned int num_blocks,
+    const std::vector<long> &block_num_points,
+    const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
+    vtkCompositeDataSet *dobj);
 
   std::map<std::string,std::vector<int64_t>> WriteIds;
 };
 
 
 // --------------------------------------------------------------------------
-int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
-  const std::string &ons, const sensei::MeshMetadataPtr &md)
+int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
+  const std::string &ons, int i, int array_type, int num_components,
+  int array_cen, unsigned long long num_points_total,
+  unsigned long long num_cells_total, unsigned int num_blocks,
+  const std::vector<long> &block_num_points,
+  const std::vector<long> &block_num_cells,
+  const std::vector<int> &block_owner, std::vector<int64_t> &write_ids)
 {
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
+  // validate centering
+  if ((array_cen != vtkDataObject::POINT) && (array_cen != vtkDataObject::CELL))
+    {
+    SENSEI_ERROR("Invalid array centering at array " << i)
+    return -1;
+    }
+
+  // put each data array in its own namespace
+  std::ostringstream ans;
+  ans << ons << "data_array_" << i << "/";
+
+  // select global size either point or cell data
+  unsigned long long num_elem_total = (array_cen == vtkDataObject::POINT ?
+    num_points_total : num_cells_total)*num_components;
+
+  // global size as a string
+  std::ostringstream gdims;
+  gdims << num_elem_total;
+
+  // adios type of the array
+  ADIOS_DATATYPES elem_type = adiosType(array_type);
+
+  // define the variable once for each block
+  unsigned long long block_offset = 0;
+  for (unsigned int j = 0; j < num_blocks; ++j)
+    {
+    // get the block size
+    unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
+      block_num_points[j] : block_num_cells[j])*num_components;
+
+    // define the variable for a local block
+    if (block_owner[j] ==  rank)
+      {
+      // local size as a string
+      std::ostringstream ldims;
+      ldims << num_elem_local;
+
+      // offset as a string
+      std::ostringstream boffs;
+      boffs << block_offset;
+
+      // /data_object_<id>/data_array_<id>/data
+      std::string path = ans.str() + "data";
+      int64_t write_id = adios_define_var(gh, path.c_str(), "", elem_type,
+         ldims.str().c_str(), gdims.str().c_str(), boffs.str().c_str());
+
+      // save the write id to tell adios which block we are writing later
+      write_ids[i*num_blocks + j] = write_id;
+      }
+
+    // update the block offset
+    block_offset += num_elem_local;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
+  const std::string &ons, const sensei::MeshMetadataPtr &md)
+{
   std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
 
   // allocate write ids
   unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
-  writeIds.resize(num_blocks*num_arrays);
+
+  unsigned int num_ghost_arrays =
+    md->NumGhostCells ? 1 : 0 + md->NumGhostNodes ? 1 : 0;
+
+  writeIds.resize(num_blocks*(num_arrays + num_ghost_arrays));
 
   // compute global sizes
   unsigned long long num_points_total = 0;
   unsigned long long num_cells_total = 0;
-
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     num_points_total += md->BlockNumPoints[j];
@@ -791,63 +879,75 @@ int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
   // define data arrays
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
-    unsigned long long num_components = md->ArrayComponents[i];
-    int array_cen = md->ArrayCentering[i];
-
-    // validate centering
-    if ((array_cen != vtkDataObject::POINT) && (array_cen != vtkDataObject::CELL))
-      {
-      SENSEI_ERROR("Invalid array centering at array " << i)
+    if (this->DefineVariable(comm, gh, ons, i, md->ArrayType[i],
+      md->ArrayComponents[i], md->ArrayCentering[i], num_points_total,
+      num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
+      md->BlockOwner, writeIds))
       return -1;
-      }
+    }
 
-    // put each data array in its own namespace
-    std::ostringstream ans;
-    ans << ons << "data_array_" << i << "/";
+  // define ghost arrays
+  if (md->NumGhostCells)
+    {
+    if (this->DefineVariable(comm, gh, ons, num_arrays, VTK_UNSIGNED_CHAR,
+      1, vtkDataObject::CELL, num_points_total, num_cells_total, num_blocks,
+      md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, writeIds))
+      return -1;
+    num_arrays += 1;
+    }
 
-    // select global size either point or cell data
-    unsigned long long num_elem_total = (array_cen == vtkDataObject::POINT ?
-      num_points_total : num_cells_total)*num_components;
+  if (md->NumGhostNodes && this->DefineVariable(comm, gh, ons, num_arrays,
+      VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
+      num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
+      md->BlockOwner, writeIds))
+      return -1;
 
-    // global size as a string
-    std::ostringstream gdims;
-    gdims << num_elem_total;
+  return 0;
+}
 
-    // adios type of the array
-    ADIOS_DATATYPES elem_type = adiosType(md->ArrayType[i]);
 
-    // define the variable once for each block
-    unsigned long long block_offset = 0;
-    for (unsigned int j = 0; j < num_blocks; ++j)
+// --------------------------------------------------------------------------
+int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
+  const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
+  unsigned int num_blocks, const std::vector<int> &block_owner,
+  const std::vector<int64_t> &writeIds)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  vtkCompositeDataIterator *it = dobj->NewIterator();
+  it->SetSkipEmptyNodes(0);
+  it->InitTraversal();
+
+  for (unsigned int j = 0; j < num_blocks; ++j)
+    {
+    if (block_owner[j] == rank)
       {
-      // get the block size
-      unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
-        md->BlockNumPoints[j] : md->BlockNumCells[j])*num_components;
-
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
+      vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+      if (!ds)
         {
-        // local size as a string
-        std::ostringstream ldims;
-        ldims << num_elem_local;
-
-        // offset as a string
-        std::ostringstream boffs;
-        boffs << block_offset;
-
-        // /data_object_<id>/data_array_<id>/data
-        std::string path = ans.str() + "data";
-        int64_t write_id = adios_define_var(gh, path.c_str(), "", elem_type,
-           ldims.str().c_str(), gdims.str().c_str(), boffs.str().c_str());
-
-        // save the write id to tell adios which block we are writing later
-        writeIds[i*num_blocks + j] = write_id;
+        SENSEI_ERROR("Failed to get block " << j)
+        return -1;
         }
 
-      // update the block offset
-      block_offset += num_elem_local;
+      vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
+        dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
+        dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
+
+      vtkDataArray *da = dsa->GetArray(array_name.c_str());
+      if (!da)
+        {
+        SENSEI_ERROR("Failed to get array \"" << array_name << "\"")
+        return -1;
+        }
+
+      adios_write_byid(fh, writeIds[i*num_blocks + j], da->GetVoidPointer(0));
       }
+
+    it->GoToNextItem();
     }
+
+  it->Delete();
 
   return 0;
 }
@@ -861,50 +961,108 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh,
 
   std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
 
-  // write arrays
+  // write data arrays
   unsigned int num_arrays = md->NumArrays;
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
-    vtkCompositeDataIterator *it = dobj->NewIterator();
-    it->SetSkipEmptyNodes(0);
-    it->InitTraversal();
-
-    unsigned int num_blocks = md->NumBlocks;
-    for (unsigned int j = 0; j < num_blocks; ++j)
-      {
-      if (md->BlockOwner[j] == rank)
-        {
-        vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
-        if (!ds)
-          {
-          SENSEI_ERROR("Failed to get block " << j)
-          dobj->Print(std::cerr);
-          md->ToStream(std::cerr);
-          it->Print(std::cerr);
-          vtkDataObject *d = it->GetCurrentDataObject();
-          d->Print(std::cerr);
-          return -1;
-          }
-
-        vtkDataSetAttributes *dsa = md->ArrayCentering[i] == vtkDataObject::POINT ?
-          dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
-          dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
-
-        vtkDataArray *da = dsa->GetArray(md->ArrayName[i].c_str());
-        if (!da)
-          {
-          SENSEI_ERROR("Failed to get array \"" << md->ArrayName[i] << "\"")
-          return -1;
-          }
-
-        adios_write_byid(fh, writeIds[i*num_blocks + j], da->GetVoidPointer(0));
-        }
-
-      it->GoToNextItem();
-      }
-    it->Delete();
+    if (this->Write(comm, fh, i, md->ArrayName[i], md->ArrayCentering[i],
+      dobj, md->NumBlocks, md->BlockOwner, writeIds))
+      return -1;
     }
 
+  // write ghost arrays
+  if (md->NumGhostCells)
+    {
+    if (this->Write(comm, fh, num_arrays, "vtkGhostType", vtkDataObject::CELL,
+      dobj, md->NumBlocks, md->BlockOwner, writeIds))
+      return -1;
+    num_arrays += 1;
+    }
+
+  if (md->NumGhostNodes && this->Write(comm, fh, num_arrays,
+    "vtkGhostType", vtkDataObject::POINT, dobj, md->NumBlocks,
+     md->BlockOwner, writeIds))
+    return -1;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+  unsigned int i, const std::string &array_name, int array_type,
+  unsigned long long num_components, int array_cen, unsigned int num_blocks,
+  const std::vector<long> &block_num_points,
+  const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
+  vtkCompositeDataSet *dobj)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  // put each data array in its own namespace
+  std::ostringstream ans;
+  ans << ons << "data_array_" << i << "/";
+
+  vtkCompositeDataIterator *it = dobj->NewIterator();
+  it->SetSkipEmptyNodes(0);
+  it->InitTraversal();
+
+  // read each block
+  unsigned long long block_offset = 0;
+  for (unsigned int j = 0; j < num_blocks; ++j)
+    {
+    // get the block size
+    unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
+      block_num_points[j] : block_num_cells[j])*num_components;
+
+    // define the variable for a local block
+    if (block_owner[j] ==  rank)
+      {
+      uint64_t start = block_offset;
+      uint64_t count = num_elem_local;;
+      ADIOS_SELECTION *sel = adios_selection_boundingbox(1, &start, &count);
+
+      vtkDataArray *array = vtkDataArray::CreateDataArray(array_type);
+      array->SetNumberOfComponents(num_components);
+      array->SetNumberOfTuples(num_elem_local);
+      array->SetName(array_name.c_str());
+
+      // /data_object_<id>/data_array_<id>/data
+      std::string path = ans.str() + "data";
+      adios_schedule_read(fh, sel, path.c_str(),
+        0, 1, array->GetVoidPointer(0));
+
+      if (adios_perform_reads(fh, 1))
+        {
+        SENSEI_ERROR("Failed to read points")
+        return -1;
+        }
+
+      adios_selection_delete(sel);
+
+      // pass to vtk
+      vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+      if (!ds)
+        {
+        SENSEI_ERROR("Failed to get block " << j)
+        return -1;
+        }
+
+      vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
+        dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
+        dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
+
+      dsa->AddArray(array);
+      array->Delete();
+      }
+
+    // update the block offset
+    block_offset += num_elem_local;
+
+    // next block
+    it->GoToNextItem();
+    }
+
+  it->Delete();
   return 0;
 }
 
@@ -913,87 +1071,33 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   const std::string &name, int centering, const sensei::MeshMetadataPtr &md,
   vtkCompositeDataSet *dobj)
 {
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
-
   unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
+
+  // read ghost arrays
+  if (name == "vtkGhostType")
+    {
+    unsigned int i = centering == vtkDataObject::CELL ?
+      num_arrays : num_arrays + 1;
+
+    return this->Read(comm, fh, ons, i, "vtkGhostType", VTK_UNSIGNED_CHAR,
+      1, centering, num_blocks, md->BlockNumPoints, md->BlockNumCells,
+      md->BlockOwner, dobj);
+    }
 
   // read data arrays
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
+    const std::string &array_name = md->ArrayName[i];
+    int array_cen = md->ArrayCentering[i];
+
     // skip all but the requested array
-    if ((centering != md->ArrayCentering[i]) || (name != md->ArrayName[i]))
+    if ((centering != array_cen) || (name != array_name))
       continue;
 
-    int array_cen = md->ArrayCentering[i];
-    unsigned long long num_components = md->ArrayComponents[i];
-
-    // put each data array in its own namespace
-    std::ostringstream ans;
-    ans << ons << "data_array_" << i << "/";
-
-    vtkCompositeDataIterator *it = dobj->NewIterator();
-    it->SetSkipEmptyNodes(0);
-    it->InitTraversal();
-
-    // read each block
-    unsigned long long block_offset = 0;
-    for (unsigned int j = 0; j < num_blocks; ++j)
-      {
-      // get the block size
-      unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
-        md->BlockNumPoints[j] : md->BlockNumCells[j])*num_components;
-
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        uint64_t start = block_offset;
-        uint64_t count = num_elem_local;;
-        ADIOS_SELECTION *sel = adios_selection_boundingbox(1, &start, &count);
-
-        vtkDataArray *array = vtkDataArray::CreateDataArray(md->ArrayType[i]);
-        array->SetNumberOfComponents(num_components);
-        array->SetNumberOfTuples(num_elem_local);
-        array->SetName(md->ArrayName[i].c_str());
-
-        // /data_object_<id>/data_array_<id>/data
-        std::string path = ans.str() + "data";
-        adios_schedule_read(fh, sel, path.c_str(),
-          0, 1, array->GetVoidPointer(0));
-
-        if (adios_perform_reads(fh, 1))
-          {
-          SENSEI_ERROR("Failed to read points")
-          return -1;
-          }
-
-        adios_selection_delete(sel);
-
-        // pass to vtk
-        vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
-        if (!ds)
-          {
-          SENSEI_ERROR("Failed to get block " << j)
-          return -1;
-          }
-
-        vtkDataSetAttributes *dsa = md->ArrayCentering[i] == vtkDataObject::POINT ?
-          dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
-          dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
-
-        dsa->AddArray(array);
-        array->Delete();
-        }
-
-      // update the block offset
-      block_offset += num_elem_local;
-
-      // next block
-      it->GoToNextItem();
-      }
-
-    it->Delete();
+    return this->Read(comm, fh, ons, i, array_name, md->ArrayType[i],
+      md->ArrayComponents[i], array_cen, num_blocks, md->BlockNumPoints,
+      md->BlockNumCells, md->BlockOwner, dobj);
     }
 
   return 0;
@@ -2722,8 +2826,10 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
     sensei::MeshMetadataPtr md = sensei::MeshMetadata::New();
     md->FromStream(bs);
 
-    // add internally generated arrays
-    md->ArrayName.push_back("SenderBlockOwner");
+    // Don't add internally generated arrays, as these
+    // interfere with ghost cell/node arrays which are
+    // also special cases.
+    /*md->ArrayName.push_back("SenderBlockOwner");
     md->ArrayCentering.push_back(vtkDataObject::CELL);
     md->ArrayComponents.push_back(1);
     md->ArrayType.push_back(VTK_INT);
@@ -2733,7 +2839,7 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
     md->ArrayComponents.push_back(1);
     md->ArrayType.push_back(VTK_INT);
 
-    md->NumArrays += 2;
+    md->NumArrays += 2;*/
 
     this->Internals->SenderMdMap.PushBack(md);
     }
