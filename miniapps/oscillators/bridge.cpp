@@ -15,19 +15,19 @@ static vtkSmartPointer<oscillators::DataAdaptor> DataAdaptor;
 static vtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
 
 //-----------------------------------------------------------------------------
-int initialize(size_t nblocks, size_t n_local_blocks, int domain_shape_x,
-  int domain_shape_y, int domain_shape_z, int *gid, int *from_x, int *from_y,
-  int *from_z, int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels,
+int initialize(size_t nblocks, size_t n_local_blocks,
+  float *origin, float *spacing, int domain_shape_x, int domain_shape_y,
+  int domain_shape_z, int *gid, int *from_x, int *from_y, int *from_z,
+  int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels,
   const std::string &config_file)
 {
   timer::MarkEvent mark("oscillators::bridge::initialize");
 
   DataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
 
-  DataAdaptor->Initialize(nblocks, n_local_blocks,
-    domain_shape_x, domain_shape_y, domain_shape_z,
-    gid, from_x, from_y, from_z, to_x, to_y, to_z,
-    shape, ghostLevels);
+  DataAdaptor->Initialize(nblocks, n_local_blocks, origin, spacing,
+    domain_shape_x, domain_shape_y, domain_shape_z, gid, from_x, from_y,
+    from_z, to_x, to_y, to_z, shape, ghostLevels);
 
   AnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   if (AnalysisAdaptor->Initialize(config_file))

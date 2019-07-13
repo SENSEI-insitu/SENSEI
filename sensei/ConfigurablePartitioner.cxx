@@ -3,6 +3,7 @@
 #include "BlockPartitioner.h"
 #include "MappedPartitioner.h"
 #include "PlanarPartitioner.h"
+#include "PlanarSlicePartitioner.h"
 #include "XMLUtils.h"
 
 #include <pugixml.hpp>
@@ -69,6 +70,10 @@ int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
   else if (partType == "mapped")
     {
     tmp = MappedPartitioner::New();
+    }
+  else if (partType == "planar_slice")
+    {
+    tmp = PlanarSlicePartitioner::New();
     }
   else
     {

@@ -1,5 +1,6 @@
 #include "MeshMetadata.h"
 #include "MPIUtils.h"
+#include "STLUtils.h"
 #include "Error.h"
 
 #include <utility>
@@ -7,35 +8,9 @@
 
 namespace sensei
 {
-// helper for printing metadata
-template<typename T, std::size_t N>
-ostream &operator<<(ostream &os, const std::array<T,N> &vec)
-{
-  os << "{";
-  if (N)
-    {
-    os << vec[0];
-    for (size_t i = 1; i < N; ++i)
-      os << ", " << vec[i];
-    }
-  os << "}";
-  return os;
-}
+// for various operator<< overloads
+using namespace STLUtils;
 
-template<typename T>
-ostream &operator<<(ostream &os, const std::vector<T> &vec)
-{
-  os << "{";
-  size_t n = vec.size();
-  if (n)
-    {
-    os << vec[0];
-    for (size_t i = 1; i < n; ++i)
-      os << ", " << vec[i];
-    }
-  os << "}";
-  return os;
-}
 
 // --------------------------------------------------------------------------
 int MeshMetadataFlags::ToStream(sensei::BinaryStream &str) const
@@ -100,6 +75,12 @@ int MeshMetadataFlags::ToStream(ostream &str) const
     nSet += 1;
     }
 
+  if (this->Flags & RANGE)
+    {
+    str << (nSet ? "|" : "") << "RANGE";
+    nSet += 1;
+    }
+
   return 0;
 }
 
@@ -112,6 +93,12 @@ int MeshMetadata::ToStream(sensei::BinaryStream &str) const
   str.Pack(this->BlockType);
   str.Pack(this->NumBlocks);
   str.Pack(this->NumBlocksLocal);
+  str.Pack(this->Extent);
+  str.Pack(this->Bounds);
+  str.Pack(this->CoordinateType);
+  str.Pack(this->NumPoints);
+  str.Pack(this->NumCells);
+  str.Pack(this->CellArraySize);
   str.Pack(this->NumArrays);
   str.Pack(this->NumGhostCells);
   str.Pack(this->NumGhostNodes);
@@ -121,6 +108,7 @@ int MeshMetadata::ToStream(sensei::BinaryStream &str) const
   str.Pack(this->ArrayCentering);
   str.Pack(this->ArrayComponents);
   str.Pack(this->ArrayType);
+  str.Pack(this->ArrayRange);
   str.Pack(this->BlockOwner);
   str.Pack(this->BlockIds);
   str.Pack(this->BlockNumPoints);
@@ -128,6 +116,7 @@ int MeshMetadata::ToStream(sensei::BinaryStream &str) const
   str.Pack(this->BlockCellArraySize);
   str.Pack(this->BlockExtents);
   str.Pack(this->BlockBounds);
+  str.Pack(this->BlockArrayRange);
   str.Pack(this->RefRatio);
   str.Pack(this->BlocksPerLevel);
   str.Pack(this->BlockLevel);
@@ -150,6 +139,12 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
   str.Unpack(this->BlockType);
   str.Unpack(this->NumBlocks);
   str.Unpack(this->NumBlocksLocal);
+  str.Unpack(this->Extent);
+  str.Unpack(this->Bounds);
+  str.Unpack(this->CoordinateType);
+  str.Unpack(this->NumPoints);
+  str.Unpack(this->NumCells);
+  str.Unpack(this->CellArraySize);
   str.Unpack(this->NumArrays);
   str.Unpack(this->NumGhostCells);
   str.Unpack(this->NumGhostNodes);
@@ -159,6 +154,7 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
   str.Unpack(this->ArrayCentering);
   str.Unpack(this->ArrayComponents);
   str.Unpack(this->ArrayType);
+  str.Unpack(this->ArrayRange);
   str.Unpack(this->BlockOwner);
   str.Unpack(this->BlockIds);
   str.Unpack(this->BlockNumPoints);
@@ -166,6 +162,7 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
   str.Unpack(this->BlockCellArraySize);
   str.Unpack(this->BlockExtents);
   str.Unpack(this->BlockBounds);
+  str.Unpack(this->BlockArrayRange);
   str.Unpack(this->RefRatio);
   str.Unpack(this->BlocksPerLevel);
   str.Unpack(this->BlockLevel);
@@ -191,6 +188,11 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "MeshType = " << this->MeshType << std::endl;
   str << "BlockType = " << this->BlockType << std::endl;
   str << "NumBlocks = " << this->NumBlocks << std::endl;
+  str << "Bounds = " << this->Bounds << std::endl;
+  str << "Extent = " << this->Extent << std::endl;
+  str << "NumPoints = " << this->NumPoints << std::endl;
+  str << "NumCells = " << this->NumCells << std::endl;
+  str << "CellArraySize = " << this->CellArraySize << std::endl;
   str << "NumArrays = " << this->NumArrays << std::endl;
   str << "NumGhostCells = " << this->NumGhostCells << std::endl;
   str << "NumGhostNodes = " << this->NumGhostNodes << std::endl;
@@ -200,6 +202,7 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "ArrayCentering = " << this->ArrayCentering << std::endl;
   str << "ArrayComponents = " << this->ArrayComponents << std::endl;
   str << "ArrayType = " << this->ArrayType << std::endl;
+  str << "ArrayRange = " << this->ArrayRange << std::endl;
   str << "BlockOwner = " << this->BlockOwner << std::endl;
   str << "BlockIds = " << this->BlockIds << std::endl;
   str << "BlockNumPoints = " << this->BlockNumPoints << std::endl;
@@ -207,6 +210,7 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "BlockCellArraySize = " << this->BlockCellArraySize << std::endl;
   str << "BlockExtents = " << this->BlockExtents << std::endl;
   str << "BlockBounds = " << this->BlockBounds << std::endl;
+  str << "BlockArrayRange = " << this->BlockArrayRange << std::endl;
   str << "RefRatio = " << rr << std::endl;
   str << "BlocksPerLevel = " << this->BlocksPerLevel << std::endl;
   str << "BlockLevel = " << this->BlockLevel << std::endl;
@@ -234,14 +238,23 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &nRanks);
 
-  if (this->Flags.BlockNeighborsSet() &&
+  // an empty dataset is a valid scenario
+  // if the dataset is empty there may not be any metadata. for instance
+  // in the VTKDataAdaptor metadata is determined by examining the available
+  // data.
+  int localBlocks = ((this->NumBlocks > 0) &&
+    ((this->NumBlocksLocal.size() > 0) && ((this->GlobalView ?
+    this->NumBlocksLocal[rank] : this->NumBlocksLocal[0]) > 0)));
+
+
+  if (localBlocks && this->Flags.BlockNeighborsSet() &&
     requiredFlags.BlockNeighborsSet() && this->BlockNeighbors.empty())
     {
     SENSEI_ERROR("Metadata is missing block neighbors")
     err = true;
     }
 
-  if (this->Flags.BlockParentsSet() && requiredFlags.BlockParentsSet())
+  if (localBlocks && this->Flags.BlockParentsSet() && requiredFlags.BlockParentsSet())
     {
     if (this->MeshType != VTK_OVERLAPPING_AMR)
       {
@@ -256,7 +269,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
       }
     }
 
-  if (this->Flags.BlockChildrenSet() && requiredFlags.BlockChildrenSet())
+  if (localBlocks && this->Flags.BlockChildrenSet() && requiredFlags.BlockChildrenSet())
     {
     if ((this->MeshType == VTK_OVERLAPPING_AMR) && (this->BlockChildren.empty()))
       {
@@ -265,14 +278,14 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
       }
     }
 
-  if (this->Flags.BlockDecompSet() &&
+  if (localBlocks && this->Flags.BlockDecompSet() &&
     requiredFlags.BlockDecompSet() && (this->BlockOwner.empty() || this->BlockIds.empty()))
     {
     SENSEI_ERROR("Metadata is missing block deocomp arrays, BlockDecomp and/or BlockIds")
     err = true;
     }
 
-  if (this->Flags.BlockSizeSet() && requiredFlags.BlockSizeSet() &&
+  if (localBlocks && this->Flags.BlockSizeSet() && requiredFlags.BlockSizeSet() &&
     (this->BlockNumCells.empty() || this->BlockNumPoints.empty() ||
     (((this->BlockType == VTK_UNSTRUCTURED_GRID) ||
     (this->BlockType == VTK_POLY_DATA)) && this->BlockCellArraySize.empty())))
@@ -281,7 +294,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
     err = true;
     }
 
-  if (this->Flags.BlockExtentsSet() &&
+  if (localBlocks && this->Flags.BlockExtentsSet() &&
     !((this->BlockType == VTK_UNSTRUCTURED_GRID) || (this->BlockType == VTK_POLY_DATA)))
     {
     if (this->MeshType == VTK_OVERLAPPING_AMR)
@@ -308,16 +321,10 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
           err = true;
           }
         }
-      else if (this->Extent.empty())
-        {
-        // the global extent was not set, but we have the local extents
-        // compute the global extent as a convenience.
-        MPIUtils::GlobalBounds<int>(comm, this->BlockExtents, this->Extent);
-        }
       }
     }
 
-  if (this->Flags.BlockBoundsSet() && ((this->BlockType == VTK_IMAGE_DATA)
+  if (localBlocks && this->Flags.BlockBoundsSet() && ((this->BlockType == VTK_IMAGE_DATA)
     || (this->BlockType == VTK_RECTILINEAR_GRID) || (this->BlockType == VTK_STRUCTURED_GRID)))
     {
     if (this->BlockBounds.empty())
@@ -327,12 +334,6 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
         SENSEI_ERROR("Metadata is missing block bounds")
         err = true;
         }
-      }
-    else if ((this->MeshType == VTK_MULTIBLOCK_DATA_SET) && this->Bounds.empty())
-      {
-      // the global bounds were not set, but we have the local bounds
-      // compute the global bounds as a convenience.
-      MPIUtils::GlobalBounds<double>(comm, this->BlockBounds, this->Bounds);
       }
     else if (this->Bounds.empty())
       {
@@ -344,7 +345,129 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
       }
     }
 
+  if (localBlocks && this->Flags.BlockArrayRangeSet() &&
+    (this->ArrayRange.empty() || this->BlockArrayRange.empty()))
+    {
+    SENSEI_ERROR("Metadata is missing array range and/or block array range")
+    err = true;
+    }
+
   return err ? -1 : 0;
+}
+
+// --------------------------------------------------------------------------
+int MeshMetadata::GlobalizeView(MPI_Comm comm)
+{
+  if (!this->GlobalView)
+    {
+    MPIUtils::GlobalViewV(comm, this->BlockOwner);
+    MPIUtils::GlobalViewV(comm, this->BlockIds);
+    MPIUtils::GlobalViewV(comm, this->NumBlocksLocal);
+    MPIUtils::GlobalViewV(comm, this->BlockNumPoints);
+    MPIUtils::GlobalViewV(comm, this->BlockNumCells);
+    MPIUtils::GlobalViewV(comm, this->BlockCellArraySize);
+    MPIUtils::GlobalViewV(comm, this->BlockExtents);
+    MPIUtils::GlobalViewV(comm, this->BlockBounds);
+    MPIUtils::GlobalViewV(comm, this->BlockArrayRange);
+
+    STLUtils::ReduceRange(this->BlockBounds, this->Bounds);
+    STLUtils::ReduceRange(this->BlockExtents, this->Extent);
+    STLUtils::ReduceRange(this->BlockArrayRange, this->ArrayRange);
+
+    this->NumBlocks = STLUtils::Sum(this->NumBlocksLocal);
+    this->NumPoints = STLUtils::Sum(this->BlockNumPoints);
+    this->NumCells = STLUtils::Sum(this->BlockNumCells);
+    this->CellArraySize = STLUtils::Sum(this->BlockCellArraySize);
+
+    this->GlobalView = true;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int MeshMetadata::ClearBlockInfo()
+{
+  // clear out all block metadata
+  this->NumBlocks = 0;
+
+  this->NumPoints = 0;
+  this->NumCells = 0;
+  this->CellArraySize = 0;
+
+  STLUtils::InitializeRange(this->Bounds);
+  STLUtils::InitializeRange(this->Extent);
+
+  this->BlockIds.clear();
+  this->BlockOwner.clear();
+  this->NumBlocksLocal.clear();
+
+  this->BlockBounds.clear();
+  this->BlockExtents.clear();
+
+  this->BlockNumPoints.clear();
+  this->BlockNumCells.clear();
+  this->BlockCellArraySize.clear();
+
+  this->BlockArrayRange.clear();
+
+  this->ArrayRange.resize(this->NumArrays);
+  STLUtils::InitializeRange(this->ArrayRange);
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int MeshMetadata::CopyBlockInfo(const MeshMetadataPtr &other, int i)
+{
+  this->NumBlocks += 1;
+
+  if (other->BlockNumPoints.size())
+    {
+    this->NumPoints += other->BlockNumPoints[i];
+    this->BlockNumPoints.push_back(other->BlockNumPoints[i]);
+    }
+
+  if (other->BlockNumCells.size())
+    {
+    this->NumCells += other->BlockNumCells[i];
+    this->BlockNumCells.push_back(other->BlockNumCells[i]);
+    }
+
+  if (other->BlockCellArraySize.size())
+    {
+    this->CellArraySize += other->BlockCellArraySize[i];
+    this->BlockCellArraySize.push_back(other->BlockCellArraySize[i]);
+    }
+
+  if (other->BlockOwner.size())
+    this->BlockOwner.push_back(other->BlockOwner[i]);
+
+  if (other->BlockIds.size())
+    this->BlockIds.push_back(other->BlockIds[i]);
+
+  if (other->BlockBounds.size())
+    {
+    const std::array<double,6> &obi = other->BlockBounds[i];
+    this->BlockBounds.push_back(obi);
+    STLUtils::ReduceRange(obi, this->Bounds);
+    }
+
+  if (other->BlockExtents.size())
+    {
+    const std::array<int,6> &obi = other->BlockExtents[i];
+    this->BlockExtents.push_back(obi);
+    STLUtils::ReduceRange(obi, this->Extent);
+    }
+
+  if (other->BlockArrayRange.size())
+    {
+    const std::vector<std::array<double,2>> &obari = other->BlockArrayRange[i];
+    this->BlockArrayRange.push_back(obari);
+    STLUtils::ReduceRange(obari, this->ArrayRange);
+    }
+
+  return 0;
 }
 
 }

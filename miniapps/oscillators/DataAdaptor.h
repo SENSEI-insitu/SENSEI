@@ -21,9 +21,9 @@ public:
   /// This initializes the data adaptor. This must be called once per simulation run.
   /// @param nblocks is the total number of blocks in the simulation run.
   void Initialize(size_t nblocks, size_t n_local_blocks,
-    int domain_shape_x, int domain_shape_y, int domain_shape_z, int *gid,
-    int *from_x, int *from_y, int *from_z, int *to_x, int *to_y, int *to_z,
-    int *shape, int ghostLevels);
+    float *origin, float *spacing, int domain_shape_x, int domain_shape_y,
+    int domain_shape_z, int *gid, int *from_x, int *from_y, int *from_z,
+    int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels);
 
   /// Set the extents for local blocks.
   void SetBlockExtent(int gid, int xmin, int xmax, int ymin,

@@ -59,22 +59,28 @@ void getBlockExtent(const diy::DiscreteBounds &db, int *ext)
 }
 
 static
-vtkImageData *newCartesianBlock(
-  const diy::DiscreteBounds &cellExts, bool structureOnly)
+vtkImageData *newCartesianBlock(double *origin,
+  double *spacing, const diy::DiscreteBounds &cellExts,
+  bool structureOnly)
 {
   vtkImageData *id = vtkImageData::New();
 
   if (!structureOnly)
+    {
+    id->SetOrigin(origin);
+    id->SetSpacing(spacing);
     id->SetExtent(cellExts.min[0], cellExts.max[0]+1,
       cellExts.min[1], cellExts.max[1]+1, cellExts.min[2],
       cellExts.max[2]+1);
+    }
 
   return id;
 }
 
 static
-vtkUnstructuredGrid *newUnstructuredBlock(
-  const diy::DiscreteBounds &cellExts, bool structureOnly)
+vtkUnstructuredGrid *newUnstructuredBlock(const double *origin,
+  const double *spacing, const diy::DiscreteBounds &cellExts,
+  bool structureOnly)
 {
   vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
 
@@ -91,10 +97,17 @@ vtkUnstructuredGrid *newUnstructuredBlock(
     vtkIdType idx = 0;
 
     for(int k = cellExts.min[2]; k <= cellExts.max[2]+1; ++k)
-    for(int j = cellExts.min[1]; j <= cellExts.max[1]+1; ++j)
-    for(int i = cellExts.min[0]; i <= cellExts.max[0]+1; ++i)
       {
-      pts->SetPoint(idx++, i,j,k);
+      double z = origin[2] + spacing[2]*k;
+      for(int j = cellExts.min[1]; j <= cellExts.max[1]+1; ++j)
+        {
+        double y = origin[1] + spacing[1]*j;
+        for(int i = cellExts.min[0]; i <= cellExts.max[0]+1; ++i)
+          {
+          double x = origin[0] + spacing[0]*i;
+          pts->SetPoint(idx++, x,y,z);
+          }
+        }
       }
 
     ug->SetPoints(pts);
@@ -312,6 +325,7 @@ vtkUnsignedCharArray *newGhostCellsArray(int *shape,
 
     return g;
 }
+
 namespace oscillators
 {
 
@@ -350,11 +364,17 @@ DataAdaptor::~DataAdaptor()
 
 //-----------------------------------------------------------------------------
 void DataAdaptor::Initialize(size_t nblocks, size_t n_local_blocks,
-  int domain_shape_x, int domain_shape_y, int domain_shape_z, int *gid,
-  int *from_x, int *from_y, int *from_z, int *to_x, int *to_y, int *to_z,
-  int *shape, int ghostLevels)
+  float *origin, float *spacing, int domain_shape_x, int domain_shape_y,
+  int domain_shape_z, int *gid, int *from_x, int *from_y, int *from_z,
+  int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels)
 {
   this->Internals->NumBlocks = nblocks;
+
+  for (int i = 0; i < 3; ++i)
+    this->Internals->Origin[i] = origin[i];
+
+  for (int i = 0; i < 3; ++i)
+    this->Internals->Spacing[i] = spacing[i];
 
   for (int i = 0; i < 3; ++i)
     this->Internals->Shape[i] = shape[i];
@@ -444,13 +464,17 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       }
     else if (unstructuredBlocks)
       {
-      vtkUnstructuredGrid *ug = newUnstructuredBlock(it->second, structureOnly);
+      vtkUnstructuredGrid *ug = newUnstructuredBlock(this->Internals->Origin,
+        this->Internals->Spacing, it->second, structureOnly);
+
       mb->SetBlock(it->first, ug);
       ug->Delete();
       }
     else
       {
-      vtkImageData *id = newCartesianBlock(it->second, structureOnly);
+      vtkImageData *id = newCartesianBlock(this->Internals->Origin,
+        this->Internals->Spacing, it->second, structureOnly);
+
       mb->SetBlock(it->first, id);
       id->Delete();
       }
@@ -619,6 +643,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
   int nBlocks = this->Internals->BlockData.size();
 
   metadata->MeshName = (id == 0 ? "mesh" : "ucdmesh");
+
   metadata->MeshType = VTK_MULTIBLOCK_DATA_SET;
   metadata->BlockType = (id == 0 ? VTK_IMAGE_DATA : VTK_UNSTRUCTURED_GRID);
   metadata->NumBlocks = this->Internals->NumBlocks;
@@ -629,6 +654,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
   metadata->ArrayCentering = {vtkDataObject::CELL};
   metadata->ArrayComponents = {1};
   metadata->ArrayType = {VTK_FLOAT};
+  metadata->StaticMesh = 1;
 
   if ((id == 0) && metadata->Flags.BlockExtentsSet())
     {
@@ -693,6 +719,31 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
       metadata->BlockOwner.push_back(rank);
       metadata->BlockIds.push_back(it->first);
       }
+    }
+
+  if (metadata->Flags.BlockArrayRangeSet())
+    {
+    float gmin = std::numeric_limits<float>::max();
+    float gmax = std::numeric_limits<float>::lowest();
+    std::map<long, float*>::iterator it = this->Internals->BlockData.begin();
+    std::map<long, float*>::iterator end = this->Internals->BlockData.end();
+    for (; it != end; ++it)
+      {
+      unsigned long nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
+      float *pdata = it->second;
+      float bmin = std::numeric_limits<float>::max();
+      float bmax = std::numeric_limits<float>::lowest();
+      for (unsigned long i = 0; i < nCells; ++i)
+        {
+        bmin = std::min(bmin, pdata[i]);
+        bmax = std::max(bmax, pdata[i]);
+        }
+      gmin = std::min(gmin, bmin);
+      gmax = std::max(gmax, bmax);
+      std::vector<std::array<double,2>> blkRange{{bmin,bmax}};
+      metadata->BlockArrayRange.push_back(blkRange);
+      }
+    metadata->ArrayRange.push_back({gmin, gmax});
     }
 
   return 0;

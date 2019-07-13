@@ -60,7 +60,7 @@ InTransitDataAdaptor::~InTransitDataAdaptor()
 }
 
 //----------------------------------------------------------------------------
-void InTransitDataAdaptor::SetPartitioner(sensei::PartitionerPtr &partitioner)
+void InTransitDataAdaptor::SetPartitioner(const sensei::PartitionerPtr &partitioner)
 {
   this->Internals->Part = partitioner;
 }

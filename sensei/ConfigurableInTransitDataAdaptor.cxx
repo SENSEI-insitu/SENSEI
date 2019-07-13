@@ -185,7 +185,7 @@ int ConfigurableInTransitDataAdaptor::SetReceiverMeshMetadata(unsigned int id,
 }
 
 // -------------------------------------------------------------------------------
-void ConfigurableInTransitDataAdaptor::SetPartitioner(sensei::PartitionerPtr &partitioner)
+void ConfigurableInTransitDataAdaptor::SetPartitioner(const sensei::PartitionerPtr &partitioner)
 {
   if (!this->Internals->Adaptor)
     {

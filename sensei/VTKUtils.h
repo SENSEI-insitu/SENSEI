@@ -118,6 +118,10 @@ inline bool LogicallyCartesian(const MeshMetadataPtr &md)
   return Structured(md) || UniformCartesian(md) || StretchedCartesian(md);
 }
 
+// rank 0 writes a dataset for visualizing the domain decomp
+int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
+  const std::string fileName);
+
 }
 }
 
