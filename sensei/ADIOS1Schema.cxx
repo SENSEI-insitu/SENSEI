@@ -3163,7 +3163,7 @@ int DataObjectCollectionSchema::AddBlockOwnerArray(MPI_Comm comm,
       vtkDataArray *bo = vtkIntArray::New();
       bo->SetNumberOfTuples(num_elem_local);
       bo->SetName(name.c_str());
-      bo->Fill(md->BlockOwner[j]);
+      bo->FillComponent(0, md->BlockOwner[j]);
 
       vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
         dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
