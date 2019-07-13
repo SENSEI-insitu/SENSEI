@@ -27,8 +27,11 @@
 #include <vtkCellArray.h>
 #include <vtkSmartPointer.h>
 #include <vtkIntArray.h>
+#include <vtkVersionMacros.h>
+#if ((VTK_VERSION_MAJOR >= 8) && (VTK_VERSION_MINOR >= 2))
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkSOADataArrayTemplate.h>
+#endif
 
 #include <functional>
 #include <mpi.h>
