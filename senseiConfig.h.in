@@ -13,6 +13,7 @@
 #cmakedefine ENABLE_LIBSIM
 #cmakedefine ENABLE_ADIOS1
 #cmakedefine ENABLE_HDF5
+#cmakedefine ENABLE_LIBIS
 #cmakedefine ENABLE_VTK_GENERIC_ARRAYS
 #cmakedefine ENABLE_VTK_MPI
 #cmakedefine ENABLE_VTK_IO

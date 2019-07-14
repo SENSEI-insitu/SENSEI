@@ -15,7 +15,7 @@ class vtkCompositeDataSet;
 namespace sensei
 {
 
-/// The write side of the ADIOS 1 transport
+/// The write side of the libIS transport
 class libISAnalysisAdaptor : public AnalysisAdaptor
 {
 public:
@@ -23,29 +23,11 @@ public:
   senseiTypeMacro(libISAnalysisAdaptor, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
-  /// Sets the maximum buffer allocated by libIS in MB
-  /// takes affect on first Execute
-  //void SetMaxBufferSize(unsigned int size)
-  //{ this->MaxBufferSize = size; }
-
-  /// @brief Set the libIS method e.g. MPI, FLEXPATH etc.
+  /// @brief Set the TCP port.
   ///
-  /// Default value is "MPI".
-  //void SetMethod(const std::string &method)
-  //{ this->Method = method; }
-
-  //std::string GetMethod() const
-  //{ return this->Method; }
-
-  /// @brief Set the filename.
-  ///
-  /// Default value is "sensei.bp"
-  //void SetFileName(const std::string &filename)
-  //{ this->FileName = filename; }
-
-  //std::string GetFileName() const
-  //{ return this->FileName; }
-
+  void SetPort(int value)
+  { this->port = value; }
+ 
   /// data requirements tell the adaptor what to push
   /// if none are given then all data is pushed.
   int SetDataRequirements(const DataRequirements &reqs);
@@ -72,11 +54,9 @@ protected:
   // shuts down libIS
   int FinalizelibIS();
 
-  unsigned int MaxBufferSize;
   senseilibIS::DataObjectCollectionSchema *Schema;
   sensei::DataRequirements Requirements;
-  std::string Method;
-  std::string FileName;
+  int port;  
   int64_t GroupHandle;
 
 private:

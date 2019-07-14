@@ -2,12 +2,8 @@
 #include "ConfigurableAnalysis.h"
 #include "Timer.h"
 #include "Error.h"
-
 #include "libIS/is_client.h"
-
-
 #include <opts/opts.h>
-
 #include <mpi.h>
 #include <iostream>
 #include <vtkNew.h>
@@ -20,8 +16,8 @@ using AnalysisAdaptorPtr = vtkSmartPointer<sensei::ConfigurableAnalysis>;
 
 /*!
  * This program is designed to be an endpoint component in a scientific
- * workflow. It can read a data-stream using ADIOS1-FLEXPATH. When enabled, this end point
- * supports histogram and catalyst-slice analysis via the Sensei infrastructure.
+ * workflow. It can read a data-stream using libIS. When enabled, this end point
+ * supports analysis via the Sensei infrastructure.
  *
  * Usage:
  *  <exec> fileName
@@ -40,29 +36,29 @@ int main(int argc, char **argv)
   MPI_Comm_size(comm, &size);
 
   std::string fileName;
-  std::string readmethod("bp");
+  std::string port("29374");
   std::string config_file;
 
   opts::Options ops(argc, argv);
-  ops >> opts::Option('r', "readmethod", readmethod, "specify read method: bp, bp_aggregate, dataspaces, dimes, or flexpath ")
+  ops >> opts::Option('p', "port", port, "specify TCP port for communication ")
       >> opts::Option('f', "config", config_file, "Sensei analysis configuration xml (required)");
 
   bool log = ops >> opts::Present("log", "generate time and memory usage log");
   bool shortlog = ops >> opts::Present("shortlog", "generate a summary time and memory usage log");
   bool showHelp = ops >> opts::Present('h', "help", "show help");
-  bool haveInput = ops >> opts::PosOption(fileName);
+  //bool haveInput = ops >> opts::PosOption(fileName);
 
-  if (!showHelp && !haveInput && (rank == 0))
-    SENSEI_ERROR("Missing ADIOS1 fileName stream")
+  //if (!showHelp && !haveInput && (rank == 0))
+  //  SENSEI_ERROR("Missing ADIOS1 fileName stream")
 
   if (!showHelp && config_file.empty() && (rank == 0))
     SENSEI_ERROR("Missing XML analysis configuration")
 
-  if (showHelp || !haveInput || config_file.empty())
+  if (showHelp || config_file.empty())
     {
     if (rank == 0)
       {
-      cerr << "Usage: " << argv[0] << "[OPTIONS] fileName\n\n" << ops << endl;
+      cerr << "Usage: " << argv[0] << "[OPTIONS] \n\n" << ops << endl;
       }
     MPI_Finalize();
     return showHelp ? 0 : 1;
@@ -73,10 +69,10 @@ int main(int argc, char **argv)
 
   timer::Initialize();
 
-  SENSEI_STATUS("Opening: \"" << fileName.c_str() << "\" using method \""
-    << readmethod.c_str() << "\"")
+  //SENSEI_STATUS("Opening: \"" << fileName.c_str() << "\" using method \""
+  //  << readmethod.c_str() << "\"")
 
-  // open the ADIOS1 stream using the ADIOS1 adaptor
+  // open the stream using the libIS adaptor
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
 
   dataAdaptor->SetCommunicator(comm);
@@ -85,11 +81,11 @@ int main(int argc, char **argv)
 
   if (dataAdaptor->OpenStream())
     {
-    SENSEI_ERROR("Failed to open \"" << fileName << "\"")
+    SENSEI_ERROR("Failed to open libIS stream")
     MPI_Abort(comm, 1);
     }
 
-  // initlaize the analysis using the XML configurable adaptor
+  // initialize the analysis using the XML configurable adaptor
   SENSEI_STATUS("Loading configurable analysis \"" << config_file << "\"")
 
   AnalysisAdaptorPtr analysisAdaptor = AnalysisAdaptorPtr::New();
@@ -100,12 +96,12 @@ int main(int argc, char **argv)
     MPI_Abort(comm, 1);
     }
 
-  // read from the ADIOS1 stream until all steps have been
+  // read from the libIS stream until all steps have been
   // processed
   unsigned int nSteps = 0;
   do
     {
-    // gte the current simulation time and time step
+    // get the current simulation time and time step
     long timeStep = dataAdaptor->GetDataTimeStep();
     double time = dataAdaptor->GetDataTime();
     nSteps += 1;
@@ -133,7 +129,7 @@ int main(int argc, char **argv)
 
   SENSEI_STATUS("Finished processing " << nSteps << " time steps")
 
-  // close the ADIOS1 stream
+  // close the libIS stream
   dataAdaptor->CloseStream();
   dataAdaptor->Finalize();
 
@@ -141,7 +137,7 @@ int main(int argc, char **argv)
 
   // we must force these to be destroyed before mpi finalize
   // some of the adaptors make MPI calls in the destructor
-  // noteabley Catalyst
+  // notably Catalyst
   dataAdaptor = nullptr;
   analysisAdaptor = nullptr;
 

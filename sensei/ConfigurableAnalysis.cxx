@@ -39,6 +39,9 @@
 #ifdef ENABLE_HDF5
 #include "HDF5AnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_LIBIS
+#include "libISAnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
 #include "CatalystParticle.h"
@@ -89,6 +92,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
+  int AddlibIS(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
@@ -387,6 +391,40 @@ int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
 #endif
 }
 
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddlibIS(pugi::xml_node node)
+{
+#ifndef ENABLE_LIBIS
+  (void)node;
+  SENSEI_ERROR("libIS was requested but is disabled in this build")
+  return -1;
+#else
+  auto libis = vtkSmartPointer<libISAnalysisAdaptor>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    libis->SetCommunicator(this->Comm);
+
+  int port = node.attribute("port").as_int(29374);
+  if (port)
+    libis->SetPort(port);
+
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize libIS")
+    return -1;
+    }
+  libis->SetDataRequirements(req);
+
+  this->TimeInitialization(libis);
+  this->Analyses.push_back(libis.GetPointer());
+
+  SENSEI_STATUS("Configured libISAnalysisAdaptor \"" 
+    << "\" port " << port)
+
+  return 0;
+#endif
+}
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
@@ -1057,8 +1095,9 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios(node))
-      || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
+      || ((type == "libis") && !this->Internals->AddlibIS(node))
+      || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))

@@ -43,8 +43,8 @@ senseiNewMacro(libISAnalysisAdaptor);
 //----------------------------------------------------------------------------
 //fixme
 //use the right parameters for libIS here 
-libISAnalysisAdaptor::libISAnalysisAdaptor() : MaxBufferSize(500),
-    Schema(nullptr), Method("MPI"), FileName("sensei.bp"), GroupHandle(0)
+libISAnalysisAdaptor::libISAnalysisAdaptor() : 
+    Schema(nullptr), port(29374), GroupHandle(0)
 {
 }
 
@@ -78,9 +78,8 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
   flags.SetBlockSize();
-  // fixme
-  // BOUNDS for libIS global bounding box
   flags.SetBlockBounds();
+  flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
   if (mdm.Initialize(dataAdaptor, flags))
@@ -162,17 +161,7 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 
     // generate a global view of the metadata. everything we do from here
     // on out depends on having the global view.
-    if (!md->GlobalView)
-      {
-      MPI_Comm comm = this->GetCommunicator();
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockOwner);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockIds);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumPoints);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumCells);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockCellArraySize);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockExtents);
-      md->GlobalView = true;
-      }
+    md->GlobalizeView(this->GetCommunicator());
 
     // add to the collection
     objects.push_back(dobj);
@@ -344,8 +333,8 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   if (this->Schema->Write(this->GetCommunicator(),
     handle, timeStep, time, metadata, objects))
     {
-    SENSEI_ERROR("Failed to write step " << timeStep
-      << " to \"" << this->FileName << "\"")
+    SENSEI_ERROR("Failed to write step " << timeStep)
+      //<< " to \"" << this->FileName << "\"")
     ierr = -1;
     }
 
