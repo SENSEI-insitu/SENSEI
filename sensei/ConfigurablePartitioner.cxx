@@ -5,6 +5,7 @@
 #include "PlanarPartitioner.h"
 #include "PlanarSlicePartitioner.h"
 #include "XMLUtils.h"
+#include "Timer.h"
 
 #include <pugixml.hpp>
 
@@ -34,6 +35,8 @@ ConfigurablePartitioner::~ConfigurablePartitioner()
 int ConfigurablePartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
     MeshMetadataPtr &out)
 {
+  timer::MarkEvent mark("ConfigurablePartitioner::GetPartition");
+
   if (!this->Internals->Part)
     {
     SENSEI_ERROR("Partitioner has not been initialized")

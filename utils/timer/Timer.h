@@ -69,7 +69,8 @@ void SetSummaryModulus(int modulus);
 ///
 /// This marks the beginning of a event that must be logged.
 /// The @arg eventname must match when calling MarkEndEvent() to
-/// mark the end of the event.
+/// mark the end of the event. I/O events can log the number of
+/// bytes read or written.
 void MarkStartEvent(const char* eventname);
 
 /// @brief Log end of a log-able event.
@@ -77,8 +78,18 @@ void MarkStartEvent(const char* eventname);
 /// This marks the end of a event that must be logged.
 /// The @arg eventname must match when calling MarkEndEvent() to
 /// mark the end of the event.
-void MarkStartEvent(const char* eventname);
-void MarkEndEvent(const char* eventname);
+void MarkEndEvent(const char *eventname);
+
+/// Start and end an I/O event. I/O events may be started or ended
+/// as normal events, but one of the following must be called to
+/// log the size of the event. The last of these is the size recorded.
+/// As an example if one does not know the size of the read/write at
+/// the start event one may call MarkStartEvent("event name") followed
+/// by MarkEndEvent("event name", nBytes). Converseley if one knows
+/// the size of the event up front one may call MarkStartEvent("name", bytes)
+/// followed by MarkEndEvent("name")
+void MarkStartEvent(const char *eventname, long long numBytes);
+void MarkEndEvent(const char *eventname, long long numBytes);
 
 /// @brief Mark the beginning of a timestep.
 ///
@@ -106,7 +117,11 @@ void PrintLog(std::ostream& stream);
 class MarkEvent
 {
 public:
-  MarkEvent(const char* name) : EventName(name) { MarkStartEvent(name); }
+  MarkEvent() = delete;
+
+  // start an event
+  MarkEvent(const char *name) : EventName(name) { MarkStartEvent(name); }
+  // destroy object emding the event if it is on going
   ~MarkEvent() { MarkEndEvent(this->EventName); }
 private:
   const char *EventName;

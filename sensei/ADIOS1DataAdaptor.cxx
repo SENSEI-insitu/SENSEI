@@ -185,6 +185,7 @@ int ADIOS1DataAdaptor::UpdateTimeStep()
 int ADIOS1DataAdaptor::GetSenderMeshMetadata(unsigned int id,
   MeshMetadataPtr &metadata)
 {
+  timer::MarkEvent mark("ADIOS1DataAdaptor::SenderMeshMetadata");
   if (this->Internals->Schema.GetSenderMeshMetadata(id, metadata))
     {
     SENSEI_ERROR("Failed to get metadata for object " << id)
@@ -197,6 +198,7 @@ int ADIOS1DataAdaptor::GetSenderMeshMetadata(unsigned int id,
 //----------------------------------------------------------------------------
 int ADIOS1DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
+  timer::MarkEvent mark("ADIOS1DataAdaptor::GetNumberOfMeshes");
   numMeshes = 0;
   if (this->Internals->Schema.GetNumberOfObjects(numMeshes))
     return -1;
@@ -206,6 +208,7 @@ int ADIOS1DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 //----------------------------------------------------------------------------
 int ADIOS1DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 {
+  timer::MarkEvent mark("ADIOS1DataAdaptor::GetMeshMetadata");
   // check if an analysis told us how the data should land by
   // passing in reciever metadata
   if (this->GetReceiverMeshMetadata(id, metadata))
@@ -278,6 +281,7 @@ int ADIOS1DataAdaptor::GetMesh(const std::string &meshName,
 int ADIOS1DataAdaptor::AddGhostNodesArray(vtkDataObject *mesh,
   const std::string &meshName)
 {
+  timer::MarkEvent mark("ADIOS1DataAdaptor::AddGhostNodesArray");
   return AddArray(mesh, meshName, vtkDataObject::POINT, "vtkGhostType");
 }
 
@@ -285,6 +289,7 @@ int ADIOS1DataAdaptor::AddGhostNodesArray(vtkDataObject *mesh,
 int ADIOS1DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh,
   const std::string &meshName)
 {
+  timer::MarkEvent mark("ADIOS1DataAdaptor::AddGhostCellsArray");
   return AddArray(mesh, meshName, vtkDataObject::CELL, "vtkGhostType");
 }
 
