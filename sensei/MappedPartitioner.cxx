@@ -1,6 +1,7 @@
 #include "MappedPartitioner.h"
 #include "XMLUtils.h"
 #include "STLUtils.h"
+#include "Timer.h"
 
 #include <pugixml.hpp>
 #include <sstream>
@@ -32,6 +33,7 @@ int MappedPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
   (void)comm;
+  timer::MarkEvent mark("MappedPartitioner::GetPartition");
 
   mdOut = mdIn->NewCopy();
 
