@@ -5,6 +5,7 @@
 #include "VTKUtils.h"
 #include "MPIUtils.h"
 #include "Error.h"
+#include "Timer.h"
 
 #include <vtkCellTypes.h>
 #include <vtkCellData.h>
@@ -535,8 +536,10 @@ public:
 // --------------------------------------------------------------------------
 int BinaryStreamSchema::DefineVariables(int64_t gh, const std::string &path)
 {
+  timer::MarkEvent mark("senseiADIOS1::BinaryStreamSchema::DefineVariables");
+
   // a second variable holding the local, global, length is required
-  // for writing. according to trhe docs you could write a constant
+  // for writing. according to the docs you could write a constant
   // string literal, but that only works with BP and not FLEXPATH
   std::string len = path + "_len";
   adios_define_var(gh, len.c_str(), "", adios_integer,
@@ -553,6 +556,8 @@ int BinaryStreamSchema::DefineVariables(int64_t gh, const std::string &path)
 int BinaryStreamSchema::Read(InputStream &iStream, ADIOS_SELECTION *sel,
   const std::string &path, sensei::BinaryStream &str)
 {
+  timer::MarkStartEvent("senseiADIOS1::BinaryStreamSchema::Read");
+
   // get metadata
   ADIOS_VARINFO *vinfo = adios_inq_var(iStream.File, path.c_str());
   if (!vinfo)
@@ -578,6 +583,8 @@ int BinaryStreamSchema::Read(InputStream &iStream, ADIOS_SELECTION *sel,
   // clean up and pass string back
   adios_free_varinfo(vinfo);
 
+  timer::MarkEndEvent("senseiADIOS1::BinaryStreamSchema::Read", nbytes);
+
   return 0;
 }
 
@@ -585,14 +592,18 @@ int BinaryStreamSchema::Read(InputStream &iStream, ADIOS_SELECTION *sel,
 int BinaryStreamSchema::Write(uint64_t fh, const std::string &path,
   const sensei::BinaryStream &str)
 {
-  std::string len = path + "_len";
+  timer::MarkStartEvent("senseiADIOS1::BinaryStreamSchema::Write");
+
   int n = str.Size();
+  std::string len = path + "_len";
   if (adios_write(fh, len.c_str(), &n) ||
     adios_write(fh, path.c_str(), str.GetData()))
     {
     SENSEI_ERROR("Failed to write BinaryStream at \"" << path << "\"")
     return -1;
     }
+
+  timer::MarkEndEvent("senseiADIOS1::BinaryStreamSchema::Write", n);
   return 0;
 }
 
@@ -617,6 +628,8 @@ private:
 // --------------------------------------------------------------------------
 int VersionSchema::DefineVariables(int64_t gh)
 {
+  timer::MarkEvent mark("senseiADIOS1::VersionSchema::DefineVariables");
+
   // all ranks need to write this info for FLEXPATH method
   // but not the MPI method.
   adios_define_var(gh, "DataObjectSchema", "", adios_unsigned_integer,
@@ -627,15 +640,21 @@ int VersionSchema::DefineVariables(int64_t gh)
 // --------------------------------------------------------------------------
 int VersionSchema::Write(int64_t fh)
 {
+  timer::MarkStartEvent("senseiADIOS1::VersionSchema::Write");
+
   // all ranks need to write this info for FLEXPATH method
   // but not the MPI method.
   adios_write(fh, "DataObjectSchema", &this->Revision);
+
+  timer::MarkEndEvent("senseiADIOS1::VersionSchema::Write", sizeof(this->Revision));
   return 0;
 }
 
 // --------------------------------------------------------------------------
 int VersionSchema::Read(InputStream &iStream)
 {
+  timer::MarkStartEvent("senseiADIOS1::VersionSchema::Read");
+
   // check for the tag. if it is not present, this connot
   // be one of our files
   unsigned int revision = 0;
@@ -651,6 +670,7 @@ int VersionSchema::Read(InputStream &iStream)
     return -2;
     }
 
+  timer::MarkEndEvent("senseiADIOS1::VersionSchema::Read", sizeof(revision));
   return 0;
 }
 
@@ -658,6 +678,8 @@ int VersionSchema::Read(InputStream &iStream)
 // --------------------------------------------------------------------------
 int InputStream::SetReadMethod(const std::string &method)
 {
+  timer::MarkEvent mark("senseiADIOS1::InputStream::SetReadMethod");
+
   size_t n = method.size();
   std::string lcase_method(n, ' ');
   for (size_t i = 0; i < n; ++i)
@@ -694,6 +716,8 @@ int InputStream::Open(MPI_Comm comm)
 int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
   const std::string &fileName)
 {
+  timer::MarkEvent mark("senseiADIOS1::InputStream::Open");
+
   this->Close();
 
   // initialize adios
@@ -720,6 +744,8 @@ int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
 // --------------------------------------------------------------------------
 int InputStream::AdvanceTimeStep()
 {
+  timer::MarkEvent mark("senseiADIOS1::InputStream::AdvanceTimeStep");
+
   adios_release_step(this->File);
 
   if (adios_advance_step(this->File, 0,
@@ -735,6 +761,8 @@ int InputStream::AdvanceTimeStep()
 // --------------------------------------------------------------------------
 int InputStream::Close()
 {
+  timer::MarkEvent mark("senseiADIOS1::InputStream::Close");
+
   if (this->File)
     {
     adios_read_close(this->File);
@@ -792,6 +820,8 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
   const std::vector<long> &block_num_cells,
   const std::vector<int> &block_owner, std::vector<int64_t> &write_ids)
 {
+  timer::MarkEvent mark("senseiADIOS1::ArraySchema::DefineVariable");
+
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
@@ -856,6 +886,8 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
 int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
+  timer::MarkEvent mark("senseiADIOS1::ArraySchema::DefineVariables");
+
   std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
 
   // allocate write ids
@@ -912,6 +944,9 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
   unsigned int num_blocks, const std::vector<int> &block_owner,
   const std::vector<int64_t> &writeIds)
 {
+  timer::MarkStartEvent("senseiADIOS1::ArraySchema::Write");
+  long long numBytes = 0ll;
+
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
@@ -942,6 +977,9 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
         }
 
       adios_write_byid(fh, writeIds[i*num_blocks + j], da->GetVoidPointer(0));
+
+      numBytes += da->GetNumberOfTuples()*
+        da->GetNumberOfComponents()*size(da->GetDataType());
       }
 
     it->GoToNextItem();
@@ -949,6 +987,7 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
 
   it->Delete();
 
+  timer::MarkEndEvent("senseiADIOS1::ArraySchema::Write", numBytes);
   return 0;
 }
 
@@ -956,6 +995,8 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
 int ArraySchema::Write(MPI_Comm comm, int64_t fh,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
+  timer::MarkEvent mark("senseiADIOS1::ArraySchema::Write");
+
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
@@ -995,6 +1036,9 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
   vtkCompositeDataSet *dobj)
 {
+  timer::MarkStartEvent("senseiADIOS1::ArraySchema::Read");
+  long long numBytes = 0ll;
+
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
@@ -1053,6 +1097,8 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 
       dsa->AddArray(array);
       array->Delete();
+
+      numBytes += num_elem_local*size(array_type);
       }
 
     // update the block offset
@@ -1063,6 +1109,8 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
     }
 
   it->Delete();
+
+  timer::MarkEndEvent("senseiADIOS1::ArraySchema::Read", numBytes);
   return 0;
 }
 
@@ -1071,6 +1119,8 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   const std::string &name, int centering, const sensei::MeshMetadataPtr &md,
   vtkCompositeDataSet *dobj)
 {
+  timer::MarkEvent mark("senseiADIOS1::ArraySchema::Read");
+
   unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
 
@@ -1125,6 +1175,8 @@ int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
     || sensei::VTKUtils::Polydata(md))
     {
+    timer::MarkEvent mark("senseiADIOS1::PointSchema::DefineVariables");
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1190,6 +1242,9 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
   if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
     || sensei::VTKUtils::Polydata(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::PointSchema::Write");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1211,12 +1266,18 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
           return -1;
           }
 
-        adios_write_byid(fh, writeIds[j], ds->GetPoints()->GetData()->GetVoidPointer(0));
+        vtkDataArray *da = ds->GetPoints()->GetData();
+        adios_write_byid(fh, writeIds[j], da->GetVoidPointer(0));
+
+        numBytes += da->GetNumberOfTuples()*
+          da->GetNumberOfComponents()*size(da->GetDataType());
         }
 
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::PointSchema::Write", numBytes);
     }
 
   return 0;
@@ -1229,6 +1290,9 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
     || sensei::VTKUtils::Polydata(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::PointSchema::Read");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1282,6 +1346,8 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 
         ds->SetPoints(pts);
         pts->Delete();
+
+        numBytes += count*size(md->CoordinateType);
         }
 
       // update the block offset
@@ -1292,7 +1358,10 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
       }
 
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::PointSchema::Read", numBytes);
     }
+
   return 0;
 }
 
@@ -1319,6 +1388,8 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 {
   if (sensei::VTKUtils::Unstructured(md))
     {
+    timer::MarkEvent mark("senseiADIOS1::UnstructuredCellSchema::DefineVariables");
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1414,6 +1485,9 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
 {
   if (sensei::VTKUtils::Unstructured(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::UnstructuredCellSchema");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1438,12 +1512,20 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
           return -1;
           }
 
-        adios_write_byid(fh, typeWriteIds[j], ds->GetCellTypesArray()->GetVoidPointer(0));
-        adios_write_byid(fh, arrayWriteIds[j], ds->GetCells()->GetData()->GetVoidPointer(0));
+        vtkDataArray *cta = ds->GetCellTypesArray();
+        vtkDataArray *ca = ds->GetCells()->GetData();
+
+        adios_write_byid(fh, typeWriteIds[j], cta->GetVoidPointer(0));
+        adios_write_byid(fh, arrayWriteIds[j], ca->GetVoidPointer(0));
+
+        numBytes += cta->GetNumberOfTuples()*size(cta->GetDataType()) +
+          ca->GetNumberOfTuples()*size(ca->GetDataType());
         }
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::UnstructuredCellSchema::Write", numBytes);
     }
 
   return 0;
@@ -1455,6 +1537,9 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 {
   if (sensei::VTKUtils::Unstructured(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::UnstructuredCellSchema::Read");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1462,7 +1547,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
-    // calc block offsets 
+    // calc block offsets
     unsigned long long cell_types_block_offset = 0;
     unsigned long long cell_array_block_offset = 0;
 
@@ -1546,12 +1631,16 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         cell_locs->Delete();
         cell_array->Delete();
         cell_types->Delete();
+
+        numBytes += ct_count*sizeof(unsigned char) + ca_count*sizeof(vtkIdType);
         }
 
       // update the block offset
       cell_types_block_offset += num_cells_local;
       cell_array_block_offset += cell_array_size_local;
       }
+
+    timer::MarkEndEvent("senseiADIOS1::UnstructuredCellSchema::Read", numBytes);
     }
 
   return 0;
@@ -1581,6 +1670,8 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 {
   if (sensei::VTKUtils::Polydata(md))
     {
+    timer::MarkEvent mark("senseiADIOS1::PolydataCellSchema::DefineVariables");
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1676,6 +1767,9 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
 {
   if (sensei::VTKUtils::Polydata(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::PolydataCellSchema::Write");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1739,12 +1833,16 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
 
         adios_write_byid(fh, typeWriteIds[j], types.data());
         adios_write_byid(fh, arrayWriteIds[j], cells.data());
+
+        numBytes += types.size()*sizeof(unsigned char) + cells.size()*sizeof(vtkIdType);
         }
 
       // go to the next block
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::PolydataCellSchema::Write", numBytes);
     }
 
   return 0;
@@ -1757,6 +1855,9 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 {
   if (sensei::VTKUtils::Polydata(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::PolydataCellSchema::Read");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -1938,6 +2039,8 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         ca->Delete();
 
         pd->BuildCells();
+
+        numBytes += ct_count*sizeof(unsigned char) + ca_count*sizeof(vtkIdType);
         }
       // go to the next block
       it->GoToNextItem();
@@ -1948,6 +2051,8 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
       }
 
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::PolydataCellSchema::Read", numBytes);
     }
 
   return 0;
@@ -1976,6 +2081,8 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 {
   if (sensei::VTKUtils::LogicallyCartesian(md))
     {
+    timer::MarkEvent mark("senseiADIOS1::LogicallyCartesianSchema::DefineVariables");
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2024,6 +2131,9 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 {
   if (sensei::VTKUtils::LogicallyCartesian(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::LogicallyCartesianSchema::Write");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2060,10 +2170,14 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
               dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent());
             break;
           }
+
+        numBytes += 6*sizeof(int);
         }
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::LogicallyCartesianSchema::Write", numBytes);
     }
 
   return 0;
@@ -2076,6 +2190,9 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 {
   if (sensei::VTKUtils::LogicallyCartesian(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::LogicallyCartesianSchema::Read");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2127,11 +2244,15 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
               dynamic_cast<vtkStructuredGrid*>(dobj)->SetExtent(ext);
             break;
           }
+
+        numBytes += 6*sizeof(int);
         }
       // next block
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::LogicallyCartesianSchema::Read", numBytes);
     }
 
   return 0;
@@ -2160,6 +2281,8 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 {
   if (sensei::VTKUtils::UniformCartesian(md))
     {
+    timer::MarkEvent mark("senseiADIOS1::UniformCartesianSchema::DefineVariables");
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2220,6 +2343,9 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 {
   if (sensei::VTKUtils::UniformCartesian(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::UniformCartesianSchema::Write");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2245,11 +2371,15 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 
         adios_write_byid(fh, originWriteIds[j], ds->GetOrigin());
         adios_write_byid(fh, spacingWriteIds[j], ds->GetSpacing());
+
+        numBytes += 6*sizeof(double);
         }
 
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::UniformCartesianSchema::Write", numBytes);
     }
 
   return 0;
@@ -2262,6 +2392,9 @@ int UniformCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 {
   if (sensei::VTKUtils::UniformCartesian(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::UniformCartesianSchema::Read");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2309,11 +2442,15 @@ int UniformCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         ds->SetOrigin(x0);
         ds->SetSpacing(dx);
+
+        numBytes += 6*sizeof(double);
         }
       // next block
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::UniformCartesianSchema::Read", numBytes);
     }
 
   return 0;
@@ -2343,6 +2480,8 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 {
   if (sensei::VTKUtils::StretchedCartesian(md))
     {
+    timer::MarkEvent mark("senseiADIOS1::StretchedCartesianSchema::DefineVariables");
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2463,6 +2602,9 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 {
   if (sensei::VTKUtils::StretchedCartesian(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::StretchedCartesianSchema");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2486,13 +2628,23 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
           return -1;
           }
 
-        adios_write_byid(fh, xCoordWriteIds[j], ds->GetXCoordinates()->GetVoidPointer(0));
-        adios_write_byid(fh, yCoordWriteIds[j], ds->GetXCoordinates()->GetVoidPointer(0));
-        adios_write_byid(fh, zCoordWriteIds[j], ds->GetXCoordinates()->GetVoidPointer(0));
+        vtkDataArray *xda = ds->GetXCoordinates();
+        vtkDataArray *yda = ds->GetYCoordinates();
+        vtkDataArray *zda = ds->GetZCoordinates();
+
+        adios_write_byid(fh, xCoordWriteIds[j], xda->GetVoidPointer(0));
+        adios_write_byid(fh, yCoordWriteIds[j], yda->GetVoidPointer(0));
+        adios_write_byid(fh, zCoordWriteIds[j], zda->GetVoidPointer(0));
+
+        long long cts = size(xda->GetDataType());
+        numBytes += xda->GetNumberOfTuples()*cts +
+          yda->GetNumberOfTuples()*cts + zda->GetNumberOfTuples()*cts;
         }
       it->GoToNextItem();
       }
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::StretchedCartesianSchema::Write", numBytes);
     }
 
   return 0;
@@ -2505,6 +2657,9 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 {
   if (sensei::VTKUtils::StretchedCartesian(md))
     {
+    timer::MarkStartEvent("senseiADIOS1::StretchedCartesianSchema::Read");
+    long long numBytes = 0ll;
+
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -2595,6 +2750,9 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         x_coords->Delete();
         y_coords->Delete();
         z_coords->Delete();
+
+        long long cts = size(md->CoordinateType);
+        numBytes += x_count*cts + y_count*cts + z_count*cts;
         }
 
       // next block
@@ -2607,6 +2765,8 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
       }
 
     it->Delete();
+
+    timer::MarkEndEvent("senseiADIOS1::StretchedCartesianSchema::Read", numBytes);
     }
 
   return 0;
@@ -2646,6 +2806,8 @@ struct DataObjectSchema
 int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   unsigned int doid, const sensei::MeshMetadataPtr &md)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectSchema::DefineVariables");
+
   // put each data object in its own namespace
   std::ostringstream ons;
   ons << "data_object_" << doid << "/";
@@ -2670,6 +2832,8 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectSchema::Write");
+
   if (this->DataArrays.Write(comm, fh, md, dobj) ||
     this->Points.Write(comm, fh, md, dobj) ||
     this->UnstructuredCells.Write(comm, fh, md, dobj) ||
@@ -2691,6 +2855,8 @@ int DataObjectSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
   unsigned int doid, const sensei::MeshMetadataPtr &md,
   vtkCompositeDataSet *&dobj, bool structure_only)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectSchema::ReadMesh");
+
   // create the data object
   dobj = nullptr;
   if (this->InitializeDataObject(comm, md, dobj))
@@ -2723,6 +2889,8 @@ int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
   unsigned int doid, const std::string &name, int association,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectSchema::ReadArray");
+
   std::ostringstream ons;
   ons << "data_object_" << doid << "/";
 
@@ -2740,6 +2908,8 @@ int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
 int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *&dobj)
 {
+  timer::MarkEvent("DataObjectSchema::InitializeDataObject");
+
   dobj = nullptr;
 
   int rank = 0;
@@ -2788,6 +2958,7 @@ DataObjectCollectionSchema::~DataObjectCollectionSchema()
 int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iStream)
 {
   (void)comm;
+  timer::MarkEvent mark("senseiADIOS1::DataObjectCollectionSchema::ReadMeshMetadata");
 
   this->Internals->SenderMdMap.Clear();
   this->Internals->ReceiverMdMap.Clear();
@@ -2858,6 +3029,8 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 int DataObjectCollectionSchema::GetSenderMeshMetadata(unsigned int id,
   sensei::MeshMetadataPtr &md)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectCollectionSchema::GetSenderMeshMetadata");
+
   if (this->Internals->SenderMdMap.GetMeshMetadata(id, md))
     {
     SENSEI_ERROR("Failed to get mesh metadata for object " << id)
@@ -2871,6 +3044,7 @@ int DataObjectCollectionSchema::GetSenderMeshMetadata(unsigned int id,
 int DataObjectCollectionSchema::SetReceiverMeshMetadata(unsigned int id,
   sensei::MeshMetadataPtr &md)
 {
+  timer::MarkEvent("DataObjectCollectionSchema::SetReceiverMeshMetadata");
   return this->Internals->ReceiverMdMap.SetMeshMetadata(id, md);
 }
 
@@ -2879,6 +3053,7 @@ int DataObjectCollectionSchema::SetReceiverMeshMetadata(unsigned int id,
 int DataObjectCollectionSchema::GetReceiverMeshMetadata(unsigned int id,
   sensei::MeshMetadataPtr &md)
 {
+  timer::MarkEvent("DataObjectCollectionSchema::GetReceiverMeshMetadata");
   if (this->Internals->ReceiverMdMap.GetMeshMetadata(id, md))
     {
     SENSEI_ERROR("Failed to get mesh metadata for object " << id)
@@ -2891,6 +3066,7 @@ int DataObjectCollectionSchema::GetReceiverMeshMetadata(unsigned int id,
 // --------------------------------------------------------------------------
 int DataObjectCollectionSchema::GetNumberOfObjects(unsigned int &num)
 {
+  timer::MarkEvent("DataObjectCollectionSchema::GetNumberOfObjects");
   num = this->Internals->SenderMdMap.Size();
   return 0;
 }
@@ -2899,6 +3075,8 @@ int DataObjectCollectionSchema::GetNumberOfObjects(unsigned int &num)
 int DataObjectCollectionSchema::GetObjectId(MPI_Comm comm,
   const std::string &object_name, unsigned int &doid)
 {
+  timer::MarkEvent("DataObjectCollectionSchema::GetObjectId");
+
   (void)comm;
 
   doid = 0;
@@ -2916,6 +3094,8 @@ int DataObjectCollectionSchema::GetObjectId(MPI_Comm comm,
 int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::vector<sensei::MeshMetadataPtr> &metadata)
 {
+  timer::MarkEvent("DataObjectCollectionSchema::DefineVariables");
+
   // mark the file as ours and declare version it is written with
   this->Internals->Version.DefineVariables(gh);
 
@@ -2962,6 +3142,8 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
   const std::vector<sensei::MeshMetadataPtr> &metadata,
   const std::vector<vtkCompositeDataSet*> &objects)
 {
+  timer::MarkStartEvent("senseiADIOS1::DataObjectCollectionSchema::Write");
+
   unsigned int n_objects = objects.size();
   if (n_objects != metadata.size())
     {
@@ -3004,6 +3186,8 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
       }
     }
 
+  timer::MarkEndEvent("senseiADIOS1::DataObjectCollectionSchema::Write",
+    sizeof(time_step)+sizeof(time));
   return 0;
 }
 
@@ -3018,6 +3202,8 @@ int DataObjectCollectionSchema::ReadObject(MPI_Comm comm,
   InputStream &iStream, const std::string &object_name,
   vtkDataObject *&dobj, bool structure_only)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectCollectionSchema::ReadObject");
+
   dobj = nullptr;
 
   unsigned int doid = 0;
@@ -3052,6 +3238,8 @@ int DataObjectCollectionSchema::ReadArray(MPI_Comm comm,
   InputStream &iStream, const std::string &object_name, int association,
   const std::string &array_name, vtkDataObject *dobj)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectCollectionSchema::ReadArray");
+
   // convert the mesh name into its id
   unsigned int doid = 0;
   if (this->GetObjectId(comm, object_name, doid))
@@ -3122,6 +3310,7 @@ int DataObjectCollectionSchema::ReadTimeStep(MPI_Comm comm,
   InputStream &iStream, unsigned long &time_step, double &time)
 {
   (void)comm;
+  timer::MarkEvent mark("senseiADIOS1::DataObjectCollectionSchema::ReadTimeStep");
 
   // read time and step values
   if (adiosInq(iStream, "time", time))
@@ -3138,6 +3327,8 @@ int DataObjectCollectionSchema::AddBlockOwnerArray(MPI_Comm comm,
   const std::string &name, int centering, const sensei::MeshMetadataPtr &md,
   vtkCompositeDataSet *dobj)
 {
+  timer::MarkEvent mark("senseiADIOS1::DataObjectCollectionSchema::AddBlockOwnerArray");
+
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
