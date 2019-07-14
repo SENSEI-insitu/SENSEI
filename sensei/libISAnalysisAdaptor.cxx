@@ -41,6 +41,8 @@ namespace sensei
 senseiNewMacro(libISAnalysisAdaptor);
 
 //----------------------------------------------------------------------------
+//fixme
+//use the right parameters for libIS here 
 libISAnalysisAdaptor::libISAnalysisAdaptor() : MaxBufferSize(500),
     Schema(nullptr), Method("MPI"), FileName("sensei.bp"), GroupHandle(0)
 {
@@ -76,6 +78,9 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
   flags.SetBlockSize();
+  // fixme
+  // BOUNDS for libIS global bounding box
+  flags.SetBlockBounds();
 
   MeshMetadataMap mdm;
   if (mdm.Initialize(dataAdaptor, flags))
@@ -233,8 +238,8 @@ int libISAnalysisAdaptor::InitializelibIS(
 //----------------------------------------------------------------------------
 int libISAnalysisAdaptor::FinalizelibIS()
 {
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
+  //int rank = 0;
+  //MPI_Comm_rank(this->GetCommunicator(), &rank);
   //adios_finalize(rank);
   libISFinalize();
   return 0;
@@ -278,10 +283,12 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 
   libISSimState *libis_state = libISMakeSimState();
 
+//fixme
+
   // may need to get size from schema here
 
 
-
+  /////////////////////////////////////////////////////////////////
   // from libIS example, just to make sure the code builds for now
 
   struct Particle {
@@ -298,15 +305,31 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   std::vector<Particle> particle;
 
   libISBox3f bounds;
+  
+
+
+
+
   /////////////////////////////////////////////////////////////////
 
-  libISVec3f world_min{0.f, 0.f, 0.f};
-  //libISVec3f world_max{grid.x, grid.y, grid.z};
-  libISVec3f world_max{10.0, 10.0, 10.0};
+
+
+  // fixme
+  // after the call to libISMakeBox3f(), bounds are set to
+  // std::numeric_limits<float>::infinity() 
+  // and -std::numeric_limits<float>::infinity()
+  // I will not change those values for the moment
+
   libISBox3f world_bounds = libISMakeBox3f();
-  libISBoxExtend(&world_bounds, &world_min);
-  libISBoxExtend(&world_bounds, &world_max);
-  libISSetWorldBounds(libis_state, world_bounds);
+  //libISBoxExtend(&world_bounds, &world_min);
+  //libISBoxExtend(&world_bounds, &world_max); 
+  //libISSetWorldBounds(libis_state, world_bounds);
+
+
+
+
+
+
 
   libISSetLocalBounds(libis_state, bounds);
   libISSetGhostBounds(libis_state, bounds);
