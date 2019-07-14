@@ -219,11 +219,11 @@ VTK_DERIVED(VTKPosthocIO)
 #ifdef ENABLE_VTK_MPI
 VTK_DERIVED(VTKAmrWriter)
 #endif
-#endif
 
-#ifdef ENABLE_VTK_IO
 /****************************************************************************
  * SliceExtract
  ***************************************************************************/
+#ifdef ENABLE_VTK_FILTERS
 VTK_DERIVED(SliceExtract)
+#endif
 #endif
