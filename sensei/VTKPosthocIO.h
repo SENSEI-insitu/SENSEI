@@ -3,6 +3,9 @@
 
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
+#include "MeshMetadata.h"
+
+#include <vtkSmartPointer.h>
 
 #include <mpi.h>
 #include <vector>
@@ -11,6 +14,9 @@
 
 namespace sensei
 {
+class VTKPosthocIO;
+using VTKPosthocIOPtr = vtkSmartPointer<VTKPosthocIO>;
+
 /// @class VTKPosthocIO
 /// brief sensei::VTKPosthocIO is a AnalysisAdaptor that writes
 /// data to disk. This can be useful for generating preview datasets
@@ -76,7 +82,7 @@ private:
 
   NameMap<std::vector<double>> Time;
   NameMap<std::vector<long>> TimeStep;
-  NameMap<std::vector<long>> NumBlocks;
+  NameMap<std::vector<MeshMetadataPtr>> Metadata;
   NameMap<std::string> BlockExt;
   NameMap<long> FileId;
   NameMap<int> HaveBlockInfo;

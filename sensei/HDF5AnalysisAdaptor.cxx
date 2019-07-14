@@ -87,6 +87,40 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       return false;
     }
 
+  
+  //
+  // (usage is from beambeam3d)
+  // we set block extent if images
+  // cannt set it with SetBlockDecomp() etc
+  // error is thrown for non image meshes
+  //
+  for (unsigned int i = 0; i < mdm.Size(); ++i)
+    {
+      MeshMetadataPtr older;
+      mdm.GetMeshMetadata(i, older);
+
+      if (older->BlockType == VTK_IMAGE_DATA) 
+      {
+	MeshMetadataPtr curr = sensei::MeshMetadata::New();;
+	flags.SetBlockExtents();
+	curr->Flags = flags;
+
+	if (dataAdaptor->GetMeshMetadata(i, curr))
+	{
+	  SENSEI_ERROR("Failed to get metadata with block extent for data object " << i)
+	    return -1;
+	}
+
+	if (curr->Validate(dataAdaptor->GetCommunicator(), flags))
+	{
+	  SENSEI_ERROR("The requested metadata was not provided for data object " << i)
+	    return -1;
+	}
+	mdm.SetMeshMetadata(i, curr);
+      }
+    }
+
+
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())

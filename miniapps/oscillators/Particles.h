@@ -11,11 +11,9 @@
 // container for a single particle
 struct Particle
 {
-    using Vertex = diy::Point<float, 3>;
-
     int id;
-    Vertex position;
-    Vertex velocity;
+    diy::Point<float,3> position;
+    diy::Point<float,3> velocity;
 };
 
 // put the particle in the stream in human readable format
@@ -30,7 +28,7 @@ diy::DiscreteBounds remove_ghosts(const diy::DiscreteBounds &domain,
 // convert from index space into world space accounting for ghost zones
 template<typename coord_type>
 diy::Bounds<coord_type> world_space_bounds(const diy::DiscreteBounds &bounds,
-    const coord_type *origin, const coord_type *spacing)
+    const diy::Point<coord_type,3> &origin, const diy::Point<coord_type,3> &spacing)
 {
     // the unit of bounds member are in cell centered index space
     // convert from index space bounding box into world space
@@ -55,8 +53,8 @@ diy::Bounds<coord_type> world_space_bounds(const diy::DiscreteBounds &bounds,
 // convert from index space into world space accounting for ghost zones
 template<typename coord_type>
 diy::Bounds<coord_type> world_space_bounds(const diy::DiscreteBounds &domain,
-    const diy::DiscreteBounds &gbounds, const coord_type *origin,
-    const coord_type *spacing, int nghost)
+    const diy::DiscreteBounds &gbounds, const diy::Point<coord_type,3> &origin,
+    const diy::Point<coord_type,3> &spacing, int nghost)
 {
     // remove ghost zones
     diy::DiscreteBounds bounds = remove_ghosts(domain, gbounds, nghost);
@@ -70,8 +68,8 @@ diy::Bounds<coord_type> world_space_bounds(const diy::DiscreteBounds &domain,
 template<typename coord_type>
 std::vector<Particle> GenerateRandomParticles(std::default_random_engine& rng,
     const diy::DiscreteBounds &domain, const diy::DiscreteBounds &gbounds,
-    const coord_type *origin, const coord_type *spacing, int nghost,
-    int startId, int count)
+    const diy::Point<coord_type,3> &origin, const diy::Point<coord_type,3> &spacing,
+    int nghost, int startId, int count)
 {
     diy::Bounds<coord_type> world_bounds =
          world_space_bounds(domain, gbounds, origin, spacing, nghost);
@@ -96,7 +94,7 @@ std::vector<Particle> GenerateRandomParticles(std::default_random_engine& rng,
 // return true if the particle is inside this block
 template<typename coord_type>
 bool contains(const diy::DiscreteBounds &bounds,
-    const coord_type *origin, const coord_type *spacing,
+    const diy::Point<coord_type,3> &origin, const diy::Point<coord_type,3> &spacing,
     const typename diy::Point<coord_type,3> &v)
 {
     diy::Bounds<coord_type> world_bounds =
@@ -112,8 +110,8 @@ bool contains(const diy::DiscreteBounds &bounds,
 // return true if the particle is inside this block
 template<typename coord_type>
 bool contains(const diy::DiscreteBounds &domain, const diy::DiscreteBounds &gbounds,
-    const coord_type *origin, const coord_type *spacing, int nghost,
-    const typename diy::Point<coord_type,3> &v)
+    const diy::Point<coord_type,3> &origin, const diy::Point<coord_type,3> &spacing,
+    int nghost, const typename diy::Point<coord_type,3> &v)
 {
     diy::Bounds<coord_type> world_bounds =
          world_space_bounds(domain, gbounds, origin, spacing, nghost);

@@ -74,7 +74,7 @@ int HDF5DataAdaptor::Initialize(pugi::xml_node& node)
 //----------------------------------------------------------------------------
 // int HDF5DataAdaptor::Open(const std::string& fileName)
 int HDF5DataAdaptor::OpenStream()
-{
+{  
   timer::MarkEvent mark("HDF5DataAdaptor::OpenStream");
 
   if (m_StreamName.size() == 0)
@@ -289,7 +289,12 @@ int HDF5DataAdaptor::AddArray(vtkDataObject* mesh,
                               int association,
                               const std::string& arrayName)
 {
-  timer::MarkEvent mark("HDF5DataAdaptor::AddArray");
+  std::ostringstream  oss;
+  oss<<"HDF5DataAdaptor::AddArray mesh="<<meshName<<" array="<<arrayName;
+
+  std::string evtName = oss.str();
+  timer::MarkEvent mark(evtName.c_str());
+  //timer::MarkEvent mark("HDF5DataAdaptor::AddArray");
 
   // the mesh should never be null. there must have been an error
   // upstream.

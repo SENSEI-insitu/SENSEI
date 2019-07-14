@@ -8,7 +8,6 @@
 #include <vtkCharArray.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkDataArray.h>
-#include <vtkDataArrayAccessor.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDoubleArray.h>
 #include <vtkFloatArray.h>

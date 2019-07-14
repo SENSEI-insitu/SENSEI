@@ -220,3 +220,10 @@ VTK_DERIVED(VTKPosthocIO)
 VTK_DERIVED(VTKAmrWriter)
 #endif
 #endif
+
+#ifdef ENABLE_VTK_IO
+/****************************************************************************
+ * SliceExtract
+ ***************************************************************************/
+VTK_DERIVED(SliceExtract)
+#endif

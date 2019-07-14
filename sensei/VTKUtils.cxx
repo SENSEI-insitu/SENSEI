@@ -27,9 +27,18 @@
 #include <vtkCellArray.h>
 #include <vtkSmartPointer.h>
 #include <vtkIntArray.h>
+#include <vtkVersionMacros.h>
+#if ((VTK_VERSION_MAJOR >= 8) && (VTK_VERSION_MINOR >= 2))
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkSOADataArrayTemplate.h>
+#endif
+#include <vtkUnstructuredGridWriter.h>
+#include <vtkPoints.h>
+#include <vtkDoubleArray.h>
+#include <vtkIdTypeArray.h>
+#include <vtkUnsignedCharArray.h>
 
+#include <sstream>
 #include <functional>
 #include <mpi.h>
 
@@ -310,20 +319,43 @@ int SetGhostLayerMetadata(vtkDataObject *mesh,
 int GetArrayMetadata(vtkDataSetAttributes *dsa, int centering,
   std::vector<std::string> &arrayNames, std::vector<int> &arrayCen,
   std::vector<int> &arrayComps, std::vector<int> &arrayType,
+  std::vector<std::array<double,2>> &arrayRange,
   int &hasGhostArray)
 {
   int na = dsa->GetNumberOfArrays();
   for (int i = 0; i < na; ++i)
     {
     vtkDataArray *da = dsa->GetArray(i);
+
     const char *name = da->GetName();
     arrayNames.emplace_back((name ? name : "unkown"));
+
     arrayCen.emplace_back(centering);
     arrayComps.emplace_back(da->GetNumberOfComponents());
     arrayType.emplace_back(da->GetDataType());
 
+    arrayRange.emplace_back(std::array<double,2>({std::numeric_limits<double>::max(),
+      std::numeric_limits<double>::lowest()}));
+
     if (!hasGhostArray && name && !strcmp("vtkGhostType", name))
       hasGhostArray = 1;
+    }
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int GetArrayMetadata(vtkDataSetAttributes *dsa,
+  std::vector<std::array<double,2>> &arrayRange)
+{
+  int na = dsa->GetNumberOfArrays();
+  for (int i = 0; i < na; ++i)
+    {
+    vtkDataArray *da = dsa->GetArray(i);
+
+    double rng[2];
+    da->GetRange(rng);
+
+    arrayRange.emplace_back(std::array<double,2>({rng[0], rng[1]}));
     }
   return 0;
 }
@@ -333,11 +365,11 @@ int GetArrayMetadata(vtkDataSet *ds, MeshMetadataPtr &metadata)
 {
   VTKUtils::GetArrayMetadata(ds->GetPointData(), vtkDataObject::POINT,
     metadata->ArrayName, metadata->ArrayCentering, metadata->ArrayComponents,
-    metadata->ArrayType, metadata->NumGhostNodes);
+    metadata->ArrayType, metadata->ArrayRange, metadata->NumGhostNodes);
 
   VTKUtils::GetArrayMetadata(ds->GetCellData(), vtkDataObject::CELL,
     metadata->ArrayName, metadata->ArrayCentering, metadata->ArrayComponents,
-    metadata->ArrayType, metadata->NumGhostCells);
+    metadata->ArrayType, metadata->ArrayRange, metadata->NumGhostCells);
 
   metadata->NumArrays = metadata->ArrayName.size();
 
@@ -350,7 +382,8 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
   std::vector<int> &blockIds, std::vector<long> &blockPoints,
   std::vector<long> &blockCells, std::vector<long> &blockCellArraySize,
   std::vector<std::array<int,6>> &blockExtents,
-  std::vector<std::array<double,6>> &blockBounds)
+  std::vector<std::array<double,6>> &blockBounds,
+  std::vector<std::vector<std::array<double,2>>> &blockArrayRange)
 {
   if (!ds)
     return -1;
@@ -410,6 +443,14 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
     blockBounds.emplace_back(std::move(bounds));
     }
 
+  if (flags.BlockArrayRangeSet())
+    {
+    std::vector<std::array<double,2>> arrayRange;
+    GetArrayMetadata(ds->GetPointData(), arrayRange);
+    GetArrayMetadata(ds->GetCellData(), arrayRange);
+    blockArrayRange.emplace_back(std::move(arrayRange));
+    }
+
   return 0;
 }
 
@@ -419,7 +460,7 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds, MeshMetadataPtr metadata)
     return GetBlockMetadata(rank, id, ds, metadata->Flags,
       metadata->BlockOwner, metadata->BlockIds, metadata->BlockNumPoints,
       metadata->BlockNumCells, metadata->BlockCellArraySize,
-      metadata->BlockExtents, metadata->BlockBounds);
+      metadata->BlockExtents, metadata->BlockBounds, metadata->BlockArrayRange);
 }
 
 // --------------------------------------------------------------------------
@@ -449,14 +490,19 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
 
   // get block metadata
   int numBlocks = 0;
-  while (!cdit->IsDoneWithTraversal())
+  int numBlocksLocal = 0;
+  cdit->SetSkipEmptyNodes(0);
+
+  for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
     {
+    numBlocks += 1;
+
     vtkDataObject *dobj = cd->GetDataSet(cdit);
     int bid = std::max(0, int(cdit->GetCurrentFlatIndex() - 1));
 
     if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
       {
-      numBlocks += 1;
+      numBlocksLocal += 1;
 
       if (VTKUtils::GetBlockMetadata(rank, bid, ds, metadata))
         {
@@ -466,21 +512,11 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
         return -1;
         }
       }
-    cdit->GoToNextItem();
     }
 
   // set block counts
-  metadata->NumBlocksLocal = {numBlocks};
-
-  metadata->NumBlocks = 0;
-  cdit->SetSkipEmptyNodes(0);
-  cdit->InitTraversal();
-  while (!cdit->IsDoneWithTraversal())
-    {
-    metadata->NumBlocks += 1;
-    cdit->GoToNextItem();
-    }
-
+  metadata->NumBlocks = numBlocks;
+  metadata->NumBlocksLocal = {numBlocksLocal};
   cdit->Delete();
 
   // get global bounds and extents
@@ -911,6 +947,157 @@ int GetLocalGeometrySizes(MPI_Comm comm,
   return 0;
 }
 */
+
+// helper for creating hexahedron
+static
+void HexPoints(long cid, const std::array<double,6> &bds, double *pCoords)
+{
+    long ii = 8*3*cid;
+    pCoords[ii     ] = bds[0];
+    pCoords[ii + 1 ] = bds[2];
+    pCoords[ii + 2 ] = bds[4];
+
+    pCoords[ii + 3 ] = bds[1];
+    pCoords[ii + 4 ] = bds[2];
+    pCoords[ii + 5 ] = bds[4];
+
+    pCoords[ii + 6 ] = bds[1];
+    pCoords[ii + 7 ] = bds[3];
+    pCoords[ii + 8 ] = bds[4];
+
+    pCoords[ii + 9 ] = bds[0];
+    pCoords[ii + 10] = bds[3];
+    pCoords[ii + 11] = bds[4];
+
+    pCoords[ii + 12] = bds[0];
+    pCoords[ii + 13] = bds[2];
+    pCoords[ii + 14] = bds[5];
+
+    pCoords[ii + 15] = bds[1];
+    pCoords[ii + 16] = bds[2];
+    pCoords[ii + 17] = bds[5];
+
+    pCoords[ii + 18] = bds[1];
+    pCoords[ii + 19] = bds[3];
+    pCoords[ii + 20] = bds[5];
+
+    pCoords[ii + 21] = bds[0];
+    pCoords[ii + 22] = bds[3];
+    pCoords[ii + 23] = bds[5];
+}
+
+// helper to make hexahedron cell
+static
+void HexCell(long cid, unsigned char *pCta, vtkIdType *pClocs, vtkIdType *pCids)
+{
+    // cell types & location
+    pCta[cid] = VTK_HEXAHEDRON;
+    pClocs[cid] = cid*9;
+
+    // cells
+    long ii = 8*cid;
+    long jj = 9*cid;
+    pCids[jj    ] = 8;
+    pCids[jj + 1] = ii;
+    pCids[jj + 2] = ii + 1;
+    pCids[jj + 3] = ii + 2;
+    pCids[jj + 4] = ii + 3;
+    pCids[jj + 5] = ii + 4;
+    pCids[jj + 6] = ii + 5;
+    pCids[jj + 7] = ii + 6;
+    pCids[jj + 8] = ii + 7;
+}
+
+// --------------------------------------------------------------------------
+int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
+  const std::string fileName)
+{
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  if (rank != 0)
+    return 0;
+
+  if (!md->GlobalView)
+    {
+    SENSEI_ERROR("A global view is required")
+    return -1;
+    }
+
+  int numPoints = 8*(md->NumBlocks + 1);
+  int numCells = md->NumBlocks + 1;
+
+  vtkDoubleArray *coords = vtkDoubleArray::New();
+  coords->SetNumberOfComponents(3);
+  coords->SetNumberOfTuples(numPoints);
+  double *pCoords = coords->GetPointer(0);
+
+  vtkIdTypeArray *cids = vtkIdTypeArray::New();
+  cids->SetNumberOfTuples(numPoints+numCells);
+  vtkIdType *pCids = cids->GetPointer(0);
+
+  vtkUnsignedCharArray *cta = vtkUnsignedCharArray::New();
+  cta->SetNumberOfTuples(numCells);
+  unsigned char *pCta = cta->GetPointer(0);
+
+  vtkIdTypeArray *clocs = vtkIdTypeArray::New();
+  clocs->SetNumberOfTuples(numCells);
+  vtkIdType *pClocs = clocs->GetPointer(0);
+
+  vtkDoubleArray *owner = vtkDoubleArray::New();
+  owner->SetNumberOfTuples(numCells);
+  owner->SetName("BlockOwner");
+  double *pOwner = owner->GetPointer(0);
+
+  vtkDoubleArray *ids = vtkDoubleArray::New();
+  ids->SetNumberOfTuples(numCells);
+  ids->SetName("BlockIds");
+  double *pIds = ids->GetPointer(0);
+
+  // define a hex for every block
+  for (int i = 0; i < md->NumBlocks; ++i)
+    {
+    HexPoints(i, md->BlockBounds[i], pCoords);
+    HexCell(i, pCta, pClocs, pCids);
+    pIds[i] = md->BlockIds[i];
+    pOwner[i] = md->BlockOwner[i];
+    }
+
+  // and one for an enclosing box
+  HexPoints(md->NumBlocks, md->Bounds, pCoords);
+  HexCell(md->NumBlocks, pCta, pClocs, pCids);
+  pIds[md->NumBlocks] = -2;
+  pOwner[md->NumBlocks] = -2;
+
+  vtkPoints *pts = vtkPoints::New();
+  pts->SetData(coords);
+  coords->Delete();
+
+  vtkCellArray *ca = vtkCellArray::New();
+  ca->SetCells(numCells, cids);
+  cids->Delete();
+
+  vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
+  ug->SetPoints(pts);
+  ug->SetCells(cta, clocs, ca);
+  ug->GetCellData()->AddArray(ids);
+  ug->GetCellData()->AddArray(owner);
+
+  ids->Delete();
+  owner->Delete();
+  pts->Delete();
+  ca->Delete();
+
+  vtkUnstructuredGridWriter *w = vtkUnstructuredGridWriter::New();
+  w->SetInputData(ug);
+  w->SetFileName(fileName.c_str());
+  w->Write();
+
+  w->Delete();
+  ug->Delete();
+
+  return 0;
+}
 
 }
 }

@@ -192,7 +192,7 @@ public:
           return true;
         }
       }
-    return true;
+    return false;
   }
 
   /// returns the type of requirement (point,cell, etc)

@@ -72,10 +72,13 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Execute");
 
-  // figure out what the simulation can provide
+  // figure out what the simulation can provide. include the full
+  // suite of metadata for the end-point partitioners
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
   flags.SetBlockSize();
+  flags.SetBlockBounds();
+  flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
   if (mdm.Initialize(dataAdaptor, flags))
@@ -157,17 +160,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 
     // generate a global view of the metadata. everything we do from here
     // on out depends on having the global view.
-    if (!md->GlobalView)
-      {
-      MPI_Comm comm = this->GetCommunicator();
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockOwner);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockIds);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumPoints);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockNumCells);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockCellArraySize);
-      sensei::MPIUtils::GlobalViewV(comm, md->BlockExtents);
-      md->GlobalView = true;
-      }
+    md->GlobalizeView(this->GetCommunicator());
 
     // add to the collection
     objects.push_back(dobj);

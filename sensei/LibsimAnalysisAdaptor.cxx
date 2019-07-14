@@ -854,6 +854,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
 }
 
 // --------------------------------------------------------------------------
+int
 LibsimAnalysisAdaptor::PrivateData::TopologicalDimension(const int dims[3]) const
 {
     int d = 0;
@@ -1444,7 +1445,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         MeshMetadataFlags reqFlags = mmd->Flags;
         reqFlags.ClearBlockBounds();
 
-        if (!mmd->Validate(This->Comm, reqFlags))
+        if (mmd->Validate(This->Comm, reqFlags))
         {
             SENSEI_ERROR("Invalid metadata for mesh " << i)
             return VISIT_INVALID_HANDLE;
@@ -1597,7 +1598,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 void LibsimAnalysisAdaptor::PrivateData::ClearCache()
 {
 #ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetMesh\n");
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::ClearCache\n");
 #endif
     this->Meshes.clear();
     this->Metadata.clear();
@@ -1608,15 +1609,11 @@ int
 LibsimAnalysisAdaptor::PrivateData::GetDomainList(const std::string &meshName,
   std::vector<int> &localDomains, int &numDomains)
 {
+#ifdef VISIT_DEBUG_LOG
+    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetDomainList\n");
+#endif
     numDomains = 0;
     localDomains.clear();
-
-#ifdef VISIT_DEBUG_LOG
-    char tmp[200];
-    sprintf(tmp, "SENSEI:\tdom=%d, localdomain = %d, nLocalDomains=%d\n",
-            dom, localdomain, (int)This->GetNumDataSets(meshName));
-    VisItDebug5(tmp);
-#endif
 
     int rank = 0;
     int nRanks = 1;
@@ -1635,7 +1632,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainList(const std::string &meshName,
 
     // not all simulations have rank orderd blocks
     // simulation provided block ids and block owner arrays can be used
-    // to iterate over local blocks. this works for bothj global and
+    // to iterate over local blocks. this works for both global and
     // local metadata views
     int nIds = mmd->BlockIds.size();
     for (int i = 0; i < nIds; ++i)
@@ -2009,7 +2006,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *meshName, void 
         int *pc = nc ? mmd->BlockChildren[i].data() : nullptr;
         int lev = mmd->BlockLevel[i];
 
-        VisIt_DomainNesting_set_nestingForPatch(h, i, lev, pc, nc, bext);
+        VisIt_DomainNesting_set_nestingForPatch(h, i, lev, pc, nc, (int*)bext);
     }
 
     return h;

@@ -18,20 +18,13 @@ struct Block
     using Vertex = diy::Grid<float,3>::Vertex;
 
      Block(int gid_, const diy::DiscreteBounds& bounds_, const diy::DiscreteBounds& domain_,
+         const diy::Point<float,3> &origin_, const diy::Point<float,3> &spacing_,
          int nghost_, const std::vector<Oscillator>& oscillators_, float velocity_scale_) :
-                gid(gid_),
-                velocity_scale(velocity_scale_),
-                bounds(bounds_),
-                domain(domain_),
-                nghost(nghost_),
+                gid(gid_), velocity_scale(velocity_scale_), bounds(bounds_),
+                domain(domain_), origin(origin_), spacing(spacing_), nghost(nghost_),
                 grid(Vertex(&bounds.max[0]) - Vertex(&bounds.min[0]) + Vertex::one()),
                 oscillators(oscillators_)
-    {
-        // FIXME -- implement a resolution independant coordinate system. for
-        // now coordinate system remains tied to mesh resolution.
-        origin[0] = origin[1] = origin[2] = 0.0f;
-        spacing[0] = spacing[1] = spacing[2] = 1.0f;
-    }
+    {}
 
     // update scalar and vector fields
     void update_fields(float t);
@@ -50,12 +43,12 @@ struct Block
     float                           velocity_scale;
     diy::DiscreteBounds             bounds; // cell centered index space dimensions of this block
     diy::DiscreteBounds             domain; // cell centered index space dimensions of the computational domain
+    diy::Point<float,3>             origin;  // lower left most corner in the computational domain
+    diy::Point<float,3>             spacing; // mesh spacing
     int                             nghost; // number of ghost zones
     diy::Grid<float,3>              grid;   // container for the gridded data arrays
     std::vector<Particle>           particles;
     std::vector<Oscillator>         oscillators;
-    float                           origin[3];  // lower left most corner in the computational domain
-    float                           spacing[3]; // mesh spacing
 
  private:
     // for create; to let Master manage the blocks

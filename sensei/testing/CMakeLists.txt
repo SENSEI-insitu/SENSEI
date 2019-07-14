@@ -21,11 +21,6 @@ if (BUILD_TESTING)
       testADIOS1Flexpath.bp FLEXPATH FLEXPATH 3
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 
-  senseiAddTest(setupHDF5
-    COMMAND testHDF5 EXEC_NAME testHDF5
-    SOURCES testHDF5.cpp LIBS sensei
-    FEATURES ${ENABLE_HDF5})
-
   senseiAddTest(testHDF5Write
     #COMMAND testHDF5 w 4 n h5test
     COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} testHDF5 w 4 n h5test
@@ -95,4 +90,17 @@ if (BUILD_TESTING)
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 9 2
       ${CMAKE_CURRENT_SOURCE_DIR} adios1_flexpath 3 3 3 1
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
+
+  senseiAddTest(testPartitionersHDF5A
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
+      ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
+      ${CMAKE_CURRENT_SOURCE_DIR} h5 3 3 3 0
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5})
+
+  senseiAddTest(testPartitionersHDF5B
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
+      ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
+      ${CMAKE_CURRENT_SOURCE_DIR} h6 3 3 3 0
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5})
+
 endif()

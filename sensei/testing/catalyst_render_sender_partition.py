@@ -282,7 +282,10 @@ def CreateCoProcessor():
   if requestSpecificArrays:
     arrays = [['f_xyt', 0], ['ReceiverBlockOwner', 1], ['SenderBlockOwner', 1]]
     coprocessor.SetRequestedArrays('mesh', arrays)
-  coprocessor.SetInitialOutputOptions(timeStepToStartOutputAt,forceOutputAtFirstCall)
+
+  from sys import platform as _platform
+  if _platform != "darwin":
+    coprocessor.SetInitialOutputOptions(timeStepToStartOutputAt,forceOutputAtFirstCall)
 
   if rootDirectory:
       coprocessor.SetRootDirectory(rootDirectory)

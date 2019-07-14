@@ -77,6 +77,10 @@ VTK_DERIVED(DA)
 %naturalvar sensei::MeshMetadata::NumBlocksLocal;
 %naturalvar sensei::MeshMetadata::Extent;
 %naturalvar sensei::MeshMetadata::Bounds;
+%naturalvar sensei::MeshMetadata::CoordinateType;
+%naturalvar sensei::MeshMetadata::NumPoints;
+%naturalvar sensei::MeshMetadata::NumCells;
+%naturalvar sensei::MeshMetadata::CellArraySize;
 %naturalvar sensei::MeshMetadata::NumArrays;
 %naturalvar sensei::MeshMetadata::NumGhostCells;
 %naturalvar sensei::MeshMetadata::NumGhostNodes;
@@ -86,6 +90,7 @@ VTK_DERIVED(DA)
 %naturalvar sensei::MeshMetadata::ArrayCentering;
 %naturalvar sensei::MeshMetadata::ArrayComponents;
 %naturalvar sensei::MeshMetadata::ArrayType;
+%naturalvar sensei::MeshMetadata::ArrayRange;
 %naturalvar sensei::MeshMetadata::BlockOwner;
 %naturalvar sensei::MeshMetadata::BlockIds;
 %naturalvar sensei::MeshMetadata::BlockNumPoints;
@@ -100,6 +105,7 @@ VTK_DERIVED(DA)
 %naturalvar sensei::MeshMetadata::BlockNeighbors;
 %naturalvar sensei::MeshMetadata::BlockParents;
 %naturalvar sensei::MeshMetadata::BlockChildren;
+%naturalvar sensei::MeshMetadata::BlockArrayRange;
 %naturalvar sensei::MeshMetadata::Flags;
 
 %extend sensei::MeshMetadata
