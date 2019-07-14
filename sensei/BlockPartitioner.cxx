@@ -1,6 +1,5 @@
-
 #include "BlockPartitioner.h"
-
+#include "Timer.h"
 
 namespace sensei
 {
@@ -8,6 +7,8 @@ namespace sensei
 int BlockPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
+  timer::MarkEvent mark("BlockPartitioner::GetPartition");
+
   mdOut = mdIn->NewCopy();
 
   int nRanks = 1;

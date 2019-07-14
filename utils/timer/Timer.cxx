@@ -19,7 +19,7 @@
 #include <iomanip>
 #include <limits>
 
-
+// **************************************************************************
 extern "C"
 void MPIErrorHandler(MPI_Comm *comm, int *code, ...)
 {
@@ -49,6 +49,26 @@ namespace timer
 {
 namespace impl
 {
+struct Event;
+
+// timer controls and data
+static MPI_Comm Comm = MPI_COMM_NULL;
+static bool LoggingEnabled = false;
+static bool Summarize = false;
+static int SummaryModulus = 100000000;
+static std::string TimerLogFile = "Timer.csv";
+
+static std::list<Event> Mark;
+static std::list<Event> GlobalEvents;
+
+static int ActiveTimeStep = -1;
+static double ActiveTime = 0.0;
+
+// memory profiler
+static MemoryProfiler MemProf;
+
+
+
 // return high res system time relative to system epoch
 static double getSystemTime()
 {
@@ -62,7 +82,7 @@ struct Indent
 {
   int Count;
 
-   explicit Indent(int indent=0): Count(indent) {}
+  explicit Indent(int indent=0): Count(indent) {}
 
   Indent GetNextIndent() const
   { return Indent(this->Count+1); }
@@ -85,16 +105,16 @@ struct Event
   { return this->Count < 1; }
 
   // merges or computes summary of the two events
-  void AddToSummary(const Event& other);
+  virtual void AddToSummary(const Event& other);
 
   // prints the log in a human readbale format
-  void PrettyPrint(std::ostream& stream, Indent indent) const;
+  virtual void PrettyPrint(std::ostream& stream, Indent indent) const;
 
   // serializes the event in CSV format into the stream.
-  void ToStream(std::ostream &str) const;
+  virtual void ToStream(std::ostream &str) const;
 
-  enum { START=0, END=1, DELTA=2 }; // record fields
-  enum { MIN=0, MAX=1, SUM=2 };        // summary fields
+  enum { START=0, END=1, DELTA=2 };     // time record fields
+  enum { MIN=0, MAX=1, SUM=2, SIZE=2 }; // time/I/O summary fields
 
   // user provided identifier for the record
   std::string Name;
@@ -107,30 +127,18 @@ struct Event
   // of the summariezed set of events
   double Time[3];
 
+  // number of bytes if data was moved, read, or written
+  long long NumBytes[3];
+
   // number of events in the summary, or 1 for a single event
   int Count;
 };
-
-// timer controls and data
-static MPI_Comm Comm = MPI_COMM_NULL;
-static bool LoggingEnabled = false;
-static bool Summarize = false;
-static int SummaryModulus = 100000000;
-static std::string TimerLogFile = "Timer.csv";
-
-static std::list<Event> Mark;
-static std::list<Event> GlobalEvents;
-
-static int ActiveTimeStep = -1;
-static double ActiveTime = 0.0;
-
-// memory profiler
-static MemoryProfiler MemProf;
 
 // --------------------------------------------------------------------------
 Event::Event() : Count(0)
 {
   this->Time[0] = this->Time[1] = this->Time[2] = 0;
+  this->NumBytes[0] = this->NumBytes[1] = this->NumBytes[2] = 0ll;
 }
 
 // --------------------------------------------------------------------------
@@ -144,24 +152,40 @@ void Event::AddToSummary(const Event& other)
     this->Time[MIN] = std::min(this->Time[DELTA], other.Time[DELTA]);
     this->Time[MAX] = std::max(this->Time[DELTA], other.Time[DELTA]);
     this->Time[SUM] = this->Time[DELTA] + other.Time[DELTA];
+
+    this->NumBytes[MIN] = std::min(this->NumBytes[SIZE], other.NumBytes[SIZE]);
+    this->NumBytes[MAX] = std::max(this->NumBytes[SIZE], other.NumBytes[SIZE]);
+    this->NumBytes[SUM] = this->NumBytes[SIZE] + other.NumBytes[SIZE];
     }
   else if (this->Count == 1)
     {
     this->Time[MIN] = std::min(this->Time[DELTA], other.Time[MIN]);
     this->Time[MAX] = std::max(this->Time[DELTA], other.Time[MAX]);
     this->Time[SUM] = this->Time[DELTA] + other.Time[SUM];
+
+    this->NumBytes[MIN] = std::min(this->NumBytes[SIZE], other.NumBytes[MIN]);
+    this->NumBytes[MAX] = std::max(this->NumBytes[SIZE], other.NumBytes[MAX]);
+    this->NumBytes[SUM] = this->NumBytes[SIZE] + other.NumBytes[SUM];
     }
   else if (other.Count == 1)
     {
     this->Time[MIN] = std::min(this->Time[MIN], other.Time[DELTA]);
     this->Time[MAX] = std::max(this->Time[MAX], other.Time[DELTA]);
     this->Time[SUM] = this->Time[SUM] + other.Time[DELTA];
+
+    this->NumBytes[MIN] = std::min(this->NumBytes[MIN], other.NumBytes[SIZE]);
+    this->NumBytes[MAX] = std::max(this->NumBytes[MAX], other.NumBytes[SIZE]);
+    this->NumBytes[SUM] = this->NumBytes[SUM] + other.NumBytes[SIZE];
     }
   else
     {
     this->Time[MIN] = std::min(this->Time[MIN], other.Time[MIN]);
     this->Time[MAX] = std::max(this->Time[MAX], other.Time[MAX]);
     this->Time[SUM] += other.Time[SUM];
+
+    this->NumBytes[MIN] = std::min(this->NumBytes[MIN], other.NumBytes[MIN]);
+    this->NumBytes[MAX] = std::max(this->NumBytes[MAX], other.NumBytes[MAX]);
+    this->NumBytes[SUM] += other.NumBytes[SUM];
     }
 
   this->Count += other.Count;
@@ -194,7 +218,8 @@ void Event::ToStream(std::ostream &str) const
   MPI_Comm_rank(impl::Comm, &rank);
 
   str << rank << ", \"" << this->Name << "\", " << this->Time[START]
-    << ", " << this->Time[END] << ", " << this->Time[DELTA] << std::endl;
+    << ", " << this->Time[END] << ", " << this->Time[DELTA] << ", "
+    << this->NumBytes[SIZE] << std::endl;
 
   // handle nested events
   auto iter = this->SubEvents.begin();
@@ -219,13 +244,17 @@ void Event::PrettyPrint(std::ostream& stream, Indent indent) const
   if (this->Count == 1)
     {
     stream << indent << this->Name
-       << " = (" << this->Time[DELTA] <<  " s)" << std::endl;
+       << " = (" << this->Time[DELTA] <<  " s, "
+       << this->NumBytes[SIZE] << " b )" << std::endl;
     }
   else
     {
     stream << indent << this->Name << " = ( min: "
       << this->Time[MIN] << " s, max: " << this->Time[MAX]
-      << " s, avg:" << this->Time[SUM]/this->Count << " s )" << std::endl;
+      << " s, avg:" << this->Time[SUM]/this->Count << " s min: "
+      << this->NumBytes[MIN] << " b, max: " << this->NumBytes[MAX]
+      << " b, sum: " << this->NumBytes[SUM] << " b, avg: "
+      << this->NumBytes[SUM]/this->Count << " )" << std::endl;
     }
 
   // handle nested events
@@ -445,7 +474,7 @@ void Finalize()
       oss.setf(std::ios::scientific, std::ios::floatfield);
 
       if (rank == 0)
-        oss << "# rank, name, start time, end time, delta" << std::endl;
+        oss << "# rank, name, start time, end time, duration, num bytes" << std::endl;
 
       std::list<impl::Event>::iterator iter = impl::GlobalEvents.begin();
       std::list<impl::Event>::iterator end = impl::GlobalEvents.end();
@@ -501,6 +530,9 @@ void Finalize()
   MPI_Comm_free(&impl::Comm);
 }
 
+
+
+
 //-----------------------------------------------------------------------------
 bool Enabled()
 {
@@ -522,21 +554,29 @@ void Disable()
 }
 
 //-----------------------------------------------------------------------------
+void MarkStartEvent(const char *eventname, long long numBytes)
+{
+  if (impl::LoggingEnabled)
+    {
+    impl::Event evt;
+    evt.Name = eventname;
+    evt.Time[impl::Event::START] = impl::getSystemTime();
+    evt.NumBytes[impl::Event::SIZE] = numBytes;
+    evt.Count = 1;
+
+    impl::Mark.push_back(evt);
+    }
+}
+
+//-----------------------------------------------------------------------------
 void MarkStartEvent(const char* eventname)
 {
   if (impl::LoggingEnabled)
     {
-#ifndef NDEBUG
-    if (!eventname)
-      {
-      std::cerr << "null eventname detected. events must be named." << std::endl;
-      abort();
-      }
-#endif
-
     impl::Event evt;
     evt.Name = eventname;
     evt.Time[impl::Event::START] = impl::getSystemTime();
+    evt.NumBytes[impl::Event::SIZE] = 0ll;
     evt.Count = 1;
 
     impl::Mark.push_back(evt);
@@ -569,6 +609,48 @@ void MarkEndEvent(const char* eventname)
 
     evt.Time[impl::Event::END] = impl::getSystemTime();
     evt.Time[impl::Event::DELTA] = evt.Time[impl::Event::END] - evt.Time[impl::Event::START];
+
+    impl::Mark.pop_back();
+
+    // handle event nesting
+    if (impl::Mark.empty())
+      {
+      impl::GlobalEvents.push_back(evt);
+      }
+    else
+      {
+      impl::Mark.back().SubEvents.push_back(evt);
+      }
+    }
+}
+
+//-----------------------------------------------------------------------------
+void MarkEndEvent(const char *eventname, long long numBytes)
+{
+  if (impl::LoggingEnabled)
+    {
+    impl::Event evt = impl::Mark.back();
+
+#ifdef NDEBUG
+    (void)eventname;
+#else
+    if (!eventname)
+      {
+      std::cerr << "null eventname detected. events must be named." << std::endl;
+      abort();
+      }
+
+    if (strcmp(eventname, evt.Name.c_str()) != 0)
+      {
+      std::cerr << "Mismatched MarkStartEvent/MarkEndEvent. Expecting: '"
+        << evt.Name.c_str() << "' Got: '" << eventname << "'" << std::endl;
+      abort();
+      }
+#endif
+
+    evt.Time[impl::Event::END] = impl::getSystemTime();
+    evt.Time[impl::Event::DELTA] = evt.Time[impl::Event::END] - evt.Time[impl::Event::START];
+    evt.NumBytes[impl::Event::SIZE] = numBytes;
 
     impl::Mark.pop_back();
 
