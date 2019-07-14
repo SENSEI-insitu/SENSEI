@@ -1,4 +1,6 @@
 #include "PlanarPartitioner.h"
+#include "Timer.h"
+
 #include <pugixml.hpp>
 
 namespace sensei
@@ -8,6 +10,8 @@ namespace sensei
 int PlanarPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
+  timer::MarkEvent("PlanarPartitioner::GetPartition");
+
   mdOut = mdIn->NewCopy();
 
   int blkCnt = 0;

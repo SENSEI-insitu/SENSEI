@@ -4,6 +4,7 @@
 #include "ConfigurablePartitioner.h"
 #include "BlockPartitioner.h"
 #include "Error.h"
+#include "Timer.h"
 
 #include <pugixml.hpp>
 
@@ -36,6 +37,8 @@ InTransitDataAdaptor::InTransitDataAdaptor()
 //----------------------------------------------------------------------------
 int InTransitDataAdaptor::Initialize(pugi::xml_node &node)
 {
+  timer::MarkEvent mark("InTransitDataAdaptor::Initialize");
+
   // look for the presense of an optional partitioner spec
   pugi::xml_node partNode = node.child("partitioner");
   if (partNode)
