@@ -24,6 +24,9 @@ public:
   senseiTypeMacro(SliceExtract, AnalysisAdaptor);
   //void PrintSelf(ostream& os, vtkIndent indent) override;
 
+  // enable use of optimized partitioner
+  void EnablePartitioner(int val);
+
   // set which operation will be used. Valid values are OP_ISO_SURFACE=0,
   // OP_PLANAR_SLICE=1
   enum {OP_ISO_SURFACE=0, OP_PLANAR_SLICE=1};

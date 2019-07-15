@@ -32,7 +32,8 @@ namespace sensei
 
 struct SliceExtract::InternalsType
 {
-  InternalsType() : Operation(OP_PLANAR_SLICE)
+  InternalsType() : Operation(OP_PLANAR_SLICE), NumIsoValues(0),
+    EnablePartitioner(1)
   {
     this->SlicePartitioner = PlanarSlicePartitioner::New();
     this->IsoValPartitioner = IsoSurfacePartitioner::New();
@@ -45,6 +46,7 @@ struct SliceExtract::InternalsType
   std::array<double,3> Point;
   std::array<double,3> Normal;
   DataRequirements Requirements;
+  int EnablePartitioner;
   IsoSurfacePartitionerPtr IsoValPartitioner;
   PlanarSlicePartitionerPtr SlicePartitioner;
   VTKPosthocIOPtr Writer;
@@ -65,6 +67,12 @@ SliceExtract::SliceExtract()
 SliceExtract::~SliceExtract()
 {
   delete this->Internals;
+}
+
+// --------------------------------------------------------------------------
+void SliceExtract::EnablePartitioner(int val)
+{
+  this->Internals->EnablePartitioner = val;
 }
 
 // --------------------------------------------------------------------------
@@ -218,7 +226,10 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 
   // if we are runnigng in transit, set the partitioner that will pull
   // only the blocks that intersect the slice plane
-  if (InTransitDataAdaptor *itDataAdaptor = dynamic_cast<InTransitDataAdaptor*>(dataAdaptor))
+  InTransitDataAdaptor *itDataAdaptor =
+    dynamic_cast<InTransitDataAdaptor*>(dataAdaptor);
+
+  if (this->Internals->EnablePartitioner && itDataAdaptor)
     itDataAdaptor->SetPartitioner(this->Internals->IsoValPartitioner);
 
   // figure out what the simulation can provide
@@ -309,7 +320,10 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 
   // if we are runnigng in transit, set the partitioner that will pull
   // only the blocks that intersect the slice plane
-  if (InTransitDataAdaptor *itDataAdaptor = dynamic_cast<InTransitDataAdaptor*>(dataAdaptor))
+  InTransitDataAdaptor *itDataAdaptor =
+    dynamic_cast<InTransitDataAdaptor*>(dataAdaptor);
+
+  if (this->Internals->EnablePartitioner && itDataAdaptor)
     itDataAdaptor->SetPartitioner(this->Internals->SlicePartitioner);
 
   // figure out what the simulation can provide

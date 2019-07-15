@@ -973,8 +973,13 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
     }
 
   // get other settings
+  int enablePart = node.attribute("enable_partitioner").as_int(1);
+  adaptor->EnablePartitioner(enablePart);
+  oss << " enable_partitioner=" <<  enablePart;
+
   int verbose = node.attribute("verbose").as_int(0);
   adaptor->SetVerbose(verbose);
+  oss << " verbose=" << verbose;
 
   // call intialize and add to the pipeline
   this->TimeInitialization(adaptor);
