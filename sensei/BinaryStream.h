@@ -86,18 +86,24 @@ public:
   void Pack(const std::string &str);
   void Unpack(std::string &str);
 
-#if !defined(SWIG)
   template <typename T, unsigned long N> void Pack(const std::array<T,N> &arr);
   template <typename T, unsigned long N> void Unpack(std::array<T,N> &arr);
 
   template <typename K, typename V> void Pack(const std::map<K,V> &amap);
   template <typename K, typename V> void Unpack(std::map<K,V> &amap);
 
-  template<typename T> void Pack(const std::vector<T> &v, typename std::enable_if<std::is_class<T>::value>::type* = 0);
-  template<typename T> void Unpack(std::vector<T> &v, typename std::enable_if<std::is_class<T>::value>::type* = 0);
+  template<typename T> void Pack(const std::vector<T> &v,
+    typename std::enable_if<std::is_class<T>::value>::type* = 0);
 
-  template<typename T> void Pack(const std::vector<T> &v, typename std::enable_if<!std::is_class<T>::value>::type* = 0);
-  template<typename T> void Unpack(std::vector<T> &v, typename std::enable_if<!std::is_class<T>::value>::type* = 0);
+  template<typename T> void Unpack(std::vector<T> &v,
+    typename std::enable_if<std::is_class<T>::value>::type* = 0);
+
+#if !defined(SWIG)
+  template<typename T> void Pack(const std::vector<T> &v,
+    typename std::enable_if<!std::is_class<T>::value>::type* = 0);
+
+  template<typename T> void Unpack(std::vector<T> &v,
+    typename std::enable_if<!std::is_class<T>::value>::type* = 0);
 #endif
 
   // broadcast the stream from the root process to all other processes
