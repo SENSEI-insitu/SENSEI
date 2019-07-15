@@ -22,24 +22,24 @@ if (BUILD_TESTING)
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 
   senseiAddTest(testHDF5Write
-    #COMMAND testHDF5 w 4 n h5test
-    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} testHDF5 w 4 n h5test
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+    testHDF5 w 4 n h5test
     SOURCES testHDF5.cpp LIBS sensei
     FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHDF5Read
-    #COMMAND testHDF5 r h5test.n1
-    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}  testHDF5 r h5test.n${TEST_NP}
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+    testHDF5 r h5test.n${TEST_NP}
     FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHDF5WriteStreaming
-    #COMMAND testHDF5 w 4 s h5stream
-    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} testHDF5 w 4 s h5stream
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+    testHDF5 w 4 s h5stream
     FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHDF5ReadStreaming
-    #COMMAND testHDF5 r h5stream.n1 s
-    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} testHDF5 r  h5stream.n${TEST_NP}  s   
+    COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+    testHDF5 r  h5stream.n${TEST_NP} s
     FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testProgrammableDataAdaptor
@@ -80,7 +80,7 @@ if (BUILD_TESTING)
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
       ${CMAKE_CURRENT_SOURCE_DIR} adios1_bp 3 3 3 0
-    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1} ${ENABLE_CATALYST})
 
   # in adios 1.13.1 flexpath has a limitation of 1 sender block per
   # MPI rank. there's also a deadlock if some blocks are not sent.
@@ -95,12 +95,12 @@ if (BUILD_TESTING)
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
       ${CMAKE_CURRENT_SOURCE_DIR} h5 3 3 3 0
-    FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5})
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5} ${ENABLE_CATALYST})
 
   senseiAddTest(testPartitionersHDF5B
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP} ${TEST_NP_HALF}
       ${CMAKE_CURRENT_SOURCE_DIR} h6 3 3 3 0
-    FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5})
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5} ${ENABLE_CATALYST})
 
 endif()
