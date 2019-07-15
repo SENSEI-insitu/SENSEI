@@ -87,7 +87,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
-  int AddAdios(pugi::xml_node node);
+  int AddAdios1(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
@@ -307,7 +307,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
 {
 #ifndef ENABLE_ADIOS1
   (void)node;
@@ -327,6 +327,10 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   if (method)
     adios->SetMethod(method.value());
 
+  unsigned long maxBufSize =
+    node.attribute("max_buffer_size").as_ullong(0);
+  adios->SetMaxBufferSize(maxBufSize);
+
   DataRequirements req;
   if (req.Initialize(node))
     {
@@ -338,8 +342,9 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   this->TimeInitialization(adios);
   this->Analyses.push_back(adios.GetPointer());
 
-  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor \"" << filename.value()
-    << "\" method " << method.value())
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
+    << filename.value() << "\" method " << method.value()
+    << " max_buffer_size=" << maxBufSize)
 
   return 0;
 #endif
@@ -1061,7 +1066,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     std::string type = node.attribute("type").value();
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
-      || ((type == "adios1") && !this->Internals->AddAdios(node))
+      || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
