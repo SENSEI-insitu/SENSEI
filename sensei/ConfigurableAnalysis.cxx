@@ -1104,7 +1104,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     std::string type = node.attribute("type").value();
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
-      || ((type == "adios1") && !this->Internals->AddAdios(node))
+      || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libis") && !this->Internals->AddlibIS(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
