@@ -250,6 +250,8 @@ PARTITIONER_API(ConfigurablePartitioner)
 %include "BlockPartitioner.h"
 %include "PlanarPartitioner.h"
 %include "MappedPartitioner.h"
+%include "PlanarSlicePartitioner.h"
+%include "IsoSurfacePartitioner.h"
 %include "ConfigurablePartitioner.h"
 
 /****************************************************************************

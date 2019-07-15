@@ -90,7 +90,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
-  int AddAdios(pugi::xml_node node);
+  int AddAdios1(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
   int AddlibIS(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
@@ -311,7 +311,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
+int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
 {
 #ifndef ENABLE_ADIOS1
   (void)node;
@@ -331,6 +331,10 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   if (method)
     adios->SetMethod(method.value());
 
+  unsigned long maxBufSize =
+    node.attribute("max_buffer_size").as_ullong(0);
+  adios->SetMaxBufferSize(maxBufSize);
+
   DataRequirements req;
   if (req.Initialize(node))
     {
@@ -342,8 +346,9 @@ int ConfigurableAnalysis::InternalsType::AddAdios(pugi::xml_node node)
   this->TimeInitialization(adios);
   this->Analyses.push_back(adios.GetPointer());
 
-  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor \"" << filename.value()
-    << "\" method " << method.value())
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
+    << filename.value() << "\" method " << method.value()
+    << " max_buffer_size=" << maxBufSize)
 
   return 0;
 #endif
@@ -1011,8 +1016,13 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
     }
 
   // get other settings
+  int enablePart = node.attribute("enable_partitioner").as_int(1);
+  adaptor->EnablePartitioner(enablePart);
+  oss << " enable_partitioner=" <<  enablePart;
+
   int verbose = node.attribute("verbose").as_int(0);
   adaptor->SetVerbose(verbose);
+  oss << " verbose=" << verbose;
 
   // call intialize and add to the pipeline
   this->TimeInitialization(adaptor);

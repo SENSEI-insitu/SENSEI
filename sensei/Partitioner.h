@@ -30,8 +30,8 @@ public:
 
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
-  virtual int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-    MeshMetadataPtr &out) = 0;
+  virtual int GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in,
+    sensei::MeshMetadataPtr &out) = 0;
 
   // initialize the partitioner from the XML node.
   virtual int Initialize(pugi::xml_node &)

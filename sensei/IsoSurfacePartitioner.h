@@ -11,7 +11,7 @@ namespace sensei
 {
 
 class IsoSurfacePartitioner;
-using IsoSurfacePartitionerPtr = std::shared_ptr<IsoSurfacePartitioner>;
+using IsoSurfacePartitionerPtr = std::shared_ptr<sensei::IsoSurfacePartitioner>;
 
 /// @class IsoSurfacePartitioner
 /// The IsoSurfacePartitioner selects only blocks that are needed to
@@ -21,7 +21,7 @@ using IsoSurfacePartitionerPtr = std::shared_ptr<IsoSurfacePartitioner>;
 class IsoSurfacePartitioner : public sensei::Partitioner
 {
 public:
-  static IsoSurfacePartitionerPtr New()
+  static sensei::IsoSurfacePartitionerPtr New()
   { return IsoSurfacePartitionerPtr(new IsoSurfacePartitioner); }
 
   const char *GetClassName() override { return "IsoSurfacePartitioner"; }
@@ -39,8 +39,8 @@ public:
 
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-    MeshMetadataPtr &out) override;
+  int GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in,
+    sensei::MeshMetadataPtr &out) override;
 
 protected:
   IsoSurfacePartitioner() = default;
