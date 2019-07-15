@@ -8,7 +8,7 @@ namespace sensei
 {
 
 class MappedPartitioner;
-using MappedPartitionerPtr = std::shared_ptr<MappedPartitioner>;
+using MappedPartitionerPtr = std::shared_ptr<sensei::MappedPartitioner>;
 
 /// @class MappedPartitioner
 /// @brief represents the mapped partitioning mode for in-transit operation.
@@ -20,7 +20,7 @@ using MappedPartitionerPtr = std::shared_ptr<MappedPartitioner>;
 class MappedPartitioner : public sensei::Partitioner
 {
 public:
-  static MappedPartitionerPtr New()
+  static sensei::MappedPartitionerPtr New()
   { return MappedPartitionerPtr(new MappedPartitioner); }
 
   const char *GetClassName() override { return "MappedPartitioner"; }
@@ -42,8 +42,8 @@ public:
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
   // distributes blocks to a rank such that consecutive blocks share a rank.
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-     MeshMetadataPtr &out) override;
+  int GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in,
+     sensei::MeshMetadataPtr &out) override;
 
 protected:
   MappedPartitioner() = default;
