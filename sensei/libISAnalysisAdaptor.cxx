@@ -41,8 +41,6 @@ namespace sensei
 senseiNewMacro(libISAnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-//fixme
-//use the right parameters for libIS here 
 libISAnalysisAdaptor::libISAnalysisAdaptor() : 
     Schema(nullptr), port(29374), GroupHandle(0)
 {
@@ -74,7 +72,8 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   timer::MarkEvent mark("libISAnalysisAdaptor::Execute");
 
-  // figure out what the simulation can provide
+  // figure out what the simulation can provide. include the full
+  // suite of metadata for the end-point partitioners
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
   flags.SetBlockSize();
@@ -117,6 +116,13 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         << mit.MeshName() << "\"")
       return false;
       }
+    // fixme. DEBUG only
+    else
+      {
+      SENSEI_STATUS("got mesh metadata for mesh \""
+        << mit.MeshName() << "\"")
+      }
+
 
     // get the mesh
     vtkCompositeDataSet *dobj = nullptr;
@@ -125,12 +131,25 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
       return false;
       }
+    // fixme. DEBUG only
+    else
+      {
+      SENSEI_STATUS("got mesh \""
+        << mit.MeshName() << "\"")
+      }
+
 
     // add the ghost cell arrays to the mesh
     if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
+      }
+    // fixme. DEBUG only
+    else
+      {
+      SENSEI_STATUS("got ghost cell for mesh \""
+        << mit.MeshName() << "\"")
       }
 
     // add the ghost node arrays to the mesh
@@ -139,6 +158,13 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
+    // fixme. DEBUG only
+    else
+      {
+      SENSEI_STATUS("got ghost nodes for mesh \""
+        << mit.MeshName() << "\"")
+      }
+
 
     // add the required arrays
     ArrayRequirementsIterator ait =
@@ -192,22 +218,8 @@ int libISAnalysisAdaptor::InitializelibIS(
 
   if (!this->Schema)
     {
-    // initialize adios
-    //adios_init_noxml(this->GetCommunicator());
 
-    int port=29374;
-    libISInit(this->GetCommunicator(), port);
-
-//#if ADIOS_VERSION_GE(1,11,0)
-    //adios_set_max_buffer_size(this->MaxBufferSize);
-    //adios_declare_group(&this->GroupHandle, "SENSEI", "",
-    //  static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_no));
-//#else
-    //adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
-    //adios_declare_group(&this->GroupHandle, "SENSEI", "", adios_flag_no);
-//#endif
-
-    //adios_select_method(this->GroupHandle, this->Method.c_str(), "", "");
+    //libISInit(this->GetCommunicator(), this->port);
 
     // define libIS variables
     this->Schema = new senseilibIS::DataObjectCollectionSchema;
@@ -227,9 +239,6 @@ int libISAnalysisAdaptor::InitializelibIS(
 //----------------------------------------------------------------------------
 int libISAnalysisAdaptor::FinalizelibIS()
 {
-  //int rank = 0;
-  //MPI_Comm_rank(this->GetCommunicator(), &rank);
-  //adios_finalize(rank);
   libISFinalize();
   return 0;
 }
@@ -270,7 +279,7 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     this->GetCommunicator(), metadata, objects);
   adios_group_size(handle, group_size, &group_size);*/
 
-  libISSimState *libis_state = libISMakeSimState();
+  //libISSimState *libis_state = libISMakeSimState();
 
 //fixme
 
@@ -280,6 +289,7 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   /////////////////////////////////////////////////////////////////
   // from libIS example, just to make sure the code builds for now
 
+  /*************
   struct Particle {
 	//vec3<float> pos;
 	int attrib;
@@ -294,7 +304,7 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   std::vector<Particle> particle;
 
   libISBox3f bounds;
-  
+  ***************/
 
 
 
@@ -309,7 +319,7 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   // and -std::numeric_limits<float>::infinity()
   // I will not change those values for the moment
 
-  libISBox3f world_bounds = libISMakeBox3f();
+  //libISBox3f world_bounds = libISMakeBox3f();
   //libISBoxExtend(&world_bounds, &world_min);
   //libISBoxExtend(&world_bounds, &world_max); 
   //libISSetWorldBounds(libis_state, world_bounds);
@@ -320,16 +330,16 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 
 
 
-  libISSetLocalBounds(libis_state, bounds);
-  libISSetGhostBounds(libis_state, bounds);
+  //libISSetLocalBounds(libis_state, bounds);
+  //libISSetGhostBounds(libis_state, bounds);
 
   // Setup the shared pointers to our particle and field data
-  libISSetParticles(libis_state, NUM_PARTICLES, 0, sizeof(Particle), particle.data());
-  libISSetField(libis_state, "field_one", field_dims.data(), FLOAT, field_one.data());
-  libISSetField(libis_state, "field_two", field_dims.data(), UINT8, field_two.data());
+  //libISSetParticles(libis_state, NUM_PARTICLES, 0, sizeof(Particle), particle.data());
+  //libISSetField(libis_state, "field_one", field_dims.data(), FLOAT, field_one.data());
+  //libISSetField(libis_state, "field_two", field_dims.data(), UINT8, field_two.data());
 
 
-
+  /*
   if (this->Schema->Write(this->GetCommunicator(),
     handle, timeStep, time, metadata, objects))
     {
@@ -337,9 +347,10 @@ int libISAnalysisAdaptor::WriteTimestep(unsigned long timeStep,
       //<< " to \"" << this->FileName << "\"")
     ierr = -1;
     }
+  */
 
   //adios_close(handle);
-  libISFreeSimState(libis_state);
+  //libISFreeSimState(libis_state);
 
   return ierr;
 }

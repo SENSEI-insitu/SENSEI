@@ -1,9 +1,8 @@
-#ifndef ADIOSVTK_h
-#define ADIOSVTK_h
+#pragma once
 
 class vtkDataSet;
 class vtkDataObject;
-typedef struct _ADIOS_FILE ADIOS_FILE;
+//typedef struct _ADIOS_FILE ADIOS_FILE;
 
 #include "MeshMetadata.h"
 #include <adios_read.h>
@@ -20,10 +19,10 @@ namespace senseilibIS
 
 struct InputStream;
 
-/// ADIOS representation of collections of vtkDataObject
+/// libIS representation of collections of vtkDataObject
 // This class provides the user facing API managing the lower level
 // objects internally. The write API defines variables needed for the
-// ADIOS representation, computes their size for ADIOS buffers, and
+// libIS representation, computes their size for libIS buffers, and
 // serializes complete VTK objects. The read API can deserialize complete
 // representation and also includes methods that coorrelate to SENSEI
 // data adaptor API which enables targeted reading of subsets of the
@@ -34,7 +33,7 @@ public:
   DataObjectCollectionSchema();
   ~DataObjectCollectionSchema();
 
-  // declare variables for adios write
+  // declare variables for libIS write
   int DefineVariables(MPI_Comm comm, int64_t gh,
     const std::vector<sensei::MeshMetadataPtr> &metadata);
 
@@ -46,7 +45,7 @@ public:
   int GetSenderMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
 
   // set/get cached metadata for object i. this must be set before
-  // reading any data. this controls how thye data is layed out on
+  // reading any data. this controls how the data is layed out on
   // the receiver side
   int GetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
   int SetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md);
@@ -91,6 +90,9 @@ private:
   InternalsType *Internals;
 };
 
+
+// fixme
+// adapt for libIS
 /// High level operations on an ADIOS file/stream
 struct InputStream
 {
@@ -118,4 +120,4 @@ struct InputStream
 
 }
 
-#endif
+

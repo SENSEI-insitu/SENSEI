@@ -2811,23 +2811,25 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::vector<sensei::MeshMetadataPtr> &metadata)
 {
   // mark the file as ours and declare version it is written with
-  this->Internals->Version.DefineVariables(gh);
+  //this->Internals->Version.DefineVariables(gh);
 
   // /time
   // /time_step
-  adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
-  adios_define_var(gh, "time" ,"", adios_double, "", "", "");
+  //adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
+  //adios_define_var(gh, "time" ,"", adios_double, "", "", "");
 
   // /number_of_data_objects
   unsigned int n_objects = metadata.size();
-  adios_define_var(gh, "number_of_data_objects", "", adios_integer,
-    "", "", "");
+  //adios_define_var(gh, "number_of_data_objects", "", adios_integer,
+  //  "", "", "");
 
   for (unsigned int i = 0; i < n_objects; ++i)
     {
     std::ostringstream oss;
     oss << "data_object_" << i << "/";
     std::string object_id = oss.str();
+
+    SENSEI_STATUS("DataObjectCollectionSchema::DefineVariables object_id " << object_id);
 
     // what follows depends on a global view of the metadata
     if (!metadata[i]->GlobalView)
@@ -2837,14 +2839,20 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       }
 
     // /data_object_<id>/metadata
-    BinaryStreamSchema::DefineVariables(gh, object_id + "metadata");
+    //BinaryStreamSchema::DefineVariables(gh, object_id + "metadata");
 
+    /******
     if (this->Internals->DataObject.DefineVariables(comm, gh, i, metadata[i]))
       {
       SENSEI_ERROR("Failed to define variables for object "
         << i << " " << metadata[i]->MeshName)
       return -1;
       }
+    *******/
+
+
+
+
     }
 
   return 0;
@@ -2870,12 +2878,12 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
 
   // all ranks need to write this info for FLEXPATH method
   // but not the MPI method.
-  adios_write(fh, "time_step", &time_step);
-  adios_write(fh, "time", &time);
+  //adios_write(fh, "time_step", &time_step);
+  //adios_write(fh, "time", &time);
 
   // /number_of_data_objects
   std::string path = "number_of_data_objects";
-  adios_write(fh, path.c_str(), &n_objects);
+  //adios_write(fh, path.c_str(), &n_objects);
 
   for (unsigned int i = 0; i < n_objects; ++i)
     {
@@ -2888,14 +2896,19 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
 
     // /data_object_<id>/metadata
     path = object_id + "metadata";
-    BinaryStreamSchema::Write(fh, path, bs);
+    //BinaryStreamSchema::Write(fh, path, bs);
 
+
+    /******
     if (this->Internals->DataObject.Write(comm, fh, i, metadata[i], objects[i]))
       {
       SENSEI_ERROR("Failed to write object " << i << " \""
         << metadata[i]->MeshName << "\"")
       return -1;
       }
+     *****/
+
+
     }
 
   return 0;
