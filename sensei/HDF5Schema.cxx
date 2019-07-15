@@ -1834,9 +1834,11 @@ VTKObjectFlow::VTKObjectFlow(const sensei::MeshMetadataPtr &md,
   : m_Metadata(md)
   , m_MeshID(meshID)
 {
-  if (md->NumBlocks != md->BlockCellArraySize.size()) {
+  if (md->NumBlocks != static_cast<long>(md->BlockCellArraySize.size()))
+    {
     return;
-  }
+    }
+
   gGetNameStr(m_CellTypeVarName, m_MeshID, "cell_types");
   gGetNameStr(m_CellArrayVarName, m_MeshID, "cell_array");
   gGetNameStr(m_PointVarName, m_MeshID, "points");
@@ -1847,8 +1849,8 @@ VTKObjectFlow::VTKObjectFlow(const sensei::MeshMetadataPtr &md,
 
   for(unsigned int j = 0; j < num_blocks; ++j)
     {
-      m_TotalCell += md->BlockNumCells[j];
-      m_TotalArraySize += md->BlockCellArraySize[j];
+    m_TotalCell += md->BlockNumCells[j];
+    m_TotalArraySize += md->BlockCellArraySize[j];
     }
 
   m_PointType = senseiHDF5::gVTKToH5Type(m_Metadata->CoordinateType);
