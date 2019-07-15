@@ -61,7 +61,7 @@
 #
 ###############################################################################
 
-set(libs sMPI sascent sensei)
+set(libs sMPI sAscent sensei)
 
 # create our example 
 add_executable(ascent_render_example ascent_render_example.cpp)

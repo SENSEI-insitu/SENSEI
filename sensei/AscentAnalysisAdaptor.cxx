@@ -29,6 +29,44 @@
 namespace sensei
 {
 
+#define DEBUG_SAVE_DATA 1
+#ifdef DEBUG_SAVE_DATA
+conduit::Node debugAscentOptions;
+
+void DebugSaveAscentData( conduit::Node &data )
+{
+    ascent::Ascent a;
+
+    std::cout << "DebugSaveAscentData" << std::endl;
+
+    // Open ascent
+    a.open( debugAscentOptions );
+
+    // Publish data to ascent
+    a.publish( data );
+
+    conduit::Node extracts;
+    extracts["e1/type"] = "relay";
+    extracts["e1/params/path"] = "debugAscentDataSave";
+    extracts["e1/params/protocol"] = "blueprint/mesh/hdf5";
+
+    // Setup actions
+    conduit::Node actions;
+    conduit::Node &add_act = actions.append();
+    add_act["action"] = "add_extracts";
+    add_act["extracts"] = extracts;
+
+    actions.append()["action"] = "execute";
+
+    // execute
+    a.execute(actions);
+    std::cout << "DebugSaveAscentData: execute" << std::endl;
+
+    // close ascent
+    a.close();
+}
+#endif  // DEBUG_SAVE_DATA
+
 //------------------------------------------------------------------------------
 senseiNewMacro(AscentAnalysisAdaptor);
 
@@ -801,19 +839,22 @@ int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
     node["topologies/mesh/type"]     = "uniform";
     node["topologies/mesh/coordset"] = "coords";
 
-    int dims[3] = {0,0,0};
+    int dims[3] = {0, 0, 0};
     uniform->GetDimensions(dims);
 
-    double origin[3] = {0.0,0.0,0.0};
+    double origin[3] = {0.0, 0.0, 0.0};
     uniform->GetOrigin(origin);
 
-    int extents[6] = {0,0,0,0,0,0};
+    int extents[6] = {0, 0, 0, 0, 0, 0};
     uniform->GetExtent(extents);
 
-    node["topologies/mesh/elements/origin/i0"] = origin[0] + extents[0];
-    node["topologies/mesh/elements/origin/j0"] = origin[1] + extents[2];
+    double spacing[3] = {0.0, 0.0, 0.0};
+    uniform->GetSpacing(spacing);
+
+    node["topologies/mesh/elements/origin/i0"] = origin[0] + (extents[0] * spacing[0]);
+    node["topologies/mesh/elements/origin/j0"] = origin[1] + (extents[2] * spacing[1]);
     if(dims[2] != 0 && dims[2] != 1)
-      node["topologies/mesh/elements/origin/k0"] = origin[2] + extents[4];
+      node["topologies/mesh/elements/origin/k0"] = origin[2] + (extents[4] * spacing[2]);
   }
   else if(rectilinear != nullptr)
   {
@@ -826,7 +867,7 @@ int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
     node["topologies/mesh/type"]     = "structured";
     node["topologies/mesh/coordset"] = "coords";
 
-    int dims[3] = {0,0,0};
+    int dims[3] = {0, 0, 0};
     structured->GetDimensions(dims);
 
     node["topologies/mesh/elements/dims/i"] = dims[0] - 1;
@@ -878,6 +919,18 @@ int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
   return( 1 );
 }
 
+static unsigned int cycle = 0;
+//------------------------------------------------------------------------------
+int VTK_To_State(vtkDataSet* , conduit::Node& node)
+{
+#ifdef DEBUG_SAVE_DATA
+    //node["state/time"] = ;
+    node["state/cycle"] = cycle;
+    //node["state/domain"] = ;
+#endif
+
+    return( 1 );
+}
 
 //------------------------------------------------------------------------------
 int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
@@ -899,19 +952,20 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     node["coordsets/coords/dims/k"] = dims[2];
 
     //Global Origin
-    double origin[3] = {0.0,0.0,0.0};
+    double origin[3] = {0.0, 0.0, 0.0};
     uniform->GetOrigin(origin);
 
-    int extents[6] = {0,0,0,0,0,0};
+    int extents[6] = {0, 0, 0, 0, 0, 0};
     uniform->GetExtent(extents);
 
-    node["coordsets/coords/origin/x"] = origin[0] + extents[0];
-    node["coordsets/coords/origin/y"] = origin[1] + extents[2];
-    node["coordsets/coords/origin/z"] = origin[2] + extents[4];
+    double spacing[3] = {0.0, 0.0, 0.0};
+    uniform->GetSpacing(spacing);
+
+    node["coordsets/coords/origin/x"] = origin[0] + (extents[0] * spacing[0]);
+    node["coordsets/coords/origin/y"] = origin[1] + (extents[2] * spacing[1]);
+    node["coordsets/coords/origin/z"] = origin[2] + (extents[4] * spacing[2]);
 
     //Global Spacing == Local Spacing
-    double spacing[3] = {0.0,0.0,0.0};
-    uniform->GetSpacing(spacing);
     node["coordsets/coords/spacing/dx"] = spacing[0];
     node["coordsets/coords/spacing/dy"] = spacing[1];
     node["coordsets/coords/spacing/dz"] = spacing[2];
@@ -920,7 +974,7 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   {
     node["coordsets/coords/type"] = "rectilinear";
 
-    int dims[3] = {0,0,0};
+    int dims[3] = {0, 0, 0};
     rectilinear->GetDimensions(dims);
 
     vtkDataArray *x = rectilinear->GetXCoordinates();
@@ -968,14 +1022,15 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   {
     node["coordsets/coords/type"] = "explicit";
 
-    int dims[3] = {0,0,0};
+    int dims[3] = {0, 0, 0};
     structured->GetDimensions(dims);
 
     int numPoints = structured->GetPoints()->GetNumberOfPoints();
-    double point[3] = {0,0,0};
-    std::vector<conduit::float64> x(numPoints,0.0);
-    std::vector<conduit::float64> y(numPoints,0.0);
-    std::vector<conduit::float64> z(numPoints,0.0);
+    double point[3] = {0, 0, 0};
+    std::vector<conduit::float64> x(numPoints, 0.0);
+    std::vector<conduit::float64> y(numPoints, 0.0);
+    std::vector<conduit::float64> z(numPoints, 0.0);
+
     for(int i = 0; i < numPoints; ++i)
     {
       structured->GetPoints()->GetPoint(i, point);
@@ -993,10 +1048,11 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     node["coordsets/coords/type"] = "explicit";
 
     int numPoints = unstructured->GetPoints()->GetNumberOfPoints();
-    double point[3] = {0,0,0};
-    std::vector<conduit::float64> x(numPoints,0.0);
-    std::vector<conduit::float64> y(numPoints,0.0);
-    std::vector<conduit::float64> z(numPoints,0.0);
+    double point[3] = {0, 0, 0};
+    std::vector<conduit::float64> x(numPoints, 0.0);
+    std::vector<conduit::float64> y(numPoints, 0.0);
+    std::vector<conduit::float64> z(numPoints, 0.0);
+
     for(int i = 0; i < numPoints; ++i)
     {
       unstructured->GetPoints()->GetPoint(i, point);
@@ -1013,6 +1069,7 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
     SENSEI_ERROR("Mesh type not supported");
     return( -1 );
   }
+
   return( 1 );
 }
 
@@ -1048,7 +1105,7 @@ void AscentAnalysisAdaptor::GetFieldsFromActions()
 
 
 //------------------------------------------------------------------------------
-void JSONFileToNode(std::string file_name, conduit::Node& node)
+void JSONFileToNode(const std::string &file_name, conduit::Node& node)
 {
   if(conduit::utils::is_file(file_name))
   {
@@ -1061,7 +1118,7 @@ void JSONFileToNode(std::string file_name, conduit::Node& node)
 
 
 //------------------------------------------------------------------------------
-void AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions, conduit::Node setup)
+void AscentAnalysisAdaptor::Initialize(conduit::Node &xml_actions, conduit::Node &setup)
 {
   conduit::Node ascent_options;
 
@@ -1080,9 +1137,12 @@ void AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions, conduit::Node 
 
   this->a.open(ascent_options);
 
+#ifdef DEBUG_SAVE_DATA
+  debugAscentOptions = ascent_options;
+#endif
+
   conduit::Node actions;
   conduit::Node &add_actions = actions.append();
-
 
   if(xml_actions["action"].as_string() ==  "add_scenes")
   {
@@ -1116,7 +1176,7 @@ void AscentAnalysisAdaptor::Initialize(conduit::Node xml_actions, conduit::Node 
 }
 
 //------------------------------------------------------------------------------
-void AscentAnalysisAdaptor::Initialize(std::string json_file_path, conduit::Node setup)
+void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, conduit::Node &setup)
 {
   conduit::Node json_actions;
   JSONFileToNode(json_file_path, json_actions);
@@ -1125,20 +1185,26 @@ void AscentAnalysisAdaptor::Initialize(std::string json_file_path, conduit::Node
 
   ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   ascent_options["runtime/type"] = "ascent";
-  if(setup.has_child("runtime/backend"))
-    ascent_options["runtime/backend"] = setup["runtime/backend"].as_string();
+
+  if(setup.has_child("backend"))
+    ascent_options["runtime/backend"] = setup["backend"].as_string();
   if(setup.has_child("image_width"))
     ascent_options["image_width"] = setup["image_width"];
   if(setup.has_child("image_height"))
     ascent_options["image_height"] = setup["image_height"];
 
+  // Debug
+  //ascent_options.print();
+
   this->a.open(ascent_options);
+
   this->actionNode = json_actions;
 }
 
 int Fill_VTK(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj)
 {
     //TODO: Zero copy for Coordsets and Topology
+    VTK_To_State(ds, node);
     VTK_To_Coordsets(ds, node);
     VTK_To_Topology(ds, node);
 
@@ -1182,6 +1248,19 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       size_t numBlocks = 0;
       vtkCompositeDataIterator *itr = cds->NewIterator();
 
+/*
+if( cds->HasAnyGhostCells() || cds->HasAnyGhostPoints() )
+{
+        std::cout << "- cds ---------------------------" << std::endl;
+        cds->Print( std::cout );
+        std::cout << "- cds ---------------------------" << std::endl;
+}
+else
+{
+        std::cout << "- cds - no ghost cells --------------------------" << std::endl;
+}
+*/
+
       // TODO: Is there a better way to get the number of data sets?
       vtkCompositeDataIterator *iter = cds->NewIterator();
       iter->SkipEmptyNodesOn();
@@ -1195,7 +1274,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         //int bid = std::max(0u, itr->GetCurrentFlatIndex() - 1);
         if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(cds->GetDataSet(itr)))
         {
-          char domain[20];
+          char domain[20] = "";
           if( numBlocks > 1 )
           {
             snprintf( domain, sizeof(domain), "domain_%.6d", domainNum );
@@ -1236,11 +1315,16 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     std::cout << "----------------------------" << std::endl;
     */
 
+#ifdef DEBUG_SAVE_DATA
+    //DebugSaveAscentData( root );
+#endif
+
     this->a.publish(root);
     this->a.execute(this->actionNode);
     root.reset();
   }
 
+  ++cycle;
   return( true );
 }
 

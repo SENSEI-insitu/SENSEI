@@ -16,13 +16,12 @@ if (ENABLE_SENSEI)
 
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
-    #list(APPEND senseiCore_libs sConduit)
-    list(APPEND senseiCore_libs)
+    list(APPEND senseiCore_libs sConduit)
   endif()
 
   if(ENABLE_ASCENT)
     list(APPEND senseiCore_sources AscentAnalysisAdaptor.cxx AscentSchema.cxx)
-    list(APPEND senseiCore_libs sascent)
+    list(APPEND senseiCore_libs sAscent)
   endif()
 
   if(ENABLE_CATALYST)

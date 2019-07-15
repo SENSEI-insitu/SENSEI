@@ -4,10 +4,6 @@ cmake_dependent_option(ENABLE_PYTHON
   "Enable Python binding to Sensei infrastucture" OFF
   "ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_GENERIC_ARRAYS
-  "VTK build has Generic arrays" OFF
-  "ENABLE_SENSEI" OFF)
-
 cmake_dependent_option(ENABLE_CATALYST
   "Enable analysis methods that use Catalyst" OFF
   "ENABLE_SENSEI" OFF)
@@ -40,6 +36,10 @@ cmake_dependent_option(ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_VTK_GENERIC_ARRAYS
+  "VTK build has Generic arrays" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_VTK_IO
   "Enable use of vtk I/O" OFF
   "ENABLE_SENSEI" OFF)
@@ -68,17 +68,20 @@ cmake_dependent_option(ENABLE_VTKM_RENDERING
   "Enable analysis methods that use VTK-m's rendering library" OFF
   "ENABLE_VTKM" OFF)
 
-option(ENABLE_PROFILER "Enable the internal profiler" OFF)
+cmake_dependent_option(REPLACE_DIY
+  "Override the Sensei diy library. You will need to define -DDIY_DIR=<path to diy headers>" OFF
+  "ENABLE_VTKM" OFF)
 
+option(ENABLE_PROFILER "Enable the internal profiler" OFF)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
 option(ENABLE_CONDUITTEST "Enable Conduit miniapp" OFF)
 option(ENABLE_KRIPKE "Enable Kripke miniapp" OFF)
 option(ENABLE_MANDELBROT "Enable Mandelbrot miniapp" ON)
 option(ENABLE_VORTEX "Enable Vortex miniapp" ON)
+option(ENABLE_ASCENT_TEST "Enable Ascent miniapp" OFF)
 
 message(STATUS "ENABLE_SENSEI=${ENABLE_SENSEI}")
 message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
-message(STATUS "ENABLE_VTK_GENERIC_ARRAYS=${ENABLE_VTK_GENERIC_ARRAYS}")
 message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_ADIOS1=${ENABLE_ADIOS1}")
@@ -86,6 +89,7 @@ message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_ASCENT=${ENABLE_ASCENT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
+message(STATUS "ENABLE_VTK_GENERIC_ARRAYS=${ENABLE_VTK_GENERIC_ARRAYS}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
 message(STATUS "ENABLE_VTK_RENDERING=${ENABLE_VTK_RENDERING}")
@@ -97,3 +101,5 @@ message(STATUS "ENABLE_PROFILER=${ENABLE_PROFILER}")
 message(STATUS "ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")
 message(STATUS "ENABLE_CONDUITTEST=${ENABLE_CONDUITTEST}")
 message(STATUS "ENABLE_KRIPKE=${ENABLE_KRIPKE}")
+message(STATUS "ENABLE_ASCENT_TEST=${ENABLE_ASCENT_TEST}")
+message(STATUS "REPLACE_DIY=${REPLACE_DIY}")

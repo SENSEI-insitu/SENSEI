@@ -220,7 +220,7 @@ vtkCellArray * HomogeneousShapeTopologyToVTKCellArray( const conduit::Node &n_to
 
     conduit::int_array topo_conn;
     ida->SetNumberOfTuples(ncells * (csize + 1));
-    for (int i = 0 ; i < ncells; i++)
+    for (int i=0; i < ncells ;++i)
     {
       conduit::Node n_tmp;
       if(n_topo["elements/connectivity"].dtype().is_int())
@@ -234,7 +234,7 @@ vtkCellArray * HomogeneousShapeTopologyToVTKCellArray( const conduit::Node &n_to
       }
             
       ida->SetComponent((csize+1)*i, 0, csize);
-      for (int j = 0; j < csize; j++)
+      for (int j=0; j < csize ;++j)
       {
         ida->SetComponent((csize+1)*i+j+1, 0,topo_conn[i*csize+j]);
       }
@@ -539,7 +539,8 @@ void ConduitDataAdaptor::UpdateFields()
       conduit::NodeConstIterator field_itr = d_node["fields"].children();
       while( field_itr.has_next() )
       {
-        const conduit::Node& field = field_itr.next();
+        //const conduit::Node& field = field_itr.next();
+        field_itr.next();
         std::string field_name = field_itr.name();
                 
         //TODO: There is no formal protocol for naming meshes within the node
@@ -553,14 +554,14 @@ void ConduitDataAdaptor::UpdateFields()
         auto searchMesh = this->FieldNames.find( meshName );
         if( searchMesh != this->FieldNames.end() )
         {
-// TODO try and not make a copy of the vec (just use the searchMesh->second).
+          // TODO try and not make a copy of the vec (just use the searchMesh->second).
           std::vector<std::string> vec = searchMesh->second;
           std::vector<std::string>::iterator itr;
           itr = find( vec.begin(), vec.end(), field_name );
      
           if( itr == vec.end() )
           {
-// TODO insert the new field_name into searchMesh->second.
+             // TODO insert the new field_name into searchMesh->second.
              vec.push_back( field_name );
              this->FieldNames.erase( meshName );
              this->FieldNames.insert( std::pair<std::string, std::vector<std::string>>(meshName, vec) );
@@ -580,7 +581,7 @@ void ConduitDataAdaptor::UpdateFields()
     const conduit::Node& fields = (*this->Node)["fields"];
     conduit::NodeConstIterator fields_itr = fields.children();
 
-// TODO remove duplicate code above.
+    // TODO remove duplicate code above.
     while( fields_itr.has_next() )
     {
       const conduit::Node& field = fields_itr.next();
@@ -677,7 +678,7 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
           mb_mesh->SetBlock( block, UnstructuredMesh(&d_node) );
         }
       }
-      domain++;
+      ++domain;
     }
   }
   else
@@ -840,7 +841,7 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
         SENSEI_ERROR( "ERROR: association of type " << field_association << " incompatible" );
         return( -1 );
       }
-      domain++;
+      ++domain;
     }
   }  
   else

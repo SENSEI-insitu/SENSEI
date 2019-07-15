@@ -1,0 +1,44 @@
+[
+  {
+     "action": "add_pipelines",
+     "pipelines":
+     {
+       "pl1":
+       {
+         "f1":
+         {
+           "type": "contour",
+           "params":
+           {
+             "field": "braid",
+             "iso_values": 5.0
+           }
+         }
+      }
+    }
+  },
+  {
+    "action": "add_scenes",
+    "scenes":
+    {
+      "s1":
+      {
+        "plots":
+        {
+          "p1":
+          {
+            "type": "pseudocolor",
+            "field": "braid"
+          }
+        },
+        "image_prefix": "Braid%04d"
+      }
+    }
+  },
+  {
+    "action": "execute"
+  },
+  {
+    "action": "reset"
+  }
+]

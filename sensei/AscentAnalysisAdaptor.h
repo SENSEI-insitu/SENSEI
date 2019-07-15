@@ -20,8 +20,8 @@ public:
   static AscentAnalysisAdaptor* New();
   senseiTypeMacro(AscentAnalysisAdaptor, AnalysisAdaptor);
 
-  void Initialize(conduit::Node xml_actions, conduit::Node setup);
-  void Initialize(std::string json_file_path, conduit::Node setup);
+  void Initialize(conduit::Node &xml_actions, conduit::Node &setup);
+  void Initialize(const std::string &json_file_path, conduit::Node &setup);
 
   bool Execute(DataAdaptor* data) override;
 
