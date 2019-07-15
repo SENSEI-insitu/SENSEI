@@ -41,7 +41,7 @@ namespace sensei
 senseiNewMacro(ADIOS1AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOS1AnalysisAdaptor::ADIOS1AnalysisAdaptor() : MaxBufferSize(500),
+ADIOS1AnalysisAdaptor::ADIOS1AnalysisAdaptor() : MaxBufferSize(0),
     Schema(nullptr), Method("MPI"), FileName("sensei.bp"), GroupHandle(0)
 {
 }
@@ -195,11 +195,15 @@ int ADIOS1AnalysisAdaptor::InitializeADIOS1(
     adios_init_noxml(this->GetCommunicator());
 
 #if ADIOS_VERSION_GE(1,11,0)
-    adios_set_max_buffer_size(this->MaxBufferSize);
+    if (this->MaxBufferSize > 0)
+      adios_set_max_buffer_size(this->MaxBufferSize);
+
     adios_declare_group(&this->GroupHandle, "SENSEI", "",
       static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_no));
 #else
-    adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
+    if (this->MaxBufferSize > 0)
+      adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
+
     adios_declare_group(&this->GroupHandle, "SENSEI", "", adios_flag_no);
 #endif
 
