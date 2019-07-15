@@ -99,23 +99,23 @@ private:
 
 
 struct MeshMetadata;
-using MeshMetadataPtr = std::shared_ptr<MeshMetadata>;
+using MeshMetadataPtr = std::shared_ptr<sensei::MeshMetadata>;
 
 /// A container for capturing metadata describing a mesh.
 struct MeshMetadata
 {
   static
-  MeshMetadataPtr New() { return MeshMetadataPtr(new MeshMetadata); }
+  sensei::MeshMetadataPtr New() { return MeshMetadataPtr(new MeshMetadata); }
 
   static
-  MeshMetadataPtr New(const MeshMetadataFlags flags)
+  sensei::MeshMetadataPtr New(const MeshMetadataFlags flags)
   {
     MeshMetadataPtr mdp = MeshMetadataPtr(new MeshMetadata);
     mdp->Flags = flags;
     return mdp;
   }
 
-  MeshMetadataPtr NewCopy()
+  sensei::MeshMetadataPtr NewCopy()
   {
       MeshMetadataPtr md = MeshMetadata::New();
       *md = *this;
@@ -139,7 +139,8 @@ struct MeshMetadata
   // your own. Finally some convenience functionality is packaged here
   // for instance global extents and bounds are automatically generated
   // if requested but not provided.
-  int Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags = 0xffffffffffffffff);
+  int Validate(MPI_Comm comm,
+    const sensei::MeshMetadataFlags &requiredFlags = 0xffffffffffffffff);
 
   // construct a global view of the metadata. return 0 if successful.
   // this call uses MPI collectives
@@ -150,7 +151,7 @@ struct MeshMetadata
   int ClearBlockInfo();
 
   // appends block level information of block bid from other.
-  int CopyBlockInfo(const MeshMetadataPtr &other, int bid);
+  int CopyBlockInfo(const sensei::MeshMetadataPtr &other, int bid);
 
   // metadata: the following metadata fields are available.  fields marked
   // "all" are required for all mesh types.  other fields may be required for
@@ -215,10 +216,10 @@ struct MeshMetadata
   std::vector<std::vector<int>> BlockChildren;  // ids of overlapping blocks in next finer level (AMR, optional)
 
 
-  MeshMetadataFlags Flags;  // flags indicate which optional fields are needed
-                            // some feilds are optional because they are costly
-                            // to generate and not universally used on the analysis
-                            // side.
+  sensei::MeshMetadataFlags Flags;  // flags indicate which optional fields are needed
+                                    // some feilds are optional because they are costly
+                                    // to generate and not universally used on the analysis
+                                    // side.
 
 protected:
   MeshMetadata() : GlobalView(false), MeshName(),

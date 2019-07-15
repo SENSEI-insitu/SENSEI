@@ -7,7 +7,7 @@ namespace sensei
 {
 
 class BlockPartitioner;
-using BlockPartitionerPtr = std::shared_ptr<BlockPartitioner>;
+using BlockPartitionerPtr = std::shared_ptr<sensei::BlockPartitioner>;
 
 /// @class BlockPartitioner
 /// The block partitioning mode will distribute blocks to a rank such that
@@ -15,7 +15,7 @@ using BlockPartitionerPtr = std::shared_ptr<BlockPartitioner>;
 class BlockPartitioner : public sensei::Partitioner
 {
 public:
-  static BlockPartitionerPtr New()
+  static sensei::BlockPartitionerPtr New()
   { return BlockPartitionerPtr(new BlockPartitioner); }
 
   const char *GetClassName() override { return "BlockPartitioner"; }
@@ -23,8 +23,8 @@ public:
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
   // distributes blocks to a rank such that consecutive blocks share a rank.
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-    MeshMetadataPtr &out) override;
+  int GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in,
+    sensei::MeshMetadataPtr &out) override;
 
 protected:
   BlockPartitioner() = default;

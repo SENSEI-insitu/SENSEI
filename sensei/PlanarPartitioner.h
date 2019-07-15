@@ -7,7 +7,7 @@ namespace sensei
 {
 
 class PlanarPartitioner;
-using PlanarPartitionerPtr = std::shared_ptr<PlanarPartitioner>;
+using PlanarPartitionerPtr = std::shared_ptr<sensei::PlanarPartitioner>;
 
 /// @class PlanarPartitioner
 /// The cyclic distribution method will distribute blocks to a rank
@@ -18,7 +18,7 @@ using PlanarPartitionerPtr = std::shared_ptr<PlanarPartitioner>;
 class PlanarPartitioner : public sensei::Partitioner
 {
 public:
-  static PlanarPartitionerPtr New()
+  static sensei::PlanarPartitionerPtr New()
   { return PlanarPartitionerPtr(new PlanarPartitioner); }
 
   const char *GetClassName() override { return "PlanarPartitioner"; }
@@ -27,8 +27,8 @@ public:
   // argument,return a new partittioning in the second MeshMetadata argument.
   // blocks are distributed in a round-robin fashion in chunks of length
   // specified by the PlaneSize.
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-     MeshMetadataPtr &out) override;
+  int GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in,
+     sensei::MeshMetadataPtr &out) override;
 
   // Set/get the PlaneSize. This controls how many blocks are assigned to
   // each rank in each iteration of the partitioning process.

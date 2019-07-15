@@ -8,7 +8,7 @@ namespace sensei
 {
 
 class PlanarSlicePartitioner;
-using PlanarSlicePartitionerPtr = std::shared_ptr<PlanarSlicePartitioner>;
+using PlanarSlicePartitionerPtr = std::shared_ptr<sensei::PlanarSlicePartitioner>;
 
 /// @class PlanarSlicePartitioner
 /// The slice paritioner determins which blocks intersect the plane
@@ -18,7 +18,7 @@ using PlanarSlicePartitionerPtr = std::shared_ptr<PlanarSlicePartitioner>;
 class PlanarSlicePartitioner : public sensei::Partitioner
 {
 public:
-  static PlanarSlicePartitionerPtr New()
+  static sensei::PlanarSlicePartitionerPtr New()
   { return PlanarSlicePartitionerPtr(new PlanarSlicePartitioner); }
 
   const char *GetClassName() override { return "PlanarSlicePartitioner"; }
@@ -36,8 +36,8 @@ public:
 
   // given an existing partitioning of data passed in the first MeshMetadata
   // argument,return a new partittioning in the second MeshMetadata argument.
-  int GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
-    MeshMetadataPtr &out) override;
+  int GetPartition(MPI_Comm comm, const sensei::MeshMetadataPtr &in,
+    sensei::MeshMetadataPtr &out) override;
 
 protected:
   PlanarSlicePartitioner() : Point{0.,0.,0.}, Normal{1.,0.,0.} {}
