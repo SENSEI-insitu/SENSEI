@@ -2,7 +2,9 @@
 #define sensei_DataAdaptor_h
 
 #include "senseiConfig.h"
-#include "vtkObjectBase.h"
+#include "MeshMetadata.h"
+
+#include <vtkObjectBase.h>
 
 #include <vector>
 #include <string>
@@ -15,8 +17,6 @@ class vtkCompositeDataSet;
 
 namespace sensei
 {
-struct MeshMetadata;
-using MeshMetadataPtr = std::shared_ptr<MeshMetadata>;
 
 
 /// @class DataAdaptor
@@ -59,7 +59,7 @@ public:
   /// @param[in] id index of the mesh to access
   /// @param[out] metadata a pointer to instance where metadata is stored
   /// @returns zero if successful, non zero if an error occurred
-  virtual int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) = 0;
+  virtual int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) = 0;
 
   /// @brief Return the data object with appropriate structure.
   ///
