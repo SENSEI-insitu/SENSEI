@@ -285,27 +285,31 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // compute the iso-surfaces
-  vtkCompositeDataSet *sliceMesh = nullptr;
-  if (this->IsoSurface(dobj, arrayName, arrayCentering, isoVals, sliceMesh))
+  vtkCompositeDataSet *isoMesh = nullptr;
+  if (this->IsoSurface(dobj, arrayName, arrayCentering, isoVals, isoMesh))
     {
     SENSEI_ERROR("Failed to extract slice")
     return false;
     }
 
   // write it to disk
-  std::string sliceMeshName  = meshName + "_" + arrayName + "_isos";
+  std::string isoMeshName  = meshName + "_" + arrayName + "_isos";
   long timeStep = dataAdaptor->GetDataTimeStep();
   double time = dataAdaptor->GetDataTime();
-  if (this->WriteExtract(timeStep, time, sliceMeshName, sliceMesh))
+  if (this->WriteExtract(timeStep, time, isoMeshName, isoMesh))
     {
     SENSEI_ERROR("Failed to write the extract")
     return false;
     }
 
-  sliceMesh->Delete();
+  isoMesh->Delete();
+  dobj->Delete();
+
+  dataAdaptor->ReleaseData();
 
   return true;
 }
+
 // --------------------------------------------------------------------------
 bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 {
@@ -416,9 +420,12 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       }
 
     sliceMesh->Delete();
+    dobj->Delete();
 
     ++mit;
     }
+
+  dataAdaptor->ReleaseData();
 
   return true;
 }
@@ -493,6 +500,8 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
     mbds->SetBlock(bid, dobjOut);
     }
 
+  it->Delete();
+
   output = mbds;
 
   return 0;
@@ -541,6 +550,8 @@ int SliceExtract::Slice(vtkCompositeDataSet *input,
     mbds->SetBlock(bid, dobjOut);
     }
 
+  it->Delete();
+
   output = mbds;
 
   return 0;
@@ -561,6 +572,9 @@ int SliceExtract::WriteExtract(long timeStep, double time,
     SENSEI_ERROR("Failed to write time step " << timeStep)
     return -1;
     }
+
+  dataAdaptor->ReleaseData();
+  dataAdaptor->Delete();
 
   return 0;
 }
