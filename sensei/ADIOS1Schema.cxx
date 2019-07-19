@@ -2924,6 +2924,7 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
       {
       vtkDataObject *ds = newDataObject(md->BlockType);
       mbds->SetBlock(md->BlockIds[i], ds);
+      ds->Delete();
       }
     }
 

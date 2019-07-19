@@ -22,9 +22,9 @@ if (BUILD_TESTING)
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 
   senseiAddTest(testHDF5Write
+    SOURCES testHDF5.cpp LIBS sensei EXEC_NAME testHDF5
     COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
     testHDF5 w 4 n h5test
-    SOURCES testHDF5.cpp LIBS sensei
     FEATURES ${ENABLE_HDF5})
 
   senseiAddTest(testHDF5Read

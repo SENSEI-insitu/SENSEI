@@ -1,7 +1,9 @@
 #ifndef CatalystAnalysisAdaptor_h
 #define CatalystAnalysisAdaptor_h
 
-#include <AnalysisAdaptor.h>
+#include "AnalysisAdaptor.h"
+#include "MeshMetadata.h"
+
 #include <memory>
 #include <vector>
 
@@ -12,8 +14,6 @@ class vtkDataObject;
 
 namespace sensei
 {
-struct MeshMetadata;
-using MeshMetadataPtr = std::shared_ptr<MeshMetadata>;
 
 /// @brief Analysis adaptor for Catalyst-based analysis pipelines.
 ///
