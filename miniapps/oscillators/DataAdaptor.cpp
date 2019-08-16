@@ -92,6 +92,7 @@ vtkUnstructuredGrid *newUnstructuredBlock(const double *origin,
     int nz = cellExts.max[2] - cellExts.min[2] + 1 + 1;
 
     vtkPoints *pts = vtkPoints::New();
+    pts->SetDataTypeToDouble();
     pts->SetNumberOfPoints(nx*ny*nz);
 
     vtkIdType idx = 0;
@@ -646,6 +647,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
   metadata->MeshType = VTK_MULTIBLOCK_DATA_SET;
   metadata->BlockType = (id == 0 ? VTK_IMAGE_DATA : VTK_UNSTRUCTURED_GRID);
+  metadata->CoordinateType = VTK_DOUBLE;
   metadata->NumBlocks = this->Internals->NumBlocks;
   metadata->NumBlocksLocal = {nBlocks};
   metadata->NumGhostCells = this->Internals->NumGhostCells;
