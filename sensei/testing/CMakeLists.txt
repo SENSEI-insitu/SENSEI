@@ -89,7 +89,7 @@ if (BUILD_TESTING)
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 9 2
       ${CMAKE_CURRENT_SOURCE_DIR} adios1_flexpath 3 3 3 1
-    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS1} ${ENABLE_CATALYST})
 
   senseiAddTest(testPartitionersHDF5A
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
