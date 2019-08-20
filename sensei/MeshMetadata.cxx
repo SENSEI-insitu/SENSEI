@@ -45,24 +45,6 @@ int MeshMetadataFlags::ToStream(ostream &str) const
     nSet += 1;
     }
 
-  if (this->Flags & NEIGHBORS)
-    {
-    str << (nSet ? "|" : "") << "NEIGHBORS";
-    nSet += 1;
-    }
-
-  if (this->Flags & PARENTS)
-    {
-    str << (nSet ? "|" : "") << "PARENTS";
-    nSet += 1;
-    }
-
-  if (this->Flags & CHILDREN)
-    {
-    str << (nSet ? "|" : "") << "CHILDREN";
-    nSet += 1;
-    }
-
   if (this->Flags & EXTENTS)
     {
     str << (nSet ? "|" : "") << "EXTENTS";
@@ -120,11 +102,7 @@ int MeshMetadata::ToStream(sensei::BinaryStream &str) const
   str.Pack(this->RefRatio);
   str.Pack(this->BlocksPerLevel);
   str.Pack(this->BlockLevel);
-  str.Pack(this->BoxArray);
   str.Pack(this->PeriodicBoundary);
-  str.Pack(this->BlockNeighbors);
-  str.Pack(this->BlockParents);
-  str.Pack(this->BlockChildren);
   this->Flags.ToStream(str);
 
   return 0;
@@ -166,11 +144,7 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
   str.Unpack(this->RefRatio);
   str.Unpack(this->BlocksPerLevel);
   str.Unpack(this->BlockLevel);
-  str.Unpack(this->BoxArray);
   str.Unpack(this->PeriodicBoundary);
-  str.Unpack(this->BlockNeighbors);
-  str.Unpack(this->BlockParents);
-  str.Unpack(this->BlockChildren);
   this->Flags.FromStream(str);
 
   return 0;
@@ -214,11 +188,7 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "RefRatio = " << rr << std::endl;
   str << "BlocksPerLevel = " << this->BlocksPerLevel << std::endl;
   str << "BlockLevel = " << this->BlockLevel << std::endl;
-  str << "BoxArray = " << this->BoxArray << std::endl;
   str << "PeriodicBoundary = " << pbc << std::endl;
-  str << "BlockNeighbors = " << this->BlockNeighbors << std::endl;
-  str << "BlockParents = " << this->BlockParents << std::endl;
-  str << "BlockChildren = " << this->BlockChildren << std::endl;
   str << "Flags = "; this->Flags.ToStream(str); str << std::endl;
   str << "}";
   return 0;
@@ -245,38 +215,6 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
   int localBlocks = ((this->NumBlocks > 0) &&
     ((this->NumBlocksLocal.size() > 0) && ((this->GlobalView ?
     this->NumBlocksLocal[rank] : this->NumBlocksLocal[0]) > 0)));
-
-
-  if (localBlocks && this->Flags.BlockNeighborsSet() &&
-    requiredFlags.BlockNeighborsSet() && this->BlockNeighbors.empty())
-    {
-    SENSEI_ERROR("Metadata is missing block neighbors")
-    err = true;
-    }
-
-  if (localBlocks && this->Flags.BlockParentsSet() && requiredFlags.BlockParentsSet())
-    {
-    if (this->MeshType != VTK_OVERLAPPING_AMR)
-      {
-      SENSEI_ERROR("Block parents requested for a non-AMR dataset type")
-      err = true;
-      }
-
-    if (this->BlockParents.empty())
-      {
-      SENSEI_ERROR("Metadata is missing block parents")
-      err = true;
-      }
-    }
-
-  if (localBlocks && this->Flags.BlockChildrenSet() && requiredFlags.BlockChildrenSet())
-    {
-    if ((this->MeshType == VTK_OVERLAPPING_AMR) && (this->BlockChildren.empty()))
-      {
-      SENSEI_ERROR("Metadata is missing block children array")
-      err = true;
-      }
-    }
 
   if (localBlocks && this->Flags.BlockDecompSet() &&
     requiredFlags.BlockDecompSet() && (this->BlockOwner.empty() || this->BlockIds.empty()))

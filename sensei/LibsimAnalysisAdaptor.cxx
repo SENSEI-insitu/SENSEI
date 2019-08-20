@@ -1432,7 +1432,6 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         // enable optional metadata
         mmd->Flags.SetBlockDecomp();
         mmd->Flags.SetBlockExtents();
-        mmd->Flags.SetBlockChildren();
         mmd->Flags.SetBlockBounds();
 
         if (Adaptor->GetMeshMetadata(i, mmd))
@@ -1886,6 +1885,7 @@ int
 LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const std::string &meshName,
     std::vector<std::vector<int>> &children)
 {
+
     int rank = 0;
     int nRanks = 1;
 
@@ -1901,7 +1901,9 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const std::string &meshName
     }
     MeshMetadataPtr mmd = mdit->second;
 
+    SENSEI_ERROR("TODO - fix this")
     // construct a global view of the child relation ships.
+    /*
     // this is one thing we decided should always be a local
     // view as it can take a lot of space.
     BinaryStream bss;
@@ -1954,6 +1956,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const std::string &meshName
             children[blockIds[j]] = blockChildren[j];
     }
     bsr.Clear();
+    */
 
     return 0;
 }
@@ -1964,6 +1967,9 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *meshName, void 
 {
     VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
 
+    SENSEI_ERROR("TODO - fix this")
+    return VISIT_INVALID_HANDLE;
+/*
     PrivateData *This = (PrivateData *)cbdata;
 
     MeshMetadataPtr mmd = This->Metadata[meshName];
@@ -2010,6 +2016,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *meshName, void 
     }
 
     return h;
+*/
 }
 
 // notes 8/2/2018 metadata revamp

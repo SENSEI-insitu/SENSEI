@@ -53,24 +53,6 @@ public:
   void ClearBlockBounds(){ Flags &= ~BOUNDS; }
   bool BlockBoundsSet() const { return Flags & BOUNDS; }
 
-  // set, clear, or check flag to generate block neighbor arrays
-  // (MeshMetadata.BlockNeighbors)
-  void SetBlockNeighbors(){ Flags |= NEIGHBORS; }
-  void ClearBlockNeighbors(){ Flags &= ~NEIGHBORS; }
-  bool BlockNeighborsSet() const { return Flags & NEIGHBORS; }
-
-  // set, clear, or check flag to generate block parent arrays
-  // (MeshMetadata.BlockParents)
-  void SetBlockParents(){ Flags |= PARENTS; }
-  void ClearBlockParents(){ Flags &= ~PARENTS; }
-  bool BlockParentsSet() const { return Flags & PARENTS; }
-
-  // set, clear, or check flag to generate block children arrays
-  // (MeshMetadata.BlockChildren)
-  void SetBlockChildren(){ Flags |= CHILDREN; }
-  void ClearBlockChildren(){ Flags &= ~CHILDREN; }
-  bool BlockChildrenSet() const { return Flags & CHILDREN; }
-
   // set, clear, or check flag to generate block array ranges
   // (MeshMetadata.BlockArrayRange)
   void SetBlockArrayRange(){ Flags |= RANGE; }
@@ -91,9 +73,8 @@ private:
                     // side. see Set/Clear methods above.
 
  // flag values
- enum { DECOMP = 0x1, SIZE = 0x2, NEIGHBORS = 0x4,
-   PARENTS = 0x8, CHILDREN = 0x10, EXTENTS = 0x20,
-   BOUNDS = 0x40, RANGE = 0x80 };
+ enum { DECOMP = 0x1, SIZE = 0x2, EXTENTS = 0x4,
+   BOUNDS = 0x8, RANGE = 0x10 };
 };
 
 
@@ -171,7 +152,7 @@ struct MeshMetadata
   int BlockType;                     // block mesh type (all)
   int NumBlocks;                     // global number of blocks (all)
   std::vector<int> NumBlocksLocal;   // number of blocks on each rank (all)
-  std::array<int,6> Extent;          // global index space extent (Cartesian, AMR, optional)
+  std::array<int,6> Extent;          // global cell index space extent (Cartesian, AMR, optional)
   std::array<double,6> Bounds;       // global bounding box (all, optional)
   int CoordinateType;                // type enum of point data (unstructured, optional)
   long NumPoints;                    // total number of points in all blocks (all, optional)
@@ -207,13 +188,7 @@ struct MeshMetadata
   std::vector<std::array<int,3>> RefRatio; // refinement ratio in i,j, and k directions for each level (AMR)
   std::vector<int> BlocksPerLevel;         // number of blocks in each level (AMR)
   std::vector<int> BlockLevel;             // AMR level of each block (AMR)
-  std::vector<std::vector<int>> BoxArray;  // box array for AMR mesh (AMR)
-  std::array<int,6> PeriodicBoundary;      // flag indicating presence of a periodic boundary (all)
-
-                                                // the following only contain information about local blocks
-  std::vector<std::vector<int>> BlockNeighbors; // ids of adjacent blocks (Cartesian, AMR, optional)
-  std::vector<std::vector<int>> BlockParents;   // ids of overlapping blocks in next coarser level (AMR, optional)
-  std::vector<std::vector<int>> BlockChildren;  // ids of overlapping blocks in next finer level (AMR, optional)
+  std::array<int,3> PeriodicBoundary;      // flag indicating presence of a periodic boundary in the i,j,k direction (all)
 
 
   sensei::MeshMetadataFlags Flags;  // flags indicate which optional fields are needed
@@ -230,8 +205,8 @@ protected:
     ArrayName(), ArrayCentering(), ArrayType(), ArrayRange(),BlockOwner(),
     BlockIds(), BlockNumPoints(), BlockNumCells(), BlockCellArraySize(),
     BlockExtents(), BlockBounds(), BlockArrayRange(), RefRatio(),
-    BlocksPerLevel(), BlockLevel(), BoxArray(), PeriodicBoundary(),
-    BlockNeighbors(), BlockParents(), BlockChildren(), Flags()
+    BlocksPerLevel(), BlockLevel(), PeriodicBoundary(),
+    Flags()
     {}
 };
 

@@ -535,7 +535,7 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
     // these are all always global views
     metadata->NumLevels = amrds->GetNumberOfLevels();
     metadata->BlockLevel.resize(metadata->NumBlocks);
-    metadata->BoxArray.resize(metadata->NumBlocks);
+    metadata->BlockExtents.resize(metadata->NumBlocks);
     metadata->RefRatio.resize(metadata->NumLevels);
     metadata->BlocksPerLevel.resize(metadata->NumLevels);
 
@@ -553,64 +553,10 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
         {
         metadata->BlockLevel[q] = i;
 
-        metadata->BoxArray[q].resize(6);
-        int *pbaq = metadata->BoxArray[q].data();
+        int *pbaq = metadata->BlockExtents[q].data();
 
         const vtkAMRBox &box = amrds->GetAMRBox(i, j);
         box.GetDimensions(pbaq, pbaq+3);
-        }
-      }
-
-    if (metadata->Flags.BlockChildrenSet())
-      {
-      if (!amrds->HasChildrenInformation())
-        amrds->GenerateParentChildInformation();
-
-      int q = 0;
-      for (int i = 0; i < metadata->NumLevels; ++i)
-        {
-        int nb = amrds->GetNumberOfDataSets(i);
-
-        for (int j = 0; j < nb; ++j, ++q)
-          {
-          // parent child info is always local only
-          if (metadata->BlockOwner[q] != rank)
-            continue;
-
-          unsigned int nc = 0;
-          unsigned int *pch = amrds->GetChildren(i, j, nc);
-          if (nc)
-            {
-            std::vector<int> children(pch, pch+nc);
-            metadata->BlockChildren.emplace_back(children);
-            }
-          }
-        }
-      }
-    if (metadata->Flags.BlockParentsSet())
-      {
-      if (!amrds->HasChildrenInformation())
-        amrds->GenerateParentChildInformation();
-
-      int q = 0;
-      for (int i = 0; i < metadata->NumLevels; ++i)
-        {
-        int nb = amrds->GetNumberOfDataSets(i);
-
-        for (int j = 0; j < nb; ++j, ++q)
-          {
-          // parent child info is always local only
-          if (metadata->BlockOwner[q] != rank)
-            continue;
-
-          unsigned int nc = 0;
-          unsigned int *pp = amrds->GetParents(i, j, nc);
-          if (nc)
-            {
-            std::vector<int> parent(pp, pp+nc);
-            metadata->BlockParents.emplace_back(parent);
-            }
-          }
         }
       }
     }
