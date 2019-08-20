@@ -103,4 +103,11 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR} h6 3 3 3 0
     FEATURES ${ENABLE_PYTHON} ${ENABLE_HDF5} ${ENABLE_CATALYST})
 
+  senseiAddTest(testADIOS1FLEXPATHHistogram
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+      ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
+      ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
+      histogram.xml read_adios1_flexpath_default.xml 10 1
+    FEATURES  ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
+
 endif()
