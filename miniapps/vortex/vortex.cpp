@@ -653,12 +653,16 @@ handle_command_line(int argc, char **argv, simulation_data *sim,
     }
 }
 
-void pause()
+// TODO -- remove or fix??
+// gcc defines a function of the same name, this breaks the build.
+// need to rename ours, but it's not currently in use, so we may
+// alternatively remove it.
+/*void pause()
 {
     FILE *f = NULL;
     while((f = fopen("pause.txt", "rt")) == NULL);
     fclose(f);
-}
+}*/
 
 //*****************************************************************************
 //

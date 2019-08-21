@@ -532,12 +532,16 @@ handle_command_line(int argc, char **argv, simulation_data *sim,
     }
 }
 
-void pause()
+// TODO -- remove or fix??
+// this function should be renamed, as gcc has one with same name
+// and it now breaks the build. It is not currently used, so I
+// commented it out for now.
+/*void pause()
 {
     FILE *f = NULL;
     while((f = fopen("pause.txt", "rt")) == NULL);
     fclose(f);
-}
+}*/
 
 //*****************************************************************************
 //
