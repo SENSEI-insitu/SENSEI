@@ -1,10 +1,3 @@
-if(ENABLE_PARALLEL3D)
-  message(STATUS "Enabled: Parallel3D miniapp.")
-  add_subdirectory(parallel3d)
-else()
-  message(STATUS "Disabled: Parallel3D miniapp.")
-endif()
-
 if(ENABLE_CONDUITTEST)
   message(STATUS "Enabled: CONDUIT TEST miniapp.")
   add_subdirectory(conduit_test)
