@@ -1,0 +1,4 @@
+<sensei>
+  <analysis type="histogram" mesh="mesh" array="f_xyt"
+     association="point" bins="10" enabled="1" />
+</sensei>
