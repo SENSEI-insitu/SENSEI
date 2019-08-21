@@ -232,7 +232,7 @@ void VTKmVolumeReductionAnalysis::Initialize(
 //-----------------------------------------------------------------------------
 bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent mark("VTKmVolumeReductionAnalysis::execute");
+  Timer::MarkEvent mark("VTKmVolumeReductionAnalysis::execute");
   this->Helper->AddTimeEntry();
 
   vtkDataObject* mesh = nullptr;
@@ -260,7 +260,7 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
   vtkNew<vtkImageData> outputDataSet;
   if (this->Reduction > 0)
     {
-    timer::MarkStartEvent("VTKm reduction");
+    Timer::MarkStartEvent("VTKm reduction");
 
     int dimensions[3];
     originalImageData->GetDimensions(dimensions);
@@ -307,7 +307,7 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
       }
     outputDataSet->SetDimensions(dimensions[0], dimensions[1], dimensions[2]);
     outputDataSet->GetPointData()->SetScalars(dataArray);
-    timer::MarkEndEvent("VTKm reduction");
+    Timer::MarkEndEvent("VTKm reduction");
     }
   else
     {
@@ -322,10 +322,10 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
 
   // -----------------------
 
-  timer::MarkStartEvent("Cinema Volume export");
+  Timer::MarkStartEvent("Cinema Volume export");
   this->Helper->WriteVolume(outputDataSet.GetPointer());
   this->Helper->WriteMetadata();
-  timer::MarkEndEvent("Cinema Volume export");
+  Timer::MarkEndEvent("Cinema Volume export");
 
   return true;
 }

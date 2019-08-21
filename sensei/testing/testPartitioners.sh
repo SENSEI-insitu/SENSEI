@@ -31,6 +31,8 @@ file=test.bp
 
 rm -f $file ${file}_writer_info.txt
 
+export TIMER_ENABLE=1 TIMER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
+
 ${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
   -6.2832 6.2832 -6.2832 6.2832 0 6.2832 &
@@ -63,6 +65,8 @@ then
     fi
   done
 fi
+
+export TIMER_ENABLE=1 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderMemProf.csv
 
 ${mpiexec} ${npflag} ${nproc_read} python ${srcdir}/testPartitionersRead.py \
   "${srcdir}/${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"

@@ -7,7 +7,7 @@ namespace sensei
 int BlockPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
-  timer::MarkEvent mark("BlockPartitioner::GetPartition");
+  Timer::MarkEvent mark("BlockPartitioner::GetPartition");
 
   mdOut = mdIn->NewCopy();
 

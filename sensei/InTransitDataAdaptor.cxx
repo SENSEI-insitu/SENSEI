@@ -37,7 +37,7 @@ InTransitDataAdaptor::InTransitDataAdaptor()
 //----------------------------------------------------------------------------
 int InTransitDataAdaptor::Initialize(pugi::xml_node &node)
 {
-  timer::MarkEvent mark("InTransitDataAdaptor::Initialize");
+  Timer::MarkEvent mark("InTransitDataAdaptor::Initialize");
 
   // look for the presense of an optional partitioner spec
   pugi::xml_node partNode = node.child("partitioner");

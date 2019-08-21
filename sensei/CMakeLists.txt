@@ -7,12 +7,12 @@ if (ENABLE_SENSEI)
     BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
     ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
     Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
-    MappedPartitioner.cxx MeshMetadata.cxx MeshMetadataMap.cxx
+    MappedPartitioner.cxx MemoryProfiler.cxx MeshMetadata.cxx MeshMetadataMap.cxx
     IsoSurfacePartitioner.cxx PlanarPartitioner.cxx PlanarSlicePartitioner.cxx
-    ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
+    ProgrammableDataAdaptor.cxx Timer.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
     VTKUtils.cxx XMLUtils.cxx)
 
-  set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
+  set(senseiCore_libs pugixml thread sDIY sVTK sMPI)
 
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)

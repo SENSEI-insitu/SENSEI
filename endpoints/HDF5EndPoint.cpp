@@ -69,10 +69,10 @@ int main(int argc, char **argv) {
     return showHelp ? 0 : 1;
   }
 
-  timer::Initialize();
+  sensei::Timer::Initialize();
 
   if (log | shortlog)
-    timer::Enable(shortlog);
+    sensei::Timer::Enable(shortlog);
 
 
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
@@ -109,23 +109,23 @@ int main(int argc, char **argv) {
     double time = dataAdaptor->GetDataTime();
     nSteps += 1;
 
-    timer::MarkStartTimeStep(timeStep, time);
+    sensei::Timer::MarkStartTimeStep(timeStep, time);
 
     SENSEI_STATUS("Processing time step " << timeStep << " time " << time);
 
     // execute the analysis
-    timer::MarkStartEvent("AnalysisAdaptor::Execute");
+    sensei::Timer::MarkStartEvent("AnalysisAdaptor::Execute");
     if (!analysisAdaptor->Execute(dataAdaptor.Get())) {
       SENSEI_ERROR("Execute failed");
       MPI_Abort(comm, 1);
     }
-    timer::MarkEndEvent("AnalysisAdaptor::Execute");
+    sensei::Timer::MarkEndEvent("AnalysisAdaptor::Execute");
 
     // let the data adaptor release the mesh and data from this
     // time step
     dataAdaptor->ReleaseData();
 
-    timer::MarkEndTimeStep();
+    sensei::Timer::MarkEndTimeStep();
   } while (!dataAdaptor->AdvanceStream());
 
   SENSEI_STATUS("Finished processing " << nSteps << " time steps")
@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
   dataAdaptor = nullptr;
   analysisAdaptor = nullptr;
 
-  timer::Finalize();
+  sensei::Timer::Finalize();
 
   MPI_Finalize();
 

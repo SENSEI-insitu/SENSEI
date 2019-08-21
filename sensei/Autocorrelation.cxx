@@ -3,6 +3,7 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
+#include "Timer.h"
 #include "Error.h"
 
 // VTK includes
@@ -27,7 +28,6 @@
 #include <diy/grid.hpp>
 #include <diy/vertices.hpp>
 
-#include <timer/Timer.h>
 
 // http://stackoverflow.com/a/12580468
 template<typename T, typename ...Args>
@@ -238,7 +238,7 @@ Autocorrelation::~Autocorrelation()
 void Autocorrelation::Initialize(size_t window, const std::string &meshName,
   int association, const std::string &arrayname, size_t kmax, int numThreads)
 {
-  timer::MarkEvent mark("Autocorrelation::Initialize");
+  Timer::MarkEvent mark("Autocorrelation::Initialize");
 
   AInternals& internals = (*this->Internals);
 
@@ -255,7 +255,7 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 //-----------------------------------------------------------------------------
 bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("Autocorrelation::Execute");
+  Timer::MarkEvent mark("Autocorrelation::Execute");
 
   AInternals& internals = (*this->Internals);
 
@@ -365,7 +365,7 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
 //-----------------------------------------------------------------------------
 void Autocorrelation::PrintResults(size_t k_max)
 {
-  timer::MarkEvent mark("Autocorrelation::PrintResults");
+  Timer::MarkEvent mark("Autocorrelation::PrintResults");
 
   AInternals& internals = (*this->Internals);
   size_t nblocks = internals.NumberOfBlocks;
@@ -476,7 +476,7 @@ void Autocorrelation::PrintResults(size_t k_max)
 //-----------------------------------------------------------------------------
 int Autocorrelation::Finalize()
 {
-  timer::MarkEvent mark("Autocorrelation::Finalize");
+  Timer::MarkEvent mark("Autocorrelation::Finalize");
 
   this->PrintResults(this->Internals->KMax);
 

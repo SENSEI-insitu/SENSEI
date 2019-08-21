@@ -142,10 +142,10 @@ int main(int argc, char** argv)
 
 
     if (log || shortlog)
-        timer::Enable(shortlog);
+        sensei::Timer::Enable(shortlog);
 
-    timer::Initialize();
-    timer::MarkStartEvent("oscillators::initialize");
+    sensei::Timer::Initialize();
+    sensei::Timer::MarkStartEvent("oscillators::initialize");
 
     std::vector<Oscillator> oscillators;
     if (world.rank() == 0)
@@ -245,9 +245,9 @@ int main(int argc, char** argv)
                    },
                    share_face, wrap, ghosts);
 
-    timer::MarkEndEvent("oscillators::initialize");
+    sensei::Timer::MarkEndEvent("oscillators::initialize");
 
-    timer::MarkStartEvent("oscillators::analysis::initialize");
+    sensei::Timer::MarkStartEvent("oscillators::analysis::initialize");
 #ifdef ENABLE_SENSEI
     bridge::initialize(nblocks, gids.size(), origin.data(), spacing.data(),
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
@@ -263,43 +263,43 @@ int main(int argc, char** argv)
                   &from_x[0], &from_y[0], &from_z[0],
                   &to_x[0],   &to_y[0],   &to_z[0]);
 #endif
-    timer::MarkEndEvent("oscillators::analysis::initialize");
+    sensei::Timer::MarkEndEvent("oscillators::analysis::initialize");
 
     int t_count = 0;
     float t = 0.;
     while (t < t_end)
     {
-        timer::MarkStartTimeStep(t_count, t);
+        sensei::Timer::MarkStartTimeStep(t_count, t);
 
         if (verbose && (world.rank() == 0))
             std::cerr << "started step = " << t_count << " t = " << t << std::endl;
 
-        timer::MarkStartEvent("oscillators::update_fields");
+        sensei::Timer::MarkStartEvent("oscillators::update_fields");
         master.foreach([=](Block* b, const Proxy&)
                               {
                                 b->update_fields(t);
                               });
-        timer::MarkEndEvent("oscillators::update_fields");
+        sensei::Timer::MarkEndEvent("oscillators::update_fields");
 
-        timer::MarkStartEvent("oscillators::move_particles");
+        sensei::Timer::MarkStartEvent("oscillators::move_particles");
         master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->move_particles(dt, p);
                               });
-        timer::MarkEndEvent("oscillators::move_particles");
+        sensei::Timer::MarkEndEvent("oscillators::move_particles");
 
-        timer::MarkStartEvent("oscillators::master.exchange");
+        sensei::Timer::MarkStartEvent("oscillators::master.exchange");
         master.exchange();
-        timer::MarkEndEvent("oscillators::master.exchange");
+        sensei::Timer::MarkEndEvent("oscillators::master.exchange");
 
-        timer::MarkStartEvent("oscillators::handle_incoming_particles");
+        sensei::Timer::MarkStartEvent("oscillators::handle_incoming_particles");
         master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->handle_incoming_particles(p);
                               });
-        timer::MarkEndEvent("oscillators::handle_incoming_particles");
+        sensei::Timer::MarkEndEvent("oscillators::handle_incoming_particles");
 
-        timer::MarkStartEvent("oscillators::analysis");
+        sensei::Timer::MarkStartEvent("oscillators::analysis");
 #ifdef ENABLE_SENSEI
         // do the analysis using sensei
         // update data adaptor with new data
@@ -318,7 +318,7 @@ int main(int argc, char** argv)
                               analyze(b->gid, b->grid.data());
                               });
 #endif
-        timer::MarkEndEvent("oscillators::analysis");
+        sensei::Timer::MarkEndEvent("oscillators::analysis");
 
         if (!out_prefix.empty())
         {
@@ -344,21 +344,21 @@ int main(int argc, char** argv)
         if (sync)
             world.barrier();
 
-        timer::MarkEndTimeStep();
+        sensei::Timer::MarkEndTimeStep();
 
         t += dt;
         ++t_count;
     }
 
-    timer::MarkStartEvent("oscillators::finalize");
+    sensei::Timer::MarkStartEvent("oscillators::finalize");
 #ifdef ENABLE_SENSEI
     bridge::finalize();
 #else
     analysis_final(k_max, nblocks);
 #endif
-    timer::MarkEndEvent("oscillators::finalize");
+    sensei::Timer::MarkEndEvent("oscillators::finalize");
 
-    timer::Finalize();
+    sensei::Timer::Finalize();
 
     world.barrier();
     if (world.rank() == 0)

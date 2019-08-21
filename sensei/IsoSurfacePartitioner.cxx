@@ -54,7 +54,7 @@ int IsoSurfacePartitioner::GetIsoValues(std::string &meshName,
 int IsoSurfacePartitioner::GetPartition(MPI_Comm comm,
   const MeshMetadataPtr &mdIn, MeshMetadataPtr &mdOut)
 {
-  timer::MarkEvent mark("IsoSurfacePartitioner::GetPartition");
+  Timer::MarkEvent mark("IsoSurfacePartitioner::GetPartition");
 
   // find the set of arrays and values for this mesh
   if (this->MeshName != mdIn->MeshName)

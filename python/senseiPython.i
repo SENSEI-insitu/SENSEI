@@ -16,6 +16,7 @@
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
 #include "VTKUtils.h"
+#include "Timer.h"
 #include <sstream>
 %}
 
@@ -33,6 +34,12 @@ import_array();
 %mpi4py_typemap(Comm, MPI_Comm);
 
 %import "senseiConfig.h"
+
+/****************************************************************************
+ * timer
+ ***************************************************************************/
+%ignore sensei::Timer::PrintLog(std::ostream &);
+%include "Timer.h"
 
 /****************************************************************************
  * VTK objects used in our API

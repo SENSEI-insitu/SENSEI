@@ -127,7 +127,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
   AnalysisAdaptorPtr adaptor, std::function<int()> initializer)
 {
   const char* analysisName = nullptr;
-  bool logEnabled = timer::Enabled();
+  bool logEnabled = Timer::Enabled();
   if (logEnabled)
   {
     std::ostringstream initName;
@@ -141,13 +141,13 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
     this->LogEventNames.push_back(execName.str());
     this->LogEventNames.push_back(finiName.str());
     analysisName = this->LogEventNames[3 * analysisNumber].c_str();
-    timer::MarkStartEvent(analysisName);
+    Timer::MarkStartEvent(analysisName);
   }
 
   int result = initializer();
 
   if (logEnabled)
-    timer::MarkEndEvent(analysisName);
+    Timer::MarkEndEvent(analysisName);
 
   return result;
 }
@@ -1037,7 +1037,7 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
-  timer::MarkEvent event("ConfigurableAnalysis::Initialize");
+  Timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
   pugi::xml_document doc;
   if (XMLUtils::Parse(this->GetCommunicator(), filename, doc))
@@ -1055,7 +1055,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 {
-  timer::MarkEvent event("ConfigurableAnalysis::Initialize");
+  Timer::MarkEvent event("ConfigurableAnalysis::Initialize");
 
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
@@ -1089,7 +1089,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent event("ConfigurableAnalysis::Execute");
+  Timer::MarkEvent event("ConfigurableAnalysis::Execute");
 
   int ai = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
@@ -1097,11 +1097,11 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
   for (; iter != end; ++iter, ++ai)
     {
     const char* analysisName = nullptr;
-    bool logEnabled = timer::Enabled();
+    bool logEnabled = Timer::Enabled();
     if (logEnabled)
       {
       analysisName = this->Internals->LogEventNames[3 * ai + 1].c_str();
-      timer::MarkStartEvent(analysisName);
+      Timer::MarkStartEvent(analysisName);
       }
 
     if (!(*iter)->Execute(data))
@@ -1111,7 +1111,7 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
       }
 
     if (logEnabled)
-      timer::MarkEndEvent(analysisName);
+      Timer::MarkEndEvent(analysisName);
     }
 
   return true;
@@ -1120,19 +1120,19 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Finalize()
 {
-  timer::MarkEvent event("ConfigurableAnalysis::Finalize");
+  Timer::MarkEvent event("ConfigurableAnalysis::Finalize");
 
   int ai = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    bool logEnabled = timer::Enabled();
+    bool logEnabled = Timer::Enabled();
     const char* analysisName = nullptr;
     if (logEnabled)
       {
       analysisName = this->Internals->LogEventNames[3 * ai + 2].c_str();
-      timer::MarkStartEvent(analysisName);
+      Timer::MarkStartEvent(analysisName);
       }
 
     if ((*iter)->Finalize())
@@ -1142,7 +1142,7 @@ int ConfigurableAnalysis::Finalize()
       }
 
     if (logEnabled)
-      timer::MarkEndEvent(analysisName);
+      Timer::MarkEndEvent(analysisName);
     }
 
   return 0;

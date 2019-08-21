@@ -4,8 +4,11 @@
 #include <mpi.h>
 #include <string>
 
-namespace timer
+namespace sensei
 {
+//namespace timer
+//{
+
 extern "C" void *Profile(void *argp);
 
 /// MemoryProfiler - A sampling memory use profiler
@@ -40,7 +43,7 @@ public:
   void SetFileName(const std::string &fileName);
   const char *GetFileName() const;
 
-  friend void *timer::Profile(void *argp);
+  friend void *Profile(void *argp);
 
 private:
   struct InternalsType;
@@ -48,5 +51,6 @@ private:
 };
 
 }
+//}
 
 #endif

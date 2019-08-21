@@ -13,8 +13,10 @@
 #include <iomanip>
 #include <limits>
 
-namespace timer
+namespace sensei
 {
+//namespace timer
+//{
 struct MemoryProfiler::InternalsType
 {
   InternalsType() : Comm(MPI_COMM_WORLD), FileName("MemProf.csv"),
@@ -34,8 +36,8 @@ struct MemoryProfiler::InternalsType
 
 extern "C" void *Profile(void *argp)
 {
-  timer::MemoryProfiler::InternalsType *internals =
-    reinterpret_cast<timer::MemoryProfiler::InternalsType*>(argp);
+  MemoryProfiler::InternalsType *internals =
+    reinterpret_cast<MemoryProfiler::InternalsType*>(argp);
 
   while (1)
     {

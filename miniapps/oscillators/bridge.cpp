@@ -4,7 +4,7 @@
 
 #include <vector>
 #include <sensei/ConfigurableAnalysis.h>
-#include <timer/Timer.h>
+#include <sensei/Timer.h>
 #include <vtkDataObject.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -21,7 +21,7 @@ int initialize(size_t nblocks, size_t n_local_blocks,
   int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels,
   const std::string &config_file)
 {
-  timer::MarkEvent mark("oscillators::bridge::initialize");
+  sensei::Timer::MarkEvent mark("oscillators::bridge::initialize");
 
   DataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
 
@@ -54,7 +54,7 @@ void set_particles(int gid, const std::vector<Particle> &particles)
 //-----------------------------------------------------------------------------
 void execute(long step, float time)
 {
-  timer::MarkStartEvent("oscillators::bridge::Execute");
+  sensei::Timer::MarkStartEvent("oscillators::bridge::Execute");
 
   DataAdaptor->SetDataTimeStep(step);
   DataAdaptor->SetDataTime(time);
@@ -63,20 +63,20 @@ void execute(long step, float time)
 
   DataAdaptor->ReleaseData();
 
-  timer::MarkEndEvent("oscillators::bridge::Execute");
+  sensei::Timer::MarkEndEvent("oscillators::bridge::Execute");
 }
 
 //-----------------------------------------------------------------------------
 void finalize()
 {
-  timer::MarkStartEvent("oscillators::bridge::finalize");
+  sensei::Timer::MarkStartEvent("oscillators::bridge::finalize");
 
   AnalysisAdaptor->Finalize();
 
   AnalysisAdaptor = nullptr;
   DataAdaptor = nullptr;
 
-  timer::MarkEndEvent("oscillators::bridge::finalize");
+  sensei::Timer::MarkEndEvent("oscillators::bridge::finalize");
 }
 
 }

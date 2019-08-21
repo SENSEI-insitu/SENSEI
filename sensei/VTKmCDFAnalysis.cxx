@@ -99,7 +99,7 @@ void VTKmCDFAnalysis::Initialize(
 //-----------------------------------------------------------------------------
 bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent mark("VTKmCDFAnalysis::execute");
+  Timer::MarkEvent mark("VTKmCDFAnalysis::execute");
   this->Helper->AddTimeEntry();
 
   // Get the mesh from the simulation:
@@ -180,7 +180,7 @@ bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
     return false;
   }
 
-  timer::MarkStartEvent("VTKm CDF");
+  Timer::MarkStartEvent("VTKm CDF");
   vtkNew<vtkDoubleArray> sorted;
   sorted->DeepCopy(array);
   vtkSortDataArray::SortArrayByComponent(sorted, 0);
@@ -194,12 +194,12 @@ bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
   reducer.SetBufferSize(this->RequestSize);
 
   double* cdf = reducer.Compute(sorted->GetPointer(0), sorted->GetNumberOfTuples(), this->NumberOfQuantiles);
-  timer::MarkEndEvent("VTKm CDF");
+  Timer::MarkEndEvent("VTKm CDF");
 
-  timer::MarkStartEvent("Cinema CDF export");
+  Timer::MarkStartEvent("Cinema CDF export");
   this->Helper->WriteCDF(this->NumberOfQuantiles, cdf);
   this->Helper->WriteMetadata();
-  timer::MarkEndEvent("Cinema CDF export");
+  Timer::MarkEndEvent("Cinema CDF export");
 
   return true;
 }

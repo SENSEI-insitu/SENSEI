@@ -10,7 +10,7 @@ namespace sensei
 int PlanarPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
-  timer::MarkEvent("PlanarPartitioner::GetPartition");
+  Timer::MarkEvent("PlanarPartitioner::GetPartition");
 
   mdOut = mdIn->NewCopy();
 

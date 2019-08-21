@@ -17,7 +17,7 @@
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 
-#include <timer/Timer.h>
+#include <Timer.h>
 #include <ConfigurableAnalysis.h>
 #include "VortexDataAdaptor.h"
 #endif
@@ -697,9 +697,9 @@ int main(int argc, char **argv)
     handle_command_line(argc, argv, &sim, max_iter, config_file);
 
 #ifdef ENABLE_SENSEI
-    timer::Initialize();
+    sensei::Timer::Initialize();
 
-    timer::MarkStartEvent("vortex::initialize");
+    sensei::Timer::MarkStartEvent("vortex::initialize");
     // Initialize in situ
     vtkSmartPointer<VortexDataAdaptor> dataAdaptor;
     dataAdaptor = vtkSmartPointer<VortexDataAdaptor>::New();
@@ -711,7 +711,7 @@ int main(int argc, char **argv)
     analysisAdaptor->SetCommunicator(MPI_COMM_WORLD);
     analysisAdaptor->Initialize(config_file);
     
-    timer::MarkEndEvent("vortex::initialize");
+    sensei::Timer::MarkEndEvent("vortex::initialize");
 #endif
     //pause();
 
@@ -733,7 +733,7 @@ int main(int argc, char **argv)
     // Iterate.
     for(sim.cycle = 0; sim.cycle < max_iter; ++sim.cycle)
     {
-        timer::MarkStartTimeStep(sim.cycle, sim.time);
+        sensei::Timer::MarkStartTimeStep(sim.cycle, sim.time);
         if(sim.par_rank == 0)
         {
             std::cout << "Simulating time step: cycle=" << sim.cycle
@@ -762,7 +762,7 @@ int main(int argc, char **argv)
         sim.patch.ny = sim.dims[1];
         sim.patch.nz = sim.dims[2];
 #ifdef ENABLE_SENSEI
-        timer::MarkStartEvent("vortex::compute");
+        sensei::Timer::MarkStartEvent("vortex::compute");
 #endif
         calculate_amr(MPI_COMM_WORLD, &sim);
 
@@ -774,18 +774,18 @@ int main(int argc, char **argv)
         }
 
 #ifdef ENABLE_SENSEI
-        timer::MarkEndEvent("vortex::compute");
+        sensei::Timer::MarkEndEvent("vortex::compute");
 
         // Do in situ 
         dataAdaptor->SetDataTime(sim.time);
         dataAdaptor->SetDataTimeStep(sim.cycle);
-        timer::MarkStartEvent("vortex::analyze");
+        sensei::Timer::MarkStartEvent("vortex::analyze");
         analysisAdaptor->Execute(dataAdaptor.GetPointer());
-        timer::MarkEndEvent("vortex::analyze");
+        sensei::Timer::MarkEndEvent("vortex::analyze");
 
-        timer::MarkStartEvent("vortex::analyze::release-data");
+        sensei::Timer::MarkStartEvent("vortex::analyze::release-data");
         dataAdaptor->ReleaseData();
-        timer::MarkEndEvent("vortex::analyze::release-data");
+        sensei::Timer::MarkEndEvent("vortex::analyze::release-data");
 #endif
 
         // Update
@@ -800,20 +800,20 @@ int main(int argc, char **argv)
             sim.vortices[i].location[2] += sim.vortices[i].velocity[2];
         }
 
-        timer::MarkEndTimeStep();
+        sensei::Timer::MarkEndTimeStep();
     }
 
     // Cleanup
     if(sim.log && sim.par_rank == 0)
         log.close();
 #ifdef ENABLE_SENSEI
-    timer::MarkStartEvent("vortex::finalize");
+    sensei::Timer::MarkStartEvent("vortex::finalize");
     analysisAdaptor->Finalize();
     analysisAdaptor = NULL;
     dataAdaptor = NULL;
-    timer::MarkEndEvent("vortex::finalize");
+    sensei::Timer::MarkEndEvent("vortex::finalize");
 
-    timer::Finalize();
+    sensei::Timer::Finalize();
 #endif
     MPI_Finalize();
 

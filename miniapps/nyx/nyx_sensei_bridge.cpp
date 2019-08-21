@@ -1,10 +1,10 @@
-#include "nyx_sensei_bridge.h"
+include "nyx_sensei_bridge.h"
 
 #include "nyx_sensei_dataadaptor.h"
 
 #include <vector>
 #include <sensei/ConfigurableAnalysis.h>
-#include <timer/Timer.h>
+#include <sensei/Timer.h>
 #include <vtkDataObject.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -25,7 +25,7 @@ void initialize(MPI_Comm world,
                 double phys_to_x, double phys_to_y, double phys_to_z,
                 const std::string& config_file)
 {
-  timer::MarkEvent mark("sensei_bridge::initialize");
+  sensei::Timer::MarkEvent mark("sensei_bridge::initialize");
   GlobalDataAdaptor = vtkSmartPointer<DataAdaptor>::New();
   GlobalDataAdaptor->Initialize(nblocks);
   GlobalDataAdaptor->SetDataTimeStep(-1);
@@ -48,7 +48,7 @@ void analyze(const amrex::MultiFab& simulation_data, amrex::Real time, int time_
   GlobalDataAdaptor->SetDataTime(time);
   GlobalDataAdaptor->SetDataTimeStep(time_step);
 
-  timer::MarkStartEvent("sensei_bridge::copy-data");
+  sensei::Timer::MarkStartEvent("sensei_bridge::copy-data");
   {
     for (amrex::MFIter mfi(simulation_data); mfi.isValid(); ++mfi)
     {
@@ -88,22 +88,22 @@ void analyze(const amrex::MultiFab& simulation_data, amrex::Real time, int time_
   Real range[2] = { simulation_data.min(0), simulation_data.max(0) };
   //if (ParallelDescriptor::IOProcessor()) std::cout << "Global value range is " << range[0] << " to " << range[1] << std::endl;
 
-  timer::MarkEndEvent("sensei_bridge::copy-data");
-  timer::MarkStartEvent("sensei_bridge::analyze");
+  sensei::Timer::MarkEndEvent("sensei_bridge::copy-data");
+  sensei::Timer::MarkStartEvent("sensei_bridge::analyze");
   GlobalAnalysisAdaptor->Execute(GlobalDataAdaptor.GetPointer());
-  timer::MarkEndEvent("sensei_bridge::analyze");
+  sensei::Timer::MarkEndEvent("sensei_bridge::analyze");
 
-  timer::MarkStartEvent("sensei_bridge::release-data");
+  sensei::Timer::MarkStartEvent("sensei_bridge::release-data");
   GlobalDataAdaptor->ReleaseData();
-  timer::MarkEndEvent("sensei_bridge::release-data");
+  sensei::Timer::MarkEndEvent("sensei_bridge::release-data");
 }
 
 //-----------------------------------------------------------------------------
 void finalize()
 {
-  timer::MarkStartEvent("sensei_bridge::finalize");
+  sensei::Timer::MarkStartEvent("sensei_bridge::finalize");
   GlobalAnalysisAdaptor = NULL;
   GlobalDataAdaptor = NULL;
-  timer::MarkEndEvent("sensei_bridge::finalize");
+  sensei::Timer::MarkEndEvent("sensei_bridge::finalize");
 }
 }

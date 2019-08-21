@@ -33,7 +33,7 @@ int MappedPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
   (void)comm;
-  timer::MarkEvent mark("MappedPartitioner::GetPartition");
+  Timer::MarkEvent mark("MappedPartitioner::GetPartition");
 
   mdOut = mdIn->NewCopy();
 

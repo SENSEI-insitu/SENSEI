@@ -61,7 +61,7 @@ const char *Histogram::GetGhostArrayName()
 //-----------------------------------------------------------------------------
 bool Histogram::Execute(DataAdaptor* data)
 {
-  timer::MarkEvent mark("Histogram::Execute");
+  Timer::MarkEvent mark("Histogram::Execute");
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;

@@ -70,7 +70,7 @@ int ADIOS1AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 //----------------------------------------------------------------------------
 bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Execute");
+  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide. include the full
   // suite of metadata for the end-point partitioners
@@ -187,7 +187,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 int ADIOS1AnalysisAdaptor::InitializeADIOS1(
   const std::vector<MeshMetadataPtr> &metadata)
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::IntializeADIOS1");
+  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::IntializeADIOS1");
 
   if (!this->Schema)
     {
@@ -236,7 +236,7 @@ int ADIOS1AnalysisAdaptor::FinalizeADIOS1()
 //----------------------------------------------------------------------------
 int ADIOS1AnalysisAdaptor::Finalize()
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Finalize");
+  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Finalize");
 
   if (this->Schema)
     this->FinalizeADIOS1();
@@ -252,7 +252,7 @@ int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
   const std::vector<vtkCompositeDataSet*> &objects)
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::WriteTimestep");
+  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::WriteTimestep");
 
   int ierr = 0;
   int64_t handle = 0;

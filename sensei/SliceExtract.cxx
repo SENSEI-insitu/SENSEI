@@ -209,7 +209,7 @@ bool SliceExtract::Execute(DataAdaptor* dataAdaptor)
 // --------------------------------------------------------------------------
 bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("SliceExtract::ExecuteIsoSurface");
+  Timer::MarkEvent mark("SliceExtract::ExecuteIsoSurface");
 
   // get the mesh array and iso values
   std::string meshName;
@@ -313,7 +313,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 // --------------------------------------------------------------------------
 bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("SliceExtract::Execute");
+  Timer::MarkEvent mark("SliceExtract::Execute");
 
   // require the user to tell us one or more meshes to slice
   if (this->Internals->Requirements.Empty())
@@ -433,7 +433,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 // --------------------------------------------------------------------------
 int SliceExtract::Finalize()
 {
-  timer::MarkEvent mark("SliceExtract::Finalize");
+  Timer::MarkEvent mark("SliceExtract::Finalize");
   if (this->Internals->Writer->Finalize())
     {
     SENSEI_ERROR("Failed to finalize the writer")

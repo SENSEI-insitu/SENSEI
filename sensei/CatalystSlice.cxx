@@ -297,7 +297,7 @@ int CatalystSlice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int CatalystSlice::CoProcess(vtkCPDataDescription* dataDesc)
 {
-  timer::MarkEvent mark("catalyst::slice");
+  Timer::MarkEvent mark("catalyst::slice");
   vtkInternals& internals = (*this->Internals);
   auto dd = internals.Mesh.empty() ?
     dataDesc->GetInputDescription(0) :

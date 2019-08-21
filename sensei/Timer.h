@@ -4,9 +4,10 @@
 #include <iostream>
 #include <mpi.h>
 
-namespace timer
+namespace sensei
 {
-
+struct Timer
+{
 /// Initialize logging from environment variables, and/or the timer
 /// API below. This is a collective call with respect to the timer's
 /// communicator.
@@ -21,31 +22,31 @@ namespace timer
 ///     MEMPROF_LOG_FILE      : path to write memory profiler log to
 ///     MEMPROF_INTERVAL      : number of seconds between memory recordings
 ///
-void Initialize();
+static void Initialize();
 
 /// Finalize the log. this is where logs are written and cleanup occurs.
 /// All processes in the communicator must call, and it must be called
 /// prior to MPI_Finalize.
-void Finalize();
+static void Finalize();
 
 /// Sets the communicator for MPI calls. This must be called prior to
 /// initialization.
 /// default value: MPI_COMM_NULL
-void SetCommunicator(MPI_Comm comm);
+static void SetCommunicator(MPI_Comm comm);
 
 /// Sets the path to write the timer log to
 /// overriden by TIMER_LOG_FILE environment variable
 /// default value; TimerLog.csv
-void SetTimerLogFile(const std::string &fileName);
+static void SetTimerLogFile(const std::string &fileName);
 
 /// Sets the path to write the timer log to
 /// overriden by MEMPROF_LOG_FILE environment variable
 /// default value: MemProfLog.csv
-void SetMemProfLogFile(const std::string &fileName);
+static void SetMemProfLogFile(const std::string &fileName);
 
 /// Sets the number of seconds in between memory use recordings
 /// overriden by MEMPROF_INTERVAL environment variable.
-void SetMemProfInterval(int interval);
+static void SetMemProfInterval(int interval);
 
 /// Enable/Disable logging. Overriden by TIMER_ENABLE and
 /// TIMER_ENABLE_SUMMARY environment variables. In the
@@ -53,17 +54,17 @@ void SetMemProfInterval(int interval);
 /// timer events. In the summary format a pretty and breif output
 /// is sent to the stderr stream.
 /// default value: disabled
-void Enable(bool summaryFmt = false);
-void Disable();
+static void Enable(bool summaryFmt = false);
+static void Disable();
 
 /// return true if loggin is enabled.
-bool Enabled();
+static bool Enabled();
 
 /// Sets the timer's summary log modulus. Output incudes data from
 /// MPI ranks where rank % modulus == 0 Overriden by
 /// TIMER_SUMMARY_MODULUS environment variable
 /// default value; 1000000000
-void SetSummaryModulus(int modulus);
+static void SetSummaryModulus(int modulus);
 
 /// @brief Log start of an event.
 ///
@@ -71,14 +72,14 @@ void SetSummaryModulus(int modulus);
 /// The @arg eventname must match when calling MarkEndEvent() to
 /// mark the end of the event. I/O events can log the number of
 /// bytes read or written.
-void MarkStartEvent(const char* eventname);
+static void MarkStartEvent(const char* eventname);
 
 /// @brief Log end of a log-able event.
 ///
 /// This marks the end of a event that must be logged.
 /// The @arg eventname must match when calling MarkEndEvent() to
 /// mark the end of the event.
-void MarkEndEvent(const char *eventname);
+static void MarkEndEvent(const char *eventname);
 
 /// Start and end an I/O event. I/O events may be started or ended
 /// as normal events, but one of the following must be called to
@@ -88,8 +89,9 @@ void MarkEndEvent(const char *eventname);
 /// by MarkEndEvent("event name", nBytes). Converseley if one knows
 /// the size of the event up front one may call MarkStartEvent("name", bytes)
 /// followed by MarkEndEvent("name")
-void MarkStartEvent(const char *eventname, long long numBytes);
-void MarkEndEvent(const char *eventname, long long numBytes);
+static void MarkStartEvent(const char *eventname, long long numBytes);
+
+static void MarkEndEvent(const char *eventname, long long numBytes);
 
 /// @brief Mark the beginning of a timestep.
 ///
@@ -97,10 +99,10 @@ void MarkEndEvent(const char *eventname, long long numBytes);
 /// MarkEndEvent after this until MarkEndTimeStep are assumed to be
 /// happening for a specific timestep and will be combined with subsequent
 /// timesteps.
-void MarkStartTimeStep(int timestep, double time);
+static void MarkStartTimeStep(int timestep, double time);
 
 /// @brief Marks the end of the current timestep.
-void MarkEndTimeStep();
+static void MarkEndTimeStep();
 
 /// @brief Print log to the output stream.
 ///
@@ -108,7 +110,7 @@ void MarkEndTimeStep();
 /// ranks. The amount of processes outputting can be reduced by using
 /// the moduloOuput which only outputs for (rank % moduloOutput) == 0.
 /// The default value for this is 1.
-void PrintLog(std::ostream& stream);
+static void PrintLog(std::ostream &stream);
 
 /// MarkEvent -- A helper class that times it's life.
 /// A timer event is created that starts at the object's construction
@@ -127,6 +129,7 @@ private:
   const char *EventName;
 };
 
-}
+};
 
+}
 #endif

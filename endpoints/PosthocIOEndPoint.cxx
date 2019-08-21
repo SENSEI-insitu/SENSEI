@@ -50,8 +50,8 @@ int main(int argc, char** argv)
     return 1;
     }
 
-  timer::SetLogging(log || shortlog);
-  timer::SetTrackSummariesOverTime(shortlog);
+  sensei::Timer::SetLogging(log || shortlog);
+  sensei::Timer::SetTrackSummariesOverTime(shortlog);
 
   vtkSmartPointer<sensei::ConfigurableAnalysis> analysis =
     vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
@@ -69,7 +69,7 @@ int main(int argc, char** argv)
     {
     int t_step = begin + cc * step;
     double t = static_cast<double>(t_step);
-    timer::MarkStartTimeStep(t_step, t);
+    sensei::Timer::MarkStartTimeStep(t_step, t);
 
     snprintf(fname, fname_length, input_pattern.c_str(), t_step);
     if (true)
@@ -77,7 +77,7 @@ int main(int argc, char** argv)
       vtkNew<vtkXMLMultiBlockDataReader> reader;
       reader->SetFileName(fname);
       reader->ReadFromInputStringOn();
-      timer::MarkStartEvent("posthoc::pre-read");
+      sensei::Timer::MarkStartEvent("posthoc::pre-read");
       // Since vtkXMLMultiBlockDataReader tries to read the XML meta-file on all ranks,
       // we explicitly broadcast the xml file to all ranks.
       if (rank == 0)
@@ -100,9 +100,9 @@ int main(int argc, char** argv)
         reader->SetInputString(data);
         delete [] data;
         }
-      timer::MarkEndEvent("posthoc::pre-read");
+      sensei::Timer::MarkEndEvent("posthoc::pre-read");
 
-      timer::MarkStartEvent("posthoc::read");
+      sensei::Timer::MarkStartEvent("posthoc::read");
 
 #if VTK_MAJOR_VERSION > 7 || (VTK_MAJOR_VERSION == 7 && VTK_MINOR_VERSION >= 1)
       // Use API added in 7.1
@@ -114,24 +114,24 @@ int main(int argc, char** argv)
       reader->SetUpdateExtent(0, rank, size, 0);
       reader->Update();
 #endif
-      timer::MarkEndEvent("posthoc::read");
+      sensei::Timer::MarkEndEvent("posthoc::read");
       dataAdaptor->SetDataObject(reader->GetOutputDataObject(0));
       }
 
-    timer::MarkStartEvent("adios::analysis");
+    sensei::Timer::MarkStartEvent("adios::analysis");
     analysis->Execute(dataAdaptor.GetPointer());
-    timer::MarkEndEvent("adios::analysis");
+    sensei::Timer::MarkEndEvent("adios::analysis");
 
     dataAdaptor->ReleaseData();
-    timer::MarkEndTimeStep();
+    sensei::Timer::MarkEndTimeStep();
     }
   delete [] fname;
 
-  timer::MarkStartEvent("adios::finalize");
+  sensei::Timer::MarkStartEvent("adios::finalize");
   analysis = NULL;
-  timer::MarkEndEvent("adios::finalize");
+  sensei::Timer::MarkEndEvent("adios::finalize");
 
-  timer::PrintLog(std::cout, comm);
+  sensei::Timer::PrintLog(std::cout, comm);
   MPI_Finalize();
   return 0;
 }

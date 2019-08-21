@@ -73,7 +73,7 @@ int HDF5AnalysisAdaptor::AddDataRequirement(
 //----------------------------------------------------------------------------
 bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("HDF5AnalysisAdaptor::Execute");
+  Timer::MarkEvent mark("HDF5AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide
   MeshMetadataFlags flags;
@@ -235,7 +235,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 //----------------------------------------------------------------------------
 bool HDF5AnalysisAdaptor::InitializeHDF5()
 {
-  timer::MarkEvent mark("HDF5AnalysisAdaptor::IntializeHDF5");
+  Timer::MarkEvent mark("HDF5AnalysisAdaptor::IntializeHDF5");
 
   if (!this->m_HDF5Writer)
     {
@@ -266,11 +266,11 @@ bool HDF5AnalysisAdaptor::WriteTimestep(unsigned long timeStep, double time,
                                       const std::vector<vtkCompositeDataSet*>
 &objects)
 {
-timer::MarkEvent mark("HDF5AnalysisAdaptor::WriteTimestep");
+Timer::MarkEvent mark("HDF5AnalysisAdaptor::WriteTimestep");
 
 int ierr = 0;
 
-timer::MarkEvent mark("HDF5AnalysisAdaptor::WriteTimestep");
+Timer::MarkEvent mark("HDF5AnalysisAdaptor::WriteTimestep");
 
 this->m_HDF5Writer->AdvanceTimeStep(timestep, time);
 

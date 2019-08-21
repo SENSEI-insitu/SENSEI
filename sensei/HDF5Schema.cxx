@@ -345,7 +345,7 @@ void HDF5VarGuard::ReadSlice(void *buf,
 
   std::ostringstream  oss;   oss<<"H5BytesRead="<<bytes;
   std::string evtName = oss.str();
-  timer::MarkEvent mark(evtName.c_str());
+  sensei::Timer::MarkEvent mark(evtName.c_str());
   H5Sselect_hyperslab(m_VarSpace, H5S_SELECT_SET, start, stride, count, block);
 
   H5Dread(m_VarID, m_VarType, memDataSpace, m_VarSpace, H5P_DEFAULT, buf);
@@ -861,7 +861,7 @@ bool ReadStream::ReadBinary(const std::string &name, sensei::BinaryStream &str)
 
   std::ostringstream  oss;   oss<<"H5BytesReadBinary="<<nbytes;
   std::string evtName = oss.str();
-  timer::MarkEvent mark(evtName.c_str());
+  sensei::Timer::MarkEvent mark(evtName.c_str());
   g.ReadAll(str.GetData());
 
   return true;
@@ -2377,7 +2377,7 @@ bool WriteStream::WriteVar(hid_t &varID,
   //oss<<" WVrank="<<m_Rank<<"  name=["<<name<<"]"<<varID;
   //std::cout<< oss.str()<<std::endl;
   std::string evtName = oss.str();
-  timer::MarkEvent mark(evtName.c_str());
+  sensei::Timer::MarkEvent mark(evtName.c_str());
   
   if(-1 == varID)
     varID = CreateVar(name, space, h5Type);
@@ -2442,7 +2442,7 @@ bool WriteStream::WriteBinary(const std::string &name,
 {
   std::ostringstream  oss;   oss<<"H5BytesWroteBinary="<<str.Size();
   std::string evtName=oss.str();
-  timer::MarkEvent mark(evtName.c_str());
+  sensei::Timer::MarkEvent mark(evtName.c_str());
   
   hid_t h5Type = H5T_NATIVE_CHAR;
 

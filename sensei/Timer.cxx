@@ -45,8 +45,10 @@ void MPIErrorHandler(MPI_Comm *comm, int *code, ...)
   MPI_Abort(*comm, -1);
 }
 
-namespace timer
+namespace sensei
 {
+//namespace timer
+//{
 namespace impl
 {
 struct Event;
@@ -346,7 +348,7 @@ void PrintSummary(std::ostream& stream)
 }
 
 // ----------------------------------------------------------------------------
-void SetCommunicator(MPI_Comm comm)
+void Timer::SetCommunicator(MPI_Comm comm)
 {
   if (impl::Comm != MPI_COMM_NULL)
     MPI_Comm_free(&impl::Comm);
@@ -360,35 +362,35 @@ void SetCommunicator(MPI_Comm comm)
 }
 
 // ----------------------------------------------------------------------------
-void SetSummaryModulus(int modulus)
+void Timer::SetSummaryModulus(int modulus)
 {
   impl::SummaryModulus = modulus;
 }
 
 // ----------------------------------------------------------------------------
-void SetTimerLogFile(const char *file)
+void Timer::SetTimerLogFile(const std::string &file)
 {
   impl::TimerLogFile = file;
 }
 
 // ----------------------------------------------------------------------------
-void SetMemProfLogFile(const char *file)
+void Timer::SetMemProfLogFile(const std::string &file)
 {
   impl::MemProf.SetFileName(file);
 }
 
 // ----------------------------------------------------------------------------
-void SetMemProfInterval(int interval)
+void Timer::SetMemProfInterval(int interval)
 {
   impl::MemProf.SetInterval(interval);
 }
 
 // ----------------------------------------------------------------------------
-void Initialize()
+void Timer::Initialize()
 {
   // always use isolated comm space
   if (impl::Comm == MPI_COMM_NULL)
-    timer::SetCommunicator(MPI_COMM_WORLD);
+    Timer::SetCommunicator(MPI_COMM_WORLD);
 
   impl::MemProf.SetCommunicator(impl::Comm);
 
@@ -450,7 +452,7 @@ void Initialize()
 }
 
 // ----------------------------------------------------------------------------
-void Finalize()
+void Timer::Finalize()
 {
   if (impl::LoggingEnabled)
     {
@@ -534,27 +536,27 @@ void Finalize()
 
 
 //-----------------------------------------------------------------------------
-bool Enabled()
+bool Timer::Enabled()
 {
   return impl::LoggingEnabled;
 }
 
 //-----------------------------------------------------------------------------
-void Enable(bool shortFormat)
+void Timer::Enable(bool shortFormat)
 {
   impl::LoggingEnabled = true;
   impl::Summarize = shortFormat;
 }
 
 //-----------------------------------------------------------------------------
-void Disable()
+void Timer::Disable()
 {
   impl::LoggingEnabled = false;
   impl::Summarize = false;
 }
 
 //-----------------------------------------------------------------------------
-void MarkStartEvent(const char *eventname, long long numBytes)
+void Timer::MarkStartEvent(const char *eventname, long long numBytes)
 {
   if (impl::LoggingEnabled)
     {
@@ -569,7 +571,7 @@ void MarkStartEvent(const char *eventname, long long numBytes)
 }
 
 //-----------------------------------------------------------------------------
-void MarkStartEvent(const char* eventname)
+void Timer::MarkStartEvent(const char* eventname)
 {
   if (impl::LoggingEnabled)
     {
@@ -584,7 +586,7 @@ void MarkStartEvent(const char* eventname)
 }
 
 //-----------------------------------------------------------------------------
-void MarkEndEvent(const char* eventname)
+void Timer::MarkEndEvent(const char* eventname)
 {
   if (impl::LoggingEnabled)
     {
@@ -625,7 +627,7 @@ void MarkEndEvent(const char* eventname)
 }
 
 //-----------------------------------------------------------------------------
-void MarkEndEvent(const char *eventname, long long numBytes)
+void Timer::MarkEndEvent(const char *eventname, long long numBytes)
 {
   if (impl::LoggingEnabled)
     {
@@ -667,7 +669,7 @@ void MarkEndEvent(const char *eventname, long long numBytes)
 }
 
 //-----------------------------------------------------------------------------
-void MarkStartTimeStep(int timestep, double time)
+void Timer::MarkStartTimeStep(int timestep, double time)
 {
   impl::ActiveTimeStep = timestep;
   impl::ActiveTime = time;
@@ -678,7 +680,7 @@ void MarkStartTimeStep(int timestep, double time)
 }
 
 //-----------------------------------------------------------------------------
-void MarkEndTimeStep()
+void Timer::MarkEndTimeStep()
 {
   std::ostringstream mk;
   mk << "timestep: " << impl::ActiveTimeStep << " time: " << impl::ActiveTime;
@@ -711,3 +713,4 @@ void MarkEndTimeStep()
 }
 
 }
+//}

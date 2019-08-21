@@ -1,5 +1,5 @@
 set(sources vortex.cpp simulation_data.cpp patch.cpp)
-set(libs m sMPI timer)
+set(libs m sMPI)
 
 if (ENABLE_SENSEI)
   list(APPEND sources VortexDataAdaptor.cpp)

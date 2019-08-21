@@ -1,6 +1,6 @@
 set(sources main.cpp analysis.cpp)
 
-set(libs sMPI sDIY opts thread timer util)
+set(libs sMPI sDIY opts thread util)
 
 if(ENABLE_SENSEI)
   list(APPEND sources bridge.cpp DataAdaptor.cpp Oscillator.cpp Particles.cpp Block.cpp)

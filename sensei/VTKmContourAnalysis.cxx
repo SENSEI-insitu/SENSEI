@@ -1,6 +1,7 @@
 #include "VTKmContourAnalysis.h"
 
 #include "DataAdaptor.h"
+#include "Timer.h"
 #include "Error.h"
 
 #include <vtkObjectFactory.h>
@@ -25,8 +26,6 @@
 #include <vtkStructuredPointsWriter.h>
 #include <vtkStructuredPointsReader.h>
 #include <vtkStructuredPoints.h>
-
-#include <timer/Timer.h>
 
 #include <diy/master.hpp>
 #include <diy/mpi.hpp>
@@ -373,7 +372,7 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
 //-----------------------------------------------------------------------------
 bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
 {
-  timer::MarkEvent mark("VTKmContourAnalysis::Execute");
+  Timer::MarkEvent mark("VTKmContourAnalysis::Execute");
 
   vtkMultiProcessController* prev =
     vtkMultiProcessController::GetGlobalController();

@@ -230,7 +230,7 @@ LibsimAnalysisAdaptor::PrivateData::~PrivateData()
 
     if(instances == 0 && initialized)
     {
-        timer::MarkEvent mark("libsim::finalize");
+        Timer::MarkEvent mark("libsim::finalize");
         if(VisItIsConnected())
             VisItDisconnect();
     }
@@ -366,7 +366,7 @@ LibsimAnalysisAdaptor::PrivateData::Initialize()
     if (initialized)
         return true;
 
-     timer::MarkEvent mark("libsim::initialize");
+     Timer::MarkEvent mark("libsim::initialize");
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Initialize\n");
 #endif
@@ -2096,7 +2096,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNestingOrig(const char *name, void 
         return VISIT_INVALID_HANDLE;
     }
 
-    timer::MarkEvent mark("libsim::getdomainnesting");
+    Timer::MarkEvent mark("libsim::getdomainnesting");
     int rank, size;
     MPI_Comm_rank(This->Comm, &rank);
     MPI_Comm_size(This->Comm, &size);
@@ -2408,7 +2408,7 @@ void LibsimAnalysisAdaptor::Initialize()
 //-----------------------------------------------------------------------------
 bool LibsimAnalysisAdaptor::Execute(DataAdaptor* DataAdaptor)
 {
-    timer::MarkEvent mark("libsim::execute");
+    Timer::MarkEvent mark("libsim::execute");
     return internals->Execute(DataAdaptor);
 }
 

@@ -19,7 +19,7 @@ int bridge_initialize(const char* config_file, int g_nx, int g_ny, int g_nz,
   uint64_t offs_x, uint64_t offs_y, uint64_t offs_z, int l_nx, int l_ny, int l_nz,
   double *pressure, double* temperature, double* density)
 {
-  timer::Initialize();
+  sensei::Timer::Initialize();
 
   // configure the analysis. this can be an expensive operation
   // hence we only want to do it once per run
@@ -74,5 +74,5 @@ void bridge_finalize()
   bridge::AnalysisAdaptor->Delete();
   bridge::DataAdaptor->Delete();
 
-  timer::Finalize();
+  sensei::Timer::Finalize();
 }

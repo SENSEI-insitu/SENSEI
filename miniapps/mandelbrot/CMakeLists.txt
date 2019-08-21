@@ -1,5 +1,5 @@
 set(sources mandelbrot.cpp simulation_data.cpp patch.cpp)
-set(libs sMPI timer)
+set(libs sMPI)
 
 if (ENABLE_SENSEI)
   list(APPEND sources MandelbrotDataAdaptor.cpp)

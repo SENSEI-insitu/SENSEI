@@ -50,7 +50,7 @@ void CatalystAnalysisAdaptor::Initialize()
 {
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
-    timer::MarkEvent mark("CatalystAnalysisAdaptor::Initialize");
+    Timer::MarkEvent mark("CatalystAnalysisAdaptor::Initialize");
     vtkCPAdaptorAPI::CoProcessorInitialize();
     }
   vtkCPAdaptorAPIInitializationCounter++;
@@ -234,7 +234,7 @@ int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
 //----------------------------------------------------------------------------
 bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("CatalystAnalysisAdaptor::Execute");
+  Timer::MarkEvent mark("CatalystAnalysisAdaptor::Execute");
 
   // Get a description of the simulation metadata
   unsigned int nMeshes = 0;
@@ -296,7 +296,7 @@ int CatalystAnalysisAdaptor::Finalize()
   vtkCPAdaptorAPIInitializationCounter--;
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
-    timer::MarkEvent mark("CatalystAnalysisAdaptor::Finalize");
+    Timer::MarkEvent mark("CatalystAnalysisAdaptor::Finalize");
     vtkCPAdaptorAPI::CoProcessorFinalize();
     }
   return 0;
