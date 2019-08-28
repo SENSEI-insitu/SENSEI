@@ -36,6 +36,9 @@
 #ifdef ENABLE_ADIOS1
 #include "ADIOS1AnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_ADIOS2
+#include "ADIOS2AnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_HDF5
 #include "HDF5AnalysisAdaptor.h"
 #endif
@@ -91,6 +94,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios1(pugi::xml_node node);
+  int AddAdios2(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
   int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
@@ -407,6 +411,51 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
     << filename.value() << "\" method " << method.value()
     << " max_buffer_size=" << maxBufSize)
 
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
+{
+#ifndef ENABLE_ADIOS2
+  (void)node;
+  SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
+  return -1;
+#else
+//TODO ADIOS2
+/*  auto adios = vtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    adios->SetCommunicator(this->Comm);
+
+  pugi::xml_attribute filename = node.attribute("filename");
+  if (filename)
+    adios->SetFileName(filename.value());
+
+  pugi::xml_attribute method = node.attribute("method");
+  if (method)
+    adios->SetMethod(method.value());
+
+  unsigned long maxBufSize =
+    node.attribute("max_buffer_size").as_ullong(0);
+  adios->SetMaxBufferSize(maxBufSize);
+
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS 1.")
+    return -1;
+    }
+  adios->SetDataRequirements(req);
+
+  this->TimeInitialization(adios);
+  this->Analyses.push_back(adios.GetPointer());
+
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
+    << filename.value() << "\" method " << method.value()
+    << " max_buffer_size=" << maxBufSize)
+*/
   return 0;
 #endif
 }

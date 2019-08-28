@@ -16,6 +16,10 @@ cmake_dependent_option(ENABLE_ADIOS1
   "Enable analysis methods that use ADIOS 1" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_ADIOS2
+  "Enable analysis methods that use ADIOS 2" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_HDF5
   "Enable analysis methods that use HDF5" OFF
   "ENABLE_SENSEI" OFF)
@@ -82,6 +86,7 @@ message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
 message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_ADIOS1=${ENABLE_ADIOS1}")
+message(STATUS "ENABLE_ADIOS2=${ENABLE_ADIOS2}")
 message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_ASCENT=${ENABLE_ASCENT}")
