@@ -1,9 +1,4 @@
-if(REPLACE_DIY)
-  add_library(sDIY INTERFACE)
-  target_include_directories(sDIY SYSTEM INTERFACE
-    $<BUILD_INTERFACE:${DIY_DIR}>
-    $<INSTALL_INTERFACE:${DIY_DIR}>)
-else()
+if(ENABLE_DIY)
   add_library(sDIY INTERFACE)
 
   target_include_directories(sDIY SYSTEM INTERFACE
@@ -14,5 +9,10 @@ else()
   install(EXPORT sDIY DESTINATION lib/cmake)
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/utils/diy"
     DESTINATION include)
+else()
+  add_library(sDIY INTERFACE)
+  target_include_directories(sDIY SYSTEM INTERFACE
+    $<BUILD_INTERFACE:${DIY_DIR}>
+    $<INSTALL_INTERFACE:${DIY_DIR}>)
 endif()
 

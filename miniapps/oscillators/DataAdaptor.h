@@ -1,7 +1,7 @@
 #ifndef OSCILLATORS_DATAADAPTOR_H
 #define OSCILLATORS_DATAADAPTOR_H
 
-#include <sensei/DataAdaptor.h>
+#include <DataAdaptor.h>
 
 #include "Particles.h"
 

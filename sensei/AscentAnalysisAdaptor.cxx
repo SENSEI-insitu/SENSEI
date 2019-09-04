@@ -20,6 +20,7 @@
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkSOADataArrayTemplate.h>
 #include <vtkDataArrayTemplate.h>
+#include <vtkUnsignedCharArray.h>
 
 #include "AscentAnalysisAdaptor.h"
 #include "DataAdaptor.h"
@@ -31,16 +32,14 @@ namespace sensei
 
 #define DEBUG_SAVE_DATA 1
 #ifdef DEBUG_SAVE_DATA
-conduit::Node debugAscentOptions;
-
-void DebugSaveAscentData( conduit::Node &data )
+void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode )
 {
     ascent::Ascent a;
 
     std::cout << "DebugSaveAscentData" << std::endl;
 
     // Open ascent
-    a.open( debugAscentOptions );
+    a.open( _optionsNode );
 
     // Publish data to ascent
     a.publish( data );
@@ -65,11 +64,12 @@ void DebugSaveAscentData( conduit::Node &data )
     // close ascent
     a.close();
 }
+#else
+void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode ) {}
 #endif  // DEBUG_SAVE_DATA
 
 //------------------------------------------------------------------------------
 senseiNewMacro(AscentAnalysisAdaptor);
-
 
 //------------------------------------------------------------------------------
 AscentAnalysisAdaptor::AscentAnalysisAdaptor()
@@ -81,9 +81,7 @@ AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
 {
 }
 
-
 //------------------------------------------------------------------------------
-
 template<typename n_t> struct conduit_tt {};
 
 #define declare_conduit_tt(cpp_t, conduit_t) \
@@ -107,7 +105,6 @@ declare_conduit_tt(float, conduit::float32);
 declare_conduit_tt(double, conduit::float64);
 declare_conduit_tt(long double, conduit::float64);
 
-
 //------------------------------------------------------------------------------
 void GetShape(std::string &shape, int type)
 {
@@ -118,7 +115,6 @@ void GetShape(std::string &shape, int type)
   else if(type == 8) shape = "hex";
   else SENSEI_ERROR("Error: Unsupported element shape");
 }
-
 
 /* TODO look at
 int VTK_To_Fields(vtkDataSetAttributes *dsa, int centering, conduit::Node &node)
@@ -245,6 +241,34 @@ int VTK_To_Fields(int bid, vtkDataSet *ds, conduit::Node &node)
 }
 */
 
+//------------------------------------------------------------------------------
+void AddGhostsZones(vtkDataSet* ds, conduit::Node& node)
+{
+  // Check if the mesh has ghost zone data.
+  if( ds->HasAnyGhostCells() || ds->HasAnyGhostPoints() )
+  {
+std::cout << "Ghost Data ----------------------------" << std::endl;
+
+    // If so, add the data for Acsent.
+    node["fields/ascent_ghosts/association"] = "element";
+    node["fields/ascent_ghosts/topology"] = "mesh";
+    node["fields/ascent_ghosts/type"] = "scalar";
+
+    vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(ds->GetCellData()->GetArray("vtkGhostType"));
+    unsigned char *gcp = (unsigned char *)gc->GetVoidPointer( 0 );
+    auto size = gc->GetSize();
+
+    // In Acsent, 0 means real data, 1 means ghost data, and 2 or greater means garbage data.
+    std::vector<conduit::int32> ghost_flags(size);
+
+    // Ascent needs int32 not unsigned char. I don't know why, that is the way.
+    for(vtkIdType i=0; i < size ;++i)
+    {
+        ghost_flags[i] = gcp[i];
+    }
+    node["fields/ascent_ghosts/values"].set(ghost_flags);
+  }
+}
 
 //------------------------------------------------------------------------------
 int VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj)
@@ -298,6 +322,8 @@ int VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, const std::string &arrayN
   //ss << "fields/" << arrayName << "/matset_values";
   //std::string matValPath = ss.str();
   //ss.str(std::string());
+
+  AddGhostsZones(ds, node);
 
   if(uniform != nullptr)
   {
@@ -825,7 +851,6 @@ int VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, const std::string &arrayN
   return( 1 );
 }
 
-
 //------------------------------------------------------------------------------
 int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
 {
@@ -1073,7 +1098,6 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   return( 1 );
 }
 
-
 void NodeIter(const conduit::Node& node, std::set<std::string>& fields)
 {
   if(node.number_of_children() > 0)
@@ -1099,10 +1123,9 @@ void NodeIter(const conduit::Node& node, std::set<std::string>& fields)
 void AscentAnalysisAdaptor::GetFieldsFromActions()
 {
   // TODO why the temp node.
-  const conduit::Node& temp = this->actionNode;
+  const conduit::Node& temp = this->actionsNode;
   NodeIter(temp, this->Fields);
 }
-
 
 //------------------------------------------------------------------------------
 void JSONFileToNode(const std::string &file_name, conduit::Node& node)
@@ -1116,89 +1139,19 @@ void JSONFileToNode(const std::string &file_name, conduit::Node& node)
   }
 }
 
-
 //------------------------------------------------------------------------------
-void AscentAnalysisAdaptor::Initialize(conduit::Node &xml_actions, conduit::Node &setup)
+void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, const std::string &options_file_path)
 {
-  conduit::Node ascent_options;
-
-  ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
-  ascent_options["runtime/type"] = "ascent";
-
-  if(setup.has_child("backend"))
-    ascent_options["runtime/backend"] = setup["backend"].as_string();
-  if(setup.has_child("image_width"))
-    ascent_options["image_width"] = setup["image_width"];
-  if(setup.has_child("image_height"))
-    ascent_options["image_height"] = setup["image_height"];
+  JSONFileToNode(options_file_path, this->optionsNode);
+  optionsNode["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
+  //optionsNode["runtime/type"] = "ascent";
 
   // Debug
   //ascent_options.print();
 
-  this->a.open(ascent_options);
+  this->_ascent.open(this->optionsNode);
 
-#ifdef DEBUG_SAVE_DATA
-  debugAscentOptions = ascent_options;
-#endif
-
-  conduit::Node actions;
-  conduit::Node &add_actions = actions.append();
-
-  if(xml_actions["action"].as_string() ==  "add_scenes")
-  {
-    add_actions["action"] = "add_scenes";
-    add_actions["scenes"] = xml_actions["scenes"];
-  }
-  else if(xml_actions["action"].as_string() == "add_pipelines")
-  {
-    std::string arrayName = xml_actions["pipelines/pl1/f1/params/field"].as_string();
-
-    // Special action for slice, remove the field name.
-    std::string plot = xml_actions["pipelines/pl1/f1/type"].as_string();
-    if( plot == "slice" || plot == "3slice" || plot == "clip" )
-        xml_actions.remove( "pipelines/pl1/f1/params/field" );
-
-    add_actions["action"]    = "add_pipelines";
-    add_actions["pipelines"] = xml_actions["pipelines"];
-
-    conduit::Node scenes;
-    scenes["action"] = "add_scenes";
-    scenes["scenes/scene1/plots/plt1/field"] = arrayName;
-    scenes["scenes/scene1/plots/plt1/type"] = "pseudocolor";
-    scenes["scenes/scene1/plots/plt1/pipeline"] = "pl1";
-
-    actions.append() = scenes;
-  }
-  actions.append()["action"] = "execute";
-  actions.append()["action"] = "reset";
-
-  this->actionNode = actions;
-}
-
-//------------------------------------------------------------------------------
-void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, conduit::Node &setup)
-{
-  conduit::Node json_actions;
-  JSONFileToNode(json_file_path, json_actions);
-
-  conduit::Node ascent_options;
-
-  ascent_options["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
-  ascent_options["runtime/type"] = "ascent";
-
-  if(setup.has_child("backend"))
-    ascent_options["runtime/backend"] = setup["backend"].as_string();
-  if(setup.has_child("image_width"))
-    ascent_options["image_width"] = setup["image_width"];
-  if(setup.has_child("image_height"))
-    ascent_options["image_height"] = setup["image_height"];
-
-  // Debug
-  //ascent_options.print();
-
-  this->a.open(ascent_options);
-
-  this->actionNode = json_actions;
+  JSONFileToNode(json_file_path, this->actionsNode);
 }
 
 int Fill_VTK(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj)
@@ -1225,8 +1178,9 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   conduit::Node root;
   vtkDataObject* obj = nullptr;
+  std::string meshName = "mesh";
 
-  if(dataAdaptor->GetMesh("mesh", false, obj))
+  if(dataAdaptor->GetMesh(meshName, false, obj))
   {
     SENSEI_ERROR("Failed to get mesh");
     return( false );
@@ -1240,26 +1194,51 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   {
     std::string arrayName = vec[i];
 
-    dataAdaptor->AddArray(obj, "mesh", 1, arrayName);
+    if(dataAdaptor->AddArray(obj, meshName, 1, arrayName))
+    {
+        SENSEI_ERROR("Failed to add "
+        << " data array \"" << arrayName << "\" to mesh \""
+        << meshName << "\"");
+        return( -1 );
+    }
+
+
+    int numGhostCellLayers = 0;
+    if(dataAdaptor->GetMeshHasGhostNodes(meshName, numGhostCellLayers) == 0)
+    {
+        if(numGhostCellLayers > 0)
+        {
+            if(dataAdaptor->AddGhostNodesArray(obj, meshName))
+            {
+                SENSEI_ERROR("Failed to get ghost points for mesh \"" << meshName << "\"");
+            }
+        }
+    }
+    else
+    {
+        SENSEI_ERROR("Failed to get ghost point information for \"" << meshName << "\"");
+    }
+
+    if(dataAdaptor->GetMeshHasGhostCells(meshName, numGhostCellLayers) == 0)
+    {
+        if(numGhostCellLayers > 0)
+        {
+            if(dataAdaptor->AddGhostCellsArray(obj, meshName))
+            {
+                SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
+            }
+        }
+    }
+    else
+    {
+        SENSEI_ERROR("Failed to get ghost cell information for \"" << meshName << "\"");
+    }
 
     int domainNum = 0;
     if (vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(obj))
     {
       size_t numBlocks = 0;
       vtkCompositeDataIterator *itr = cds->NewIterator();
-
-/*
-if( cds->HasAnyGhostCells() || cds->HasAnyGhostPoints() )
-{
-        std::cout << "- cds ---------------------------" << std::endl;
-        cds->Print( std::cout );
-        std::cout << "- cds ---------------------------" << std::endl;
-}
-else
-{
-        std::cout << "- cds - no ghost cells --------------------------" << std::endl;
-}
-*/
 
       // TODO: Is there a better way to get the number of data sets?
       vtkCompositeDataIterator *iter = cds->NewIterator();
@@ -1305,22 +1284,20 @@ else
     }
 
     // Debug
-    /*
+    /**/
     std::cout << "----------------------------" << std::endl;
     std::cout << "i: " << i << " size: " << size << std::endl;
     std::cout << "ACTIONS" << std::endl;
-    this->actionNode.print();
+    this->actionsNode.print();
     std::cout << "NODE" << std::endl;
     root.print();
     std::cout << "----------------------------" << std::endl;
-    */
+    /**/
 
-#ifdef DEBUG_SAVE_DATA
-    //DebugSaveAscentData( root );
-#endif
+    DebugSaveAscentData( root, this->optionsNode );
 
-    this->a.publish(root);
-    this->a.execute(this->actionNode);
+    this->_ascent.publish(root);
+    this->_ascent.execute(this->actionsNode);
     root.reset();
   }
 
@@ -1328,11 +1305,10 @@ else
   return( true );
 }
 
-
 //------------------------------------------------------------------------------
 int AscentAnalysisAdaptor::Finalize()
 {
-  this->a.close();
+  this->_ascent.close();
   this->Fields.clear();
 
   return( 0 );

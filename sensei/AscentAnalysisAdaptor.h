@@ -20,8 +20,7 @@ public:
   static AscentAnalysisAdaptor* New();
   senseiTypeMacro(AscentAnalysisAdaptor, AnalysisAdaptor);
 
-  void Initialize(conduit::Node &xml_actions, conduit::Node &setup);
-  void Initialize(const std::string &json_file_path, conduit::Node &setup);
+  void Initialize(const std::string &json_file_path, const std::string &options_file_path);
 
   bool Execute(DataAdaptor* data) override;
 
@@ -37,8 +36,9 @@ private:
 
   void GetFieldsFromActions();
 
-  ascent::Ascent a;
-  conduit::Node actionNode;
+  ascent::Ascent _ascent;
+  conduit::Node optionsNode;    // Ascent options from json file.
+  conduit::Node actionsNode;    // Ascent actions from json file.
   std::set<std::string> Fields;
 };
 

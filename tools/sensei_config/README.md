@@ -4,7 +4,7 @@ to non-cmake based projects.
 
 ## Install ##
 Point CMake to the SENSEI install, the CMake interface libraries are parsed and
-the script is generated. CMake has no notion of a post install comnand so this
+the script is generated. CMake has no notion of a post install command so this
 must be run a secondary step after the SENSEI install
 
 ```bash

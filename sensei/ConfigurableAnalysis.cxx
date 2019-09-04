@@ -46,7 +46,6 @@
 #endif
 #ifdef ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
-#include "AscentSchema.h"
 #endif
 #ifdef ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
@@ -286,58 +285,18 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 
   this->Analyses.push_back(ascent.GetPointer());
 
-  std::string field = node.attribute("plotvars").value();
+  std::string options_file;
+  std::string actions_file;
 
-  conduit::Node actions;
-  if(node.attribute("action"))
-  {
-    std::string action = node.attribute("action").value();
-    if(action == "add_scenes")
-    {
-      if(AscentGetScene(node, actions))
-        return( -1 );
-    }
-    else if(action == "add_pipelines")
-    {
-      if(AscentGetPipeline(node, actions))
-        return( -1 );
-    }
-    else if(action == "add_extracts")
-    {
-      SENSEI_ERROR("add_extracts is not available")
-      return( -1 );
-    }
-    else if(action == "execute")
-    {
-      actions["action"] = "execute";
-    }
-    else if(action == "reset")
-    {
-      actions["action"] = "reset";
-    }
-    else
-    {
-      SENSEI_ERROR("XML: action " << action << " is not supported.")
-      return( -1 );
-    }
-  }
+  // Check if the xml file has the ascent options filename.
+  if(node.attribute("options"))
+    options_file = node.attribute("options").value();
 
-  conduit::Node setup;
-  if(node.attribute("backend"))
-    setup["backend"] = node.attribute("backend").value();
-
-  if(node.attribute("image-width"))
-    setup["image_width"] = node.attribute("image-width").as_int();
-  if(node.attribute("image-height"))
-    setup["image_height"] = node.attribute("image-height").as_int();
-
+  // Check if the xml file has the ascent actions filename.
   if(node.attribute("json"))
-  {
-    std::string json_file = node.attribute("json").value();
-    ascent->Initialize(json_file, setup);
-  }
-  else
-    ascent->Initialize(actions, setup);
+    actions_file = node.attribute("json").value();
+
+  ascent->Initialize(actions_file, options_file);
 
   return( 0 );
 #endif

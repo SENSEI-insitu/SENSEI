@@ -68,9 +68,11 @@ cmake_dependent_option(ENABLE_VTKM_RENDERING
   "Enable analysis methods that use VTK-m's rendering library" OFF
   "ENABLE_VTKM" OFF)
 
-cmake_dependent_option(REPLACE_DIY
-  "Override the Sensei diy library. You will need to define -DDIY_DIR=<path to diy headers>" OFF
-  "ENABLE_VTKM" OFF)
+cmake_dependent_option(ENABLE_DIY
+  "Use the Sensei diy library. If OFF, you will need to define -DDIY_DIR=<path to diy headers>" ON
+  "ENABLE_SENSEI" OFF)
+
+option(ENABLE_OPTS "A version of the getopt function" ON)
 
 option(ENABLE_PROFILER "Enable the internal profiler" OFF)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
@@ -98,8 +100,9 @@ message(STATUS "ENABLE_VTK_FILTERS=${ENABLE_VTK_FILTERS}")
 message(STATUS "ENABLE_VTKM=${ENABLE_VTKM}")
 message(STATUS "ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")
 message(STATUS "ENABLE_PROFILER=${ENABLE_PROFILER}")
+message(STATUS "ENABLE_DIY=${ENABLE_DIY}")
+message(STATUS "ENABLE_OPTS=${ENABLE_OPTS}")
 message(STATUS "ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")
 message(STATUS "ENABLE_CONDUITTEST=${ENABLE_CONDUITTEST}")
 message(STATUS "ENABLE_KRIPKE=${ENABLE_KRIPKE}")
 message(STATUS "ENABLE_ASCENT_TEST=${ENABLE_ASCENT_TEST}")
-message(STATUS "REPLACE_DIY=${REPLACE_DIY}")

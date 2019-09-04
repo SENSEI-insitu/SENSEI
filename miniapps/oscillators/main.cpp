@@ -2,7 +2,7 @@
 #include <chrono>
 #include <ctime>
 
-#include <format.h>
+//#include <format.h>
 #include <opts/opts.h>
 
 #include <diy/master.hpp>
@@ -48,8 +48,6 @@ int main(int argc, char** argv)
     //diy::mpi::environment     env(argc, argv);
     diy::mpi::communicator    world;
 
-    using namespace opts;
-
     Vertex                      shape     = { 64, 64, 64 };
     int                         nblocks   = world.size();
     float                       t_end     = 10;
@@ -67,7 +65,7 @@ int main(int argc, char** argv)
     std::string                 out_prefix = "";
     Bounds                      bounds{0.,-1.,0.,-1.,0.,-1.};
 
-    Options ops(argc, argv);
+    opts::Options ops(argc, argv);
     ops
         >> Option('b', "blocks", nblocks,   "number of blocks to use. must greater or equal to number of MPI ranks.")
         >> Option('s', "shape",  shape,     "global number of cells in the domain")
@@ -91,15 +89,17 @@ int main(int argc, char** argv)
     bool verbose = ops >> Present("verbose", "print debugging messages");
 
     std::string infn;
-    if (  ops >> Present('h', "help", "show help") ||
-        !(ops >> PosOption(infn))
+    if (  ops >> opts::Present('h', "help", "show help") ||
+        !(ops >> opts::PosOption(infn))
 #ifdef ENABLE_SENSEI
         || config_file.empty()
 #endif
         )
     {
+/*
         if (world.rank() == 0)
             fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
+*/
         return 1;
     }
 
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
         if (world.rank() == 0)
         {
             fmt::print("Error: too few blocks\n");
-            fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
+            //fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
         }
         return 1;
     }
