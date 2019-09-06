@@ -656,6 +656,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
   metadata->ArrayType = {VTK_FLOAT};
   metadata->StaticMesh = 1;
 
+  metadata->Flags.SetAll();
   if ((id == 0) && metadata->Flags.BlockExtentsSet())
     {
     std::array<int,6> ext;

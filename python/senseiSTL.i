@@ -4,6 +4,10 @@
 %include <std_map.i>
 %include <std_shared_ptr.i>
 
+%template(array_int_3) std::array<int,3>;
+%template(array_int_6) std::array<int,6>;
+%template(array_double_3) std::array<double,3>;
+%template(array_double_6) std::array<double,6>;
 %template(vector_string) std::vector<std::string>;
 %template(vector_char) std::vector<char>;
 %template(vector_int) std::vector<int>;

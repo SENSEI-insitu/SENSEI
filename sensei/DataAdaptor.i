@@ -10,6 +10,7 @@
 #include "MappedPartitioner.h"
 #include "PlanarSlicePartitioner.h"
 #include "IsoSurfacePartitioner.h"
+#include "PencilPartitioner.h"
 #include "ConfigurablePartitioner.h"
 #include "VTKUtils.h"
 #include "Error.h"
@@ -220,6 +221,7 @@ SENSEI_DATA_ADAPTOR(DataAdaptor)
 %shared_ptr(sensei::PlanarSlicePartitioner)
 %shared_ptr(sensei::IsoSurfacePartitioner)
 %shared_ptr(sensei::ConfigurablePartitioner)
+%shared_ptr(sensei::PencilPartitioner)
 
 %define PARTITIONER_API(cname)
 %extend sensei::##cname
@@ -245,6 +247,7 @@ PARTITIONER_API(MappedPartitioner)
 PARTITIONER_API(PlanarSlicePartitioner)
 PARTITIONER_API(IsoSurfacePartitioner)
 PARTITIONER_API(ConfigurablePartitioner)
+PARTITIONER_API(PencilPartitioner)
 
 %include "Partitioner.h"
 %include "BlockPartitioner.h"
@@ -253,6 +256,7 @@ PARTITIONER_API(ConfigurablePartitioner)
 %include "PlanarSlicePartitioner.h"
 %include "IsoSurfacePartitioner.h"
 %include "ConfigurablePartitioner.h"
+%include "PencilPartitioner.h"
 
 /****************************************************************************
  * InTransitDataAdaptor
@@ -306,7 +310,6 @@ SENSEI_IN_TRANSIT_DATA_ADAPTOR(InTransitDataAdaptor)
 
 %inline
 %{
-// **************************************************************************
 sensei::InTransitDataAdaptor *AsInTransitDataAdaptor(sensei::DataAdaptor *da)
 {
   return dynamic_cast<sensei::InTransitDataAdaptor*>(da);

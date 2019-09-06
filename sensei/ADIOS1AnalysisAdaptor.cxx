@@ -78,6 +78,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   flags.SetBlockDecomp();
   flags.SetBlockSize();
   flags.SetBlockBounds();
+  flags.SetBlockExtents();
   flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
