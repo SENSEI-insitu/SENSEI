@@ -1,7 +1,7 @@
 #include "libISAnalysisAdaptor.h"
 
 #include "libISSchema.h"
-#include "libis/is_sim.h"
+#include "is_sim.h"
 #include "DataAdaptor.h"
 #include "MeshMetadataMap.h"
 #include "VTKUtils.h"

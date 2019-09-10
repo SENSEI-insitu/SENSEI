@@ -2,7 +2,7 @@
 #include "ConfigurableAnalysis.h"
 #include "Timer.h"
 #include "Error.h"
-#include "libIS/is_client.h"
+#include "is_client.h"
 #include <opts/opts.h>
 #include <mpi.h>
 #include <iostream>
