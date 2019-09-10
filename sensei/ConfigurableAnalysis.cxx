@@ -409,9 +409,11 @@ int ConfigurableAnalysis::InternalsType::AddlibIS(pugi::xml_node node)
   if (this->Comm != MPI_COMM_NULL)
     libis->SetCommunicator(this->Comm);
 
-  int port = node.attribute("port").as_int(29374);
+  int port = node.attribute("port").as_int();
   if (port)
     libis->SetPort(port);
+  else
+    libis->SetPort(29374);
 
   DataRequirements req;
   if (req.Initialize(node))
@@ -424,8 +426,7 @@ int ConfigurableAnalysis::InternalsType::AddlibIS(pugi::xml_node node)
   this->TimeInitialization(libis);
   this->Analyses.push_back(libis.GetPointer());
 
-  SENSEI_STATUS("Configured libISAnalysisAdaptor \"" 
-    << "\" port " << port)
+  SENSEI_STATUS("Configured libISAnalysisAdaptor port "  << port)
 
   return 0;
 #endif
