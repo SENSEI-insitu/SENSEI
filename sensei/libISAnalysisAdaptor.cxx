@@ -34,6 +34,9 @@
 #include <mpi.h>
 #include <vector>
 
+//#define DEBUG
+
+
 namespace sensei
 {
 
@@ -112,17 +115,15 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     MeshMetadataPtr md;
     if (mdm.GetMeshMetadata(mit.MeshName(), md))
       {
-      SENSEI_ERROR("Failed to get mesh metadata for mesh \""
-        << mit.MeshName() << "\"")
+      SENSEI_ERROR("Failed to get mesh metadata for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
-    // fixme. DEBUG only
+#ifdef DEBUG
     else
       {
-      SENSEI_STATUS("got mesh metadata for mesh \""
-        << mit.MeshName() << "\"")
+      SENSEI_STATUS("got mesh metadata for mesh \"" << mit.MeshName() << "\"")
       }
-
+#endif
 
     // get the mesh
     vtkCompositeDataSet *dobj = nullptr;
@@ -131,13 +132,12 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
       return false;
       }
-    // fixme. DEBUG only
+#ifdef DEBUG
     else
       {
-      SENSEI_STATUS("got mesh \""
-        << mit.MeshName() << "\"")
+      SENSEI_STATUS("got mesh \"" << mit.MeshName() << "\"")
       }
-
+#endif
 
     // add the ghost cell arrays to the mesh
     if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
@@ -145,12 +145,12 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
-    // fixme. DEBUG only
+#ifdef DEBUG
     else
       {
-      SENSEI_STATUS("got ghost cell for mesh \""
-        << mit.MeshName() << "\"")
+      SENSEI_STATUS("got ghost cell for mesh \"" << mit.MeshName() << "\"")
       }
+#endif
 
     // add the ghost node arrays to the mesh
     if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
@@ -158,13 +158,12 @@ bool libISAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
-    // fixme. DEBUG only
+#ifdef DEBUG
     else
       {
-      SENSEI_STATUS("got ghost nodes for mesh \""
-        << mit.MeshName() << "\"")
+      SENSEI_STATUS("got ghost nodes for mesh \"" << mit.MeshName() << "\"")
       }
-
+#endif
 
     // add the required arrays
     ArrayRequirementsIterator ait =
