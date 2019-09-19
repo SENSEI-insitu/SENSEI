@@ -1,5 +1,5 @@
-#ifndef ADIOS1AnalysisAdaptor_h
-#define ADIOS1AnalysisAdaptor_h
+#ifndef ADIOS2AnalysisAdaptor_h
+#define ADIOS2AnalysisAdaptor_h
 
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
@@ -9,34 +9,28 @@
 #include <string>
 #include <mpi.h>
 
-namespace senseiADIOS1 { class DataObjectCollectionSchema; }
+namespace senseiADIOS2 { class DataObjectCollectionSchema; }
 class vtkDataObject;
 class vtkCompositeDataSet;
 
 namespace sensei
 {
 
-/// The write side of the ADIOS 1 transport
-class ADIOS1AnalysisAdaptor : public AnalysisAdaptor
+/// The write side of the ADIOS 2 transport
+class ADIOS2AnalysisAdaptor : public AnalysisAdaptor
 {
 public:
-  static ADIOS1AnalysisAdaptor* New();
-  senseiTypeMacro(ADIOS1AnalysisAdaptor, AnalysisAdaptor);
+  static ADIOS2AnalysisAdaptor* New();
+  senseiTypeMacro(ADIOS2AnalysisAdaptor, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
-  /// Sets the maximum buffer allocated by ADIOS1 in MB
-  /// takes affect on first Execute
-  void SetMaxBufferSize(unsigned int size)
-  { this->MaxBufferSize = size; }
 
-  /// @brief Set the ADIOS1 method e.g. MPI, FLEXPATH etc.
-  ///
-  /// Default value is "MPI".
-  void SetMethod(const std::string &method)
-  { this->Method = method; }
+  /// @brief Set the ADIOS2 engine
+  void SetEngineName(const std::string &engineName)
+  { this->EngineName = engineName; }
 
-  std::string GetMethod() const
-  { return this->Method; }
+  std::string GetEngineName() const
+  { return this->EngineName; }
 
   /// @brief Set the filename.
   ///
@@ -59,30 +53,31 @@ public:
   int Finalize() override;
 
 protected:
-  ADIOS1AnalysisAdaptor();
-  ~ADIOS1AnalysisAdaptor();
+  ADIOS2AnalysisAdaptor();
+  ~ADIOS2AnalysisAdaptor();
 
-  // intializes ADIOS1 in no-xml mode, allocate buffers, and declares a group
-  int InitializeADIOS1(const std::vector<MeshMetadataPtr> &metadata);
+  // intializes ADIOS2 in no-xml mode, allocate buffers, and declares a group
+  int InitializeADIOS2(const std::vector<MeshMetadataPtr> &metadata);
 
   // writes the data collection
   int WriteTimestep(unsigned long timeStep, double time,
     const std::vector<MeshMetadataPtr> &metadata,
     const std::vector<vtkCompositeDataSet*> &dobjects);
 
-  // shuts down ADIOS1
-  int FinalizeADIOS1();
+  // shuts down ADIOS2
+  int FinalizeADIOS2();
 
   unsigned int MaxBufferSize;
-  senseiADIOS1::DataObjectCollectionSchema *Schema;
+  senseiADIOS2::DataObjectCollectionSchema *Schema;
   sensei::DataRequirements Requirements;
-  std::string Method;
+  std::string EngineName;
   std::string FileName;
-  int64_t GroupHandle;
+  AdiosHandle Handles;
+  adios2_adios *Adios;
 
 private:
-  ADIOS1AnalysisAdaptor(const ADIOS1AnalysisAdaptor&) = delete;
-  void operator=(const ADIOS1AnalysisAdaptor&) = delete;
+  ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;
+  void operator=(const ADIOS2AnalysisAdaptor&) = delete;
 };
 
 }

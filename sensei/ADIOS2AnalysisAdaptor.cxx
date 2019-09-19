@@ -1,6 +1,6 @@
-#include "ADIOS1AnalysisAdaptor.h"
+#include "ADIOS2AnalysisAdaptor.h"
 
-#include "ADIOS1Schema.h"
+#include "ADIOS2Schema.h"
 #include "DataAdaptor.h"
 #include "MeshMetadataMap.h"
 #include "VTKUtils.h"
@@ -38,29 +38,29 @@ namespace sensei
 {
 
 //----------------------------------------------------------------------------
-senseiNewMacro(ADIOS1AnalysisAdaptor);
+senseiNewMacro(ADIOS2AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOS1AnalysisAdaptor::ADIOS1AnalysisAdaptor() : MaxBufferSize(0),
-    Schema(nullptr), Method("MPI"), FileName("sensei.bp"), GroupHandle(0)
+ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : MaxBufferSize(0),
+    Schema(nullptr), Engine("bpfile"), FileName("sensei.bp"), Handles(0)
 {
 }
 
 //----------------------------------------------------------------------------
-ADIOS1AnalysisAdaptor::~ADIOS1AnalysisAdaptor()
+ADIOS2AnalysisAdaptor::~ADIOS2AnalysisAdaptor()
 {
   delete this->Schema;
 }
 
 //-----------------------------------------------------------------------------
-int ADIOS1AnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs)
+int ADIOS2AnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs)
 {
   this->Requirements = reqs;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-int ADIOS1AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
+int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
   int association, const std::vector<std::string> &arrays)
 {
   this->Requirements.AddRequirement(meshName, association, arrays);
@@ -68,9 +68,9 @@ int ADIOS1AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Execute");
+  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide. include the full
   // suite of metadata for the end-point partitioners
@@ -172,7 +172,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   unsigned long timeStep = dataAdaptor->GetDataTimeStep();
   double time = dataAdaptor->GetDataTime();
 
-  if (this->InitializeADIOS1(metadata) ||
+  if (this->InitializeADIOS2(metadata) ||
     this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
 
@@ -184,38 +184,32 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1AnalysisAdaptor::InitializeADIOS1(
+int ADIOS2AnalysisAdaptor::InitializeADIOS2(
   const std::vector<MeshMetadataPtr> &metadata)
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::IntializeADIOS1");
+  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::IntializeADIOS2");
 
   if (!this->Schema)
     {
-    // initialize adios
-    adios_init_noxml(this->GetCommunicator());
+    // initialize adios2
+    // args  0: comm
+    //       1: debug mode
+    //TODO turn off debug/expose to xml
+    this->Adios = adios2_init(this->GetCommunicator(), 1);
 
-#if ADIOS_VERSION_GE(1,11,0)
-    if (this->MaxBufferSize > 0)
-      adios_set_max_buffer_size(this->MaxBufferSize);
+    // Open the io handle
+    this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
 
-    adios_declare_group(&this->GroupHandle, "SENSEI", "",
-      static_cast<ADIOS_STATISTICS_FLAG>(adios_flag_no));
-#else
-    if (this->MaxBufferSize > 0)
-      adios_allocate_buffer(ADIOS_BUFFER_ALLOC_NOW, this->MaxBufferSize);
+    // create space for ADIOS2 variables
+    this->Schema = new senseiADIOS2::DataObjectCollectionSchema;
 
-    adios_declare_group(&this->GroupHandle, "SENSEI", "", adios_flag_no);
-#endif
-
-    adios_select_method(this->GroupHandle, this->Method.c_str(), "", "");
-
-    // define ADIOS1 variables
-    this->Schema = new senseiADIOS1::DataObjectCollectionSchema;
+    // Open the engine now variables are declared
+    adios2_set_engine(this->Handles.io, this->EngineName.c_str());
     }
 
   // (re)define variables to support meshes that evovle in time
   if (this->Schema->DefineVariables(this->GetCommunicator(),
-    this->GroupHandle, metadata))
+    this->Handles, metadata))
     {
     SENSEI_ERROR("Failed to define variables")
     return -1;
@@ -225,21 +219,23 @@ int ADIOS1AnalysisAdaptor::InitializeADIOS1(
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1AnalysisAdaptor::FinalizeADIOS1()
+int ADIOS2AnalysisAdaptor::FinalizeADIOS2()
 {
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-  adios_finalize(rank);
+  adios2_finalize(this->Adios);
   return 0;
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1AnalysisAdaptor::Finalize()
+int ADIOS2AnalysisAdaptor::Finalize()
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Finalize");
+  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::Finalize");
 
   if (this->Schema)
-    this->FinalizeADIOS1();
+    {
+    adios2_close(this->Handles.engine);
+    this->FinalizeADIOS2();
+    }
+
 
   delete this->Schema;
   this->Schema = nullptr;
@@ -248,29 +244,21 @@ int ADIOS1AnalysisAdaptor::Finalize()
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
+int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
   const std::vector<vtkCompositeDataSet*> &objects)
 {
-  timer::MarkEvent mark("ADIOS1AnalysisAdaptor::WriteTimestep");
+  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::WriteTimestep");
 
   int ierr = 0;
-  int64_t handle = 0;
-
-  adios_open(&handle, "sensei", this->FileName.c_str(),
-    timeStep == 0 ? "w" : "a", this->GetCommunicator());
-
-  // TODO -- what are the implications of not setting the group
-  // size? it's a lot of work to calculate the size. user manual
-  // indicates that it is optional. would setting a fixed size
-  // like 200MB be better than not setting the size?
-  //
-  /*uint64_t group_size = this->Schema->GetSize(
-    this->GetCommunicator(), metadata, objects);
-  adios_group_size(handle, group_size, &group_size);*/
+  if(!this->Handles.engine)
+    {
+    //engine type should have already been set
+    this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_write);
+    }
 
   if (this->Schema->Write(this->GetCommunicator(),
-    handle, timeStep, time, metadata, objects))
+    this->Handles, timeStep, time, metadata, objects))
     {
     SENSEI_ERROR("Failed to write step " << timeStep
       << " to \"" << this->FileName << "\"")
@@ -283,7 +271,7 @@ int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 }
 
 //----------------------------------------------------------------------------
-void ADIOS1AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void ADIOS2AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

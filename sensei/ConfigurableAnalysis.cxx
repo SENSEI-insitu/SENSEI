@@ -423,8 +423,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
   return -1;
 #else
-//TODO ADIOS2
-/*  auto adios = vtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
+  auto adios = vtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adios->SetCommunicator(this->Comm);
@@ -433,18 +432,14 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   if (filename)
     adios->SetFileName(filename.value());
 
-  pugi::xml_attribute method = node.attribute("method");
-  if (method)
-    adios->SetMethod(method.value());
-
-  unsigned long maxBufSize =
-    node.attribute("max_buffer_size").as_ullong(0);
-  adios->SetMaxBufferSize(maxBufSize);
+  pugi::xml_attribute engineName = node.attribute("engine");
+  if (engineName)
+    adios->SetEngineName(engineName.value());
 
   DataRequirements req;
   if (req.Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize ADIOS 1.")
+    SENSEI_ERROR("Failed to initialize ADIOS 2.")
     return -1;
     }
   adios->SetDataRequirements(req);
@@ -453,9 +448,8 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   this->Analyses.push_back(adios.GetPointer());
 
   SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
-    << filename.value() << "\" method " << method.value()
-    << " max_buffer_size=" << maxBufSize)
-*/
+    << filename.value() << "\" engine " << engineName.value())
+
   return 0;
 #endif
 }
@@ -1200,6 +1194,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "ascent") && !this->Internals->AddAscent(node))
+      || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))

@@ -524,9 +524,9 @@ unsigned int getNumberOfDatasets(MPI_Comm comm, vtkDataObject *dobj,
 class BinaryStreamSchema
 {
 public:
-  static int DefineVariables(int64_t gh, const std::string &path);
+  static int DefineVariables(AdiosHandle handles, const std::string &path);
 
-  static int Write(uint64_t fh, const std::string &path,
+  static int Write(AdiosHandle handles, const std::string &path,
     const sensei::BinaryStream &md);
 
   static int Read(InputStream &iStream, ADIOS_SELECTION *sel,
@@ -534,21 +534,14 @@ public:
 };
 
 // --------------------------------------------------------------------------
-int BinaryStreamSchema::DefineVariables(int64_t gh, const std::string &path)
+int BinaryStreamSchema::DefineVariables(AdiosHandle handles, const std::string &path)
 {
   timer::MarkEvent mark("senseiADIOS2::BinaryStreamSchema::DefineVariables");
 
-  // a second variable holding the local, global, length is required
-  // for writing. according to the docs you could write a constant
-  // string literal, but that only works with BP and not FLEXPATH
-  std::string len = path + "_len";
-  adios_define_var(gh, len.c_str(), "", adios_integer,
-    "", "", "0");
-
   // define the stream
-  adios_define_var(gh, path.c_str(), "", adios_byte,
-    len.c_str(), len.c_str(), "0");
-
+  // TODO this may need to be set to a real number vs NULL, so check it out
+  adios2_define_variable(handles.io, path.c_str(), adios2_type_int8_t,
+                         1, NULL, NULL, NULL, adios2_constant_dims_false);
   return 0;
 }
 
@@ -589,15 +582,17 @@ int BinaryStreamSchema::Read(InputStream &iStream, ADIOS_SELECTION *sel,
 }
 
 // --------------------------------------------------------------------------
-int BinaryStreamSchema::Write(uint64_t fh, const std::string &path,
+int BinaryStreamSchema::Write(AdiosHandle handles, const std::string &path,
   const sensei::BinaryStream &str)
 {
   timer::MarkStartEvent("senseiADIOS2::BinaryStreamSchema::Write");
 
   int n = str.Size();
-  std::string len = path + "_len";
-  if (adios_write(fh, len.c_str(), &n) ||
-    adios_write(fh, path.c_str(), str.GetData()))
+  adios2_variable internalBinVar = adios2_inquire_variable(handles.io, path.c_str());
+
+  if (adios2_set_shape(internalBinVar, 1, &n) ||
+      adios2_set_selection(internalBinVar, 1, 0, &n) ||
+      adios2_put(handles.engine, path.c_str(), str.GetData(), adios2_mode_deferred))
     {
     SENSEI_ERROR("Failed to write BinaryStream at \"" << path << "\"")
     return -1;
@@ -614,9 +609,9 @@ class VersionSchema
 public:
   VersionSchema() : Revision(3), LowestCompatibleRevision(3) {}
 
-  int DefineVariables(int64_t gh);
+  int DefineVariables(AdiosHandle handles);
 
-  int Write(int64_t fh);
+  int Write(AdiosHandle handles);
 
   int Read(InputStream &iStream);
 
@@ -626,14 +621,12 @@ private:
 };
 
 // --------------------------------------------------------------------------
-int VersionSchema::DefineVariables(int64_t gh)
+int VersionSchema::DefineVariables(AdiosHandle handles)
 {
   timer::MarkEvent mark("senseiADIOS2::VersionSchema::DefineVariables");
 
-  // all ranks need to write this info for FLEXPATH method
-  // but not the MPI method.
-  adios_define_var(gh, "DataObjectSchema", "", adios_unsigned_integer,
-    "", "", "");
+  adios2_define_variable(handles.io, "DataObjectSchema", adios2_type_uint32_t,
+                         0, NULL, NULL, NULL, adios2_constant_dims_true);
   return 0;
 }
 
@@ -642,9 +635,7 @@ int VersionSchema::Write(int64_t fh)
 {
   timer::MarkStartEvent("senseiADIOS2::VersionSchema::Write");
 
-  // all ranks need to write this info for FLEXPATH method
-  // but not the MPI method.
-  adios_write(fh, "DataObjectSchema", &this->Revision);
+  adios2_put_by_name(handles.engine, "DataObjectSchema", &this->Revision, adios2_mode_deferred);
 
   timer::MarkEndEvent("senseiADIOS2::VersionSchema::Write", sizeof(this->Revision));
   return 0;
@@ -780,47 +771,47 @@ int InputStream::Close()
 
 struct ArraySchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles,
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
-  int DefineVariable(MPI_Comm comm, int64_t gh, const std::string &ons,
+  int DefineVariable(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     int i, int array_type, int num_components, int array_cen,
     unsigned long long num_points_total, unsigned long long num_cells_total,
     unsigned int num_blocks, const std::vector<long> &block_num_points,
     const std::vector<long> &block_num_cells,
     const std::vector<int> &block_owner, std::vector<int64_t> &write_ids);
 
-  int Write(MPI_Comm comm, int64_t fh,
+  int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Write(MPI_Comm comm, int64_t fh, unsigned int i,
+  int Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
     const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
     unsigned int num_blocks, const std::vector<int> &block_owner,
-    const std::vector<int64_t> &writeIds);
+    const std::vector<adios2_variable> &putVars);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+  int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const std::string &array_name, int centering,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+  int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     unsigned int i, const std::string &array_name, int array_type,
     unsigned long long num_components, int array_cen, unsigned int num_blocks,
     const std::vector<long> &block_num_points,
     const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
     vtkCompositeDataSet *dobj);
 
-  std::map<std::string,std::vector<int64_t>> WriteIds;
+  std::map<std::string,std::vector<adios2_variables>> PutVars;
 };
 
 
 // --------------------------------------------------------------------------
-int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
+int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, int i, int array_type, int num_components,
   int array_cen, unsigned long long num_points_total,
   unsigned long long num_cells_total, unsigned int num_blocks,
   const std::vector<long> &block_num_points,
   const std::vector<long> &block_num_cells,
-  const std::vector<int> &block_owner, std::vector<int64_t> &write_ids)
+  const std::vector<int> &block_owner, std::vector<adios2_variable> &put_vars)
 {
   timer::MarkEvent mark("senseiADIOS2::ArraySchema::DefineVariable");
 
@@ -846,7 +837,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
   std::ostringstream gdims;
   gdims << num_elem_total;
 
-  // adios type of the array
+  // adios2 type of the array
   adios2_type elem_type = adiosType(array_type);
 
   // define the variable once for each block
@@ -860,21 +851,13 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
     // define the variable for a local block
     if (block_owner[j] ==  rank)
       {
-      // local size as a string
-      std::ostringstream ldims;
-      ldims << num_elem_local;
-
-      // offset as a string
-      std::ostringstream boffs;
-      boffs << block_offset;
-
       // /data_object_<id>/data_array_<id>/data
       std::string path = ans.str() + "data";
-      int64_t write_id = adios_define_var(gh, path.c_str(), "", elem_type,
-         ldims.str().c_str(), gdims.str().c_str(), boffs.str().c_str());
+      adios2_variable put_var = adios2_define_variable(handles.io, path.c_str(), elem_type,
+         1, &num_elem_local, &num_elem_total, &block_offset, adios2_constant_dims_true);
 
       // save the write id to tell adios which block we are writing later
-      write_ids[i*num_blocks + j] = write_id;
+      put_vars[i*num_blocks + j] = put_var;
       }
 
     // update the block offset
@@ -885,12 +868,12 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   timer::MarkEvent mark("senseiADIOS2::ArraySchema::DefineVariables");
 
-  std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
+  std::vector<adios2_variable> &putVars = this->PutVars[md->MeshName];
 
   // allocate write ids
   unsigned int num_blocks = md->NumBlocks;
@@ -899,7 +882,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
   unsigned int num_ghost_arrays =
     md->NumGhostCells ? 1 : 0 + md->NumGhostNodes ? 1 : 0;
 
-  writeIds.resize(num_blocks*(num_arrays + num_ghost_arrays));
+  putVars.resize(num_blocks*(num_arrays + num_ghost_arrays));
 
   // compute global sizes
   unsigned long long num_points_total = 0;
@@ -913,27 +896,27 @@ int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
   // define data arrays
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
-    if (this->DefineVariable(comm, gh, ons, i, md->ArrayType[i],
+    if (this->DefineVariable(comm, handles, ons, i, md->ArrayType[i],
       md->ArrayComponents[i], md->ArrayCentering[i], num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, writeIds))
+      md->BlockOwner, putVars))
       return -1;
     }
 
   // define ghost arrays
   if (md->NumGhostCells)
     {
-    if (this->DefineVariable(comm, gh, ons, num_arrays, VTK_UNSIGNED_CHAR,
+    if (this->DefineVariable(comm, handles, ons, num_arrays, VTK_UNSIGNED_CHAR,
       1, vtkDataObject::CELL, num_points_total, num_cells_total, num_blocks,
-      md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, writeIds))
+      md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, putVars))
       return -1;
     num_arrays += 1;
     }
 
-  if (md->NumGhostNodes && this->DefineVariable(comm, gh, ons, num_arrays,
+  if (md->NumGhostNodes && this->DefineVariable(comm, handles, ons, num_arrays,
       VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, writeIds))
+      md->BlockOwner, putVars))
       return -1;
 
   return 0;
@@ -941,10 +924,10 @@ int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 
 // --------------------------------------------------------------------------
-int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
+int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
   const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
   unsigned int num_blocks, const std::vector<int> &block_owner,
-  const std::vector<int64_t> &writeIds)
+  const std::vector<adios2_variables> &putVars)
 {
   timer::MarkStartEvent("senseiADIOS2::ArraySchema::Write");
   long long numBytes = 0ll;
@@ -978,7 +961,8 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
         return -1;
         }
 
-      adios_write_byid(fh, writeIds[i*num_blocks + j], da->GetVoidPointer(0));
+      adios2_put(handles.engine, putVars[i*num_blocks + j],
+                 da->GetVoidPointer(0), adios2_mode_deferred);
 
       numBytes += da->GetNumberOfTuples()*
         da->GetNumberOfComponents()*size(da->GetDataType());
@@ -994,7 +978,7 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
 }
 
 // --------------------------------------------------------------------------
-int ArraySchema::Write(MPI_Comm comm, int64_t fh,
+int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   timer::MarkEvent mark("senseiADIOS2::ArraySchema::Write");
@@ -1002,29 +986,29 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh,
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
-  std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
+  std::vector<int64_t> &putVars = this->PutVars[md->MeshName];
 
   // write data arrays
   unsigned int num_arrays = md->NumArrays;
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
-    if (this->Write(comm, fh, i, md->ArrayName[i], md->ArrayCentering[i],
-      dobj, md->NumBlocks, md->BlockOwner, writeIds))
+    if (this->Write(comm, handles, i, md->ArrayName[i], md->ArrayCentering[i],
+      dobj, md->NumBlocks, md->BlockOwner, putVars))
       return -1;
     }
 
   // write ghost arrays
   if (md->NumGhostCells)
     {
-    if (this->Write(comm, fh, num_arrays, "vtkGhostType", vtkDataObject::CELL,
-      dobj, md->NumBlocks, md->BlockOwner, writeIds))
+    if (this->Write(comm, handles, num_arrays, "vtkGhostType", vtkDataObject::CELL,
+      dobj, md->NumBlocks, md->BlockOwner, putVars))
       return -1;
     num_arrays += 1;
     }
 
-  if (md->NumGhostNodes && this->Write(comm, fh, num_arrays,
+  if (md->NumGhostNodes && this->Write(comm, handles, num_arrays,
     "vtkGhostType", vtkDataObject::POINT, dobj, md->NumBlocks,
-     md->BlockOwner, writeIds))
+     md->BlockOwner, putVars))
     return -1;
 
   return 0;
@@ -1158,7 +1142,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 
 struct PointSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles,
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
@@ -1167,11 +1151,11 @@ struct PointSchema
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<int64_t>> WriteIds;
+  std::map<std::string, std::vector<adios2_variables>> PutVars;
 };
 
 // --------------------------------------------------------------------------
-int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int PointSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
@@ -1183,9 +1167,9 @@ int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     MPI_Comm_rank(comm, &rank);
 
     // allocate write ids
-    std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
+    std::vector<adios2_variables> &putVars = this->PutVars[md->MeshName];
     unsigned int num_blocks = md->NumBlocks;
-    writeIds.resize(num_blocks);
+    putVars.resize(num_blocks);
 
     // calc global size
     unsigned long long num_total = 0;
@@ -1197,9 +1181,8 @@ int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // data type for points
     adios2_type type = adiosType(md->CoordinateType);
 
-    // global sizes as a strings
-    std::ostringstream gdims;
-    gdims << 3*num_total;
+    // global size
+    size_t gdims = 3*num_total;
 
     // define the variable once for each block
     unsigned long long block_offset = 0;
@@ -1213,20 +1196,18 @@ int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       if (md->BlockOwner[j] ==  rank)
         {
         // local size as a string
-        std::ostringstream ldims;
-        ldims << 3*num_local;
+        size_t ldims = 3*num_local;
 
         // offset as a string
-        std::ostringstream boffs;
-        boffs << 3*block_offset;
+        size_t boffs = 3*block_offset;
 
         // /data_object_<id>/data_array_<id>/points
         std::string path_pts = ons + "points";
-        int64_t write_id = adios_define_var(gh, path_pts.c_str(), "",
-           type, ldims.str().c_str(), gdims.str().c_str(), boffs.str().c_str());
+        adios2_variable put_var = adios2_define_variable(handles.io, path.c_str(), elem_type,
+         1, &ldims, &gdims, &boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        writeIds[j] = write_id;
+        putVars[j] = put_var;
         }
 
       // update the block offset
@@ -1238,7 +1219,7 @@ int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int PointSchema::Write(MPI_Comm comm, int64_t fh,
+int PointSchema::Write(MPI_Comm comm, AdiosHandle handles,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
@@ -1250,7 +1231,7 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
+    std::vector<adios2_variable> &putVars = this->PutVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -1269,7 +1250,7 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
           }
 
         vtkDataArray *da = ds->GetPoints()->GetData();
-        adios_write_byid(fh, writeIds[j], da->GetVoidPointer(0));
+        adios2_put(handles.engine, putVars[j], da->GetVoidPointer(0), adios2_mode_deferred);
 
         numBytes += da->GetNumberOfTuples()*
           da->GetNumberOfComponents()*size(da->GetDataType());
@@ -1371,21 +1352,21 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 
 struct UnstructuredCellSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles,
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
-  int Write(MPI_Comm comm, int64_t fh,
+  int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+  int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<int64_t>> TypeWriteIds;
-  std::map<std::string, std::vector<int64_t>> ArrayWriteIds;
+  std::map<std::string, std::vector<adios2_variable>> TypeWriteVars;
+  std::map<std::string, std::vector<adios2_variable>> ArrayWriteVars;
 };
 
 // --------------------------------------------------------------------------
-int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   if (sensei::VTKUtils::Unstructured(md))
@@ -1398,11 +1379,11 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
 
-    std::vector<int64_t> &typeWriteIds = this->TypeWriteIds[md->MeshName];
-    typeWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &typeWriteVars = this->TypeWriteVars[md->MeshName];
+    typeWriteVars.resize(num_blocks);
 
-    std::vector<int64_t> &arrayWriteIds = this->ArrayWriteIds[md->MeshName];
-    arrayWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
+    arrayWriteVars.resize(num_blocks);
 
     // calculate global size
     unsigned long long num_cells_total = 0;
@@ -1417,12 +1398,10 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // data type for cells
     adios2_type cell_array_type = adiosIdType();
 
-    // global sizes as a strings
-    std::ostringstream cell_types_gdims;
-    cell_types_gdims << num_cells_total;
+    // global sizes
+    size_t cell_type_gdmins = num_cells_total;
 
-    std::ostringstream cell_array_gdims;
-    cell_array_gdims << cell_array_size_total;
+    size_t cell_array_gdims = cell_array_size_total;
 
     // define the variable once for each block
     unsigned long long cell_types_block_offset = 0;
@@ -1438,38 +1417,34 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       if (md->BlockOwner[j] ==  rank)
         {
         // local size as a string
-        std::ostringstream cell_array_ldims;
-        cell_array_ldims << cell_array_size_local;
+        size_t cell_array_ldims = cell_array_size_local;
 
         // offset as a string
-        std::ostringstream cell_array_boffs;
-        cell_array_boffs << cell_array_block_offset;
+        size_t cell_array_boffs = cell_array_block_offset;
 
         // /data_object_<id>/cell_array
         std::string path_ca = ons + "cell_array";
-        int64_t cell_array_write_id = adios_define_var(gh, path_ca.c_str(), "",
-           cell_array_type, cell_array_ldims.str().c_str(), cell_array_gdims.str().c_str(),
-           cell_array_boffs.str().c_str());
+        adios2_variable cell_array_write_var = adios2_define_variable(handles.io,
+            path_ca.c_str(), cell_array_type, 1, &cell_array_ldims, &cell_array_gdims,
+            &cell_array_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        arrayWriteIds[j] = cell_array_write_id;
+        arrayWriteVars[j] = cell_array_write_var;
 
         // local size as a string
-        std::ostringstream cell_types_ldims;
-        cell_types_ldims << num_cells_local;
+        size_t cell_types_ldims = num_cells_local;
 
         // offset as a string
-        std::ostringstream cell_types_boffs;
-        cell_types_boffs << cell_types_block_offset;
+        size_t cell_types_boffs = cell_types_block_offset;
 
         // /data_object_<id>/cell_types
         std::string path_ct = ons + "cell_types";
-        int64_t cell_type_write_id = adios_define_var(gh, path_ct.c_str(), "",
-           adios_byte, cell_types_ldims.str().c_str(), cell_types_gdims.str().c_str(),
-           cell_types_boffs.str().c_str());
+        adios2_variable cell_type_write_var = adios2_define_variable(handles.io,
+            path_ct.c_str(), adios2_type_uint8_t, 1, &cell_types_ldims,
+            &cell_types_gdims, &cell_types_boffs, adios2_constant_dims_true);
 
         // save the write id to tell adios which block we are writing later
-        typeWriteIds[j] = cell_type_write_id;
+        typeWriteVars[j] = cell_type_write_var;
         }
 
       // update the block offset
@@ -1482,7 +1457,7 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
+int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   if (sensei::VTKUtils::Unstructured(md))
@@ -1493,8 +1468,8 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<int64_t> &arrayWriteIds = this->ArrayWriteIds[md->MeshName];
-    std::vector<int64_t> &typeWriteIds = this->TypeWriteIds[md->MeshName];
+    std::vector<adios2_variable> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
+    std::vector<adios2_variable> &typeWriteVars = this->TypeWriteVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -1517,8 +1492,8 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
         vtkDataArray *cta = ds->GetCellTypesArray();
         vtkDataArray *ca = ds->GetCells()->GetData();
 
-        adios_write_byid(fh, typeWriteIds[j], cta->GetVoidPointer(0));
-        adios_write_byid(fh, arrayWriteIds[j], ca->GetVoidPointer(0));
+        adios2_put(handles.engine, typeWriteVars[j], cta->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_put(handles.engine, arrayWriteVars[j], ca->GetVoidPointer(0), adios2_mode_deferred);
 
         numBytes += cta->GetNumberOfTuples()*size(cta->GetDataType()) +
           ca->GetNumberOfTuples()*size(ca->GetDataType());
@@ -1652,22 +1627,22 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
 struct PolydataCellSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles,
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
-  int Write(MPI_Comm comm, int64_t fh,
+  int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh,
+  int Read(MPI_Comm comm, AdiosHandle handles,
     const std::string &ons, const sensei::MeshMetadataPtr &md,
     vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<int64_t>> TypeWriteIds;
-  std::map<std::string, std::vector<int64_t>> ArrayWriteIds;
+  std::map<std::string, std::vector<adios2_variable>> TypeWriteVars;
+  std::map<std::string, std::vector<adios2_variable>> ArrayWriteVars;
 };
 
 // --------------------------------------------------------------------------
-int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int PolydataCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   if (sensei::VTKUtils::Polydata(md))
@@ -1680,11 +1655,11 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
 
-    std::vector<int64_t> &typeWriteIds = this->TypeWriteIds[md->MeshName];
-    typeWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &typeWriteVars = this->TypeWriteVars[md->MeshName];
+    typeWriteVars.resize(num_blocks);
 
-    std::vector<int64_t> &arrayWriteIds = this->ArrayWriteIds[md->MeshName];
-    arrayWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
+    arrayWriteVars.resize(num_blocks);
 
     // calculate global size
     unsigned long long num_cells_total = 0;
@@ -1699,12 +1674,9 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // data type for cells
     adios2_type cell_array_type = adiosIdType();
 
-    // global sizes as a strings
-    std::ostringstream cell_types_gdims;
-    cell_types_gdims << num_cells_total;
-
-    std::ostringstream cell_array_gdims;
-    cell_array_gdims << cell_array_size_total;
+    // global sizes
+    size_t cell_types_gdims = num_cells_total;
+    size_t cell_array_gdims = cell_array_size_total;
 
     // define the variable once for each block
     unsigned long long cell_type_block_offset = 0;
@@ -1719,26 +1691,23 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       // define the variable for a local block
       if (md->BlockOwner[j] ==  rank)
         {
-        // local size as a string
-        std::ostringstream cell_array_ldims;
-        cell_array_ldims << cell_array_size_local;
+        // local size
+        size_t cell_array_ldims = cell_array_size_local;
 
-        // local size as a string
-        std::ostringstream cell_types_ldims;
-        cell_types_ldims << num_cells_local;
+        // local size
+        size_t cell_types_ldims = num_cells_local;
 
-        // offset as a string
-        std::ostringstream cell_types_boffs;
-        cell_types_boffs << cell_type_block_offset;
+        // offset
+        size_t cell_types_boffs = cell_type_block_offset;
 
         // /data_object_<id>/cell_types
         std::string path_ct = ons + "cell_types";
-        int64_t cell_type_write_id = adios_define_var(gh, path_ct.c_str(), "",
-           adios_byte, cell_types_ldims.str().c_str(), cell_types_gdims.str().c_str(),
-           cell_types_boffs.str().c_str());
+        adios2_variable cell_type_write_var = adios2_define_variable(handles.io, path_ct.c_str(),
+           adios2_type_unit8_t, 1, &cell_types_ldims, &cell_types_gdims,
+           &cell_types_boffs, adios2_constant_dims_true);
 
         // save the write id to tell adios which block we are writing later
-        typeWriteIds[j] = cell_type_write_id;
+        typeWriteVars[j] = cell_type_write_var;
 
         // offset as a string
         std::ostringstream cell_array_boffs;
@@ -1746,12 +1715,12 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
         // /data_object_<id>/cell_array
         std::string path_ca = ons + "cell_array";
-        int64_t cell_array_write_id = adios_define_var(gh, path_ca.c_str(), "",
-           cell_array_type, cell_array_ldims.str().c_str(), cell_array_gdims.str().c_str(),
-           cell_array_boffs.str().c_str());
+        adios2_variable cell_array_write_var = adios2_define_variable(handles.io, path_ca.c_str(),
+           cell_array_type, 1, &cell_array_ldims, &cell_array_gdims,
+           &cell_array_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        arrayWriteIds[j] = cell_array_write_id;
+        arrayWriteVars[j] = cell_array_write_var;
         }
 
       // update the block offset
@@ -1775,8 +1744,8 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<int64_t> &typeWriteIds = this->TypeWriteIds[md->MeshName];
-    std::vector<int64_t> &arrayWriteIds = this->ArrayWriteIds[md->MeshName];
+    std::vector<adios2_variable> &typeWriteVars = this->TypeWriteVars[md->MeshName];
+    std::vector<adios2_variable> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -1833,8 +1802,8 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
           cells.insert(cells.end(), ps, ps + pd->GetStrips()->GetData()->GetNumberOfTuples());
           }
 
-        adios_write_byid(fh, typeWriteIds[j], types.data());
-        adios_write_byid(fh, arrayWriteIds[j], cells.data());
+        adios2_put(handles.engine, typeWriteVars[j], types.data(), adios2_mode_deferred);
+        adios2_put(handles.engine, arrayWriteVars[j], cells.data(), adios2_mode_deferred);
 
         numBytes += types.size()*sizeof(unsigned char) + cells.size()*sizeof(vtkIdType);
         }
@@ -2064,21 +2033,21 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
 struct LogicallyCartesianSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh, const std::string &ons,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md);
 
-  int Write(MPI_Comm comm, int64_t fh,
+  int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh,
+  int Read(MPI_Comm comm, AdiosHandle handles,
     const std::string &ons, const sensei::MeshMetadataPtr &md,
     vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<int64_t>> WriteIds;
+  std::map<std::string, std::vector<adios_variable>> WriteVars;
 };
 
 // --------------------------------------------------------------------------
-int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   if (sensei::VTKUtils::LogicallyCartesian(md))
@@ -2091,12 +2060,11 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
 
-    std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
-    writeIds.resize(num_blocks);
+    std::vector<adios_variable> &writeVars = this->WriteVars[md->MeshName];
+    writeVars.resize(num_blocks);
 
-    // global sizes as a strings
-    std::ostringstream hexplet_gdims;
-    hexplet_gdims << 6*num_blocks;
+    // global sizes
+    size_t hexplet_gdims = 6*num_blocks;
 
     // define for each block
     for (unsigned int j = 0; j < num_blocks; ++j)
@@ -2104,22 +2072,20 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       // define the variable for a local block
       if (md->BlockOwner[j] ==  rank)
         {
-        // local size as a string
-        std::ostringstream hexplet_ldims;
-        hexplet_ldims << 6;
+        // local size
+        size_t hexplet_ldims = 6;
 
         // offset as a string
-        std::ostringstream hexplet_boffs;
-        hexplet_boffs << 6*j;
+        size_t hexplet_boffs = 6*j;
 
         // /data_object_<id>/data_array_<id>/extent
         std::string path_extent = ons + "extent";
-        int64_t extent_write_id = adios_define_var(gh, path_extent.c_str(), "",
-           adios_integer, hexplet_ldims.str().c_str(), hexplet_gdims.str().c_str(),
-           hexplet_boffs.str().c_str());
+        adios2_variable extent_write_id = adios2_define_variable(handles.io, path_extent.c_str(),
+           adios2_type_int32_t, 1, &hexplet_ldims, &hexplet_gdims,
+           &hexplet_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        writeIds[j] = extent_write_id;
+        writeVars[j] = extent_write_var;
         }
       }
     }
@@ -2128,7 +2094,7 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
+int LogicallyCartesianSchema::Write(MPI_Comm comm, AdiosHanlde handles,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   if (sensei::VTKUtils::LogicallyCartesian(md))
@@ -2139,12 +2105,13 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
+    std::vector<adios2_variable> &writeVars = this->WriteVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
+    //TODO - this may be buggy and we just don't know at all...........
     unsigned int num_blocks = md->NumBlocks;
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
@@ -2160,16 +2127,16 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
         switch (md->BlockType)
           {
           case VTK_RECTILINEAR_GRID:
-            adios_write_byid(fh, writeIds[j],
-              dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent());
+            adios2_put(handles.engine, writeIds[j],
+              dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent(), adios2_mode_deferred);
             break;
           case VTK_IMAGE_DATA:
-            adios_write_byid(fh, writeIds[j],
-              dynamic_cast<vtkImageData*>(dobj)->GetExtent());
+            adios2_put(handles.engine, writeIds[j],
+              dynamic_cast<vtkImageData*>(dobj)->GetExtent(), adios2_mode_deferred);
             break;
           case VTK_STRUCTURED_GRID:
-            adios_write_byid(fh, writeIds[j],
-              dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent());
+            adios_write_byid(handles.engine, writeIds[j],
+              dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent(), adios2_mode_deferred);
             break;
           }
 
@@ -2264,21 +2231,21 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
 struct UniformCartesianSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh, const std::string &ons,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md);
 
-  int Write(MPI_Comm comm, int64_t fh,
+  int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+  int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<int64_t>> OriginWriteIds;
-  std::map<std::string, std::vector<int64_t>> SpacingWriteIds;
+  std::map<std::string, std::vector<adios2_variable>> OriginWriteVars;
+  std::map<std::string, std::vector<adios2_variable>> SpacingWriteVars;
 };
 
 // --------------------------------------------------------------------------
-int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int UniformCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   if (sensei::VTKUtils::UniformCartesian(md))
@@ -2291,15 +2258,14 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
 
-    std::vector<int64_t> &originWriteIds = this->OriginWriteIds[md->MeshName];
-    originWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &originWriteVars = this->OriginWriteVars[md->MeshName];
+    originWriteVars.resize(num_blocks);
 
-    std::vector<int64_t> &spacingWriteIds = this->SpacingWriteIds[md->MeshName];
-    spacingWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &spacingWriteVars = this->SpacingWriteVars[md->MeshName];
+    spacingWriteVars.resize(num_blocks);
 
-    // global sizes as a strings
-    std::ostringstream triplet_gdims;
-    triplet_gdims << 3*num_blocks;
+    // global sizes
+    size_t triplet_gdims = 3*num_blocks;
 
     // define for each block
     for (unsigned int j = 0; j < num_blocks; ++j)
@@ -2307,31 +2273,29 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       // define the variable for a local block
       if (md->BlockOwner[j] ==  rank)
         {
-        // local size as a string
-        std::ostringstream triplet_ldims;
-        triplet_ldims << 3;
+        // local size
+        size_t triplet_ldims = 3;
 
-        // offset as a string
-        std::ostringstream triplet_boffs;
-        triplet_boffs << 3*j;
+        // offset
+        size_t triplet_boffs = 3*j;
 
         // /data_object_<id>/data_array_<id>/origin
         std::string path_origin = ons + "origin";
-        int64_t origin_write_id = adios_define_var(gh, path_origin.c_str(), "",
-           adios_double, triplet_ldims.str().c_str(), triplet_gdims.str().c_str(),
-           triplet_boffs.str().c_str());
+        adios2_variable origin_write_var = adios2_define_variable(handles.io, path_origin.c_str(),
+           adios2_type_double, 1, &triplet_ldims, &triplet_gdims,
+           &triplet_boffsl, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        originWriteIds[j] = origin_write_id;
+        originWriteVars[j] = origin_write_var;
 
         // /data_object_<id>/data_array_<id>/spacing
         std::string path_spacing = ons + "spacing";
-        int64_t spacing_write_id = adios_define_var(gh, path_spacing.c_str(), "",
-           adios_double, triplet_ldims.str().c_str(), triplet_gdims.str().c_str(),
-           triplet_boffs.str().c_str());
+        adios2_variable spacing_write_var = adios2_define_variable(handles.io, path_spacing.c_str(),
+           adios2_type_double, 1, &triplet_ldims, &triplet_gdims,
+           &triplet_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        spacingWriteIds[j] = spacing_write_id;
+        spacingWriteVars[j] = spacing_write_var;
         }
       }
     }
@@ -2340,7 +2304,7 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
+int UniformCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   if (sensei::VTKUtils::UniformCartesian(md))
@@ -2351,8 +2315,8 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<int64_t> &originWriteIds = this->OriginWriteIds[md->MeshName];
-    std::vector<int64_t> &spacingWriteIds = this->SpacingWriteIds[md->MeshName];
+    std::vector<adios2_variable> &originWriteVars = this->OriginWriteVars[md->MeshName];
+    std::vector<adios2_variable> &spacingWriteVars = this->SpacingWriteVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -2371,8 +2335,8 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
           return -1;
           }
 
-        adios_write_byid(fh, originWriteIds[j], ds->GetOrigin());
-        adios_write_byid(fh, spacingWriteIds[j], ds->GetSpacing());
+        adios2_put(handles.engine, originWriteIds[j], ds->GetOrigin(), adios2_mode_deferred);
+        adios2_put(handles.engine, spacingWriteIds[j], ds->GetSpacing(), adios2_mode_deferred);
 
         numBytes += 6*sizeof(double);
         }
@@ -2462,22 +2426,22 @@ int UniformCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
 struct StretchedCartesianSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh, const std::string &ons,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md);
 
-  int Write(MPI_Comm comm, int64_t fh,
+  int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
+  int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<int64_t>> XCoordWriteIds;
-  std::map<std::string, std::vector<int64_t>> YCoordWriteIds;
-  std::map<std::string, std::vector<int64_t>> ZCoordWriteIds;
+  std::map<std::string, std::vector<adios2_variable>> XCoordWriteVars;
+  std::map<std::string, std::vector<adios2_variable>> YCoordWriteVars;
+  std::map<std::string, std::vector<adios2_variable>> ZCoordWriteVars;
 };
 
 // --------------------------------------------------------------------------
-int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
   if (sensei::VTKUtils::StretchedCartesian(md))
@@ -2490,14 +2454,14 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     unsigned int num_blocks = md->NumBlocks;
 
     // allocate write ids
-    std::vector<int64_t> &xCoordWriteIds = this->XCoordWriteIds[md->MeshName];
-    xCoordWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &xCoordWriteVars = this->XCoordWriteVars[md->MeshName];
+    xCoordWriteVars.resize(num_blocks);
 
-    std::vector<int64_t> &yCoordWriteIds = this->YCoordWriteIds[md->MeshName];
-    yCoordWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &yCoordWriteVars = this->YCoordWriteVars[md->MeshName];
+    yCoordWriteVars.resize(num_blocks);
 
-    std::vector<int64_t> &zCoordWriteIds = this->ZCoordWriteIds[md->MeshName];
-    zCoordWriteIds.resize(num_blocks);
+    std::vector<adios2_variable> &zCoordWriteVars = this->ZCoordWriteVars[md->MeshName];
+    zCoordWriteVars.resize(num_blocks);
 
     // calc global size
     unsigned long long nx_total = 0;
@@ -2514,15 +2478,10 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     // data type for points
     adios2_type point_type = adiosType(md->CoordinateType);
 
-    // global sizes as a strings
-    std::ostringstream x_gdims;
-    x_gdims << nx_total;
-
-    std::ostringstream y_gdims;
-    y_gdims << ny_total;
-
-    std::ostringstream z_gdims;
-    z_gdims << nz_total;
+    // global sizes
+    size_t x_gdims = nx_total;
+    size_t y_gdims = ny_total;
+    size_t z_gdims = nz_total;
 
     // define the variable once for each block
     unsigned long long x_block_offset = 0;
@@ -2540,52 +2499,39 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       // define the variable for a local block
       if (md->BlockOwner[j] ==  rank)
         {
-        // local size as a string
-        std::ostringstream x_ldims;
-        x_ldims << nx_local;
+        // local size
+        size_t x_ldims = nx_local;
+        size_t y_ldims = ny_local;
+        size_t z_ldims = nz_local;
 
-        std::ostringstream y_ldims;
-        y_ldims << ny_local;
-
-        std::ostringstream z_ldims;
-        z_ldims << nz_local;
-
-        // offset as a string
-        std::ostringstream x_boffs;
-        x_boffs << x_block_offset;
-
-        std::ostringstream y_boffs;
-        y_boffs << y_block_offset;
-
-        std::ostringstream z_boffs;
-        z_boffs << z_block_offset;
+        // offset
+        size_t x_boffs = x_block_offset;
+        size_t y_boffs = y_block_offset;
+        size_t z_boffs = z_block_offset;
 
         // /data_object_<id>/data_array_<id>/x_coords
         std::string path_xc = ons + "x_coords";
-        int64_t xc_write_id = adios_define_var(gh, path_xc.c_str(), "",
-           point_type, x_ldims.str().c_str(), x_gdims.str().c_str(),
-           x_boffs.str().c_str());
+        adios2_variable xc_write_var = adios2_define_variable(handles.io, path_xc.c_str(),
+           point_type, 1, &x_ldims, &x_gdims, &x_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        xCoordWriteIds[j] = xc_write_id;
+        xCoordWriteVars[j] = xc_write_var;
 
         // /data_object_<id>/data_array_<id>/y_coords
         std::string path_yc = ons + "y_coords";
-        int64_t yc_write_id = adios_define_var(gh, path_yc.c_str(), "",
-           point_type, y_ldims.str().c_str(), y_gdims.str().c_str(),
-           y_boffs.str().c_str());
+        adios2_variable yc_write_var = adios2_define_variable(handles.io, path_yc.c_str(),
+           point_type, 1, &y_ldims, &y_gdims, &y_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        yCoordWriteIds[j] = yc_write_id;
+        yCoordWriteVars[j] = yc_write_var;
 
         // /data_object_<id>/data_array_<id>/z_coords
         std::string path_zc = ons + "z_coords";
-        int64_t zc_write_id = adios_define_var(gh, path_zc.c_str(), "",
-           point_type, z_ldims.str().c_str(), z_gdims.str().c_str(),
-           z_boffs.str().c_str());
+        adios2_variable zc_write_var = adios2_define_variable(handles.io, path_zc.c_str(),
+           point_type, 1, &z_ldims, &z_gdims, &z_boffs, adios2_constant_dims_true);
 
         // save the id for subsequent write
-        zCoordWriteIds[j] = zc_write_id;
+        zCoordWriteVars[j] = zc_write_var;
         }
 
       // update the block offset
@@ -2599,7 +2545,7 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
+int StretchedCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   if (sensei::VTKUtils::StretchedCartesian(md))
@@ -2610,9 +2556,9 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<int64_t> &xCoordWriteIds = this->XCoordWriteIds[md->MeshName];
-    std::vector<int64_t> &yCoordWriteIds = this->YCoordWriteIds[md->MeshName];
-    std::vector<int64_t> &zCoordWriteIds = this->ZCoordWriteIds[md->MeshName];
+    std::vector<adios2_variable> &xCoordWriteVars = this->XCoordWriteVars[md->MeshName];
+    std::vector<adios2_variable> &yCoordWriteVars = this->YCoordWriteVars[md->MeshName];
+    std::vector<adios2_variable> &zCoordWriteVars = this->ZCoordWriteVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -2634,9 +2580,9 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
         vtkDataArray *yda = ds->GetYCoordinates();
         vtkDataArray *zda = ds->GetZCoordinates();
 
-        adios_write_byid(fh, xCoordWriteIds[j], xda->GetVoidPointer(0));
-        adios_write_byid(fh, yCoordWriteIds[j], yda->GetVoidPointer(0));
-        adios_write_byid(fh, zCoordWriteIds[j], zda->GetVoidPointer(0));
+        adios2_put(handles.engine, xCoordWriteVars[j], xda->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_put(handles.engine, yCoordWriteVars[j], yda->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_put(handles.engine, zCoordWriteVars[j], zda->GetVoidPointer(0), adios2_mode_deferred);
 
         long long cts = size(xda->GetDataType());
         numBytes += xda->GetNumberOfTuples()*cts +
@@ -2778,17 +2724,17 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
 struct DataObjectSchema
 {
-  int DefineVariables(MPI_Comm comm, int64_t gh,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles,
     unsigned int doid,  const sensei::MeshMetadataPtr &md);
 
-  int Write(MPI_Comm comm, int64_t fh, unsigned int doid,
+  int Write(MPI_Comm comm, AdiosHandle handles, unsigned int doid,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  int ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
+  int ReadMesh(MPI_Comm comm, AdiosHandle handles,
     unsigned int doid, const sensei::MeshMetadataPtr &md,
     vtkCompositeDataSet *&dobj, bool structure_only);
 
-  int ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
+  int ReadArray(MPI_Comm comm, AdiosHandle handles,
     unsigned int doid, const std::string &name, int association,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
@@ -2805,7 +2751,7 @@ struct DataObjectSchema
 };
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int DataObjectSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   unsigned int doid, const sensei::MeshMetadataPtr &md)
 {
   timer::MarkEvent mark("senseiADIOS2::DataObjectSchema::DefineVariables");
@@ -2814,13 +2760,13 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   std::ostringstream ons;
   ons << "data_object_" << doid << "/";
 
-  if (this->DataArrays.DefineVariables(comm, gh, ons.str(), md) ||
-    this->Points.DefineVariables(comm, gh, ons.str(), md) ||
-    this->UnstructuredCells.DefineVariables(comm, gh, ons.str(), md) ||
-    this->PolydataCells.DefineVariables(comm, gh, ons.str(), md) ||
-    this->UniformCartesian.DefineVariables(comm, gh, ons.str(), md) ||
-    this->StretchedCartesian.DefineVariables(comm, gh, ons.str(), md) ||
-    this->LogicallyCartesian.DefineVariables(comm, gh, ons.str(), md))
+  if (this->DataArrays.DefineVariables(comm, handles, ons.str(), md) ||
+    this->Points.DefineVariables(comm, handles, ons.str(), md) ||
+    this->UnstructuredCells.DefineVariables(comm, handles, ons.str(), md) ||
+    this->PolydataCells.DefineVariables(comm, handles, ons.str(), md) ||
+    this->UniformCartesian.DefineVariables(comm, handles, ons.str(), md) ||
+    this->StretchedCartesian.DefineVariables(comm, handles, ons.str(), md) ||
+    this->LogicallyCartesian.DefineVariables(comm, handles, ons.str(), md))
     {
     SENSEI_ERROR("Failed to define variables for object "
       << doid << " \"" << md->MeshName << "\"")
@@ -2831,18 +2777,20 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
+int DataObjectSchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int doid,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
   timer::MarkEvent mark("senseiADIOS2::DataObjectSchema::Write");
 
-  if (this->DataArrays.Write(comm, fh, md, dobj) ||
-    this->Points.Write(comm, fh, md, dobj) ||
-    this->UnstructuredCells.Write(comm, fh, md, dobj) ||
-    this->PolydataCells.Write(comm, fh, md, dobj) ||
-    this->UniformCartesian.Write(comm, fh, md, dobj) ||
-    this->StretchedCartesian.Write(comm, fh, md, dobj) ||
-    this->LogicallyCartesian.Write(comm, fh, md, dobj))
+  //TODO - we never declared the engine object... everything should be declared by now
+
+  if (this->DataArrays.Write(comm, handles, md, dobj) ||
+    this->Points.Write(comm, handles, md, dobj) ||
+    this->UnstructuredCells.Write(comm, handles, md, dobj) ||
+    this->PolydataCells.Write(comm, handles, md, dobj) ||
+    this->UniformCartesian.Write(comm, handles, md, dobj) ||
+    this->StretchedCartesian.Write(comm, handles, md, dobj) ||
+    this->LogicallyCartesian.Write(comm, handles, md, dobj))
     {
     SENSEI_ERROR("Failed to write for object "
       << doid << " \"" << md->MeshName << "\"")
@@ -2853,7 +2801,7 @@ int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
+int DataObjectSchema::ReadMesh(MPI_Comm comm, AdiosHandle handles,
   unsigned int doid, const sensei::MeshMetadataPtr &md,
   vtkCompositeDataSet *&dobj, bool structure_only)
 {
@@ -2871,12 +2819,12 @@ int DataObjectSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
   ons << "data_object_" << doid << "/";
 
   if ((!structure_only &&
-    (this->Points.Read(comm, fh, ons.str(), md, dobj) ||
-    this->UnstructuredCells.Read(comm, fh, ons.str(), md, dobj) ||
-    this->PolydataCells.Read(comm, fh, ons.str(), md, dobj))) ||
-    this->UniformCartesian.Read(comm, fh, ons.str(), md, dobj) ||
-    this->StretchedCartesian.Read(comm, fh, ons.str(), md, dobj) ||
-    this->LogicallyCartesian.Read(comm, fh, ons.str(), md, dobj))
+    (this->Points.Read(comm, handles, ons.str(), md, dobj) ||
+    this->UnstructuredCells.Read(comm, handles, ons.str(), md, dobj) ||
+    this->PolydataCells.Read(comm, handles, ons.str(), md, dobj))) ||
+    this->UniformCartesian.Read(comm, handles, ons.str(), md, dobj) ||
+    this->StretchedCartesian.Read(comm, handles, ons.str(), md, dobj) ||
+    this->LogicallyCartesian.Read(comm, handles, ons.str(), md, dobj))
     {
     SENSEI_ERROR("Failed to define variables for object "
       << doid << " \"" << md->MeshName << "\"")
@@ -2887,7 +2835,7 @@ int DataObjectSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
 }
 
 // --------------------------------------------------------------------------
-int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
+int DataObjectSchema::ReadArray(MPI_Comm comm, AdiosHandle handles,
   unsigned int doid, const std::string &name, int association,
   const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
 {
@@ -2896,7 +2844,7 @@ int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
   std::ostringstream ons;
   ons << "data_object_" << doid << "/";
 
-  if (this->DataArrays.Read(comm, fh, ons.str(), name, association, md, dobj))
+  if (this->DataArrays.Read(comm, handles, ons.str(), name, association, md, dobj))
     {
     SENSEI_ERROR("Failed to define variables for object "
       << doid << " \"" << md->MeshName << "\"")
@@ -3096,23 +3044,26 @@ int DataObjectCollectionSchema::GetObjectId(MPI_Comm comm,
 }
 
 // --------------------------------------------------------------------------
-int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
+int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::vector<sensei::MeshMetadataPtr> &metadata)
 {
   timer::MarkEvent("DataObjectCollectionSchema::DefineVariables");
 
   // mark the file as ours and declare version it is written with
-  this->Internals->Version.DefineVariables(gh);
+  this->Internals->Version.DefineVariables(handles);
 
   // /time
   // /time_step
-  adios_define_var(gh, "time_step" ,"", adios_unsigned_long, "", "", "");
-  adios_define_var(gh, "time" ,"", adios_double, "", "", "");
+  size_t ndims
+  adios2_define_variable(handles.io, "time_step", adios2_type_uint64_t,
+                         0, NULL, NULL, NULL, adios2_constant_dims_true);
+  adios2_define_variable(handles.io, "time", adios2_type_double,
+                         0, NULL, NULL, NULL, adios2_constant_dims_true);
 
   // /number_of_data_objects
   unsigned int n_objects = metadata.size();
-  adios_define_var(gh, "number_of_data_objects", "", adios_integer,
-    "", "", "");
+  adios2_define_variable(handles.io, "number_of_data_objects", adios2_type_int32_t,
+                         0, NULL, NULL, NULL, adios2_constant_dims_true);
 
   for (unsigned int i = 0; i < n_objects; ++i)
     {
@@ -3128,9 +3079,9 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
       }
 
     // /data_object_<id>/metadata
-    BinaryStreamSchema::DefineVariables(gh, object_id + "metadata");
+    BinaryStreamSchema::DefineVariables(handles, object_id + "metadata");
 
-    if (this->Internals->DataObject.DefineVariables(comm, gh, i, metadata[i]))
+    if (this->Internals->DataObject.DefineVariables(comm, handles, i, metadata[i]))
       {
       SENSEI_ERROR("Failed to define variables for object "
         << i << " " << metadata[i]->MeshName)
@@ -3142,7 +3093,7 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 }
 
 // --------------------------------------------------------------------------
-int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
+int DataObjectCollectionSchema::Write(MPI_Comm comm, AdiosHandle handles,
   unsigned long time_step, double time,
   const std::vector<sensei::MeshMetadataPtr> &metadata,
   const std::vector<vtkCompositeDataSet*> &objects)
@@ -3159,16 +3110,14 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
     }
 
   // write the schema version
-  this->Internals->Version.Write(fh);
+  this->Internals->Version.Write(handles);
 
-  // all ranks need to write this info for FLEXPATH method
-  // but not the MPI method.
-  adios_write(fh, "time_step", &time_step);
-  adios_write(fh, "time", &time);
+  adios2_put(handles.engine, "time_step", &time_step, adios2_mode_deferred);
+  adios2_put(handles.engine, "time", &time, adios2_mode_deferred);
 
   // /number_of_data_objects
   std::string path = "number_of_data_objects";
-  adios_write(fh, path.c_str(), &n_objects);
+  adios2_put(handles.engine, path.c_str(), &n_objects, adios2_mode_deferred);
 
   for (unsigned int i = 0; i < n_objects; ++i)
     {
@@ -3181,9 +3130,9 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
 
     // /data_object_<id>/metadata
     path = object_id + "metadata";
-    BinaryStreamSchema::Write(fh, path, bs);
+    BinaryStreamSchema::Write(handles, path, bs);
 
-    if (this->Internals->DataObject.Write(comm, fh, i, metadata[i], objects[i]))
+    if (this->Internals->DataObject.Write(comm, handles, i, metadata[i], objects[i]))
       {
       SENSEI_ERROR("Failed to write object " << i << " \""
         << metadata[i]->MeshName << "\"")

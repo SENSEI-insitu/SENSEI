@@ -3,7 +3,6 @@
 
 class vtkDataSet;
 class vtkDataObject;
-typedef struct _ADIOS_FILE ADIOS_FILE;
 
 #include "MeshMetadata.h"
 #include <adios_read.h>
@@ -14,9 +13,16 @@ typedef struct _ADIOS_FILE ADIOS_FILE;
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <limits.h>
 
 namespace senseiADIOS1
 {
+
+ typedef struct {
+   adios2::IO *io;
+   adios2::Engine *engine;
+ } AdiosHandle;
+
 
 struct InputStream;
 
@@ -89,7 +95,10 @@ private:
 
   struct InternalsType;
   InternalsType *Internals;
+  size_t ADIOS2_BIG_SIZE = INT_MAX;
 };
+
+
 
 /// High level operations on an ADIOS file/stream
 struct InputStream
