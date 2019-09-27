@@ -58,6 +58,8 @@ static const std::string ATTRNAME_NUM_TIMESTEP = "num_timestep";
 static const std::string ATTRNAME_NUM_MESH = "num_meshs";
 static const std::string TAG_MESH = "mesh_";
 static const std::string TAG_ARRAY = "array_";
+static const std::string TAG_VTK_GHOST =
+  "vtkGhostType"; // reserved  to indicate ghost array for cell/points
 
 static bool gCheckSenseiCall(int code)
 {
@@ -547,7 +549,7 @@ void PerStepStreamHandler::UpdateAvailStep()
     throw std::ios_base::failure(std::strerror(errno));
 
   outfile << 1;
-
+  outfile.flush();
   outfile.close();
 }
 
@@ -561,22 +563,31 @@ bool PerStepStreamHandler::NoMoreStep()
 
   unsigned int counter = 0;
   unsigned int MAXWAIT = 900;
-  while(true)
-    {
-      GetCurrAvailStep();
-      if((m_NumStepsWritten < 0) && (m_TimeStepCounter > 0))
-        return true; // all finished
 
-      if((m_NumStepsWritten - m_TimeStepCounter) > 0)
-        return false;
+  while (true) {
+    GetCurrAvailStep();
+    if ((m_NumStepsWritten < 0) && (m_TimeStepCounter > 0))
+      return true; // all finished
+    
+    if ((m_NumStepsWritten - m_TimeStepCounter) > 0)
+      return false;
 
-      // either nothing is written ((m_timestepcounter == 0) && (
-      // m_numstepswritten <0)) or no new steps (numstepswritten = counter)
-      sleep(1);
-      counter++;
-      if(counter > MAXWAIT)
-        return true;
+    if (m_AllStepsWritten && (0 == (m_NumStepsWritten - m_TimeStepCounter)))
+      return true;
+    // either nothing is written ((m_timestepcounter == 0) && (
+    // m_numstepswritten <0)) or no new steps (numstepswritten = counter)
+    if (counter % 20 == 0) {
+      std::ostringstream oss;
+      oss << "H5Wait=" << m_TimeStepCounter << "_" << m_NumStepsWritten;
+      std::string evtName = oss.str();
+      timer::MarkEvent mark(evtName.c_str());
     }
+
+    sleep(1);
+    counter++;
+    if(counter > MAXWAIT)
+      return true;
+  }
   return true;
 }
 
@@ -993,41 +1004,48 @@ bool MeshFlow::ReadArray(ReadStream *reader,
   sensei::MeshMetadataPtr md;
   reader->ReadReceiverMeshMetaData(m_MeshID, md);
 
-  unsigned int num_blocks = md->NumBlocks;
+  //unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
 
+  if (array_name == TAG_VTK_GHOST) {
+    ArrayFlow arrayFlow(m_MeshID, association, md);
+    Load(&arrayFlow, md, reader);
+    return true;
+  }
+
   // read data arrays
-  for(unsigned int i = 0; i < num_arrays; ++i)
-    {
-      // skip all but the requested array
-      if((association != md->ArrayCentering[i]) ||
-          (array_name != md->ArrayName[i]))
-        continue;
+  for (unsigned int i = 0; i < num_arrays; ++i) {
+    // skip all but the requested array
+    if ((association != md->ArrayCentering[i]) ||
+        (array_name != md->ArrayName[i]))
+      continue;
 
-      vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
-      it->SetSkipEmptyNodes(0);
-      it->InitTraversal();
-
-      ArrayFlow arrayFlow(md, m_MeshID, i);
-
-      for(unsigned int j = 0; j < num_blocks; ++j)
-        {
-          // define the variable for a local block
-          if(md->BlockOwner[j] == reader->m_Rank)
-            {
-              if(!arrayFlow.load(j, it, reader))
-                return false;
-            }
-          arrayFlow.update(j);
-          // next block
-          it->GoToNextItem();
-        }
-
-      it->Delete();
-    }
+    ArrayFlow arrayFlow(md, m_MeshID, i);
+    Load(&arrayFlow, md, reader);
+  }
 
   return true;
 }
+
+void MeshFlow::Load(ArrayFlow *arrayFlowPtr, const sensei::MeshMetadataPtr &md,
+                    ReadStream *reader) {
+  unsigned int num_blocks = md->NumBlocks;
+
+  vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+  it->SetSkipEmptyNodes(0);
+  it->InitTraversal();
+
+  for (unsigned int j = 0; j < num_blocks; ++j) {
+    if (md->BlockOwner[j] == reader->m_Rank) {
+      arrayFlowPtr->load(j, it, reader);
+    }
+    arrayFlowPtr->update(j);
+    it->GoToNextItem();
+  }
+
+  it->Delete();
+}
+
 
 bool MeshFlow::Initialize(const sensei::MeshMetadataPtr &md, ReadStream *input)
 {
@@ -1118,28 +1136,47 @@ bool MeshFlow::WriteTo(WriteStream *output, const sensei::MeshMetadataPtr &md)
 
   {
     unsigned int num_arrays = md->NumArrays;
-    for(unsigned int i = 0; i < num_arrays; ++i)
-      {
-        vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
-        it->SetSkipEmptyNodes(0);
-        it->InitTraversal();
+    for (unsigned int i = 0; i < num_arrays; ++i) {
+      ArrayFlow arrayFlow(md, m_MeshID, i);
+      Unload(&arrayFlow, md, output);
+    }
+  }
 
-        ArrayFlow arrayFlow(md, m_MeshID, i);
-        for(unsigned int j = 0; j < num_blocks; ++j)
-          {
-            if(output->m_Rank == md->BlockOwner[j])
-              {
-                arrayFlow.unload(j, it, output);
-              }
-            arrayFlow.update(j);
-            it->GoToNextItem();
-          }
+  {
+    if (md->NumGhostCells) {
+      ArrayFlow arrayFlow(m_MeshID, vtkDataObject::CELL, md);
+      Unload(&arrayFlow, md, output);
+    }
 
-        it->Delete();
-      }
+    if (md->NumGhostNodes) {
+      ArrayFlow arrayFlow(m_MeshID, vtkDataObject::POINT, md);
+      Unload(&arrayFlow, md, output);
+    }
   }
 
   return true;
+}
+
+void MeshFlow::Unload(ArrayFlow *arrayFlowPtr,
+                      const sensei::MeshMetadataPtr &md, 
+		      WriteStream *output) 
+{
+  unsigned int num_blocks = md->NumBlocks;
+
+  vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+  it->SetSkipEmptyNodes(0);
+  it->InitTraversal();
+
+  // ArrayFlow arrayFlow(md, m_MeshID, i);
+  for (unsigned int j = 0; j < num_blocks; ++j) {
+    if (output->m_Rank == md->BlockOwner[j]) {
+      arrayFlowPtr->unload(j, it, output);
+    }
+    arrayFlowPtr->update(j);
+    it->GoToNextItem();
+  }
+
+  it->Delete();
 }
 
 //
@@ -1233,6 +1270,8 @@ ArrayFlow::ArrayFlow(const sensei::MeshMetadataPtr &md,
   , m_BlockOffset(0)
   , m_ArrayID(arrayID)
 {
+  m_IsGhostArray = false;
+
   m_ArrayCenter = md->ArrayCentering[arrayID];
   m_NumArrayComponent = md->ArrayComponents[arrayID];
 
@@ -1247,11 +1286,47 @@ ArrayFlow::ArrayFlow(const sensei::MeshMetadataPtr &md,
   m_ElementTotal *= m_NumArrayComponent;
 }
 
+ArrayFlow::ArrayFlow(unsigned int meshID, int GhostCentering,
+                     const sensei::MeshMetadataPtr &md)
+    : VTKObjectFlow(md, meshID), m_BlockOffset(0) {
+  m_ArrayCenter = GhostCentering;
+  m_NumArrayComponent = 1; // md->ArrayComponents[arrayID];
+
+  m_IsGhostArray = true;
+
+  if (GhostCentering == vtkDataObject::CELL)
+    gGetNameStr(m_ArrayPath, m_MeshID, "ghostcell");
+  else if (GhostCentering == vtkDataObject::POINT)
+    gGetNameStr(m_ArrayPath, m_MeshID, "ghostpoint");
+
+  m_ArrayVarID = -1;
+
+  for (int j = 0; j < md->NumBlocks; ++j) {
+    m_ElementTotal += getLocalElement(j);
+  }
+
+  m_ElementTotal *= m_NumArrayComponent;
+}
+
 ArrayFlow::~ArrayFlow()
 {
   if(-1 != m_ArrayVarID)
     H5Dclose(m_ArrayVarID);
 }
+
+int ArrayFlow::GetArrayType() {
+  if (!m_IsGhostArray)
+    return m_Metadata->ArrayType[m_ArrayID];
+  return VTK_UNSIGNED_CHAR; // ghost data type
+}
+
+const std::string &ArrayFlow::GetArrayName() {
+  if (!m_IsGhostArray)
+    return m_Metadata->ArrayName[m_ArrayID];
+  return TAG_VTK_GHOST;
+}
+
+
 bool ArrayFlow::load(unsigned int block_id,
                      vtkCompositeDataIterator *it,
                      ReadStream *reader)
@@ -1265,10 +1340,9 @@ bool ArrayFlow::load(unsigned int block_id,
   uint64_t count = num_elem_local;
   ;
 
-  vtkDataArray *array =
-    vtkDataArray::CreateDataArray(m_Metadata->ArrayType[m_ArrayID]);
+  vtkDataArray *array = vtkDataArray::CreateDataArray(GetArrayType());
   array->SetNumberOfComponents(m_NumArrayComponent);
-  array->SetName(m_Metadata->ArrayName[m_ArrayID].c_str());
+  array->SetName(GetArrayName().c_str());
   array->SetNumberOfTuples(num_elem_local);
 
   if(!reader->ReadVar1D(m_ArrayPath, start, count, array->GetVoidPointer(0)))
@@ -1315,10 +1389,10 @@ bool ArrayFlow::unload(unsigned int block_id,
     ? dynamic_cast<vtkDataSetAttributes *>(ds->GetPointData())
     : dynamic_cast<vtkDataSetAttributes *>(ds->GetCellData());
 
-  vtkDataArray *da = dsa->GetArray(m_Metadata->ArrayName[m_ArrayID].c_str());
+  vtkDataArray *da = dsa->GetArray(GetArrayName().c_str()); 
   if(!da)
     {
-      SENSEI_ERROR("Failed to get array \"" << m_Metadata->ArrayName[m_ArrayID]
+      SENSEI_ERROR("Failed to get array \"" << GetArrayName()
                    << "\"");
       return false;
     }

@@ -277,6 +277,8 @@ private:
   unsigned int m_TimeStepTotal;
 };
 
+class ArrayFlow;
+
 //
 // a MESH is a vtkCompositeDataset
 //
@@ -302,6 +304,14 @@ public:
 
 private:
   bool ValidateMetaData(const sensei::MeshMetadataPtr &md);
+
+  void Unload(ArrayFlow *arrayFlowPtr, 
+	      const sensei::MeshMetadataPtr &md,
+              WriteStream *output);
+  void Load(ArrayFlow *arrayFlowPtr, 
+	    const sensei::MeshMetadataPtr &md,
+            ReadStream *reader);
+
 
   unsigned int m_MeshID;
 };
@@ -355,18 +365,28 @@ protected:
   std::vector<VTKObjectFlow *> m_Workers;
 };
 
-class ArrayFlow : public VTKObjectFlow
-{
+class ArrayFlow : public VTKObjectFlow {
 public:
-  ArrayFlow(const sensei::MeshMetadataPtr &md,
-            unsigned int meshID,
+  // regular array init
+  ArrayFlow(const sensei::MeshMetadataPtr &md, 
+	    unsigned int meshID,
             unsigned int arrayID);
+  // ghost array init
+  ArrayFlow(unsigned int meshID, 
+	    int centering,
+            const sensei::MeshMetadataPtr &md);
   ~ArrayFlow();
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
-  bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+
+  bool load(unsigned int block_id, 
+	    vtkCompositeDataIterator *it, 
+	    ReadStream *);
+  bool unload(unsigned int block_id, 
+	      vtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int block_id);
+
+  int GetArrayType();
+  const std::string &GetArrayName();
 
 protected:
   unsigned long long getLocalElement(unsigned int block_id);
@@ -377,11 +397,13 @@ private:
   hid_t m_ArrayVarID;
 
   unsigned int m_ArrayID;
+  bool m_IsGhostArray;
   int m_ArrayCenter;
   unsigned long long m_NumArrayComponent;
   unsigned long long m_ElementTotal = 0;
   ;
 };
+
 
 class PointFlow : public VTKObjectFlow
 {
