@@ -391,21 +391,19 @@ vtkDataObject *newDataObject(int code)
   return ret;
 }
 
+//TODO Matthew look at this, deadly trap
 // --------------------------------------------------------------------------
-bool streamIsFileBased(ADIOS_READ_METHOD method)
+bool streamIsFileBased(std::string engine)
 {
-  switch(method)
+  if (engine == "BPFile" || engine == "HDF5" || engine == "BP3" || engine == "BP4")
     {
-    case ADIOS_READ_METHOD_BP:
-    case ADIOS_READ_METHOD_BP_AGGREGATE:
-      return true;
-    case ADIOS_READ_METHOD_DATASPACES:
-    case ADIOS_READ_METHOD_DIMES:
-    case ADIOS_READ_METHOD_FLEXPATH:
-    case ADIOS_READ_METHOD_ICEE:
-      return false;
+    return true;
     }
-  SENSEI_ERROR("Unknown adios2 read method " << method)
+  else
+    {
+    return false;
+    }
+  SENSEI_ERROR("Unknown adios2 read engine " << engine)
   return false;
 }
 
@@ -667,32 +665,11 @@ int VersionSchema::Read(InputStream &iStream)
 
 
 // --------------------------------------------------------------------------
-int InputStream::SetReadMethod(const std::string &method)
+int InputStream::SetReadEngine(const std::string &engine)
 {
   timer::MarkEvent mark("senseiADIOS2::InputStream::SetReadMethod");
 
-  size_t n = method.size();
-  std::string lcase_method(n, ' ');
-  for (size_t i = 0; i < n; ++i)
-    lcase_method[i] = tolower(method[i]);
-
-  std::map<std::string, ADIOS_READ_METHOD> methods;
-  methods["bp"] = ADIOS_READ_METHOD_BP;
-  methods["bp_aggregate"] = ADIOS_READ_METHOD_BP_AGGREGATE;
-  methods["dataspaces"] = ADIOS_READ_METHOD_DATASPACES;
-  methods["dimes"] = ADIOS_READ_METHOD_DIMES;
-  methods["flexpath"] = ADIOS_READ_METHOD_FLEXPATH;
-
-  std::map<std::string, ADIOS_READ_METHOD>::iterator it =
-    methods.find(lcase_method);
-
-  if (it == methods.end())
-    {
-    SENSEI_ERROR("Unsupported read method requested \"" << method << "\"")
-    return -1;
-    }
-
-  this->ReadMethod = it->second;
+  this->ReadEngine = engine;
 
   return 0;
 }
@@ -700,36 +677,37 @@ int InputStream::SetReadMethod(const std::string &method)
 // --------------------------------------------------------------------------
 int InputStream::Open(MPI_Comm comm)
 {
-  return this->Open(comm, this->ReadMethod, this->FileName);
+  return this->Open(comm, this->ReadEngine, this->FileName);
 }
 
 // --------------------------------------------------------------------------
-int InputStream::Open(MPI_Comm comm, ADIOS_READ_METHOD method,
+int InputStream::Open(MPI_Comm comm, std::string engine,
   const std::string &fileName)
 {
   timer::MarkEvent mark("senseiADIOS2::InputStream::Open");
 
+  this->ReadEngine = engine;
+  this->FileName = fileName;
+
   this->Close();
 
-  // initialize adios
-  adios_read_init_method(method, comm, "verbose=1");
+  // initialize adios2
+  // args  0: comm
+  //       1: debug mode
+  //TODO turn off debug/expose to xml
+  this->Adios = adios2_init(this->GetCommunicator(), 1);
+
+  // Open the io handle
+  this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
 
   // open the file
-  ADIOS_FILE *file = adios_read_open(fileName.c_str(), method, comm,
-    streamIsFileBased(method) ? ADIOS_LOCKMODE_ALL :
-    ADIOS_LOCKMODE_CURRENT, -1.0f);
+  this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_read);
 
-//    adios2_open();
-
-  if (!file)
+  if (!this->Handles.engine)
     {
-    SENSEI_ERROR("Failed to open \"" << fileName << "\" for reading")
+    SENSEI_ERROR("Failed to open \"" << this->FileName << "\" for reading")
     return -1;
     }
-
-  this->File = file;
-  this->ReadMethod = method;
-  this->FileName = fileName;
 
   return 0;
 }
@@ -739,11 +717,14 @@ int InputStream::AdvanceTimeStep()
 {
   timer::MarkEvent mark("senseiADIOS2::InputStream::AdvanceTimeStep");
 
-  adios_release_step(this->File);
+  //TODO maybe this is inefficient?
+  adios2_end_step(this->Handles.engine);
+  adios2_step_step_status status;
+  adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_read, 0, &status);
 
-  if (adios_advance_step(this->File, 0,
-    streamIsFileBased(this->ReadMethod) ? 0.0f : -1.0f))
+  if (err != 0)
     {
+    SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
     this->Close();
     return -1;
     }
@@ -756,12 +737,13 @@ int InputStream::Close()
 {
   timer::MarkEvent mark("senseiADIOS2::InputStream::Close");
 
-  if (this->File)
+  if (this->Handles.engine)
     {
-    adios_read_close(this->File);
-    adios_read_finalize_method(this->ReadMethod);
-    this->File = nullptr;
-    this->ReadMethod = static_cast<ADIOS_READ_METHOD>(-1);
+    adios2_close(this->Handles.engine);
+    adios2_finalize(this->Adios);
+    this->Handles.engine = nullptr;
+    this->Handles.io = nullptr;
+    this->ReadEngine = "";
     }
 
   return 0;

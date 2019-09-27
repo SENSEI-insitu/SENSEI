@@ -15,7 +15,7 @@ class vtkDataObject;
 #include <vector>
 #include <limits.h>
 
-namespace senseiADIOS1
+namespace senseiADIOS2
 {
 
  typedef struct {
@@ -41,7 +41,7 @@ public:
   ~DataObjectCollectionSchema();
 
   // declare variables for adios write
-  int DefineVariables(MPI_Comm comm, int64_t gh,
+  int DefineVariables(MPI_Comm comm, AdiosHandle handles,
     const std::vector<sensei::MeshMetadataPtr> &metadata);
 
   // discover names of data objects on disk(or stream)
@@ -61,7 +61,7 @@ public:
   int GetNumberOfObjects(unsigned int &num);
 
   // write the object collection
-  int Write(MPI_Comm comm, int64_t fh, unsigned long time_step, double time,
+  int Write(MPI_Comm comm, AdiosHandle handles, unsigned long time_step, double time,
     const std::vector<sensei::MeshMetadataPtr> &metadata,
     const std::vector<vtkCompositeDataSet*> &objects);
 
@@ -103,13 +103,13 @@ private:
 /// High level operations on an ADIOS file/stream
 struct InputStream
 {
-  InputStream() : File(nullptr),
-    ReadMethod(static_cast<ADIOS_READ_METHOD>(-1)),
+  InputStream() : Handles.engine(nullptr)
+    ReadEngine(""),
     FileName() {}
 
-  int SetReadMethod(const std::string &method);
+  int SetReadEngine(const std::string &engine);
 
-  int Open(MPI_Comm comm, ADIOS_READ_METHOD method,
+  int Open(MPI_Comm comm, std::string readEngine,
     const std::string &fileName);
 
   int Open(MPI_Comm Comm);
@@ -118,10 +118,11 @@ struct InputStream
 
   int Close();
 
-  int Good() { return File != nullptr; }
+  int Good() { return Handles.engine != nullptr; }
 
-  ADIOS_FILE *File;
-  ADIOS_READ_METHOD ReadMethod;
+  AdiosHandle Handles;
+  adios2_adios *Adios;
+  std::string ReadEngine;
   std::string FileName;
 };
 
