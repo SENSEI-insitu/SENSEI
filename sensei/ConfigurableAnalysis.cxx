@@ -383,6 +383,15 @@ int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
         }
     }
 
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize HDF5 Transport.")
+    return -1;
+    }
+  dataE->SetDataRequirements(req);
+
+
   this->TimeInitialization(dataE);
   this->Analyses.push_back(dataE.GetPointer());
 
