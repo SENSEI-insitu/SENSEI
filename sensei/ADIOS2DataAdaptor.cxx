@@ -6,7 +6,7 @@
 #include "BlockPartitioner.h"
 #include "Error.h"
 #include "Timer.h"
-#include "ADIOS1Schema.h"
+#include "ADIOS2Schema.h"
 #include "VTKUtils.h"
 #include "XMLUtils.h"
 

@@ -41,8 +41,7 @@ namespace sensei
 senseiNewMacro(ADIOS2AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : MaxBufferSize(0),
-    Schema(nullptr), Engine("bpfile"), FileName("sensei.bp"), Handles(0)
+ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : Schema(nullptr), FileName("sensei.bp")
 {
 }
 
@@ -195,7 +194,7 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
     // args  0: comm
     //       1: debug mode
     //TODO turn off debug/expose to xml
-    this->Adios = adios2_init(this->GetCommunicator(), 1);
+    this->Adios = adios2_init(this->GetCommunicator(), adios2_debug_mode_on);
 
     // Open the io handle
     this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
@@ -265,7 +264,7 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     ierr = -1;
     }
 
-  adios_close(handle);
+  adios2_close(this->Handles.engine);
 
   return ierr;
 }

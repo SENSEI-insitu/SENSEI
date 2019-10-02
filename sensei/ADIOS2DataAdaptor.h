@@ -3,7 +3,7 @@
 
 #include "InTransitDataAdaptor.h"
 
-#include <adios2.h>
+#include <adios2_c.h>
 #include <mpi.h>
 #include <map>
 #include <string>
@@ -23,7 +23,7 @@ public:
 
   int SetFileName(const std::string &fileName);
 
-  int SetReadMethod(const std::string &readEngine);
+  int SetReadEngine(const std::string &readEngine);
 
   /// SENSEI InTransitDataAdaptor control API
   int Initialize(pugi::xml_node &parent) override;

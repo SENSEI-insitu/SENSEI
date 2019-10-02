@@ -5,17 +5,18 @@
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
 
+#include <ADIOS2Schema.h>
+
 #include <vector>
 #include <string>
 #include <mpi.h>
 
-namespace senseiADIOS2 { class DataObjectCollectionSchema; }
+namespace senseiADIOS2 { class AdiosHandle; class DataObjectCollectionSchema; }
 class vtkDataObject;
 class vtkCompositeDataSet;
 
 namespace sensei
 {
-
 /// The write side of the ADIOS 2 transport
 class ADIOS2AnalysisAdaptor : public AnalysisAdaptor
 {
@@ -67,12 +68,11 @@ protected:
   // shuts down ADIOS2
   int FinalizeADIOS2();
 
-  unsigned int MaxBufferSize;
   senseiADIOS2::DataObjectCollectionSchema *Schema;
   sensei::DataRequirements Requirements;
   std::string EngineName;
   std::string FileName;
-  AdiosHandle Handles;
+  senseiADIOS2::AdiosHandle Handles;
   adios2_adios *Adios;
 
 private:

@@ -5,7 +5,8 @@ class vtkDataSet;
 class vtkDataObject;
 
 #include "MeshMetadata.h"
-#include <adios_read.h>
+#include <adios2_c.h>
+#include <adios2.h>
 #include <vtkDataObject.h>
 #include <vtkCompositeDataSet.h>
 #include <mpi.h>
@@ -18,10 +19,14 @@ class vtkDataObject;
 namespace senseiADIOS2
 {
 
- typedef struct {
-   adios2::IO *io;
-   adios2::Engine *engine;
- } AdiosHandle;
+
+// typedef struct {
+class AdiosHandle
+{
+public:
+   adios2_io *io;
+   adios2_engine *engine;
+}; //AdiosHandle;
 
 
 struct InputStream;
@@ -103,9 +108,9 @@ private:
 /// High level operations on an ADIOS file/stream
 struct InputStream
 {
-  InputStream() : Handles.engine(nullptr)
-    ReadEngine(""),
-    FileName() {}
+  //InputStream() : Handles.engine(nullptr)
+  //  ReadEngine(""),
+  //  FileName() {}
 
   int SetReadEngine(const std::string &engine);
 
