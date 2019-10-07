@@ -1,17 +1,16 @@
-#ifndef MemoryProfiler_h
-#define MemoryProfiler_h
+#ifndef sensei_MemoryProfiler_h
+#define sensei_MemoryProfiler_h
 
+#include "senseiConfig.h"
 #include <mpi.h>
 #include <string>
 
+extern "C" void *profile(void *argp);
+
 namespace sensei
 {
-//namespace timer
-//{
 
-extern "C" void *Profile(void *argp);
-
-/// MemoryProfiler - A sampling memory use profiler
+// MemoryProfiler - A sampling memory use profiler
 /**
 The class samples process memory usage at the specified interval
 given in seconds. For each sample the time is aquired. Calling
@@ -22,28 +21,29 @@ file name provided
 class MemoryProfiler
 {
 public:
-  MemoryProfiler(const MemoryProfiler &) = delete;
-  void operator=(const MemoryProfiler &) = delete;
-
   MemoryProfiler();
   ~MemoryProfiler();
 
+  MemoryProfiler(const MemoryProfiler &) = delete;
+  void operator=(const MemoryProfiler &) = delete;
+
+  // start and stop the profiler
   int Initialize();
   int Finalize();
 
-  /// Set the interval in seconds between querrying
-  /// the processes memory use.
+  // Set the interval in seconds between querrying
+  // the processes memory use.
   void SetInterval(double interval);
   double GetInterval() const;
 
-  /// Set the comunicator for parallel I/O
+  // Set the comunicator for parallel I/O
   void SetCommunicator(MPI_Comm comm);
 
-  /// Set the file name to write the data to
-  void SetFileName(const std::string &fileName);
-  const char *GetFileName() const;
+  // Set the file name to write the data to
+  void SetFilename(const std::string &filename);
+  const char *GetFilename() const;
 
-  friend void *Profile(void *argp);
+  friend void *::profile(void *argp);
 
 private:
   struct InternalsType;
@@ -51,6 +51,4 @@ private:
 };
 
 }
-//}
-
 #endif

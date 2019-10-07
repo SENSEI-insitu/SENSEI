@@ -12,7 +12,7 @@
 #include "ConfigurableAnalysis.h"
 #include "senseiConfig.h"
 #include "Error.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "VTKUtils.h"
 #include "XMLUtils.h"
 #include "STLUtils.h"
@@ -127,7 +127,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
   AnalysisAdaptorPtr adaptor, std::function<int()> initializer)
 {
   const char* analysisName = nullptr;
-  bool logEnabled = Timer::Enabled();
+  bool logEnabled = Profiler::Enabled();
   if (logEnabled)
   {
     std::ostringstream initName;
@@ -141,13 +141,13 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
     this->LogEventNames.push_back(execName.str());
     this->LogEventNames.push_back(finiName.str());
     analysisName = this->LogEventNames[3 * analysisNumber].c_str();
-    Timer::MarkStartEvent(analysisName);
+    Profiler::StartEvent(analysisName);
   }
 
   int result = initializer();
 
   if (logEnabled)
-    Timer::MarkEndEvent(analysisName);
+    Profiler::EndEvent(analysisName);
 
   return result;
 }
@@ -1037,7 +1037,7 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)
 {
-  Timer::MarkEvent event("ConfigurableAnalysis::Initialize");
+  TimeEvent<128> event("ConfigurableAnalysis::Initialize");
 
   pugi::xml_document doc;
   if (XMLUtils::Parse(this->GetCommunicator(), filename, doc))
@@ -1055,7 +1055,7 @@ int ConfigurableAnalysis::Initialize(const std::string& filename)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 {
-  Timer::MarkEvent event("ConfigurableAnalysis::Initialize");
+  TimeEvent<128> event("ConfigurableAnalysis::Initialize");
 
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
@@ -1089,7 +1089,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 //----------------------------------------------------------------------------
 bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 {
-  Timer::MarkEvent event("ConfigurableAnalysis::Execute");
+  TimeEvent<128> event("ConfigurableAnalysis::Execute");
 
   int ai = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
@@ -1097,11 +1097,11 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
   for (; iter != end; ++iter, ++ai)
     {
     const char* analysisName = nullptr;
-    bool logEnabled = Timer::Enabled();
+    bool logEnabled = Profiler::Enabled();
     if (logEnabled)
       {
       analysisName = this->Internals->LogEventNames[3 * ai + 1].c_str();
-      Timer::MarkStartEvent(analysisName);
+      Profiler::StartEvent(analysisName);
       }
 
     if (!(*iter)->Execute(data))
@@ -1111,7 +1111,7 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
       }
 
     if (logEnabled)
-      Timer::MarkEndEvent(analysisName);
+      Profiler::EndEvent(analysisName);
     }
 
   return true;
@@ -1120,19 +1120,19 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Finalize()
 {
-  Timer::MarkEvent event("ConfigurableAnalysis::Finalize");
+  TimeEvent<128> event("ConfigurableAnalysis::Finalize");
 
   int ai = 0;
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter, ++ai)
     {
-    bool logEnabled = Timer::Enabled();
+    bool logEnabled = Profiler::Enabled();
     const char* analysisName = nullptr;
     if (logEnabled)
       {
       analysisName = this->Internals->LogEventNames[3 * ai + 2].c_str();
-      Timer::MarkStartEvent(analysisName);
+      Profiler::StartEvent(analysisName);
       }
 
     if ((*iter)->Finalize())
@@ -1142,7 +1142,7 @@ int ConfigurableAnalysis::Finalize()
       }
 
     if (logEnabled)
-      Timer::MarkEndEvent(analysisName);
+      Profiler::EndEvent(analysisName);
     }
 
   return 0;

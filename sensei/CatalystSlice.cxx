@@ -1,6 +1,6 @@
 #include "CatalystSlice.h"
 #include "CatalystUtilities.h"
-#include <Timer.h>
+#include <Profiler.h>
 #include <Error.h>
 
 #include <vtkCPDataDescription.h>
@@ -66,6 +66,7 @@ public:
 
   void UpdatePipeline(vtkDataObject* data, int timestep, double time)
   {
+    TimeEvent<128> mark("CatalystSlice::Internals::UpdatePipeline");
     if (!this->PipelineCreated)
       {
       this->TrivialProducer = catalyst::CreatePipelineProxy("sources", "PVTrivialProducer");
@@ -273,6 +274,7 @@ void CatalystSlice::SetImageParameters(const std::string& filename, int width, i
 //----------------------------------------------------------------------------
 int CatalystSlice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 {
+  TimeEvent<128> mark("CatalystSlice::RequestDataDescription");
   vtkInternals& internals = (*this->Internals);
   auto dd = internals.Mesh.empty() ?
     dataDesc->GetInputDescription(0) :
@@ -297,7 +299,7 @@ int CatalystSlice::RequestDataDescription(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int CatalystSlice::CoProcess(vtkCPDataDescription* dataDesc)
 {
-  Timer::MarkEvent mark("catalyst::slice");
+  TimeEvent<128> mark("CatalystSlice::CoProcess");
   vtkInternals& internals = (*this->Internals);
   auto dd = internals.Mesh.empty() ?
     dataDesc->GetInputDescription(0) :
@@ -314,6 +316,7 @@ int CatalystSlice::CoProcess(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int CatalystSlice::Finalize()
 {
+  TimeEvent<128> mark("CatalystSlice::Finalize");
   return 1;
 }
 
@@ -359,12 +362,6 @@ bool CatalystSlice::GetUseLogScale() const
 {
   vtkInternals& internals = (*this->Internals);
   return internals.UseLogScale;
-}
-
-//----------------------------------------------------------------------------
-void CatalystSlice::PrintSelf(ostream& os, vtkIndent indent)
-{
-  this->Superclass::PrintSelf(os, indent);
 }
 
 }

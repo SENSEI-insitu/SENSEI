@@ -1,6 +1,6 @@
 from mpi4py import *
 from sensei import VTKDataAdaptor,ConfigurableAnalysis, \
-  ADIOS1AnalysisAdaptor,BlockPartitioner,MeshMetadata,Timer
+  ADIOS1AnalysisAdaptor,BlockPartitioner,MeshMetadata,Profiler
 import sys,os
 import numpy as np
 import vtk, vtk.util.numpy_support as vtknp
@@ -98,8 +98,6 @@ def run_simulation(xmlConfig, nIts, theta, dom, nx, nblks):
 
     t = theta[0] + dt*i
 
-    Timer.MarkStartTimeStep(i, t)
-
     # make the mesh
     mbds = MakeMultiBlock(t, dom[0],dom[2], \
       dx[0],dx[1], nx[0],nx[1], nblks[0],nblks[1])
@@ -118,7 +116,6 @@ def run_simulation(xmlConfig, nIts, theta, dom, nx, nblks):
     if rank == 0:
       sys.stderr.write('.')
 
-    Timer.MarkEndTimeStep()
     i += 1
 
   if rank == 0:
@@ -132,7 +129,7 @@ def run_simulation(xmlConfig, nIts, theta, dom, nx, nblks):
   return 0
 
 if __name__ == '__main__':
-  Timer.Initialize()
+  Profiler.Initialize()
 
   # process command line
   if len(sys.argv) != 13:
@@ -155,7 +152,7 @@ if __name__ == '__main__':
   if ierr:
     error_message('write failed')
 
-  Timer.Finalize()
+  Profiler.Finalize()
 
   # return the error code
   sys.exit(ierr)

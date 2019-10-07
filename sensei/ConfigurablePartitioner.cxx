@@ -5,7 +5,7 @@
 #include "PlanarPartitioner.h"
 #include "PlanarSlicePartitioner.h"
 #include "XMLUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <pugixml.hpp>
 
@@ -35,7 +35,7 @@ ConfigurablePartitioner::~ConfigurablePartitioner()
 int ConfigurablePartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &in,
     MeshMetadataPtr &out)
 {
-  Timer::MarkEvent mark("ConfigurablePartitioner::GetPartition");
+  TimeEvent<128> mark("ConfigurablePartitioner::GetPartition");
 
   if (!this->Internals->Part)
     {
@@ -49,6 +49,8 @@ int ConfigurablePartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &
 // ---------------------------------------------------------------------------
 int ConfigurablePartitioner::Initialize(pugi::xml_node &partNode)
 {
+  TimeEvent<128> mark("ConfigurablePartitioner::Initialize");
+
   // partNode must contain a valid <partitioner> element, any problems
   // indicate a critical error
 

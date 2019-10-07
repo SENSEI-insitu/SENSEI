@@ -17,12 +17,13 @@
 #include "Block.h"
 
 #include "senseiConfig.h"
+#include "MPIManager.h"
 #ifdef ENABLE_SENSEI
 #include "bridge.h"
 #else
 #include "analysis.h"
 #endif
-#include <Timer.h>
+#include <Profiler.h>
 
 
 using Grid   = diy::Grid<float,3>;
@@ -36,15 +37,15 @@ using Proxy  = Master::ProxyWithLink;
 
 using RandomSeedType = std::default_random_engine::result_type;
 
+using Time = std::chrono::high_resolution_clock;
+using ms   = std::chrono::milliseconds;
 
 int main(int argc, char** argv)
 {
-    using Time = std::chrono::high_resolution_clock;
-    using ms   = std::chrono::milliseconds;
-
+    sensei::MPIManager mpiMan(argc, argv);
     auto start = Time::now();
 
-    diy::mpi::environment     env(argc, argv);
+    //diy::mpi::environment     env(argc, argv);
     diy::mpi::communicator    world;
 
     using namespace opts;
@@ -87,8 +88,6 @@ int main(int argc, char** argv)
         >> Option(     "seed", seed, "specify a random seed")
     ;
     bool sync = ops >> Present("sync", "synchronize after each time step");
-    bool log = ops >> Present("log", "generate full time and memory usage log");
-    bool shortlog = ops >> Present("shortlog", "generate a summary time and memory usage log");
     bool verbose = ops >> Present("verbose", "print debugging messages");
 
     std::string infn;
@@ -138,14 +137,10 @@ int main(int argc, char** argv)
     }
 
     std::default_random_engine rng(static_cast<RandomSeedType>(seed));
-    for (int i = 0; i < world.rank(); ++i) rng(); // different seed for each rank
+    for (int i = 0; i < world.rank(); ++i)
+        rng(); // different seed for each rank
 
-
-    if (log || shortlog)
-        sensei::Timer::Enable(shortlog);
-
-    sensei::Timer::Initialize();
-    sensei::Timer::MarkStartEvent("oscillators::initialize");
+    sensei::Profiler::StartEvent("oscillators::initialize");
 
     std::vector<Oscillator> oscillators;
     if (world.rank() == 0)
@@ -245,9 +240,9 @@ int main(int argc, char** argv)
                    },
                    share_face, wrap, ghosts);
 
-    sensei::Timer::MarkEndEvent("oscillators::initialize");
+    sensei::Profiler::EndEvent("oscillators::initialize");
 
-    sensei::Timer::MarkStartEvent("oscillators::analysis::initialize");
+    sensei::Profiler::StartEvent("oscillators::analysis::initialize");
 #ifdef ENABLE_SENSEI
     bridge::initialize(nblocks, gids.size(), origin.data(), spacing.data(),
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
@@ -263,43 +258,41 @@ int main(int argc, char** argv)
                   &from_x[0], &from_y[0], &from_z[0],
                   &to_x[0],   &to_y[0],   &to_z[0]);
 #endif
-    sensei::Timer::MarkEndEvent("oscillators::analysis::initialize");
+    sensei::Profiler::EndEvent("oscillators::analysis::initialize");
 
     int t_count = 0;
     float t = 0.;
     while (t < t_end)
     {
-        sensei::Timer::MarkStartTimeStep(t_count, t);
-
         if (verbose && (world.rank() == 0))
             std::cerr << "started step = " << t_count << " t = " << t << std::endl;
 
-        sensei::Timer::MarkStartEvent("oscillators::update_fields");
+        sensei::Profiler::StartEvent("oscillators::update_fields");
         master.foreach([=](Block* b, const Proxy&)
                               {
                                 b->update_fields(t);
                               });
-        sensei::Timer::MarkEndEvent("oscillators::update_fields");
+        sensei::Profiler::EndEvent("oscillators::update_fields");
 
-        sensei::Timer::MarkStartEvent("oscillators::move_particles");
+        sensei::Profiler::StartEvent("oscillators::move_particles");
         master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->move_particles(dt, p);
                               });
-        sensei::Timer::MarkEndEvent("oscillators::move_particles");
+        sensei::Profiler::EndEvent("oscillators::move_particles");
 
-        sensei::Timer::MarkStartEvent("oscillators::master.exchange");
+        sensei::Profiler::StartEvent("oscillators::master.exchange");
         master.exchange();
-        sensei::Timer::MarkEndEvent("oscillators::master.exchange");
+        sensei::Profiler::EndEvent("oscillators::master.exchange");
 
-        sensei::Timer::MarkStartEvent("oscillators::handle_incoming_particles");
+        sensei::Profiler::StartEvent("oscillators::handle_incoming_particles");
         master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->handle_incoming_particles(p);
                               });
-        sensei::Timer::MarkEndEvent("oscillators::handle_incoming_particles");
+        sensei::Profiler::EndEvent("oscillators::handle_incoming_particles");
 
-        sensei::Timer::MarkStartEvent("oscillators::analysis");
+        sensei::Profiler::StartEvent("oscillators::analysis");
 #ifdef ENABLE_SENSEI
         // do the analysis using sensei
         // update data adaptor with new data
@@ -318,7 +311,7 @@ int main(int argc, char** argv)
                               analyze(b->gid, b->grid.data());
                               });
 #endif
-        sensei::Timer::MarkEndEvent("oscillators::analysis");
+        sensei::Profiler::EndEvent("oscillators::analysis");
 
         if (!out_prefix.empty())
         {
@@ -344,21 +337,17 @@ int main(int argc, char** argv)
         if (sync)
             world.barrier();
 
-        sensei::Timer::MarkEndTimeStep();
-
         t += dt;
         ++t_count;
     }
 
-    sensei::Timer::MarkStartEvent("oscillators::finalize");
+    sensei::Profiler::StartEvent("oscillators::finalize");
 #ifdef ENABLE_SENSEI
     bridge::finalize();
 #else
     analysis_final(k_max, nblocks);
 #endif
-    sensei::Timer::MarkEndEvent("oscillators::finalize");
-
-    sensei::Timer::Finalize();
+    sensei::Profiler::EndEvent("oscillators::finalize");
 
     world.barrier();
     if (world.rank() == 0)

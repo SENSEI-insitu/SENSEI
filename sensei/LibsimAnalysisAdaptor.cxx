@@ -4,7 +4,7 @@
 #include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "MPIUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "Error.h"
 #include "BinaryStream.h"
 
@@ -230,7 +230,7 @@ LibsimAnalysisAdaptor::PrivateData::~PrivateData()
 
     if(instances == 0 && initialized)
     {
-        Timer::MarkEvent mark("libsim::finalize");
+        TimeEvent<128> mark("libsim::finalize");
         if(VisItIsConnected())
             VisItDisconnect();
     }
@@ -366,7 +366,7 @@ LibsimAnalysisAdaptor::PrivateData::Initialize()
     if (initialized)
         return true;
 
-     Timer::MarkEvent mark("libsim::initialize");
+     TimeEvent<128> mark("libsim::initialize");
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Initialize\n");
 #endif
@@ -2096,7 +2096,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNestingOrig(const char *name, void 
         return VISIT_INVALID_HANDLE;
     }
 
-    Timer::MarkEvent mark("libsim::getdomainnesting");
+    TimeEvent<128> mark("libsim::getdomainnesting");
     int rank, size;
     MPI_Comm_rank(This->Comm, &rank);
     MPI_Comm_size(This->Comm, &size);
@@ -2401,6 +2401,7 @@ bool LibsimAnalysisAdaptor::AddExport(int frequency, const std::string &session,
 //-----------------------------------------------------------------------------
 void LibsimAnalysisAdaptor::Initialize()
 {
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::Initialize");
     internals->SetComm(this->GetCommunicator());
     internals->Initialize();
 }
@@ -2408,23 +2409,17 @@ void LibsimAnalysisAdaptor::Initialize()
 //-----------------------------------------------------------------------------
 bool LibsimAnalysisAdaptor::Execute(DataAdaptor* DataAdaptor)
 {
-    Timer::MarkEvent mark("libsim::execute");
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::Execute");
     return internals->Execute(DataAdaptor);
 }
 
 //-----------------------------------------------------------------------------
 int LibsimAnalysisAdaptor::Finalize()
 {
+  TimeEvent<128> mark("LibsimAnalysisAdaptor::Finalize");
   delete this->internals;
   this->internals = nullptr;
   return 0;
-}
-
-//-----------------------------------------------------------------------------
-void LibsimAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
-{
-    this->Superclass::PrintSelf(os, indent);
-    internals->PrintSelf(os, indent);
 }
 
 }

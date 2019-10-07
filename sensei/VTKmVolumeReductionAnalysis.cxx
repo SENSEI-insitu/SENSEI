@@ -2,7 +2,7 @@
 
 #include "CinemaHelper.h"
 #include "DataAdaptor.h"
-#include <Timer.h>
+#include <Profiler.h>
 
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
@@ -232,7 +232,7 @@ void VTKmVolumeReductionAnalysis::Initialize(
 //-----------------------------------------------------------------------------
 bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
 {
-  Timer::MarkEvent mark("VTKmVolumeReductionAnalysis::execute");
+  TimeEvent<128> mark("VTKmVolumeReductionAnalysis::Execute");
   this->Helper->AddTimeEntry();
 
   vtkDataObject* mesh = nullptr;
@@ -260,7 +260,7 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
   vtkNew<vtkImageData> outputDataSet;
   if (this->Reduction > 0)
     {
-    Timer::MarkStartEvent("VTKm reduction");
+    Profiler::StartEvent("VTKm reduction");
 
     int dimensions[3];
     originalImageData->GetDimensions(dimensions);
@@ -307,7 +307,7 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
       }
     outputDataSet->SetDimensions(dimensions[0], dimensions[1], dimensions[2]);
     outputDataSet->GetPointData()->SetScalars(dataArray);
-    Timer::MarkEndEvent("VTKm reduction");
+    Profiler::EndEvent("VTKm reduction");
     }
   else
     {
@@ -322,10 +322,10 @@ bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
 
   // -----------------------
 
-  Timer::MarkStartEvent("Cinema Volume export");
+  Profiler::StartEvent("Cinema Volume export");
   this->Helper->WriteVolume(outputDataSet.GetPointer());
   this->Helper->WriteMetadata();
-  Timer::MarkEndEvent("Cinema Volume export");
+  Profiler::EndEvent("Cinema Volume export");
 
   return true;
 }

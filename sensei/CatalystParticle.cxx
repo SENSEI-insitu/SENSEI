@@ -1,6 +1,6 @@
 #include "CatalystParticle.h"
 #include "CatalystUtilities.h"
-#include <Timer.h>
+#include <Profiler.h>
 #include <Error.h>
 
 #include <vtkCPDataDescription.h>
@@ -71,6 +71,7 @@ public:
 
   void UpdatePipeline(vtkDataObject* data, int timestep, double time)
   {
+    TimeEvent<128> mark("CatalystParticle::Internals::UpdatePipeline");
     if (!this->PipelineCreated)
       {
       this->TrivialProducer = catalyst::CreatePipelineProxy("sources", "PVTrivialProducer");
@@ -268,6 +269,7 @@ void CatalystParticle::SetImageParameters(const std::string& filename, int width
 //----------------------------------------------------------------------------
 int CatalystParticle::RequestDataDescription(vtkCPDataDescription* dataDesc)
 {
+  TimeEvent<128> mark("CatalystParticle::RequestDataDescription");
   vtkInternals& internals = (*this->Internals);
   auto dd = internals.Mesh.empty() ?
     dataDesc->GetInputDescription(0) :
@@ -292,7 +294,7 @@ int CatalystParticle::RequestDataDescription(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int CatalystParticle::CoProcess(vtkCPDataDescription* dataDesc)
 {
-  Timer::MarkEvent mark("catalyst::slice");
+  TimeEvent<128> mark("CatalystParticle::CoProcess");
   vtkInternals& internals = (*this->Internals);
   auto dd = internals.Mesh.empty() ?
     dataDesc->GetInputDescription(0) :
@@ -309,6 +311,7 @@ int CatalystParticle::CoProcess(vtkCPDataDescription* dataDesc)
 //----------------------------------------------------------------------------
 int CatalystParticle::Finalize()
 {
+  TimeEvent<128> mark("CatalystParticle::Finalize");
   return 1;
 }
 

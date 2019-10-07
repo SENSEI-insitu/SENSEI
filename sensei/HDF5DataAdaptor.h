@@ -20,7 +20,6 @@ class HDF5DataAdaptor : public InTransitDataAdaptor {
 public:
   static HDF5DataAdaptor *New();
   senseiTypeMacro(HDF5DataAdaptor, DataAdaptor);
-  void PrintSelf(ostream &os, vtkIndent indent) override;
 
   // int Open( const std::string& filename); // replaced to OpenStream()
 

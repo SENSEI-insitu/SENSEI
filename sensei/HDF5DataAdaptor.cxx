@@ -1,7 +1,7 @@
 #include "HDF5DataAdaptor.h"
 
 #include "Error.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include "BlockPartitioner.h"
 #include "MeshMetadata.h"
@@ -42,9 +42,10 @@ void HDF5DataAdaptor::SetStreamName(const std::string& name)
   m_StreamName = name;
 }
 
+//----------------------------------------------------------------------------
 int HDF5DataAdaptor::Initialize(pugi::xml_node& node)
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::Initialize");
+  TimeEvent<128> mark("HDF5DataAdaptor::Initialize");
 
   this->InTransitDataAdaptor::Initialize(node);
 
@@ -72,10 +73,9 @@ int HDF5DataAdaptor::Initialize(pugi::xml_node& node)
 }
 
 //----------------------------------------------------------------------------
-// int HDF5DataAdaptor::Open(const std::string& fileName)
 int HDF5DataAdaptor::OpenStream()
-{  
-  Timer::MarkEvent mark("HDF5DataAdaptor::OpenStream");
+{
+  TimeEvent<128> mark("HDF5DataAdaptor::OpenStream");
 
   if (m_StreamName.size() == 0)
     {
@@ -102,8 +102,10 @@ int HDF5DataAdaptor::OpenStream()
   return 0;
 }
 
+//----------------------------------------------------------------------------
 int HDF5DataAdaptor::StreamGood()
 {
+  TimeEvent<128> mark("HDF5DataAdaptor::StreamGood");
   if (this->m_HDF5Reader == nullptr)
     return -1;
 
@@ -117,10 +119,9 @@ int HDF5DataAdaptor::StreamGood()
 }
 
 //----------------------------------------------------------------------------
-// int HDF5DataAdaptor::Close()
 int HDF5DataAdaptor::CloseStream()
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::Close");
+  TimeEvent<128> mark("HDF5DataAdaptor::CloseStream");
   int m_Rank;
   MPI_Comm_rank(GetCommunicator(), &m_Rank);
 
@@ -136,15 +137,14 @@ int HDF5DataAdaptor::CloseStream()
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::Finalize()
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::Finalize");
+  TimeEvent<128> mark("HDF5DataAdaptor::Finalize");
   return 0;
 }
 
 //----------------------------------------------------------------------------
-// int HDF5DataAdaptor::Advance()
 int HDF5DataAdaptor::AdvanceStream()
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::Advance");
+  TimeEvent<128> mark("HDF5DataAdaptor::Advance");
 
   return this->UpdateTimeStep();
 }
@@ -152,7 +152,7 @@ int HDF5DataAdaptor::AdvanceStream()
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::UpdateTimeStep()
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::UpdateTimeStep");
+  TimeEvent<128> mark("HDF5DataAdaptor::UpdateTimeStep");
 
   // update data object time and time step
   unsigned long timeStep = 0;
@@ -188,6 +188,7 @@ int HDF5DataAdaptor::UpdateTimeStep()
 int HDF5DataAdaptor::GetSenderMeshMetadata(unsigned int id,
                                            MeshMetadataPtr& metadata)
 {
+  TimeEvent<128> mark("HDF5DataAdaptor::GetSenderMeshMetadata");
   if (this->m_HDF5Reader->ReadSenderMeshMetaData(id, metadata))
     return 0;
   else
@@ -200,6 +201,7 @@ int HDF5DataAdaptor::GetSenderMeshMetadata(unsigned int id,
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::GetNumberOfMeshes(unsigned int& numMeshes)
 {
+  TimeEvent<128> mark("HDF5DataAdaptor::GetNumberOfMeshes");
   if (this->m_HDF5Reader)
     {
       numMeshes = this->m_HDF5Reader->GetNumberOfMeshes();
@@ -212,6 +214,7 @@ int HDF5DataAdaptor::GetNumberOfMeshes(unsigned int& numMeshes)
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr& metadata)
 {
+  TimeEvent<128> mark("HDF5DataAdaptor::GetMeshMetadata");
   // check if some user analysis told us how the data should land by
   // passing in reciever metadata
   if (this->GetReceiverMeshMetadata(id, metadata))
@@ -255,7 +258,7 @@ int HDF5DataAdaptor::GetMesh(const std::string& meshName,
                              bool structureOnly,
                              vtkDataObject*& mesh)
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::GetMesh");
+  TimeEvent<128> mark("HDF5DataAdaptor::GetMesh");
 
   mesh = nullptr;
 
@@ -293,8 +296,8 @@ int HDF5DataAdaptor::AddArray(vtkDataObject* mesh,
   oss<<"HDF5DataAdaptor::AddArray mesh="<<meshName<<" array="<<arrayName;
 
   std::string evtName = oss.str();
-  Timer::MarkEvent mark(evtName.c_str());
-  //Timer::MarkEvent mark("HDF5DataAdaptor::AddArray");
+  TimeEvent<128> mark(evtName.c_str());
+  //TimeEvent<128> mark("HDF5DataAdaptor::AddArray");
 
   // the mesh should never be null. there must have been an error
   // upstream.
@@ -318,14 +321,8 @@ int HDF5DataAdaptor::AddArray(vtkDataObject* mesh,
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::ReleaseData()
 {
-  Timer::MarkEvent mark("HDF5DataAdaptor::ReleaseData");
+  TimeEvent<128> mark("HDF5DataAdaptor::ReleaseData");
   return 0;
 }
 
-//----------------------------------------------------------------------------
-void HDF5DataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
-{
-  this->sensei::DataAdaptor::PrintSelf(os, indent);
 }
-
-} // namespace sensei

@@ -3,7 +3,7 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "Error.h"
 
 // VTK includes
@@ -238,7 +238,7 @@ Autocorrelation::~Autocorrelation()
 void Autocorrelation::Initialize(size_t window, const std::string &meshName,
   int association, const std::string &arrayname, size_t kmax, int numThreads)
 {
-  Timer::MarkEvent mark("Autocorrelation::Initialize");
+  TimeEvent<128> mark("Autocorrelation::Initialize");
 
   AInternals& internals = (*this->Internals);
 
@@ -255,7 +255,7 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 //-----------------------------------------------------------------------------
 bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
 {
-  Timer::MarkEvent mark("Autocorrelation::Execute");
+  TimeEvent<128> mark("Autocorrelation::Execute");
 
   AInternals& internals = (*this->Internals);
 
@@ -365,7 +365,7 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
 //-----------------------------------------------------------------------------
 void Autocorrelation::PrintResults(size_t k_max)
 {
-  Timer::MarkEvent mark("Autocorrelation::PrintResults");
+  TimeEvent<128> mark("Autocorrelation::PrintResults");
 
   AInternals& internals = (*this->Internals);
   size_t nblocks = internals.NumberOfBlocks;
@@ -476,7 +476,7 @@ void Autocorrelation::PrintResults(size_t k_max)
 //-----------------------------------------------------------------------------
 int Autocorrelation::Finalize()
 {
-  Timer::MarkEvent mark("Autocorrelation::Finalize");
+  TimeEvent<128> mark("Autocorrelation::Finalize");
 
   this->PrintResults(this->Internals->KMax);
 

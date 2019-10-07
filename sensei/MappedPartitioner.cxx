@@ -1,7 +1,7 @@
 #include "MappedPartitioner.h"
 #include "XMLUtils.h"
 #include "STLUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <pugixml.hpp>
 #include <sstream>
@@ -33,7 +33,7 @@ int MappedPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
   (void)comm;
-  Timer::MarkEvent mark("MappedPartitioner::GetPartition");
+  TimeEvent<128> mark("MappedPartitioner::GetPartition");
 
   mdOut = mdIn->NewCopy();
 
@@ -46,6 +46,7 @@ int MappedPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
 // --------------------------------------------------------------------------
 int MappedPartitioner::Initialize(pugi::xml_node &node)
 {
+  TimeEvent<128> mark("MappedPartitioner::Initialize");
   // parse owner and id map from the XML
   if (XMLUtils::RequireChild(node, "block_owner") ||
     XMLUtils::RequireChild(node, "block_id"))

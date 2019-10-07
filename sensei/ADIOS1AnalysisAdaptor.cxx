@@ -5,7 +5,7 @@
 #include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 #include "MPIUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "Error.h"
 
 #include <vtkCellTypes.h>
@@ -70,7 +70,7 @@ int ADIOS1AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 //----------------------------------------------------------------------------
 bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Execute");
+  TimeEvent<128> mark("ADIOS1AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide. include the full
   // suite of metadata for the end-point partitioners
@@ -187,7 +187,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 int ADIOS1AnalysisAdaptor::InitializeADIOS1(
   const std::vector<MeshMetadataPtr> &metadata)
 {
-  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::IntializeADIOS1");
+  TimeEvent<128> mark("ADIOS1AnalysisAdaptor::IntializeADIOS1");
 
   if (!this->Schema)
     {
@@ -236,7 +236,7 @@ int ADIOS1AnalysisAdaptor::FinalizeADIOS1()
 //----------------------------------------------------------------------------
 int ADIOS1AnalysisAdaptor::Finalize()
 {
-  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::Finalize");
+  TimeEvent<128> mark("ADIOS1AnalysisAdaptor::Finalize");
 
   if (this->Schema)
     this->FinalizeADIOS1();
@@ -252,19 +252,20 @@ int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
   const std::vector<vtkCompositeDataSet*> &objects)
 {
-  Timer::MarkEvent mark("ADIOS1AnalysisAdaptor::WriteTimestep");
+  TimeEvent<128> mark("ADIOS1AnalysisAdaptor::WriteTimestep");
 
   int ierr = 0;
   int64_t handle = 0;
 
+  Profiler::StartEvent("adios_open");
   adios_open(&handle, "sensei", this->FileName.c_str(),
     timeStep == 0 ? "w" : "a", this->GetCommunicator());
+  Profiler::EndEvent("adios_open");
 
   // TODO -- what are the implications of not setting the group
   // size? it's a lot of work to calculate the size. user manual
   // indicates that it is optional. would setting a fixed size
   // like 200MB be better than not setting the size?
-  //
   /*uint64_t group_size = this->Schema->GetSize(
     this->GetCommunicator(), metadata, objects);
   adios_group_size(handle, group_size, &group_size);*/
@@ -277,7 +278,9 @@ int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     ierr = -1;
     }
 
+  Profiler::StartEvent("adios_close");
   adios_close(handle);
+  Profiler::EndEvent("adios_close");
 
   return ierr;
 }

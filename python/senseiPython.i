@@ -16,7 +16,7 @@
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
 #include "VTKUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include <sstream>
 %}
 
@@ -38,8 +38,7 @@ import_array();
 /****************************************************************************
  * timer
  ***************************************************************************/
-%ignore sensei::Timer::PrintLog(std::ostream &);
-%include "Timer.h"
+%include "Profiler.h"
 
 /****************************************************************************
  * VTK objects used in our API

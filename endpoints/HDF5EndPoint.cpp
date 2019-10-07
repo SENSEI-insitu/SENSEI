@@ -1,7 +1,7 @@
 #include "ConfigurableAnalysis.h"
 #include "Error.h"
 #include "HDF5DataAdaptor.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <opts/opts.h>
 
@@ -69,10 +69,10 @@ int main(int argc, char **argv) {
     return showHelp ? 0 : 1;
   }
 
-  sensei::Timer::Initialize();
+  sensei::Profiler::Initialize();
 
   if (log | shortlog)
-    sensei::Timer::Enable(shortlog);
+    sensei::Profiler::Enable(shortlog);
 
 
   DataAdaptorPtr dataAdaptor = DataAdaptorPtr::New();
@@ -109,23 +109,20 @@ int main(int argc, char **argv) {
     double time = dataAdaptor->GetDataTime();
     nSteps += 1;
 
-    sensei::Timer::MarkStartTimeStep(timeStep, time);
-
     SENSEI_STATUS("Processing time step " << timeStep << " time " << time);
 
     // execute the analysis
-    sensei::Timer::MarkStartEvent("AnalysisAdaptor::Execute");
+    sensei::Profiler::StartEvent("AnalysisAdaptor::Execute");
     if (!analysisAdaptor->Execute(dataAdaptor.Get())) {
       SENSEI_ERROR("Execute failed");
       MPI_Abort(comm, 1);
     }
-    sensei::Timer::MarkEndEvent("AnalysisAdaptor::Execute");
+    sensei::Profiler::EndEvent("AnalysisAdaptor::Execute");
 
     // let the data adaptor release the mesh and data from this
     // time step
     dataAdaptor->ReleaseData();
 
-    sensei::Timer::MarkEndTimeStep();
   } while (!dataAdaptor->AdvanceStream());
 
   SENSEI_STATUS("Finished processing " << nSteps << " time steps")
@@ -140,7 +137,7 @@ int main(int argc, char **argv) {
   dataAdaptor = nullptr;
   analysisAdaptor = nullptr;
 
-  sensei::Timer::Finalize();
+  sensei::Profiler::Finalize();
 
   MPI_Finalize();
 

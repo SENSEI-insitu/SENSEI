@@ -1,5 +1,5 @@
 #include "CinemaHelper.h"
-#include <Timer.h>
+#include "Profiler.h"
 
 #include <vector>
 #include <map>

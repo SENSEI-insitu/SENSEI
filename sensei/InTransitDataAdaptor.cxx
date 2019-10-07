@@ -4,7 +4,7 @@
 #include "ConfigurablePartitioner.h"
 #include "BlockPartitioner.h"
 #include "Error.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <pugixml.hpp>
 
@@ -37,7 +37,7 @@ InTransitDataAdaptor::InTransitDataAdaptor()
 //----------------------------------------------------------------------------
 int InTransitDataAdaptor::Initialize(pugi::xml_node &node)
 {
-  Timer::MarkEvent mark("InTransitDataAdaptor::Initialize");
+  TimeEvent<128> mark("InTransitDataAdaptor::Initialize");
 
   // look for the presense of an optional partitioner spec
   pugi::xml_node partNode = node.child("partitioner");
@@ -78,6 +78,7 @@ sensei::PartitionerPtr InTransitDataAdaptor::GetPartitioner()
 int InTransitDataAdaptor::GetReceiverMeshMetadata(unsigned int id,
   MeshMetadataPtr &metadata)
 {
+  TimeEvent<128> mark("InTransitDataAdaptor::GetReceiverMeshMetadata");
   std::map<unsigned int, MeshMetadataPtr>::iterator it =
     this->Internals->ReceiverMetadata.find(id);
 
@@ -96,11 +97,4 @@ int InTransitDataAdaptor::SetReceiverMeshMetadata(unsigned int id,
   this->Internals->ReceiverMetadata[id] = metadata;
   return 0;
 }
-/*
-//----------------------------------------------------------------------------
-void InTransitDataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
-{
-  this->Superclass::PrintSelf(os, indent);
-}
-*/
 }

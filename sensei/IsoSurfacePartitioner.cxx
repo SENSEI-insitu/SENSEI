@@ -2,7 +2,7 @@
 #include "XMLUtils.h"
 #include "STLUtils.h"
 #include "VTKUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <array>
 #include <cstdlib>
@@ -18,6 +18,7 @@ using namespace STLUtils;
 // --------------------------------------------------------------------------
 int IsoSurfacePartitioner::Initialize(pugi::xml_node &node)
 {
+  TimeEvent<128> mark("IsoSurfacePartitioner::Initialize");
   // TODO
   (void)node;
   SENSEI_ERROR("Not yet implemented")
@@ -54,7 +55,7 @@ int IsoSurfacePartitioner::GetIsoValues(std::string &meshName,
 int IsoSurfacePartitioner::GetPartition(MPI_Comm comm,
   const MeshMetadataPtr &mdIn, MeshMetadataPtr &mdOut)
 {
-  Timer::MarkEvent mark("IsoSurfacePartitioner::GetPartition");
+  TimeEvent<128> mark("IsoSurfacePartitioner::GetPartition");
 
   // find the set of arrays and values for this mesh
   if (this->MeshName != mdIn->MeshName)

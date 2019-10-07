@@ -1,6 +1,6 @@
 from mpi4py import *
 from sensei import VTKDataAdaptor,ConfigurableInTransitDataAdaptor, \
-  ConfigurableAnalysis,ADIOS1DataAdaptor,Timer
+  ConfigurableAnalysis,ADIOS1DataAdaptor,Profiler
 import sys,os
 import numpy as np
 import vtk, vtk.util.numpy_support as vtknp
@@ -53,8 +53,6 @@ def run_endpoint(analysisXml, transportXml):
   n_steps = 0
   while status == 0:
 
-    Timer.MarkStartTimeStep(da.GetDataTimeStep(), da.GetDataTime())
-
     # execute the analysis
     if not ca.Execute(da):
       error_message('analysis failed')
@@ -70,8 +68,6 @@ def run_endpoint(analysisXml, transportXml):
     if rank == 0:
       sys.stderr.write('.')
 
-    Timer.MarkEndTimeStep()
-
   # close down the stream
   if rank == 0:
     sys.stderr.write('\n')
@@ -84,7 +80,7 @@ def run_endpoint(analysisXml, transportXml):
 
 if __name__ == '__main__':
 
-  Timer.Initialize()
+  Profiler.Initialize()
 
   # process command line
   if len(sys.argv) != 3:
@@ -100,7 +96,7 @@ if __name__ == '__main__':
   if ierr:
     error_message('read failed')
 
-  Timer.Finalize()
+  Profiler.Finalize()
 
   # return the error code
   sys.exit(ierr)

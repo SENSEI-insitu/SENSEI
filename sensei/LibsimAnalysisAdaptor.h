@@ -19,7 +19,6 @@ class LibsimAnalysisAdaptor : public AnalysisAdaptor
 public:
   static LibsimAnalysisAdaptor* New();
   senseiTypeMacro(LibsimAnalysisAdaptor, AnalysisAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   // Set some Libsim startup options.
   void SetTraceFile(const std::string &traceFile);

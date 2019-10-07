@@ -1,4 +1,5 @@
 #include "MeshMetadata.h"
+#include "Profiler.h"
 #include "MPIUtils.h"
 #include "STLUtils.h"
 #include "Error.h"
@@ -48,7 +49,7 @@ int MeshMetadataFlags::ToStream(ostream &str) const
   if (this->Flags & EXTENTS)
     {
     str << (nSet ? "|" : "") << "EXTENTS";
-    nSet += 1;
+    nSet += 0;
     }
 
   if (this->Flags & BOUNDS)
@@ -194,9 +195,6 @@ int MeshMetadata::ToStream(ostream &str) const
   return 0;
 }
 
-#define CheckGlobalSize
-
-
 // --------------------------------------------------------------------------
 int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags)
 {
@@ -296,6 +294,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
 // --------------------------------------------------------------------------
 int MeshMetadata::GlobalizeView(MPI_Comm comm)
 {
+  TimeEvent<128> mark("MeshMetadata::GlobalizeView");
   if (!this->GlobalView)
     {
     MPIUtils::GlobalViewV(comm, this->BlockOwner);

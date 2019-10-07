@@ -11,7 +11,6 @@ class CatalystSlice : public vtkCPPipeline
 public:
   static CatalystSlice* New();
   vtkTypeMacro(CatalystSlice, vtkCPPipeline);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /// @brief Set the mesh on which the slice should operate.
   void SetInputMesh(const std::string& meshName);

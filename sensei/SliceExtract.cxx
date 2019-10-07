@@ -6,7 +6,7 @@
 #include "VTKPosthocIO.h"
 #include "VTKDataAdaptor.h"
 #include "VTKUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "Error.h"
 
 #include <vtkObjectFactory.h>
@@ -193,6 +193,7 @@ int SliceExtract::AddDataRequirement(const std::string &meshName,
 // --------------------------------------------------------------------------
 bool SliceExtract::Execute(DataAdaptor* dataAdaptor)
 {
+  TimeEvent<128> mark("SliceExtract::Execute");
   if (this->Internals->Operation == OP_PLANAR_SLICE)
     {
     return this->ExecuteSlice(dataAdaptor);
@@ -209,7 +210,7 @@ bool SliceExtract::Execute(DataAdaptor* dataAdaptor)
 // --------------------------------------------------------------------------
 bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 {
-  Timer::MarkEvent mark("SliceExtract::ExecuteIsoSurface");
+  TimeEvent<128> mark("SliceExtract::ExecuteIsoSurface");
 
   // get the mesh array and iso values
   std::string meshName;
@@ -313,7 +314,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 // --------------------------------------------------------------------------
 bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 {
-  Timer::MarkEvent mark("SliceExtract::Execute");
+  TimeEvent<128> mark("SliceExtract::Execute");
 
   // require the user to tell us one or more meshes to slice
   if (this->Internals->Requirements.Empty())
@@ -340,7 +341,6 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
     SENSEI_ERROR("Failed to get metadata")
     return false;
     }
-
 
   // loop over requested meshes, pull the arrays, take slice,
   // and finally write the result
@@ -431,22 +431,11 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 }
 
 // --------------------------------------------------------------------------
-int SliceExtract::Finalize()
-{
-  Timer::MarkEvent mark("SliceExtract::Finalize");
-  if (this->Internals->Writer->Finalize())
-    {
-    SENSEI_ERROR("Failed to finalize the writer")
-    return -1;
-    }
-  return 0;
-}
-
-// --------------------------------------------------------------------------
 int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
   const std::string &arrayName, int arrayCen, const std::vector<double> &vals,
   vtkCompositeDataSet *&output)
 {
+  TimeEvent<128> mark("SliceExtract::IsoSurface");
   // build pipeline
   vtkContourFilterPtr contour = vtkContourFilterPtr::New();
   contour->SetComputeScalars(1);
@@ -512,6 +501,8 @@ int SliceExtract::Slice(vtkCompositeDataSet *input,
   const std::array<double,3> &point, const std::array<double,3> &normal,
   vtkCompositeDataSet *&output)
 {
+  TimeEvent<128> mark("SliceExtract::Slice");
+
   // build pipeline
   vtkCutterPtr slice = vtkCutterPtr::New();
 
@@ -561,6 +552,8 @@ int SliceExtract::Slice(vtkCompositeDataSet *input,
 int SliceExtract::WriteExtract(long timeStep, double time,
   const std::string &mesh, vtkCompositeDataSet *input)
 {
+  TimeEvent<128> mark("SliceExtract::WriteExtract");
+
   VTKDataAdaptor *dataAdaptor = VTKDataAdaptor::New();
 
   dataAdaptor->SetDataObject(mesh, input);
@@ -579,4 +572,15 @@ int SliceExtract::WriteExtract(long timeStep, double time,
   return 0;
 }
 
+// --------------------------------------------------------------------------
+int SliceExtract::Finalize()
+{
+  TimeEvent<128> mark("SliceExtract::Finalize");
+  if (this->Internals->Writer->Finalize())
+    {
+    SENSEI_ERROR("Failed to finalize the writer")
+    return -1;
+    }
+  return 0;
+}
 }

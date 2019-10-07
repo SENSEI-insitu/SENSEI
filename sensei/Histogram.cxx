@@ -2,7 +2,7 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "VTKHistogram.h"
 #include "Error.h"
 
@@ -49,8 +49,6 @@ void Histogram::Initialize(int bins, const std::string &meshName,
 //-----------------------------------------------------------------------------
 const char *Histogram::GetGhostArrayName()
 {
-// TODO -- fix the version logic below, what rev was
-// vtkDataSetAttributes::GhostArrayName introduced in?
 #if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
     return "vtkGhostType";
 #else
@@ -61,7 +59,7 @@ const char *Histogram::GetGhostArrayName()
 //-----------------------------------------------------------------------------
 bool Histogram::Execute(DataAdaptor* data)
 {
-  Timer::MarkEvent mark("Histogram::Execute");
+  TimeEvent<128> mark("Histogram::Execute");
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;

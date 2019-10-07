@@ -3,7 +3,7 @@
 #include "CDFReducer.h"
 #include "CinemaHelper.h"
 #include "DataAdaptor.h"
-#include <Timer.h>
+#include <Profiler.h>
 #include <Error.h>
 
 #include <vtkDataSet.h>
@@ -99,7 +99,7 @@ void VTKmCDFAnalysis::Initialize(
 //-----------------------------------------------------------------------------
 bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
 {
-  Timer::MarkEvent mark("VTKmCDFAnalysis::execute");
+  TimeEvent<128> mark("VTKmCDFAnalysis::execute");
   this->Helper->AddTimeEntry();
 
   // Get the mesh from the simulation:
@@ -180,7 +180,7 @@ bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
     return false;
   }
 
-  Timer::MarkStartEvent("VTKm CDF");
+  Profiler::StartEvent("VTKm CDF");
   vtkNew<vtkDoubleArray> sorted;
   sorted->DeepCopy(array);
   vtkSortDataArray::SortArrayByComponent(sorted, 0);
@@ -194,12 +194,12 @@ bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
   reducer.SetBufferSize(this->RequestSize);
 
   double* cdf = reducer.Compute(sorted->GetPointer(0), sorted->GetNumberOfTuples(), this->NumberOfQuantiles);
-  Timer::MarkEndEvent("VTKm CDF");
+  Profiler::EndEvent("VTKm CDF");
 
-  Timer::MarkStartEvent("Cinema CDF export");
+  Profiler::StartEvent("Cinema CDF export");
   this->Helper->WriteCDF(this->NumberOfQuantiles, cdf);
   this->Helper->WriteMetadata();
-  Timer::MarkEndEvent("Cinema CDF export");
+  Profiler::EndEvent("Cinema CDF export");
 
   return true;
 }

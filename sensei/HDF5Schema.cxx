@@ -1,5 +1,5 @@
 #include "HDF5Schema.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "VTKUtils.h"
 
 #include <vtkCellArray.h>
@@ -345,7 +345,7 @@ void HDF5VarGuard::ReadSlice(void *buf,
 
   std::ostringstream  oss;   oss<<"H5BytesRead="<<bytes;
   std::string evtName = oss.str();
-  sensei::Timer::MarkEvent mark(evtName.c_str());
+  sensei::TimeEvent<128> mark(evtName.c_str());
   H5Sselect_hyperslab(m_VarSpace, H5S_SELECT_SET, start, stride, count, block);
 
   H5Dread(m_VarID, m_VarType, memDataSpace, m_VarSpace, H5P_DEFAULT, buf);
@@ -861,7 +861,7 @@ bool ReadStream::ReadBinary(const std::string &name, sensei::BinaryStream &str)
 
   std::ostringstream  oss;   oss<<"H5BytesReadBinary="<<nbytes;
   std::string evtName = oss.str();
-  sensei::Timer::MarkEvent mark(evtName.c_str());
+  sensei::TimeEvent<128> mark(evtName.c_str());
   g.ReadAll(str.GetData());
 
   return true;
@@ -2377,8 +2377,8 @@ bool WriteStream::WriteVar(hid_t &varID,
   //oss<<" WVrank="<<m_Rank<<"  name=["<<name<<"]"<<varID;
   //std::cout<< oss.str()<<std::endl;
   std::string evtName = oss.str();
-  sensei::Timer::MarkEvent mark(evtName.c_str());
-  
+  sensei::TimeEvent<128> mark(evtName.c_str());
+
   if(-1 == varID)
     varID = CreateVar(name, space, h5Type);
 
@@ -2388,7 +2388,7 @@ bool WriteStream::WriteVar(hid_t &varID,
            space.m_FileSpaceID,
            m_CollectiveTxf,
            data);
-  
+
   return true;
 }
 
@@ -2426,6 +2426,7 @@ bool WriteStream::WriteMetadata(sensei::MeshMetadataPtr &md)
   return true;
 }
 
+// --------------------------------------------------------------------------
 WriteStream::~WriteStream()
 {
   if(m_Streamer->m_TimeStepCounter > 0)
@@ -2437,13 +2438,14 @@ WriteStream::~WriteStream()
   m_Streamer->Summary();
 }
 
+// --------------------------------------------------------------------------
 bool WriteStream::WriteBinary(const std::string &name,
                               sensei::BinaryStream &str)
 {
   std::ostringstream  oss;   oss<<"H5BytesWroteBinary="<<str.Size();
   std::string evtName=oss.str();
-  sensei::Timer::MarkEvent mark(evtName.c_str());
-  
+  sensei::TimeEvent<128> mark(evtName.c_str());
+
   hid_t h5Type = H5T_NATIVE_CHAR;
 
   hsize_t strlen[1] = { str.Size() };

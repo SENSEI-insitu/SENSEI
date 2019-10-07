@@ -84,7 +84,7 @@ void GlobalBounds(MPI_Comm comm, const std::vector<std::array<cpp_t,6>> &lbounds
 // helper function to compute glpbal array range
 template <typename cpp_t>
 void GlobalRange(MPI_Comm comm, const std::vector<std::array<cpp_t,2>> &lrange,
-    std::array<cpp_t,6> &grange)
+    std::array<cpp_t,2> &grange)
 {
   int nLocal = lrange.size();
 
@@ -103,7 +103,7 @@ void GlobalRange(MPI_Comm comm, const std::vector<std::array<cpp_t,2>> &lrange,
   grange[0] = -grange[0];
 
   // find the smallest bounding covering all distributed
-  MPI_Allreduce(MPI_IN_PLACE, grange.data(), 6,
+  MPI_Allreduce(MPI_IN_PLACE, grange.data(), 2,
     mpi_tt<cpp_t>::datatype(), MPI_MAX, comm);
 
   // because we used MPI_MAX
@@ -162,14 +162,14 @@ void GlobalViewV(MPI_Comm comm, const std::vector<cpp_t> &ldata,
   goffset.clear();
   goffset.resize(nRanks);
 
-  int i = 0;
+  int q = 0;
   int nTotal = 0;
   std::for_each(gcounts.begin(), gcounts.end(),
-    [&nTotal,&goffset,&i](const int &n)
+    [&nTotal,&goffset,&q](const int &n)
       {
-      goffset[i] = nTotal;
+      goffset[q] = nTotal;
       nTotal += n;
-      i += 1;
+      q += 1;
       });
 
   gdata.resize(nTotal);

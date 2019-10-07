@@ -20,7 +20,6 @@ class ADIOS1DataAdaptor : public sensei::InTransitDataAdaptor
 public:
   static ADIOS1DataAdaptor* New();
   senseiTypeMacro(ADIOS1DataAdaptor, sensei::InTransitDataAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   int SetFileName(const std::string &fileName);
 

@@ -2,7 +2,7 @@
 #include "XMLUtils.h"
 #include "STLUtils.h"
 #include "VTKUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <cstdlib>
 #include <sstream>
@@ -17,6 +17,8 @@ using namespace STLUtils; // for operator<<
 // --------------------------------------------------------------------------
 int PlanarSlicePartitioner::Initialize(pugi::xml_node &node)
 {
+  TimeEvent<128>("PlanarSlicePartitioner::Initialize");
+
   if (XMLUtils::RequireChild(node, "point") ||
     XMLUtils::RequireChild(node, "normal"))
     return -1;
@@ -37,7 +39,7 @@ int PlanarSlicePartitioner::Initialize(pugi::xml_node &node)
 int PlanarSlicePartitioner::GetPartition(MPI_Comm comm,
   const MeshMetadataPtr &mdIn, MeshMetadataPtr &mdOut)
 {
-  Timer::MarkEvent("PlanarSlicePartitioner::GetPartition");
+  TimeEvent<128>("PlanarSlicePartitioner::GetPartition");
 
   // require block bounds
   if (mdIn->BlockBounds.size() != static_cast<unsigned int>(mdIn->NumBlocks))

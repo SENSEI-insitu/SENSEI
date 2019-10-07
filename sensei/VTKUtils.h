@@ -109,7 +109,8 @@ inline bool StretchedCartesian(const MeshMetadataPtr &md)
 /// Return true if the mesh or block type is uniform Cartesian
 inline bool UniformCartesian(const MeshMetadataPtr &md)
 {
-  return (md->BlockType == VTK_IMAGE_DATA) || (md->MeshType == VTK_IMAGE_DATA);
+  return (md->BlockType == VTK_IMAGE_DATA) || (md->MeshType == VTK_IMAGE_DATA)
+    || (md->BlockType == VTK_UNIFORM_GRID) || (md->MeshType == VTK_UNIFORM_GRID);
 }
 
 /// Return true if the mesh or block type is logically Cartesian

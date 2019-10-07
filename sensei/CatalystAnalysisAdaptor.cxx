@@ -4,7 +4,7 @@
 #include "MeshMetadata.h"
 #include "VTKUtils.h"
 #include "Error.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 
 #include <vtkSmartPointer.h>
@@ -48,9 +48,9 @@ CatalystAnalysisAdaptor::~CatalystAnalysisAdaptor()
 //-----------------------------------------------------------------------------
 void CatalystAnalysisAdaptor::Initialize()
 {
+  TimeEvent<128> mark("CatalystAnalysisAdaptor::Initialize");
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
-    Timer::MarkEvent mark("CatalystAnalysisAdaptor::Initialize");
     vtkCPAdaptorAPI::CoProcessorInitialize();
     }
   vtkCPAdaptorAPIInitializationCounter++;
@@ -234,7 +234,7 @@ int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
 //----------------------------------------------------------------------------
 bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  Timer::MarkEvent mark("CatalystAnalysisAdaptor::Execute");
+  TimeEvent<128> mark("CatalystAnalysisAdaptor::Execute");
 
   // Get a description of the simulation metadata
   unsigned int nMeshes = 0;
@@ -293,10 +293,10 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 //-----------------------------------------------------------------------------
 int CatalystAnalysisAdaptor::Finalize()
 {
+  TimeEvent<128> mark("CatalystAnalysisAdaptor::Finalize");
   vtkCPAdaptorAPIInitializationCounter--;
   if (vtkCPAdaptorAPIInitializationCounter == 0)
     {
-    Timer::MarkEvent mark("CatalystAnalysisAdaptor::Finalize");
     vtkCPAdaptorAPI::CoProcessorFinalize();
     }
   return 0;

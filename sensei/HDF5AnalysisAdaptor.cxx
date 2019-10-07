@@ -5,7 +5,7 @@
 #include "HDF5Schema.h"
 #include "MPIUtils.h"
 #include "MeshMetadataMap.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "VTKUtils.h"
 
 #include <vtkCellArray.h>
@@ -73,7 +73,7 @@ int HDF5AnalysisAdaptor::AddDataRequirement(
 //----------------------------------------------------------------------------
 bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  Timer::MarkEvent mark("HDF5AnalysisAdaptor::Execute");
+  TimeEvent<128> mark("HDF5AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide
   MeshMetadataFlags flags;
@@ -87,7 +87,6 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       return false;
     }
 
-  
   //
   // (usage is from beambeam3d)
   // we set block extent if images
@@ -235,7 +234,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 //----------------------------------------------------------------------------
 bool HDF5AnalysisAdaptor::InitializeHDF5()
 {
-  Timer::MarkEvent mark("HDF5AnalysisAdaptor::IntializeHDF5");
+  TimeEvent<128> mark("HDF5AnalysisAdaptor::IntializeHDF5");
 
   if (!this->m_HDF5Writer)
     {
@@ -252,6 +251,8 @@ bool HDF5AnalysisAdaptor::InitializeHDF5()
 //----------------------------------------------------------------------------
 int HDF5AnalysisAdaptor::Finalize()
 {
+  TimeEvent<128> mark("HDF5AnalysisAdaptor::Finalize");
+
   if (this->m_HDF5Writer)
     delete this->m_HDF5Writer;
 
@@ -266,11 +267,11 @@ bool HDF5AnalysisAdaptor::WriteTimestep(unsigned long timeStep, double time,
                                       const std::vector<vtkCompositeDataSet*>
 &objects)
 {
-Timer::MarkEvent mark("HDF5AnalysisAdaptor::WriteTimestep");
+TimeEvent<128> mark("HDF5AnalysisAdaptor::WriteTimestep");
 
 int ierr = 0;
 
-Timer::MarkEvent mark("HDF5AnalysisAdaptor::WriteTimestep");
+TimeEvent<128> mark("HDF5AnalysisAdaptor::WriteTimestep");
 
 this->m_HDF5Writer->AdvanceTimeStep(timestep, time);
 

@@ -16,7 +16,7 @@
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 #include <ConfigurableAnalysis.h>
-#include <Timer.h>
+#include <Profiler.h>
 #include "MandelbrotDataAdaptor.h"
 #endif
 
@@ -573,9 +573,8 @@ int main(int argc, char **argv)
     handle_command_line(argc, argv, &sim, max_iter, config_file);
 
 #ifdef ENABLE_SENSEI
-    sensei::Timer::Initialize();
+    sensei::Profiler::Initialize();
 
-    sensei::Timer::MarkStartEvent("mandelbrot::initialize");
     // Initialize in situ
     vtkSmartPointer<MandelbrotDataAdaptor> dataAdaptor;
     dataAdaptor = vtkSmartPointer<MandelbrotDataAdaptor>::New();
@@ -586,7 +585,6 @@ int main(int argc, char **argv)
     analysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
     analysisAdaptor->SetCommunicator(MPI_COMM_WORLD);
     analysisAdaptor->Initialize(config_file);
-    sensei::Timer::MarkEndEvent("mandelbrot::initialize");
 #endif
     //pause();
 
@@ -608,7 +606,6 @@ int main(int argc, char **argv)
     // Iterate.
     for(sim.cycle = 0; sim.cycle < max_iter; ++sim.cycle)
     {
-        sensei::Timer::MarkStartTimeStep(sim.cycle, sim.time);
         if(sim.par_rank == 0)
         {
             std::cout << "Simulating time step: cycle=" << sim.cycle
@@ -648,7 +645,7 @@ int main(int argc, char **argv)
         sim.patch.nx = NX;
         sim.patch.ny = NY;
 #ifdef ENABLE_SENSEI
-        sensei::Timer::MarkStartEvent("mandelbrot::compute");
+        sensei::Profiler::StartEvent("mandelbrot::compute");
 #endif
         calculate_amr(MPI_COMM_WORLD, &sim);
 
@@ -660,35 +657,28 @@ int main(int argc, char **argv)
         }
 
 #ifdef ENABLE_SENSEI
-        sensei::Timer::MarkEndEvent("mandelbrot::compute");
+        sensei::Profiler::EndEvent("mandelbrot::compute");
 
         // Do in situ 
         dataAdaptor->SetDataTime(sim.time);
         dataAdaptor->SetDataTimeStep(sim.cycle);
-        sensei::Timer::MarkStartEvent("mandelbrot::analyze");
         analysisAdaptor->Execute(dataAdaptor.GetPointer());
-        sensei::Timer::MarkEndEvent("mandelbrot::analyze");
 
-        sensei::Timer::MarkStartEvent("mandelbrot::analyze::release-data");
         dataAdaptor->ReleaseData();
-        sensei::Timer::MarkEndEvent("mandelbrot::analyze::release-data");
 #endif
 
         sim.time += 0.1;
-        sensei::Timer::MarkEndTimeStep();
     }
 
     // Cleanup
     if(sim.log && sim.par_rank == 0)
         log.close();
 #ifdef ENABLE_SENSEI
-    sensei::Timer::MarkStartEvent("mandelbrot::finalize");
     analysisAdaptor->Finalize();
     analysisAdaptor = NULL;
     dataAdaptor = NULL;
-    sensei::Timer::MarkEndEvent("mandelbrot::finalize");
 
-    sensei::Timer::Finalize();
+    sensei::Profiler::Finalize();
 #endif
     MPI_Finalize();
 

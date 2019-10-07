@@ -1,5 +1,5 @@
 #include "PlanarPartitioner.h"
-#include "Timer.h"
+#include "Profiler.h"
 
 #include <pugixml.hpp>
 
@@ -10,7 +10,7 @@ namespace sensei
 int PlanarPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
   MeshMetadataPtr &mdOut)
 {
-  Timer::MarkEvent("PlanarPartitioner::GetPartition");
+  TimeEvent<128>("PlanarPartitioner::GetPartition");
 
   mdOut = mdIn->NewCopy();
 
@@ -36,6 +36,7 @@ int PlanarPartitioner::GetPartition(MPI_Comm comm, const MeshMetadataPtr &mdIn,
 // --------------------------------------------------------------------------
 int PlanarPartitioner::Initialize(pugi::xml_node &node)
 {
+  TimeEvent<128>("PlanarPartitioner::Initialize");
   this->PlaneSize = node.attribute("plane_size").as_uint(1);
   SENSEI_STATUS("Configured PlanarPartitioner plane_size=" << this->PlaneSize)
   return 0;
