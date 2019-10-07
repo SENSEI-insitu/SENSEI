@@ -30,7 +30,7 @@
 namespace sensei
 {
 
-#define DEBUG_SAVE_DATA 1
+//#define DEBUG_SAVE_DATA
 #ifdef DEBUG_SAVE_DATA
 void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode )
 {
@@ -65,7 +65,7 @@ void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode )
     a.close();
 }
 #else
-void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode ) {}
+void DebugSaveAscentData( conduit::Node &, conduit::Node & ) {}
 #endif  // DEBUG_SAVE_DATA
 
 //------------------------------------------------------------------------------
@@ -247,8 +247,6 @@ void AddGhostsZones(vtkDataSet* ds, conduit::Node& node)
   // Check if the mesh has ghost zone data.
   if( ds->HasAnyGhostCells() || ds->HasAnyGhostPoints() )
   {
-std::cout << "Ghost Data ----------------------------" << std::endl;
-
     // If so, add the data for Acsent.
     node["fields/ascent_ghosts/association"] = "element";
     node["fields/ascent_ghosts/topology"] = "mesh";
@@ -952,6 +950,8 @@ int VTK_To_State(vtkDataSet* , conduit::Node& node)
     //node["state/time"] = ;
     node["state/cycle"] = cycle;
     //node["state/domain"] = ;
+#else
+    (void)node;
 #endif
 
     return( 1 );
@@ -1146,12 +1146,18 @@ void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, const 
   optionsNode["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   //optionsNode["runtime/type"] = "ascent";
 
-  // Debug
-  //ascent_options.print();
-
   this->_ascent.open(this->optionsNode);
 
   JSONFileToNode(json_file_path, this->actionsNode);
+
+  // Debug
+#ifdef DEBUG_SAVE_DATA
+  std::cout << "------ "  << options_file_path << " ------" << std::endl;
+  this->optionsNode.print();
+  std::cout << "------ "  << json_file_path << " ------" << std::endl;
+  this->actionsNode.print();
+  std::cout << "----------------------------" << std::endl;
+#endif
 }
 
 int Fill_VTK(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj)
@@ -1284,7 +1290,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     }
 
     // Debug
-    /**/
+    /*
     std::cout << "----------------------------" << std::endl;
     std::cout << "i: " << i << " size: " << size << std::endl;
     std::cout << "ACTIONS" << std::endl;
@@ -1292,7 +1298,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     std::cout << "NODE" << std::endl;
     root.print();
     std::cout << "----------------------------" << std::endl;
-    /**/
+    */
 
     DebugSaveAscentData( root, this->optionsNode );
 
