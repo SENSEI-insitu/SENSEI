@@ -140,7 +140,7 @@ int ADIOS2DataAdaptor::AdvanceStream()
 int ADIOS2DataAdaptor::UpdateTimeStep()
 {
   timer::MarkEvent mark("ADIOS2DataAdaptor::UpdateTimeStep");
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // update data object time and time step
   unsigned long timeStep = 0;
   double time = 0.0;
@@ -151,10 +151,11 @@ int ADIOS2DataAdaptor::UpdateTimeStep()
     SENSEI_ERROR("Failed to update time step")
     return -1;
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   this->SetDataTimeStep(timeStep);
+cerr << __FILE__ << " " <<__LINE__ << endl;
   this->SetDataTime(time);
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // read metadata
   if (this->Internals->Schema.ReadMeshMetadata(this->GetCommunicator(),
     this->Internals->Stream))
@@ -162,7 +163,7 @@ int ADIOS2DataAdaptor::UpdateTimeStep()
     SENSEI_ERROR("Failed to read metadata")
     return -1;
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // set up the name-object map
   unsigned int nMeshes = 0;
   if (this->Internals->Schema.GetNumberOfObjects(nMeshes))
@@ -170,7 +171,7 @@ int ADIOS2DataAdaptor::UpdateTimeStep()
     SENSEI_ERROR("Failed to get the number of meshes")
     return -1;
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   return 0;
 }
 

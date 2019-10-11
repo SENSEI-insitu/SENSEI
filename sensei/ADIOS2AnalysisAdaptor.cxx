@@ -206,6 +206,15 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
     adios2_set_engine(this->Handles.io, this->EngineName.c_str());
     }
 
+  // On subsequent ts we need to clear the existing variables so we don't try to
+  // redefine existing variables
+  adios2_error clearErr = adios2_remove_all_variables(this->Handles.io);
+  if (clearErr != 0)
+    {
+    SENSEI_ERROR("ADIOS2 error on adios2_remove_all_variables call, error code enum: " << clearErr )
+    return -1;
+    }
+  
   // (re)define variables to support meshes that evovle in time
   if (this->Schema->DefineVariables(this->GetCommunicator(),
     this->Handles, metadata))
@@ -220,7 +229,12 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
 //----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::FinalizeADIOS2()
 {
-  adios2_finalize(this->Adios);
+  adios2_error err = adios2_finalize(this->Adios);
+  if (err != 0)
+    {
+    SENSEI_ERROR("ADIOS2 error on adios2_finalize call, error code enum: " << err )
+    return -1;
+    }
   return 0;
 }
 
@@ -231,7 +245,13 @@ int ADIOS2AnalysisAdaptor::Finalize()
 
   if (this->Schema)
     {
-    adios2_close(this->Handles.engine);
+    adios2_error err = adios2_close(this->Handles.engine);
+    if (err != 0)
+      {
+      SENSEI_ERROR("ADIOS2 error on adios2_close call, error code enum: " << err )
+      return -1;
+      }
+
     this->FinalizeADIOS2();
     }
 
@@ -256,6 +276,16 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_write);
     }
 
+  adios2_step_status status;
+  adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_append, -1, &status);
+
+  if (err != 0)
+    {
+    SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
+    return -1;
+    }
+
+
   if (this->Schema->Write(this->GetCommunicator(),
     this->Handles, timeStep, time, metadata, objects))
     {
@@ -264,7 +294,14 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     ierr = -1;
     }
 
-  adios2_close(this->Handles.engine);
+  adios2_perform_puts(this->Handles.engine);
+
+  adios2_error endErr = adios2_end_step(this->Handles.engine);
+  if (endErr != 0)
+    {
+    SENSEI_ERROR("ADIOS2 error on adios2_end_step call, error code enum: " << endErr )
+    return -1;
+  }
 
   return ierr;
 }

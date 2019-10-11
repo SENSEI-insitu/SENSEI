@@ -535,9 +535,10 @@ int BinaryStreamSchema::DefineVariables(AdiosHandle handles, const std::string &
   timer::MarkEvent mark("senseiADIOS2::BinaryStreamSchema::DefineVariables");
 
   // define the stream
-  // TODO this may need to be set to a real number vs NULL, so check it out
+  size_t defaultSize = 1024;
   adios2_define_variable(handles.io, path.c_str(), adios2_type_int8_t,
-                         1, NULL, NULL, NULL, adios2_constant_dims_false);
+                         1, &defaultSize, &defaultSize, &defaultSize,
+                         adios2_constant_dims_false);
   return 0;
 }
 
@@ -546,7 +547,7 @@ int BinaryStreamSchema::Read(MPI_Comm comm, InputStream &iStream,
   const std::string &path, sensei::BinaryStream &str)
 {
   timer::MarkStartEvent("senseiADIOS2::BinaryStreamSchema::Read");
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // get metadata
 
   adios2_variable *vinfo = adios2_inquire_variable(iStream.Handles.io, path.c_str());
@@ -556,39 +557,40 @@ int BinaryStreamSchema::Read(MPI_Comm comm, InputStream &iStream,
     return -1;
     }
 
-  size_t nbytes;
+  size_t nbytes = 0;
   adios2_error shapeErr = adios2_variable_shape(&nbytes, vinfo);
-  if (!shapeErr)
+  cerr << nbytes << " dadfadsfadsfasd" << endl;
+  if (shapeErr != 0)
     {
-    SENSEI_ERROR("ADIOS2 shape inqure failed")
+    SENSEI_ERROR("ADIOS2 shape inqure failed, code " << shapeErr)
     return -1;
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // allocate a buffer
   str.Resize(nbytes);
   str.SetReadPos(0);
   str.SetWritePos(nbytes);
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   if (!streamIsFileBased(iStream.ReadEngine))
     {
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
     adios2_error selErr = adios2_set_block_selection(vinfo, rank);
-    if (!selErr)
+    if (selErr != 0)
       {
       SENSEI_ERROR("Failed to make the selction")
       return -1;
       }
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // read it
   adios2_error readErr = adios2_get(iStream.Handles.engine, vinfo, str.GetData(), adios2_mode_sync);
-  if (!readErr)
+  if (readErr != 0)
     {
     SENSEI_ERROR("Failed to read BinaryStream at \"" << path << "\"")
     return -1;
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   timer::MarkEndEvent("senseiADIOS2::BinaryStreamSchema::Read", nbytes);
 
   return 0;
@@ -602,10 +604,11 @@ int BinaryStreamSchema::Write(AdiosHandle handles, const std::string &path,
 
   unsigned long int n = str.Size();
   adios2_variable *internalBinVar = adios2_inquire_variable(handles.io, path.c_str());
+  size_t selectionStart = 0;
 
   if (adios2_set_shape(internalBinVar, 1, &n) ||
-      adios2_set_selection(internalBinVar, 1, 0, &n) ||
-      adios2_put_by_name(handles.engine, path.c_str(), str.GetData(), adios2_mode_deferred))
+      adios2_set_selection(internalBinVar, 1, &selectionStart, &n) ||
+      adios2_put_by_name(handles.engine, path.c_str(), str.GetData(), adios2_mode_sync))
     {
     SENSEI_ERROR("Failed to write BinaryStream at \"" << path << "\"")
     return -1;
@@ -648,7 +651,7 @@ int VersionSchema::Write(AdiosHandle handles)
 {
   timer::MarkStartEvent("senseiADIOS2::VersionSchema::Write");
 
-  adios2_put_by_name(handles.engine, "DataObjectSchema", &this->Revision, adios2_mode_deferred);
+  adios2_put_by_name(handles.engine, "DataObjectSchema", &this->Revision, adios2_mode_sync);
 
   timer::MarkEndEvent("senseiADIOS2::VersionSchema::Write", sizeof(this->Revision));
   return 0;
@@ -715,6 +718,9 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
   // Open the io handle
   this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
 
+  // Open the engine now variables are declared
+  adios2_set_engine(this->Handles.io, this->ReadEngine.c_str());
+    
   // open the file
   this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_read);
 
@@ -723,7 +729,17 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
     SENSEI_ERROR("Failed to open \"" << this->FileName << "\" for reading")
     return -1;
     }
+  
+  // connect and begin step
+  adios2_step_status status;
+  adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_read, -1, &status);
 
+  if (err != 0)
+    {
+    SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
+    return -1;
+    }
+cerr << __FILE__ << " " <<__LINE__ << endl;
   return 0;
 }
 
@@ -731,15 +747,30 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
 int InputStream::AdvanceTimeStep()
 {
   timer::MarkEvent mark("senseiADIOS2::InputStream::AdvanceTimeStep");
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   //TODO maybe this is inefficient?
-  adios2_end_step(this->Handles.engine);
+  adios2_error endErr = adios2_end_step(this->Handles.engine);
+    if (endErr != 0)
+    {
+    SENSEI_ERROR("ADIOS2 error on adios2_end_step call, error code enum: " << endErr )
+    return -1;
+    }
+cerr << __FILE__ << " " <<__LINE__ << endl;  
   adios2_step_status status;
   adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_read, 0, &status);
-
-  if (err != 0)
+cerr << __FILE__ << " " <<__LINE__ << endl;
+  if (err != 0 && status == adios2_step_status::adios2_step_status_other_error)
     {
     SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
+    this->Close();
+    return -1;
+    }
+  
+  cerr << status << " status code done" << endl;
+  
+  // Check if the status says we are at the end, if so, just leave
+  if (status == adios2_step_status::adios2_step_status_end_of_stream)
+    {
     this->Close();
     return -1;
     }
@@ -754,8 +785,20 @@ int InputStream::Close()
 
   if (this->Handles.engine)
     {
-    adios2_close(this->Handles.engine);
-    adios2_finalize(this->Adios);
+    adios2_error err = adios2_close(this->Handles.engine);
+    if (err != 0)
+      {
+      SENSEI_ERROR("ADIOS2 error on adios2_close call, error code enum: " << err )
+      return -1;
+      }
+      
+    adios2_error finErr = adios2_finalize(this->Adios);
+    if (finErr != 0)
+      {
+      SENSEI_ERROR("ADIOS2 error on adios2_finalize, error code enum: " << finErr)
+      return -1;
+      }
+      
     this->Handles.engine = nullptr;
     this->Handles.io = nullptr;
     this->ReadEngine = "";
@@ -776,7 +819,7 @@ struct ArraySchema
     unsigned long long num_points_total, unsigned long long num_cells_total,
     unsigned int num_blocks, const std::vector<long> &block_num_points,
     const std::vector<long> &block_num_cells,
-    const std::vector<int> &block_owner, std::vector<adios2_variable*> &write_ids);
+    const std::vector<int> &block_owner, std::vector<size_t> &putVarsStart, std::vector<size_t> &putVarsCount, std::vector<std::string> &putVarsName);
 
   int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
@@ -784,7 +827,7 @@ struct ArraySchema
   int Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
     const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
     unsigned int num_blocks, const std::vector<int> &block_owner,
-    const std::vector<adios2_variable*> &putVars);
+    const std::vector<size_t> &putVarsStart, const std::vector<size_t> &putVarsCount, const std::vector<std::string> &putVarsName);
 
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const std::string &array_name, int centering,
@@ -797,7 +840,9 @@ struct ArraySchema
     const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
     vtkCompositeDataSet *dobj);
 
-  std::map<std::string,std::vector<adios2_variable*>> PutVars;
+  std::map<std::string,std::vector<size_t>> PutVarsStart;
+  std::map<std::string,std::vector<size_t>> PutVarsCount;
+  std::map<std::string,std::vector<std::string>> PutVarsName;
 };
 
 
@@ -808,7 +853,10 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   unsigned long long num_cells_total, unsigned int num_blocks,
   const std::vector<long> &block_num_points,
   const std::vector<long> &block_num_cells,
-  const std::vector<int> &block_owner, std::vector<adios2_variable*> &put_vars)
+  const std::vector<int> &block_owner,
+  std::vector<size_t> &putVarsStart, 
+  std::vector<size_t> &putVarsCount, 
+  std::vector<std::string> &putVarsName)
 {
   timer::MarkEvent mark("senseiADIOS2::ArraySchema::DefineVariable");
 
@@ -830,15 +878,23 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   unsigned long num_elem_total = (array_cen == vtkDataObject::POINT ?
     num_points_total : num_cells_total)*num_components;
 
-  // global size as a string
-  std::ostringstream gdims;
-  gdims << num_elem_total;
-
   // adios2 type of the array
   adios2_type elem_type = adiosType(array_type);
 
   // define the variable once for each block
   unsigned long block_offset = 0;
+  
+   // /data_object_<id>/data_array_<id>/data
+  std::string path = ans.str() + "data";
+  size_t defaultVal = 0;
+  adios2_variable *put_var = adios2_define_variable(handles.io, path.c_str(), elem_type,
+     1, &num_elem_total, &defaultVal, &defaultVal, adios2_constant_dims_false);
+
+  if (put_var == NULL)
+  {
+  SENSEI_ERROR("adios2_define_variable failed at: ☢ 🤢 ☣" << __FILE__ << " " << __LINE__ <<" with " << num_elem_total << " "  << path << " -Err END-")
+  }
+  
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     // get the block size
@@ -847,14 +903,11 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
 
     // define the variable for a local block
     if (block_owner[j] ==  rank)
-      {
-      // /data_object_<id>/data_array_<id>/data
-      std::string path = ans.str() + "data";
-      adios2_variable *put_var = adios2_define_variable(handles.io, path.c_str(), elem_type,
-         1, &num_elem_local, &num_elem_total, &block_offset, adios2_constant_dims_true);
-
-      // save the write id to tell adios which block we are writing later
-      put_vars[i*num_blocks + j] = put_var;
+      {     
+      // save the var attr. to use later for putting
+      putVarsStart[i*num_blocks + j] = block_offset;
+      putVarsCount[i*num_blocks + j] = num_elem_local;
+      putVarsName[i*num_blocks + j] = path;
       }
 
     // update the block offset
@@ -870,7 +923,9 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 {
   timer::MarkEvent mark("senseiADIOS2::ArraySchema::DefineVariables");
 
-  std::vector<adios2_variable*> &putVars = this->PutVars[md->MeshName];
+  std::vector<size_t> &putVarsStart = this->PutVarsStart[md->MeshName];
+  std::vector<size_t> &putVarsCount = this->PutVarsCount[md->MeshName];
+  std::vector<std::string> &putVarsName = this->PutVarsName[md->MeshName];
 
   // allocate write ids
   unsigned int num_blocks = md->NumBlocks;
@@ -879,7 +934,9 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   unsigned int num_ghost_arrays =
     md->NumGhostCells ? 1 : 0 + md->NumGhostNodes ? 1 : 0;
 
-  putVars.resize(num_blocks*(num_arrays + num_ghost_arrays));
+  putVarsStart.resize(num_blocks*(num_arrays + num_ghost_arrays));
+  putVarsCount.resize(num_blocks*(num_arrays + num_ghost_arrays));
+  putVarsName.resize(num_blocks*(num_arrays + num_ghost_arrays));
 
   // compute global sizes
   unsigned long long num_points_total = 0;
@@ -896,7 +953,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
     if (this->DefineVariable(comm, handles, ons, i, md->ArrayType[i],
       md->ArrayComponents[i], md->ArrayCentering[i], num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, putVars))
+      md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
       return -1;
     }
 
@@ -905,7 +962,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
     {
     if (this->DefineVariable(comm, handles, ons, num_arrays, VTK_UNSIGNED_CHAR,
       1, vtkDataObject::CELL, num_points_total, num_cells_total, num_blocks,
-      md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, putVars))
+      md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
       return -1;
     num_arrays += 1;
     }
@@ -913,7 +970,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   if (md->NumGhostNodes && this->DefineVariable(comm, handles, ons, num_arrays,
       VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, putVars))
+      md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
       return -1;
 
   return 0;
@@ -924,7 +981,9 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
   const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
   unsigned int num_blocks, const std::vector<int> &block_owner,
-  const std::vector<adios2_variable*> &putVars)
+  const std::vector<size_t> &putVarsStart, 
+  const std::vector<size_t> &putVarsCount, 
+  const std::vector<std::string> &putVarsName)
 {
   timer::MarkStartEvent("senseiADIOS2::ArraySchema::Write");
   long long numBytes = 0ll;
@@ -958,8 +1017,10 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
         return -1;
         }
 
-      adios2_put(handles.engine, putVars[i*num_blocks + j],
-                 da->GetVoidPointer(0), adios2_mode_deferred);
+      adios2_variable *currVar = adios2_inquire_variable(handles.io, putVarsName[i*num_blocks + j].c_str());
+      adios2_set_selection(currVar, 1, &(putVarsStart[i*num_blocks + j]), &(putVarsCount[i*num_blocks + j]));
+      adios2_put_by_name(handles.engine, putVarsName[i*num_blocks + j].c_str(),
+                 da->GetVoidPointer(0), adios2_mode_sync);
 
       numBytes += da->GetNumberOfTuples()*
         da->GetNumberOfComponents()*size(da->GetDataType());
@@ -983,14 +1044,16 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles,
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
-  std::vector<adios2_variable*> &putVars = this->PutVars[md->MeshName];
+  std::vector<size_t> &putVarsStart = this->PutVarsStart[md->MeshName];
+  std::vector<size_t> &putVarsCount = this->PutVarsCount[md->MeshName];
+  std::vector<std::string> &putVarsName = this->PutVarsName[md->MeshName];
 
   // write data arrays
   unsigned int num_arrays = md->NumArrays;
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
     if (this->Write(comm, handles, i, md->ArrayName[i], md->ArrayCentering[i],
-      dobj, md->NumBlocks, md->BlockOwner, putVars))
+      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
       return -1;
     }
 
@@ -998,14 +1061,14 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles,
   if (md->NumGhostCells)
     {
     if (this->Write(comm, handles, num_arrays, "vtkGhostType", vtkDataObject::CELL,
-      dobj, md->NumBlocks, md->BlockOwner, putVars))
+      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
       return -1;
     num_arrays += 1;
     }
 
   if (md->NumGhostNodes && this->Write(comm, handles, num_arrays,
     "vtkGhostType", vtkDataObject::POINT, dobj, md->NumBlocks,
-     md->BlockOwner, putVars))
+     md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
     return -1;
 
   return 0;
@@ -1068,7 +1131,7 @@ int ArraySchema::Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons
                                        array->GetVoidPointer(0),
                                        adios2_mode_sync);
 
-      if (!getErr)
+      if (getErr != 0)
         {
         SENSEI_ERROR("Failed to read points")
         return -1;
@@ -1209,8 +1272,13 @@ int PointSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/data_array_<id>/points
         std::string path_pts = ons + "points";
         adios2_variable *put_var = adios2_define_variable(handles.io, path_pts.c_str(), type,
-         1, &ldims, &gdims, &boffs, adios2_constant_dims_true);
+         1,  &gdims, &boffs, &ldims, adios2_constant_dims_true);
 
+        if (put_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
         // save the id for subsequent write
         putVars[j] = put_var;
         }
@@ -1255,7 +1323,7 @@ int PointSchema::Write(MPI_Comm comm, AdiosHandle handles,
           }
 
         vtkDataArray *da = ds->GetPoints()->GetData();
-        adios2_put(handles.engine, putVars[j], da->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_put(handles.engine, putVars[j], da->GetVoidPointer(0), adios2_mode_sync);
 
         numBytes += da->GetNumberOfTuples()*
           da->GetNumberOfComponents()*size(da->GetDataType());
@@ -1321,7 +1389,7 @@ int PointSchema::Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons
                                          points->GetVoidPointer(0),
                                          adios2_mode_sync);
 
-        if (!getErr)
+        if (getErr != 0)
           {
           SENSEI_ERROR("Failed to read points")
           return -1;
@@ -1437,9 +1505,15 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/cell_array
         std::string path_ca = ons + "cell_array";
         adios2_variable *cell_array_write_var = adios2_define_variable(handles.io,
-            path_ca.c_str(), cell_array_type, 1, &cell_array_ldims, &cell_array_gdims,
-            &cell_array_boffs, adios2_constant_dims_true);
+            path_ca.c_str(), cell_array_type, 1, &cell_array_gdims,
+            &cell_array_boffs, &cell_array_ldims, adios2_constant_dims_true);
 
+        if (cell_array_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+        
         // save the id for subsequent write
         arrayWriteVars[j] = cell_array_write_var;
 
@@ -1452,9 +1526,15 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/cell_types
         std::string path_ct = ons + "cell_types";
         adios2_variable *cell_type_write_var = adios2_define_variable(handles.io,
-            path_ct.c_str(), adios2_type_uint8_t, 1, &cell_types_ldims,
-            &cell_type_gdmins, &cell_types_boffs, adios2_constant_dims_true);
+            path_ct.c_str(), adios2_type_uint8_t, 1, 
+            &cell_type_gdmins, &cell_types_boffs, &cell_types_ldims, 
+            adios2_constant_dims_true);
 
+        if (cell_type_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
         // save the write id to tell adios which block we are writing later
         typeWriteVars[j] = cell_type_write_var;
         }
@@ -1504,8 +1584,8 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
         vtkDataArray *cta = ds->GetCellTypesArray();
         vtkDataArray *ca = ds->GetCells()->GetData();
 
-        adios2_put(handles.engine, typeWriteVars[j], cta->GetVoidPointer(0), adios2_mode_deferred);
-        adios2_put(handles.engine, arrayWriteVars[j], ca->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_put(handles.engine, typeWriteVars[j], cta->GetVoidPointer(0), adios2_mode_sync);
+        adios2_put(handles.engine, arrayWriteVars[j], ca->GetVoidPointer(0), adios2_mode_sync);
 
         numBytes += cta->GetNumberOfTuples()*size(cta->GetDataType()) +
           ca->GetNumberOfTuples()*size(ca->GetDataType());
@@ -1573,7 +1653,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
                                          cell_types->GetVoidPointer(0),
                                          adios2_mode_sync);
 
-        if (!getErr)
+        if (getErr != 0)
           {
           SENSEI_ERROR("Failed to read cell types")
           return -1;
@@ -1729,9 +1809,15 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/cell_types
         std::string path_ct = ons + "cell_types";
         adios2_variable *cell_type_write_var = adios2_define_variable(handles.io, path_ct.c_str(),
-           adios2_type_uint8_t, 1, &cell_types_ldims, &cell_types_gdims,
-           &cell_types_boffs, adios2_constant_dims_true);
+           adios2_type_uint8_t, 1, &cell_types_gdims,
+           &cell_types_boffs, &cell_types_ldims, adios2_constant_dims_true);
 
+        if (cell_type_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+      
         // save the write id to tell adios which block we are writing later
         typeWriteVars[j] = cell_type_write_var;
 
@@ -1741,8 +1827,14 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/cell_array
         std::string path_ca = ons + "cell_array";
         adios2_variable *cell_array_write_var = adios2_define_variable(handles.io, path_ca.c_str(),
-           cell_array_type, 1, &cell_array_ldims, &cell_array_gdims,
-           &cell_array_boffs, adios2_constant_dims_true);
+           cell_array_type, 1, &cell_array_gdims,
+           &cell_array_boffs, &cell_array_ldims, adios2_constant_dims_true);
+
+        if (cell_array_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
 
         // save the id for subsequent write
         arrayWriteVars[j] = cell_array_write_var;
@@ -1827,8 +1919,8 @@ int PolydataCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
           cells.insert(cells.end(), ps, ps + pd->GetStrips()->GetData()->GetNumberOfTuples());
           }
 
-        adios2_put(handles.engine, typeWriteVars[j], types.data(), adios2_mode_deferred);
-        adios2_put(handles.engine, arrayWriteVars[j], cells.data(), adios2_mode_deferred);
+        adios2_put(handles.engine, typeWriteVars[j], types.data(), adios2_mode_sync);
+        adios2_put(handles.engine, arrayWriteVars[j], cells.data(), adios2_mode_sync);
 
         numBytes += types.size()*sizeof(unsigned char) + cells.size()*sizeof(vtkIdType);
         }
@@ -1894,7 +1986,7 @@ int PolydataCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
                                             cell_types.data(),
                                             adios2_mode_sync);
 
-        if (!ct_getErr)
+        if (ct_getErr != 0)
           {
           SENSEI_ERROR("Failed to read cell types")
           return -1;
@@ -1919,7 +2011,7 @@ int PolydataCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
                                             cell_array.data(),
                                             adios2_mode_sync);
 
-        if (!ca_getErr)
+        if (ca_getErr != 0)
           {
           SENSEI_ERROR("Failed to read cell_types")
           return -1;
@@ -2120,9 +2212,15 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
         // /data_object_<id>/data_array_<id>/extent
         std::string path_extent = ons + "extent";
         adios2_variable *extent_write_var = adios2_define_variable(handles.io, path_extent.c_str(),
-           adios2_type_int32_t, 1, &hexplet_ldims, &hexplet_gdims,
-           &hexplet_boffs, adios2_constant_dims_true);
+           adios2_type_int32_t, 1, &hexplet_gdims,
+           &hexplet_boffs, &hexplet_ldims, adios2_constant_dims_true);
 
+        if (extent_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+      
         // save the id for subsequent write
         writeVars[j] = extent_write_var;
         }
@@ -2167,15 +2265,15 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
           {
           case VTK_RECTILINEAR_GRID:
             adios2_put(handles.engine, writeVars[j],
-              dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent(), adios2_mode_deferred);
+              dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
           case VTK_IMAGE_DATA:
             adios2_put(handles.engine, writeVars[j],
-              dynamic_cast<vtkImageData*>(dobj)->GetExtent(), adios2_mode_deferred);
+              dynamic_cast<vtkImageData*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
           case VTK_STRUCTURED_GRID:
             adios2_put(handles.engine, writeVars[j],
-              dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent(), adios2_mode_deferred);
+              dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
           }
 
@@ -2231,9 +2329,9 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
         int ext[6] = {0};
         adios2_error getErr = adios2_get(handles.engine, vinfo, ext, adios2_mode_sync);
 
-        if (!getErr)
+        if (getErr != 0)
           {
-          SENSEI_ERROR("Failed to read cell_types")
+          SENSEI_ERROR("Failed to read cell_types :: adios error code :: " << getErr)
           return -1;
           }
 
@@ -2325,17 +2423,29 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/data_array_<id>/origin
         std::string path_origin = ons + "origin";
         adios2_variable *origin_write_var = adios2_define_variable(handles.io, path_origin.c_str(),
-           adios2_type_double, 1, &triplet_ldims, &triplet_gdims,
-           &triplet_boffs, adios2_constant_dims_true);
+           adios2_type_double, 1, &triplet_gdims,
+           &triplet_boffs, &triplet_ldims, adios2_constant_dims_true);
 
+        if (origin_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+        
         // save the id for subsequent write
         originWriteVars[j] = origin_write_var;
 
         // /data_object_<id>/data_array_<id>/spacing
         std::string path_spacing = ons + "spacing";
         adios2_variable *spacing_write_var = adios2_define_variable(handles.io, path_spacing.c_str(),
-           adios2_type_double, 1, &triplet_ldims, &triplet_gdims,
-           &triplet_boffs, adios2_constant_dims_true);
+           adios2_type_double, 1, &triplet_gdims,
+           &triplet_boffs,  &triplet_ldims, adios2_constant_dims_true);
+
+        if (spacing_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
 
         // save the id for subsequent write
         spacingWriteVars[j] = spacing_write_var;
@@ -2378,8 +2488,8 @@ int UniformCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        adios2_put(handles.engine, originWriteVars[j], ds->GetOrigin(), adios2_mode_deferred);
-        adios2_put(handles.engine, spacingWriteVars[j], ds->GetSpacing(), adios2_mode_deferred);
+        adios2_put(handles.engine, originWriteVars[j], ds->GetOrigin(), adios2_mode_sync);
+        adios2_put(handles.engine, spacingWriteVars[j], ds->GetSpacing(), adios2_mode_sync);
 
         numBytes += 6*sizeof(double);
         }
@@ -2435,7 +2545,7 @@ int UniformCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
         adios2_get(handles.engine,
                    origin_vinfo,
                    x0,
-                   adios2_mode_deferred);
+                   adios2_mode_sync);
 
         // /data_object_<id>/data_array_<id>/spacing
         double dx[3] = {0.0};
@@ -2447,7 +2557,7 @@ int UniformCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
         adios2_set_selection(spacing_vinfo, 1, &triplet_start, &triplet_count);
-        adios2_get(handles.engine, spacing_vinfo, dx, adios2_mode_deferred);
+        adios2_get(handles.engine, spacing_vinfo, dx, adios2_mode_sync);
 
         if (adios2_perform_gets(handles.engine))
           {
@@ -2569,24 +2679,42 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
         // /data_object_<id>/data_array_<id>/x_coords
         std::string path_xc = ons + "x_coords";
         adios2_variable *xc_write_var = adios2_define_variable(handles.io, path_xc.c_str(),
-           point_type, 1, &x_ldims, &x_gdims, &x_boffs, adios2_constant_dims_true);
+           point_type, 1, &x_gdims, &x_boffs, &x_ldims, adios2_constant_dims_true);
 
+        if (xc_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+      
         // save the id for subsequent write
         xCoordWriteVars[j] = xc_write_var;
 
         // /data_object_<id>/data_array_<id>/y_coords
         std::string path_yc = ons + "y_coords";
         adios2_variable *yc_write_var = adios2_define_variable(handles.io, path_yc.c_str(),
-           point_type, 1, &y_ldims, &y_gdims, &y_boffs, adios2_constant_dims_true);
+           point_type, 1, &y_gdims, &y_boffs, &y_ldims, adios2_constant_dims_true);
 
+        if (yc_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+      
         // save the id for subsequent write
         yCoordWriteVars[j] = yc_write_var;
 
         // /data_object_<id>/data_array_<id>/z_coords
         std::string path_zc = ons + "z_coords";
         adios2_variable *zc_write_var = adios2_define_variable(handles.io, path_zc.c_str(),
-           point_type, 1, &z_ldims, &z_gdims, &z_boffs, adios2_constant_dims_true);
+           point_type, 1, &z_gdims, &z_boffs, &z_ldims, adios2_constant_dims_true);
 
+        if (zc_write_var == NULL)
+        {
+        SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
+        return -1;
+        }
+      
         // save the id for subsequent write
         zCoordWriteVars[j] = zc_write_var;
         }
@@ -2637,9 +2765,9 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
         vtkDataArray *yda = ds->GetYCoordinates();
         vtkDataArray *zda = ds->GetZCoordinates();
 
-        adios2_put(handles.engine, xCoordWriteVars[j], xda->GetVoidPointer(0), adios2_mode_deferred);
-        adios2_put(handles.engine, yCoordWriteVars[j], yda->GetVoidPointer(0), adios2_mode_deferred);
-        adios2_put(handles.engine, zCoordWriteVars[j], zda->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_put(handles.engine, xCoordWriteVars[j], xda->GetVoidPointer(0), adios2_mode_sync);
+        adios2_put(handles.engine, yCoordWriteVars[j], yda->GetVoidPointer(0), adios2_mode_sync);
+        adios2_put(handles.engine, zCoordWriteVars[j], zda->GetVoidPointer(0), adios2_mode_sync);
 
         long long cts = size(xda->GetDataType());
         numBytes += xda->GetNumberOfTuples()*cts +
@@ -2706,7 +2834,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
         x_coords->SetNumberOfTuples(nx_local);
         x_coords->SetName("x_coords");
 
-        adios2_get(handles.engine, xc_vinfo, x_coords->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_get(handles.engine, xc_vinfo, x_coords->GetVoidPointer(0), adios2_mode_sync);
 
         std::string yc_path = ons + "y_coords";
         adios2_variable *yc_vinfo = adios2_inquire_variable(handles.io, yc_path.c_str());
@@ -2726,7 +2854,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
         y_coords->SetNumberOfTuples(ny_local);
         y_coords->SetName("y_coords");
 
-        adios2_get(handles.engine, yc_vinfo, y_coords->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_get(handles.engine, yc_vinfo, y_coords->GetVoidPointer(0), adios2_mode_sync);
 
 
         std::string zc_path = ons + "z_coords";
@@ -2747,7 +2875,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
         z_coords->SetNumberOfTuples(nz_local);
         z_coords->SetName("z_coords");
 
-        adios2_get(handles.engine, zc_vinfo, z_coords->GetVoidPointer(0), adios2_mode_deferred);
+        adios2_get(handles.engine, zc_vinfo, z_coords->GetVoidPointer(0), adios2_mode_sync);
 
         if (adios2_perform_gets(handles.engine))
           {
@@ -2982,31 +3110,32 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 {
   (void)comm;
   timer::MarkEvent mark("senseiADIOS2::DataObjectCollectionSchema::ReadMeshMetadata");
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   this->Internals->SenderMdMap.Clear();
   this->Internals->ReceiverMdMap.Clear();
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // /number_of_data_objects
   unsigned int n_objects = 0;
   if (adiosInq(iStream, "number_of_data_objects", n_objects))
     return -1;
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
    // read the sender mesh metadta
   for (unsigned int i = 0; i < n_objects; ++i)
     {
     std::ostringstream oss;
     oss << "data_object_" << i << "/";
     std::string data_object_id = oss.str();
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
     // /data_object_<id>/metadata
     sensei::BinaryStream bs;
     std::string path = data_object_id + "metadata";
     if (BinaryStreamSchema::Read(comm, iStream, path, bs))
       return -1;
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
     sensei::MeshMetadataPtr md = sensei::MeshMetadata::New();
+cerr << __FILE__ << " " <<__LINE__ << endl;
     md->FromStream(bs);
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
     // Don't add internally generated arrays, as these
     // interfere with ghost cell/node arrays which are
     // also special cases.
@@ -3024,11 +3153,11 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 
     this->Internals->SenderMdMap.PushBack(md);
     }
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   // resize the receiver mesh metatadata, this will be set
   // later by the whomever is controling how the data lands
   this->Internals->ReceiverMdMap.Resize(n_objects);
-
+cerr << __FILE__ << " " <<__LINE__ << endl;
   return 0;
 }
 
@@ -3165,12 +3294,12 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, AdiosHandle handles,
   // write the schema version
   this->Internals->Version.Write(handles);
 
-  adios2_put_by_name(handles.engine, "time_step", &time_step, adios2_mode_deferred);
-  adios2_put_by_name(handles.engine, "time", &time, adios2_mode_deferred);
+  adios2_put_by_name(handles.engine, "time_step", &time_step, adios2_mode_sync);
+  adios2_put_by_name(handles.engine, "time", &time, adios2_mode_sync);
 
   // /number_of_data_objects
   std::string path = "number_of_data_objects";
-  adios2_put_by_name(handles.engine, path.c_str(), &n_objects, adios2_mode_deferred);
+  adios2_put_by_name(handles.engine, path.c_str(), &n_objects, adios2_mode_sync);
 
   for (unsigned int i = 0; i < n_objects; ++i)
     {
