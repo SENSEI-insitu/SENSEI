@@ -49,6 +49,9 @@ public:
   int Initialize(const std::string &fileName);
 
   // sensei::InTransitDataAdaptor API
+  int SetConnectionInfo(const std::string &info) override;
+  const std::string &GetConnectionInfo() const override;
+
   int Initialize(pugi::xml_node &node) override;
 
   int GetSenderMeshMetadata(unsigned int id,

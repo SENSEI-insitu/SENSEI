@@ -77,11 +77,11 @@ int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
     return -1;
     }
 
-  if (node.attribute("file_name"))
-    this->SetFileName(node.attribute("file_name").value());
+  if (node.attribute("filename"))
+    this->SetFileName(node.attribute("filename").value());
 
-  if (node.attribute("read_method") &&
-    this->SetReadMethod(node.attribute("read_method").value()))
+  if (node.attribute("method") &&
+    this->SetReadMethod(node.attribute("method").value()))
     return -1;
 
   return 0;

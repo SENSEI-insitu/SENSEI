@@ -69,6 +69,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(const std::string &fileName)
 // -------------------------------------------------------------------------------
 int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
 {
+
   // get the transport element and its type attribute
   if (XMLUtils::RequireChild(root, "transport"))
     return -1;
@@ -97,7 +98,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     SENSEI_ERROR("ADIOS2 transport requested but is disabled in this build")
     return -1;
 #else
-    SENSEI_ERROR("ADIOS2 not yet available")
+    adaptor = ADIOS2DataAdaptor::New();
     return -1;
 #endif
     }
@@ -126,23 +127,45 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     return -1;
     }
 
+  // get rid of the existing adaptor, if any, now
+  if (this->Internals->Adaptor)
+    {
+    this->Internals->Adaptor->Delete();
+    this->Internals->Adaptor = nullptr;
+    }
+
   // intialize the adaptor. the partitioner is typically iniitialized
   // by the default initialize in the InTransitDataAdaptor
-  if (adaptor->Initialize(node))
+  if (adaptor->SetConnectionInfo(this->GetConnectionInfo()) ||
+    adaptor->Initialize(node))
     {
     SENSEI_ERROR("Failed to initialize \"" << type << "\" data adaptor")
     return -1;
     }
 
   // everything is good, take ownership of the concrete instance
-  if (this->Internals->Adaptor)
-    this->Internals->Adaptor->Delete();
-
   this->Internals->Adaptor = adaptor;
 
   SENSEI_STATUS("Configured \"" << adaptor->GetClassName())
 
   return 0;
+}
+
+//----------------------------------------------------------------------------
+int ConfigurableInTransitDataAdaptor::SetConnectionInfo(const std::string &info)
+{
+  this->InTransitDataAdaptor::SetConnectionInfo(info);
+  if (this->Internals->Adaptor)
+    return this->Internals->Adaptor->SetConnectionInfo(info);
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+const std::string &ConfigurableInTransitDataAdaptor::GetConnectionInfo() const
+{
+  if (this->Internals->Adaptor)
+    return this->Internals->Adaptor->GetConnectionInfo();
+  return this->InTransitDataAdaptor::GetConnectionInfo();
 }
 
 // -------------------------------------------------------------------------------

@@ -28,6 +28,14 @@ class InTransitDataAdaptor : public sensei::DataAdaptor
 public:
   senseiBaseTypeMacro(InTransitDataAdaptor, sensei::DataAdaptor);
 
+  // Pass in a string containing transport specific connection information.
+  // This is optional, as XML may be used to specify connection as well.
+  // When used the details will be specific to the transport, for instance
+  // ADIOS uses a file to negotiate the connection, hence for ADIOS
+  // connection info will be a path to that file.
+  virtual int SetConnectionInfo(const std::string &info);
+  virtual const std::string &GetConnectionInfo() const;
+
   // Initialize the adaptor from an XML node. The default implementation
   // handles initializing a sensei::ConfigurablePartitioner. If the
   // ConfigurablePartitioner fails to initialize, then a we fall back to a

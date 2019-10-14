@@ -26,12 +26,26 @@ struct InTransitDataAdaptor::InternalsType
 
   PartitionerPtr Part;
   std::map<unsigned int, MeshMetadataPtr> ReceiverMetadata;
+  std::string ConnectionInfo;
 };
 
 //----------------------------------------------------------------------------
 InTransitDataAdaptor::InTransitDataAdaptor()
 {
   this->Internals = new InternalsType;
+}
+
+//----------------------------------------------------------------------------
+int InTransitDataAdaptor::SetConnectionInfo(const std::string &info)
+{
+  this->Internals->ConnectionInfo = info;
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+const std::string &InTransitDataAdaptor::GetConnectionInfo() const
+{
+  return this->Internals->ConnectionInfo;
 }
 
 //----------------------------------------------------------------------------
