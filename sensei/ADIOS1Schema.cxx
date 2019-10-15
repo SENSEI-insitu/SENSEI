@@ -191,208 +191,6 @@ ADIOS_DATATYPES adiosType(int vtkt)
 }
 
 // --------------------------------------------------------------------------
-unsigned int size(int vtkt)
-{
-  switch (vtkt)
-    {
-    case VTK_FLOAT:
-      return sizeof(float);
-      break;
-    case VTK_DOUBLE:
-      return sizeof(double);
-      break;
-    case VTK_CHAR:
-      return sizeof(char);
-      break;
-    case VTK_UNSIGNED_CHAR:
-      return sizeof(unsigned char);
-      break;
-    case VTK_INT:
-      return sizeof(int);
-      break;
-    case VTK_UNSIGNED_INT:
-      return sizeof(unsigned int);
-      break;
-    case VTK_LONG:
-      return sizeof(long);
-      break;
-    case VTK_UNSIGNED_LONG:
-      return sizeof(unsigned long);
-      break;
-    case VTK_LONG_LONG:
-      return sizeof(long long);
-      break;
-    case VTK_UNSIGNED_LONG_LONG:
-      return sizeof(unsigned long long);
-      break;
-    case VTK_ID_TYPE:
-      return sizeof(vtkIdType);
-      break;
-    default:
-      {
-      SENSEI_ERROR("the adios type for vtk type enumeration " << vtkt
-        << " is currently not implemented")
-      MPI_Abort(MPI_COMM_WORLD, -1);
-      }
-    }
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int isLegacyDataObject(int code)
-{
-  // this function is used to determine data parallelization strategy.
-  // VTK has 2, namely the legacy one in which each process holds 1
-  // legacy dataset, and the more modern approach where VTK composite
-  // dataset holds any number of datasets on any number of processes.
-  int ret = 0;
-  switch (code)
-    {
-    // legacy
-    case VTK_POLY_DATA:
-    case VTK_STRUCTURED_POINTS:
-    case VTK_STRUCTURED_GRID:
-    case VTK_RECTILINEAR_GRID:
-    case VTK_UNSTRUCTURED_GRID:
-    case VTK_IMAGE_DATA:
-    case VTK_UNIFORM_GRID:
-    case VTK_TABLE:
-    // others
-    case VTK_GRAPH:
-    case VTK_TREE:
-    case VTK_SELECTION:
-    case VTK_DIRECTED_GRAPH:
-    case VTK_UNDIRECTED_GRAPH:
-    case VTK_DIRECTED_ACYCLIC_GRAPH:
-    case VTK_ARRAY_DATA:
-    case VTK_REEB_GRAPH:
-    case VTK_MOLECULE:
-    case VTK_PATH:
-    case VTK_PIECEWISE_FUNCTION:
-      ret = 1;
-      break;
-    // composite data etc
-    case VTK_MULTIBLOCK_DATA_SET:
-    case VTK_HIERARCHICAL_BOX_DATA_SET:
-    case VTK_MULTIPIECE_DATA_SET:
-    case VTK_HYPER_OCTREE:
-    case VTK_HYPER_TREE_GRID:
-    case VTK_OVERLAPPING_AMR:
-    case VTK_NON_OVERLAPPING_AMR:
-    case VTK_UNIFORM_GRID_AMR:
-      ret = 0;
-      break;
-    // base classes
-    case VTK_DATA_OBJECT:
-    case VTK_DATA_SET:
-    case VTK_POINT_SET:
-    case VTK_COMPOSITE_DATA_SET:
-    case VTK_GENERIC_DATA_SET:
-#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
-    case VTK_UNSTRUCTURED_GRID_BASE:
-    case VTK_PISTON_DATA_OBJECT:
-#endif
-    // deprecated/removed
-    case VTK_HIERARCHICAL_DATA_SET:
-    case VTK_TEMPORAL_DATA_SET:
-    case VTK_MULTIGROUP_DATA_SET:
-    // unknown code
-    default:
-      SENSEI_ERROR("Neither legacy nor composite " << code)
-      ret = -1;
-    }
-  return ret;
-}
-
-// --------------------------------------------------------------------------
-vtkDataObject *newDataObject(int code)
-{
-  vtkDataObject *ret = nullptr;
-  switch (code)
-    {
-    // simple
-    case VTK_POLY_DATA:
-      ret = vtkPolyData::New();
-      break;
-    case VTK_STRUCTURED_POINTS:
-      ret = vtkStructuredPoints::New();
-      break;
-    case VTK_STRUCTURED_GRID:
-      ret = vtkStructuredGrid::New();
-      break;
-    case VTK_RECTILINEAR_GRID:
-      ret = vtkRectilinearGrid::New();
-      break;
-    case VTK_UNSTRUCTURED_GRID:
-      ret = vtkUnstructuredGrid::New();
-      break;
-    case VTK_IMAGE_DATA:
-      ret = vtkImageData::New();
-      break;
-    case VTK_UNIFORM_GRID:
-      ret = vtkUniformGrid::New();
-      break;
-    case VTK_TABLE:
-      ret = vtkTable::New();
-      break;
-    // composite data etc
-    case VTK_MULTIBLOCK_DATA_SET:
-      ret = vtkMultiBlockDataSet::New();
-      break;
-    case VTK_HIERARCHICAL_BOX_DATA_SET:
-      ret = vtkHierarchicalBoxDataSet::New();
-      break;
-    case VTK_MULTIPIECE_DATA_SET:
-      ret = vtkMultiPieceDataSet::New();
-      break;
-    case VTK_HYPER_TREE_GRID:
-      ret = vtkHyperTreeGrid::New();
-      break;
-    case VTK_OVERLAPPING_AMR:
-      ret = vtkOverlappingAMR::New();
-      break;
-    case VTK_NON_OVERLAPPING_AMR:
-      ret = vtkNonOverlappingAMR::New();
-      break;
-    case VTK_UNIFORM_GRID_AMR:
-      ret = vtkUniformGridAMR::New();
-      break;
-    // TODO
-    case VTK_GRAPH:
-    case VTK_TREE:
-    case VTK_SELECTION:
-    case VTK_DIRECTED_GRAPH:
-    case VTK_UNDIRECTED_GRAPH:
-    case VTK_DIRECTED_ACYCLIC_GRAPH:
-    case VTK_ARRAY_DATA:
-    case VTK_REEB_GRAPH:
-    case VTK_MOLECULE:
-    case VTK_PATH:
-    case VTK_PIECEWISE_FUNCTION:
-      SENSEI_WARNING("Factory for " << code << " not yet implemented")
-      break;
-    // base classes
-    case VTK_DATA_OBJECT:
-    case VTK_DATA_SET:
-    case VTK_POINT_SET:
-    case VTK_COMPOSITE_DATA_SET:
-    case VTK_GENERIC_DATA_SET:
-#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
-    case VTK_UNSTRUCTURED_GRID_BASE:
-    case VTK_PISTON_DATA_OBJECT:
-#endif
-    // deprecated/removed
-    case VTK_HIERARCHICAL_DATA_SET:
-    case VTK_TEMPORAL_DATA_SET:
-    case VTK_MULTIGROUP_DATA_SET:
-    // unknown code
-    default:
-      SENSEI_ERROR("data object for " << code << " could not be construtced")
-    }
-  return ret;
-}
-
-// --------------------------------------------------------------------------
 bool streamIsFileBased(ADIOS_READ_METHOD method)
 {
   switch(method)
@@ -980,7 +778,7 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
       adios_write_byid(fh, writeIds[i*num_blocks + j], da->GetVoidPointer(0));
 
       numBytes += da->GetNumberOfTuples()*
-        da->GetNumberOfComponents()*size(da->GetDataType());
+        da->GetNumberOfComponents()*sensei::VTKUtils::Size(da->GetDataType());
       }
 
     it->GoToNextItem();
@@ -1099,7 +897,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
       dsa->AddArray(array);
       array->Delete();
 
-      numBytes += num_elem_local*size(array_type);
+      numBytes += num_elem_local*sensei::VTKUtils::Size(array_type);
       }
 
     // update the block offset
@@ -1271,7 +1069,7 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
         adios_write_byid(fh, writeIds[j], da->GetVoidPointer(0));
 
         numBytes += da->GetNumberOfTuples()*
-          da->GetNumberOfComponents()*size(da->GetDataType());
+          da->GetNumberOfComponents()*sensei::VTKUtils::Size(da->GetDataType());
         }
 
       it->GoToNextItem();
@@ -1348,7 +1146,7 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
         ds->SetPoints(pts);
         pts->Delete();
 
-        numBytes += count*size(md->CoordinateType);
+        numBytes += count*sensei::VTKUtils::Size(md->CoordinateType);
         }
 
       // update the block offset
@@ -1519,8 +1317,8 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
         adios_write_byid(fh, typeWriteIds[j], cta->GetVoidPointer(0));
         adios_write_byid(fh, arrayWriteIds[j], ca->GetVoidPointer(0));
 
-        numBytes += cta->GetNumberOfTuples()*size(cta->GetDataType()) +
-          ca->GetNumberOfTuples()*size(ca->GetDataType());
+        numBytes += cta->GetNumberOfTuples()*sensei::VTKUtils::Size(cta->GetDataType()) +
+          ca->GetNumberOfTuples()*sensei::VTKUtils::Size(ca->GetDataType());
         }
       it->GoToNextItem();
       }
@@ -2639,7 +2437,7 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
         adios_write_byid(fh, yCoordWriteIds[j], yda->GetVoidPointer(0));
         adios_write_byid(fh, zCoordWriteIds[j], zda->GetVoidPointer(0));
 
-        long long cts = size(xda->GetDataType());
+        long long cts = sensei::VTKUtils::Size(xda->GetDataType());
         numBytes += xda->GetNumberOfTuples()*cts +
           yda->GetNumberOfTuples()*cts + zda->GetNumberOfTuples()*cts;
         }
@@ -2754,7 +2552,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         y_coords->Delete();
         z_coords->Delete();
 
-        long long cts = size(md->CoordinateType);
+        long long cts = sensei::VTKUtils::Size(md->CoordinateType);
         numBytes += x_count*cts + y_count*cts + z_count*cts;
         }
 
@@ -2925,7 +2723,7 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
     {
     if (md->BlockOwner[i] == rank)
       {
-      vtkDataObject *ds = newDataObject(md->BlockType);
+      vtkDataObject *ds = sensei::VTKUtils::NewDataObject(md->BlockType);
       mbds->SetBlock(md->BlockIds[i], ds);
       ds->Delete();
       }

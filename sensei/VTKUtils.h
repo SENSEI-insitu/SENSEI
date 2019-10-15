@@ -24,6 +24,15 @@ namespace sensei
 namespace VTKUtils
 {
 
+/// given a VTK POD data type enum returns the size
+unsigned int Size(int vtkt);
+
+/// given a VTK data object enum returns true if it a legacy object
+int IsLegacyDataObject(int code);
+
+/// givne a VTK data object enum constructs an instance
+vtkDataObject *NewDataObject(int code);
+
 /// returns the enum value given an association name. where name
 /// can be one of: point, cell or, field
 int GetAssociation(std::string assocStr, int &assoc);

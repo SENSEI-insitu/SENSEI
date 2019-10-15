@@ -220,93 +220,6 @@ hid_t gVTKToH5Type(int vtkt)
   return -1;
 }
 
-// --------------------------------------------------------------------------
-vtkDataObject *newDataObject(int code)
-{
-  vtkDataObject *ret = nullptr;
-  switch(code)
-    {
-    // simple
-    case VTK_POLY_DATA:
-      ret = vtkPolyData::New();
-      break;
-    case VTK_STRUCTURED_POINTS:
-      ret = vtkStructuredPoints::New();
-      break;
-    case VTK_STRUCTURED_GRID:
-      ret = vtkStructuredGrid::New();
-      break;
-    case VTK_RECTILINEAR_GRID:
-      ret = vtkRectilinearGrid::New();
-      break;
-    case VTK_UNSTRUCTURED_GRID:
-      ret = vtkUnstructuredGrid::New();
-      break;
-    case VTK_IMAGE_DATA:
-      ret = vtkImageData::New();
-      break;
-    case VTK_UNIFORM_GRID:
-      ret = vtkUniformGrid::New();
-      break;
-    case VTK_TABLE:
-      ret = vtkTable::New();
-      break;
-    // composite data etc
-    case VTK_MULTIBLOCK_DATA_SET:
-      ret = vtkMultiBlockDataSet::New();
-      break;
-    case VTK_HIERARCHICAL_BOX_DATA_SET:
-      ret = vtkHierarchicalBoxDataSet::New();
-      break;
-    case VTK_MULTIPIECE_DATA_SET:
-      ret = vtkMultiPieceDataSet::New();
-      break;
-    case VTK_HYPER_TREE_GRID:
-      ret = vtkHyperTreeGrid::New();
-      break;
-    case VTK_OVERLAPPING_AMR:
-      ret = vtkOverlappingAMR::New();
-      break;
-    case VTK_NON_OVERLAPPING_AMR:
-      ret = vtkNonOverlappingAMR::New();
-      break;
-    case VTK_UNIFORM_GRID_AMR:
-      ret = vtkUniformGridAMR::New();
-      break;
-    // TODO
-    case VTK_GRAPH:
-    case VTK_TREE:
-    case VTK_SELECTION:
-    case VTK_DIRECTED_GRAPH:
-    case VTK_UNDIRECTED_GRAPH:
-    case VTK_DIRECTED_ACYCLIC_GRAPH:
-    case VTK_ARRAY_DATA:
-    case VTK_REEB_GRAPH:
-    case VTK_MOLECULE:
-    case VTK_PATH:
-    case VTK_PIECEWISE_FUNCTION:
-      SENSEI_WARNING("Factory for " << code << " not yet implemented")
-      break;
-    // base classes
-    case VTK_DATA_OBJECT:
-    case VTK_DATA_SET:
-    case VTK_POINT_SET:
-    case VTK_COMPOSITE_DATA_SET:
-    case VTK_GENERIC_DATA_SET:
-#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
-    case VTK_UNSTRUCTURED_GRID_BASE:
-    case VTK_PISTON_DATA_OBJECT:
-#endif
-    // deprecated/removed
-    case VTK_HIERARCHICAL_DATA_SET:
-    case VTK_TEMPORAL_DATA_SET:
-    case VTK_MULTIGROUP_DATA_SET:
-    // unknown code
-    default:
-      SENSEI_ERROR("data object for " << code << " could not be construtced")
-    }
-  return ret;
-}
 
 //
 //
@@ -1132,7 +1045,7 @@ bool MeshFlow::Initialize(const sensei::MeshMetadataPtr &md, ReadStream *input)
     {
       if(rank == md->BlockOwner[i])
         {
-          vtkDataObject *ds = newDataObject(md->BlockType);
+          vtkDataObject *ds = sensei::VTKUtils::NewDataObject(md->BlockType);
           mbds->SetBlock(md->BlockIds[i], ds);
           ds->Delete();
         }
