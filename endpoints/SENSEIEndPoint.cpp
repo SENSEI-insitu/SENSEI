@@ -33,12 +33,12 @@ int main(int argc, char **argv)
       "SENSEI analysis XML configuration file")
 
     >> opts::Option('c', "connection-info", connectionInfo,
-       "transport specific conncetion information");
+       "transport specific connection information");
 
   if (ops >> opts::Present('h', "help", "show help"))
     {
     if (rank == 0)
-      cerr << "Usage: EndPoint [OPTIONS]\n\n" << ops << endl;
+      cerr << "Usage: SENSEIEndPoint [OPTIONS]\n\n" << ops << endl;
     MPI_Abort(MPI_COMM_WORLD, -1);
     }
 

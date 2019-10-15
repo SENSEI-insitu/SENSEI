@@ -77,8 +77,12 @@ int ADIOS1DataAdaptor::Initialize(pugi::xml_node &node)
     return -1;
     }
 
-  if (node.attribute("filename"))
-    this->SetFileName(node.attribute("filename").value());
+  std::string fileName = this->GetConnectionInfo();
+  if (fileName.empty())
+    {
+    if (node.attribute("filename"))
+      this->SetFileName(node.attribute("filename").value());
+    }
 
   if (node.attribute("method") &&
     this->SetReadMethod(node.attribute("method").value()))
