@@ -108,9 +108,13 @@ private:
 /// High level operations on an ADIOS file/stream
 struct InputStream
 {
-  //InputStream() : Handles.engine(nullptr)
-  //  ReadEngine(""),
-  //  FileName() {}
+  InputStream()
+    {
+    Handles.engine = nullptr;
+    Handles.io = nullptr;
+    ReadEngine = "";
+    FileName = "";
+    }
 
   int SetReadEngine(const std::string &engine);
 

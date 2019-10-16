@@ -43,6 +43,8 @@ senseiNewMacro(ADIOS2AnalysisAdaptor);
 //----------------------------------------------------------------------------
 ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : Schema(nullptr), FileName("sensei.bp")
 {
+  this->Handles.io = nullptr;
+  this->Handles.engine = nullptr;
 }
 
 //----------------------------------------------------------------------------
@@ -214,7 +216,7 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
     SENSEI_ERROR("ADIOS2 error on adios2_remove_all_variables call, error code enum: " << clearErr )
     return -1;
     }
-  
+
   // (re)define variables to support meshes that evovle in time
   if (this->Schema->DefineVariables(this->GetCommunicator(),
     this->Handles, metadata))
@@ -272,8 +274,17 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   int ierr = 0;
   if(!this->Handles.engine)
     {
+    if(this->EngineName == "SST")
+      adios2_set_parameters(this->Handles.io, "RendezvousReaderCount=1 , RegistrationMethod=File");
+
     //engine type should have already been set
     this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_write);
+
+    if (!this->Handles.engine)
+      {
+      SENSEI_ERROR("Failed to open \"" << this->FileName << "\" for writing")
+      return -1;
+      }
     }
 
   adios2_step_status status;

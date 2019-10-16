@@ -547,7 +547,7 @@ int BinaryStreamSchema::Read(MPI_Comm comm, InputStream &iStream,
   const std::string &path, sensei::BinaryStream &str)
 {
   timer::MarkStartEvent("senseiADIOS2::BinaryStreamSchema::Read");
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   // get metadata
 
   adios2_variable *vinfo = adios2_inquire_variable(iStream.Handles.io, path.c_str());
@@ -565,12 +565,12 @@ cerr << __FILE__ << " " <<__LINE__ << endl;
     SENSEI_ERROR("ADIOS2 shape inqure failed, code " << shapeErr)
     return -1;
     }
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   // allocate a buffer
   str.Resize(nbytes);
   str.SetReadPos(0);
   str.SetWritePos(nbytes);
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   if (!streamIsFileBased(iStream.ReadEngine))
     {
     int rank = 0;
@@ -582,7 +582,7 @@ cerr << __FILE__ << " " <<__LINE__ << endl;
       return -1;
       }
     }
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   // read it
   adios2_error readErr = adios2_get(iStream.Handles.engine, vinfo, str.GetData(), adios2_mode_sync);
   if (readErr != 0)
@@ -590,7 +590,7 @@ cerr << __FILE__ << " " <<__LINE__ << endl;
     SENSEI_ERROR("Failed to read BinaryStream at \"" << path << "\"")
     return -1;
     }
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   timer::MarkEndEvent("senseiADIOS2::BinaryStreamSchema::Read", nbytes);
 
   return 0;
@@ -720,7 +720,7 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
 
   // Open the engine now variables are declared
   adios2_set_engine(this->Handles.io, this->ReadEngine.c_str());
-    
+
   // open the file
   this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_read);
 
@@ -729,7 +729,7 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
     SENSEI_ERROR("Failed to open \"" << this->FileName << "\" for reading")
     return -1;
     }
-  
+
   // connect and begin step
   adios2_step_status status;
   adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_read, -1, &status);
@@ -739,7 +739,7 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
     SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
     return -1;
     }
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   return 0;
 }
 
@@ -747,7 +747,7 @@ cerr << __FILE__ << " " <<__LINE__ << endl;
 int InputStream::AdvanceTimeStep()
 {
   timer::MarkEvent mark("senseiADIOS2::InputStream::AdvanceTimeStep");
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   //TODO maybe this is inefficient?
   adios2_error endErr = adios2_end_step(this->Handles.engine);
     if (endErr != 0)
@@ -755,19 +755,19 @@ cerr << __FILE__ << " " <<__LINE__ << endl;
     SENSEI_ERROR("ADIOS2 error on adios2_end_step call, error code enum: " << endErr )
     return -1;
     }
-cerr << __FILE__ << " " <<__LINE__ << endl;  
+
   adios2_step_status status;
   adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_read, 0, &status);
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   if (err != 0 && status == adios2_step_status::adios2_step_status_other_error)
     {
     SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
     this->Close();
     return -1;
     }
-  
+
   cerr << status << " status code done" << endl;
-  
+
   // Check if the status says we are at the end, if so, just leave
   if (status == adios2_step_status::adios2_step_status_end_of_stream)
     {
@@ -791,14 +791,14 @@ int InputStream::Close()
       SENSEI_ERROR("ADIOS2 error on adios2_close call, error code enum: " << err )
       return -1;
       }
-      
+
     adios2_error finErr = adios2_finalize(this->Adios);
     if (finErr != 0)
       {
       SENSEI_ERROR("ADIOS2 error on adios2_finalize, error code enum: " << finErr)
       return -1;
       }
-      
+
     this->Handles.engine = nullptr;
     this->Handles.io = nullptr;
     this->ReadEngine = "";
@@ -854,8 +854,8 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   const std::vector<long> &block_num_points,
   const std::vector<long> &block_num_cells,
   const std::vector<int> &block_owner,
-  std::vector<size_t> &putVarsStart, 
-  std::vector<size_t> &putVarsCount, 
+  std::vector<size_t> &putVarsStart,
+  std::vector<size_t> &putVarsCount,
   std::vector<std::string> &putVarsName)
 {
   timer::MarkEvent mark("senseiADIOS2::ArraySchema::DefineVariable");
@@ -883,7 +883,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
 
   // define the variable once for each block
   unsigned long block_offset = 0;
-  
+
    // /data_object_<id>/data_array_<id>/data
   std::string path = ans.str() + "data";
   size_t defaultVal = 0;
@@ -894,7 +894,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   {
   SENSEI_ERROR("adios2_define_variable failed at: ☢ 🤢 ☣" << __FILE__ << " " << __LINE__ <<" with " << num_elem_total << " "  << path << " -Err END-")
   }
-  
+
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     // get the block size
@@ -903,7 +903,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
 
     // define the variable for a local block
     if (block_owner[j] ==  rank)
-      {     
+      {
       // save the var attr. to use later for putting
       putVarsStart[i*num_blocks + j] = block_offset;
       putVarsCount[i*num_blocks + j] = num_elem_local;
@@ -981,8 +981,8 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
   const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
   unsigned int num_blocks, const std::vector<int> &block_owner,
-  const std::vector<size_t> &putVarsStart, 
-  const std::vector<size_t> &putVarsCount, 
+  const std::vector<size_t> &putVarsStart,
+  const std::vector<size_t> &putVarsCount,
   const std::vector<std::string> &putVarsName)
 {
   timer::MarkStartEvent("senseiADIOS2::ArraySchema::Write");
@@ -1513,7 +1513,7 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-        
+
         // save the id for subsequent write
         arrayWriteVars[j] = cell_array_write_var;
 
@@ -1526,8 +1526,8 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         // /data_object_<id>/cell_types
         std::string path_ct = ons + "cell_types";
         adios2_variable *cell_type_write_var = adios2_define_variable(handles.io,
-            path_ct.c_str(), adios2_type_uint8_t, 1, 
-            &cell_type_gdmins, &cell_types_boffs, &cell_types_ldims, 
+            path_ct.c_str(), adios2_type_uint8_t, 1,
+            &cell_type_gdmins, &cell_types_boffs, &cell_types_ldims,
             adios2_constant_dims_true);
 
         if (cell_type_write_var == NULL)
@@ -1817,7 +1817,7 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-      
+
         // save the write id to tell adios which block we are writing later
         typeWriteVars[j] = cell_type_write_var;
 
@@ -2220,7 +2220,7 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-      
+
         // save the id for subsequent write
         writeVars[j] = extent_write_var;
         }
@@ -2431,7 +2431,7 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-        
+
         // save the id for subsequent write
         originWriteVars[j] = origin_write_var;
 
@@ -2686,7 +2686,7 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-      
+
         // save the id for subsequent write
         xCoordWriteVars[j] = xc_write_var;
 
@@ -2700,7 +2700,7 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-      
+
         // save the id for subsequent write
         yCoordWriteVars[j] = yc_write_var;
 
@@ -2714,7 +2714,7 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
         SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " " << __LINE__)
         return -1;
         }
-      
+
         // save the id for subsequent write
         zCoordWriteVars[j] = zc_write_var;
         }
@@ -3110,32 +3110,32 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 {
   (void)comm;
   timer::MarkEvent mark("senseiADIOS2::DataObjectCollectionSchema::ReadMeshMetadata");
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   this->Internals->SenderMdMap.Clear();
   this->Internals->ReceiverMdMap.Clear();
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   // /number_of_data_objects
   unsigned int n_objects = 0;
   if (adiosInq(iStream, "number_of_data_objects", n_objects))
     return -1;
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
    // read the sender mesh metadta
   for (unsigned int i = 0; i < n_objects; ++i)
     {
     std::ostringstream oss;
     oss << "data_object_" << i << "/";
     std::string data_object_id = oss.str();
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
     // /data_object_<id>/metadata
     sensei::BinaryStream bs;
     std::string path = data_object_id + "metadata";
     if (BinaryStreamSchema::Read(comm, iStream, path, bs))
       return -1;
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
     sensei::MeshMetadataPtr md = sensei::MeshMetadata::New();
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
     md->FromStream(bs);
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
     // Don't add internally generated arrays, as these
     // interfere with ghost cell/node arrays which are
     // also special cases.
@@ -3153,11 +3153,11 @@ cerr << __FILE__ << " " <<__LINE__ << endl;
 
     this->Internals->SenderMdMap.PushBack(md);
     }
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   // resize the receiver mesh metatadata, this will be set
   // later by the whomever is controling how the data lands
   this->Internals->ReceiverMdMap.Resize(n_objects);
-cerr << __FILE__ << " " <<__LINE__ << endl;
+
   return 0;
 }
 
