@@ -1,6 +1,4 @@
 #include "ADIOS2DataAdaptor.h"
-
-
 #include "MeshMetadata.h"
 #include "Partitioner.h"
 #include "BlockPartitioner.h"

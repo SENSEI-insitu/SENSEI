@@ -97,8 +97,7 @@ int main(int argc, char **argv)
     MPI_Abort(comm, 1);
     }
 
-  // read from the ADIOS2 stream until all steps have been
-  // processed
+  // read from the ADIOS2 stream until all steps have been processed
   unsigned int nSteps = 0;
   do
     {

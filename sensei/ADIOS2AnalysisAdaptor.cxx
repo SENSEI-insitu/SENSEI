@@ -195,8 +195,7 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
     // initialize adios2
     // args  0: comm
     //       1: debug mode
-    //TODO turn off debug/expose to xml
-    this->Adios = adios2_init(this->GetCommunicator(), adios2_debug_mode_on);
+    this->Adios = adios2_init(this->GetCommunicator(), adios2_debug_mode_off);
 
     // Open the io handle
     this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
@@ -260,6 +259,8 @@ int ADIOS2AnalysisAdaptor::Finalize()
 
   delete this->Schema;
   this->Schema = nullptr;
+  this->Handles.io = nullptr;
+  this->Handles.engine = nullptr;
 
   return 0;
 }
@@ -272,12 +273,19 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   timer::MarkEvent mark("ADIOS2AnalysisAdaptor::WriteTimestep");
 
   int ierr = 0;
-  if(!this->Handles.engine)
+  if (!this->Handles.engine)
     {
-    if(this->EngineName == "SST")
+    if (this->EngineName == "SST")
       adios2_set_parameters(this->Handles.io, "RendezvousReaderCount=1 , RegistrationMethod=File");
 
-    //engine type should have already been set
+    // If the user set additional parameters, add them now to ADIOS2
+    for (unsigned int j = 0; j < this->ADIOSParameters.size(); j++)
+      {
+        adios2_set_parameter(this->Handles.io,
+                             this->ADIOSParameters[j].first.c_str(),
+                             this->ADIOSParameters[j].second.c_str());
+      }
+
     this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_write);
 
     if (!this->Handles.engine)
@@ -292,7 +300,8 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 
   if (err != 0)
     {
-    SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
+    SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status
+      << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
     return -1;
     }
 
@@ -316,6 +325,14 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 
   return ierr;
 }
+
+//----------------------------------------------------------------------------
+// Add parameter to adios in string key value pairs
+void ADIOS2AnalysisAdaptor::AddAdios2Parameter(std::string key, std::string value)
+{
+    ADIOSParameters.emplace_back(key, value);
+}
+
 
 //----------------------------------------------------------------------------
 void ADIOS2AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)

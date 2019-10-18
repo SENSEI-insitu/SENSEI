@@ -24,7 +24,7 @@ public:
   static ADIOS2AnalysisAdaptor* New();
   senseiTypeMacro(ADIOS2AnalysisAdaptor, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
-
+  void AddAdios2Parameter(std::string key, std::string value);
 
   /// @brief Set the ADIOS2 engine
   void SetEngineName(const std::string &engineName)
@@ -74,6 +74,7 @@ protected:
   std::string FileName;
   senseiADIOS2::AdiosHandle Handles;
   adios2_adios *Adios;
+  std::vector<std::pair<std::string,std::string>> ADIOSParameters;
 
 private:
   ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;
