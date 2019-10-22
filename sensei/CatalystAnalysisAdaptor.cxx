@@ -18,11 +18,11 @@
 #include <vtkImageData.h>
 #include <vtkMultiProcessController.h>
 #include <vtkObjectFactory.h>
+#include <vtkPVConfig.h>
 #include <vtkRectilinearGrid.h>
 #include <vtkStructuredGrid.h>
 #ifdef ENABLE_CATALYST_PYTHON
 #include <vtkCPPythonScriptPipeline.h>
-#include <vtkPVConfig.h>
 #endif
 
 namespace sensei
