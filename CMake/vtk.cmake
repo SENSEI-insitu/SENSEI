@@ -2,7 +2,6 @@
 set(sensei_vtk_components_legacy)
 set(sensei_vtk_components_modern)
 
-
 set(sensei_vtk_components_legacy vtkCommonDataModel)
 set(sensei_vtk_components_modern CommonDataModel)
 
@@ -67,6 +66,10 @@ if (NOT ENABLE_CATALYST)
   else()
     set(SENSEI_VTK_COMPONENTS ${sensei_vtk_components_modern})
   endif()
+
+  # avoid leaking these internal variables
+  unset(sensei_vtk_components_legacy)
+  unset(sensei_vtk_components_modern)
 
   find_package(VTK CONFIG QUIET COMPONENTS ${SENSEI_VTK_COMPONENTS})
   if (NOT VTK_FOUND)

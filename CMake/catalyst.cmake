@@ -20,6 +20,11 @@ if (ENABLE_CATALYST)
     set (SENSEI_PV_COMPONENTS ${sensei_pv_components_modern})
   endif()
   find_package(ParaView CONFIG COMPONENTS ${SENSEI_PV_COMPONENTS})
+
+  # avoid leaking these internal variables
+  unset(sensei_pv_components_legacy)
+  unset(sensei_pv_components_modern)
+
   if(NOT ParaView_FOUND)
     message(FATAL_ERROR "Catalyst analysis components require Catalyst build "
       "(or install directory. Please set ParaView_DIR to point to directory "
