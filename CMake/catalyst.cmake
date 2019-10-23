@@ -7,7 +7,7 @@ if (ENABLE_CATALYST)
     list(APPEND sensei_pv_components_modern PythonCatalyst)
   endif()
 
-  find_package(ParaView CONFIG QUIET COMPONENTS ServerManagerCore)
+  find_package(ParaView CONFIG QUIET)
   if(NOT ParaView_FOUND)
     message(STATUS ${ParaView_NOT_FOUND_MESSAGE})
     message(FATAL_ERROR "Catalyst analysis components require Catalyst build "
