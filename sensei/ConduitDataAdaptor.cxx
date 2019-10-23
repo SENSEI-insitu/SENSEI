@@ -37,6 +37,7 @@
 
 #include "ConduitDataAdaptor.h"
 #include "Error.h"
+#include "Timer.h"
 
 namespace sensei 
 {
@@ -482,7 +483,8 @@ vtkDataSet* UniformMesh( const conduit::Node* node )
 }
 
 //-----------------------------------------------------------------------------
-int ConduitDataAdaptor::GetNumberOfArrays( const std::string &meshName, int /*association*/, unsigned int &numberOfArrays )
+/* ******* TODO ???
+int ConduitDataAdaptor::GetNumberOfArrays( const std::string &meshName, int association, unsigned int &numberOfArrays )
 {
   auto search = this->FieldNames.find( meshName );
   if( search == this->FieldNames.end() )
@@ -498,9 +500,11 @@ int ConduitDataAdaptor::GetNumberOfArrays( const std::string &meshName, int /*as
  
   return( 0 );
 }
+********* */
 
 //-----------------------------------------------------------------------------
-int ConduitDataAdaptor::GetArrayName( const std::string &meshName, int /*association*/, unsigned int index, std::string &arrayName )
+/* ******* TODO ???
+int ConduitDataAdaptor::GetArrayName( const std::string &meshName, int association, unsigned int index, std::string &arrayName )
 {
   auto search = this->FieldNames.find( meshName );
   if( search == this->FieldNames.end() )
@@ -518,6 +522,7 @@ int ConduitDataAdaptor::GetArrayName( const std::string &meshName, int /*associa
 
   return( 0 );
 }
+********* */
 
 //-----------------------------------------------------------------------------
 void ConduitDataAdaptor::SetNode( conduit::Node* node )
@@ -739,16 +744,16 @@ int ConduitDataAdaptor::GetNumberOfMeshes( unsigned int &numberOfMeshes )
 
 
 //-----------------------------------------------------------------------------
-int ConduitDataAdaptor::GetMeshName(unsigned int /*id*/, std::string &meshName)
+int ConduitDataAdaptor::GetMeshMetadata(unsigned int /*id*/, sensei::MeshMetadataPtr &metadata)
 {
   //this->FieldNames can be used to find the mesh name, once that becomes 
   //supported in the conduit node. 
-  meshName = "mesh";
+  metadata->MeshName = "mesh";
   return( 0 );
 }
 
 //-----------------------------------------------------------------------------
-int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshName, int /*association*/, const std::string& arrayname )
+int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshName, int /*association*/, const std::string &arrayname )
 {
   auto search = this->FieldNames.find( meshName );
   if( search == this->FieldNames.end() )
@@ -910,4 +915,3 @@ int ConduitDataAdaptor::ReleaseData()
 }
 
 }
-

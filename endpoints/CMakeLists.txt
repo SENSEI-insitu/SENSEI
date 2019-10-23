@@ -1,4 +1,4 @@
-set(endPointLibs opts sensei sMPI)
+set(endPointLibs sOPTS sensei sMPI)
 
 if(ENABLE_ADIOS1)
   list(APPEND endPointLibs sADIOS1)

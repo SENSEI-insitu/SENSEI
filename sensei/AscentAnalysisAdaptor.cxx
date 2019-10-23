@@ -25,6 +25,7 @@
 #include "AscentAnalysisAdaptor.h"
 #include "DataAdaptor.h"
 #include "Error.h"
+#include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 
 namespace sensei
@@ -1186,6 +1187,14 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   vtkDataObject* obj = nullptr;
   std::string meshName = "mesh";
 
+  // see what the simulation is providing
+  MeshMetadataMap mdMap;
+  if (mdMap.Initialize(dataAdaptor))
+  {
+    SENSEI_ERROR("Failed to get metadata")
+    return( false );
+  }
+
   if(dataAdaptor->GetMesh(meshName, false, obj))
   {
     SENSEI_ERROR("Failed to get mesh");
@@ -1208,36 +1217,27 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         return( -1 );
     }
 
-
-    int numGhostCellLayers = 0;
-    if(dataAdaptor->GetMeshHasGhostNodes(meshName, numGhostCellLayers) == 0)
+    MeshMetadataPtr metadata;
+    if(mdMap.GetMeshMetadata(meshName, metadata))
     {
-        if(numGhostCellLayers > 0)
-        {
-            if(dataAdaptor->AddGhostNodesArray(obj, meshName))
-            {
-                SENSEI_ERROR("Failed to get ghost points for mesh \"" << meshName << "\"");
-            }
-        }
-    }
-    else
-    {
-        SENSEI_ERROR("Failed to get ghost point information for \"" << meshName << "\"");
+        SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"");
+        return( false );
     }
 
-    if(dataAdaptor->GetMeshHasGhostCells(meshName, numGhostCellLayers) == 0)
+    // Add the ghost cell arrays to the mesh
+    if((metadata->NumGhostCells > 0) &&
+       dataAdaptor->AddGhostCellsArray(obj, meshName))
     {
-        if(numGhostCellLayers > 0)
-        {
-            if(dataAdaptor->AddGhostCellsArray(obj, meshName))
-            {
-                SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
-            }
-        }
+        SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
+        return( false );
     }
-    else
+
+    // Add the ghost node arrays to the mesh
+    if((metadata->NumGhostNodes > 0) &&
+       dataAdaptor->AddGhostNodesArray(obj, meshName))
     {
-        SENSEI_ERROR("Failed to get ghost cell information for \"" << meshName << "\"");
+        SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");
+        return( false );
     }
 
     int domainNum = 0;

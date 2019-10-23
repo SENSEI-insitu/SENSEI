@@ -271,38 +271,6 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
 }
 
 // --------------------------------------------------------------------------
-int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
-{
-#ifndef ENABLE_ASCENT
-  (void)node;
-  SENSEI_ERROR("Ascent was requested but is disabled in this build");
-  return( -1 );
-#else
-
-  vtkNew<AscentAnalysisAdaptor> ascent;
-  if (this->Comm != MPI_COMM_NULL)
-    ascent->SetCommunicator(this->Comm);
-
-  this->Analyses.push_back(ascent.GetPointer());
-
-  std::string options_file;
-  std::string actions_file;
-
-  // Check if the xml file has the ascent options filename.
-  if(node.attribute("options"))
-    options_file = node.attribute("options").value();
-
-  // Check if the xml file has the ascent actions filename.
-  if(node.attribute("json"))
-    actions_file = node.attribute("json").value();
-
-  ascent->Initialize(actions_file, options_file);
-
-  return( 0 );
-#endif
-}
-
-// --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 {
 #ifndef ENABLE_VTKM
