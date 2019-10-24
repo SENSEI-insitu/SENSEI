@@ -1,10 +1,10 @@
 <sensei>
   <analysis type="libsim" mode="batch" frequency="1"
-     session="@CMAKE_CURRENT_SOURCE_DIR@/oscillator_libsim.session"
-     image-filename="oscillator_libsim_%ts.png" image-width="800" image-height="800" image-format="png"
-     enabled="0"/>
+    session="@CMAKE_CURRENT_SOURCE_DIR@/oscillator_libsim.session"
+    image-filename="oscillator_libsim_%ts.png" image-width="800" image-height="800" image-format="png"
+    options="-debug 0" trace="0" enabled="1"/>
 
   <analysis type="libsim" plots="Pseudocolor" plotvars="ucdmesh/cell/data"
     image-filename="oscillator_libsim_%ts" image-width="800" image-height="800" image-format="png"
-    options="-debug 5" trace="1" enabled="1"/>
+    options="-debug 0" trace="0" enabled="0"/>
 </sensei>
