@@ -1,5 +1,5 @@
 <sensei>
-  <transport type="adios1" file_name="test.bp" read_method="FLEXPATH">
+  <transport type="adios1" filename="test.bp" method="FLEXPATH">
     <partitioner type="planar" plane_size="2"/>
   </transport>
 </sensei>

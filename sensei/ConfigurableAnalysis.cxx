@@ -1066,6 +1066,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 {
   TimeEvent<128> event("ConfigurableAnalysis::Initialize");
 
+  // create and configure analysis adaptors
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
     {
@@ -1087,7 +1088,23 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))
       || ((type == "SliceExtract") && !this->Internals->AddSliceExtract(node))))
       {
-      SENSEI_ERROR("Failed to add '" << type << "' analysis")
+      SENSEI_ERROR("Failed to add \"" << type << "\" analysis")
+      MPI_Abort(this->GetCommunicator(), -1);
+      }
+    }
+
+  // create and configure transport analysis adaptors
+  for (pugi::xml_node node = root.child("transport");
+    node; node = node.next_sibling("transport"))
+    {
+    if (!node.attribute("enabled").as_int(0))
+      continue;
+
+    std::string type = node.attribute("type").value();
+    if (!(((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "hdf5") && !this->Internals->AddHDF5(node))))
+      {
+      SENSEI_ERROR("Failed to add \"" << type << "\" transport")
       MPI_Abort(this->GetCommunicator(), -1);
       }
     }
