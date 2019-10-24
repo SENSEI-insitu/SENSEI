@@ -314,7 +314,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 // --------------------------------------------------------------------------
 bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 {
-  TimeEvent<128> mark("SliceExtract::Execute");
+  TimeEvent<128> mark("SliceExtract::ExecuteSlice");
 
   // require the user to tell us one or more meshes to slice
   if (this->Internals->Requirements.Empty())
