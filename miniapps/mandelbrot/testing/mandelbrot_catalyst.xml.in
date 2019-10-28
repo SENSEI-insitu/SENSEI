@@ -1,0 +1,4 @@
+<sensei>
+  <analysis type="catalyst" pipeline="pythonscript"
+    filename="@CMAKE_CURRENT_SOURCE_DIR@/mandelbrot_catalyst.py" enabled="1" />
+</sensei>

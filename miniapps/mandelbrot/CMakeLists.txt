@@ -8,3 +8,5 @@ endif()
 
 add_executable(mandelbrot ${sources})
 target_link_libraries(mandelbrot PRIVATE ${libs})
+
+add_subdirectory(testing)

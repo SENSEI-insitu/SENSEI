@@ -1,0 +1,4 @@
+<sensei>
+  <analysis type="histogram" mesh="mesh" array="mandelbrot" association="cell"
+    bins="10" enabled="1" />
+</sensei>

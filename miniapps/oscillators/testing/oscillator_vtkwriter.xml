@@ -1,13 +1,13 @@
 <sensei>
   <analysis type="PosthocIO"
-    output_dir="./mesh_pvd" file_name="output" mode="paraview" enabled="1">
+    output_dir="./mesh_pvd_oscillator" file_name="output" mode="paraview" enabled="1">
     <mesh name="mesh">
       <cell_arrays> data </cell_arrays>
     </mesh>
   </analysis>
 
   <analysis type="PosthocIO"
-    output_dir="./mesh_visit" file_name="output" mode="visit" enabled="1">
+    output_dir="./mesh_visit_oscillator" file_name="output" mode="visit" enabled="1">
     <mesh name="mesh">
       <cell_arrays> data </cell_arrays>
     </mesh>
