@@ -26,6 +26,15 @@ public:
   void SetVisItDirectory(const std::string &dir);
   void SetMode(const std::string &mode);
 
+  // if set then the adaptor will generate the nesting information
+  // for VisIt. If one wants to do subsetting in VisIt, setting this
+  // flag will give VisIt the information it needs to re-generate ghost
+  // zones based on the selected blocks. It is off by default because
+  // if not doing subsetting this information is not needed, and
+  // this information takes up a good deal of space and the algorithm
+  // used here is O(N^2) in the number of blocks.
+  void SetComputeNesting(int val);
+
   // Let the caller explicitly initialize.
   void Initialize();
 
@@ -35,7 +44,7 @@ public:
 
   // Simple method to add some VisIt plots and render. The limit is how complex
   // we want to make this.
-  bool AddRender(int frequency, 
+  bool AddRender(int frequency,
             const std::string &session,
             const std::string &plots,
             const std::string &plotVars,

@@ -710,3 +710,18 @@ long long patch_num_cells(patch_t *p)
   long long nz = 1;
   return nx*ny*nz;
 }
+
+// ****************************************************************************
+int patch_find_patch(patch_t **plist, int np, int id, patch_t *&p)
+{
+  p = nullptr;
+  for (int i = 0; i < np; ++i)
+    {
+    if (plist[i]->id == id)
+      {
+      p = plist[i];
+      return 0;
+      }
+    }
+  return -1;
+}

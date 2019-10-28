@@ -491,7 +491,7 @@ calculate_amr(MPI_Comm comm, simulation_data *sim)
 //
 void
 handle_command_line(int argc, char **argv, simulation_data *sim,
-    int &max_iter, std::string &config_file)
+    int &max_iter, int &nx, int &ny, std::string &config_file)
 {
     for(int i = 1; i < argc; ++i)
     {
@@ -524,6 +524,16 @@ handle_command_line(int argc, char **argv, simulation_data *sim,
                  strcmp(argv[i], "-refinement") == 0)&& (i+1)<argc)
         {
             sim->refinement_ratio = atoi(argv[i+1]);
+            i++;
+        }
+        else if((strcmp(argv[i], "-nx") == 0) && (i+1)<argc)
+        {
+            nx = atoi(argv[i+1]);
+            i++;
+        }
+        else if((strcmp(argv[i], "-ny") == 0) && (i+1)<argc)
+        {
+            ny = atoi(argv[i+1]);
             i++;
         }
         else if((strcmp(argv[i], "-b") == 0 ||
@@ -560,6 +570,8 @@ int main(int argc, char **argv)
     int max_iter = 100;
     std::string config_file("mandelbrot.xml");
     simulation_data sim;
+    int nx = 32;
+    int ny = 32;
 
     // Initialize MPI
     MPI_Init(&argc, &argv);
@@ -567,7 +579,7 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &sim.par_size);
 
     // Handle any command line args.
-    handle_command_line(argc, argv, &sim, max_iter, config_file);
+    handle_command_line(argc, argv, &sim, max_iter, nx, ny, config_file);
 
 #ifdef ENABLE_SENSEI
     sensei::Profiler::Initialize();
@@ -608,8 +620,6 @@ int main(int argc, char **argv)
 #define ORIGINY -0.5f
 #define WSIZE 0.5f
         const float window1[] = {ORIGINX, ORIGINX + WSIZE, ORIGINY, ORIGINY + WSIZE};
-#define NX 256
-#define NY 256
 
         // oscillate between 2 windows
         float window[4];
@@ -638,11 +648,11 @@ int main(int argc, char **argv)
         sim.patch.window[2] = window[2];
         sim.patch.window[3] = window[3];
         sim.patch.logical_extents[0] = 0;
-        sim.patch.logical_extents[1] = NX-1;
+        sim.patch.logical_extents[1] = nx-1;
         sim.patch.logical_extents[2] = 0;
-        sim.patch.logical_extents[3] = NY-1;
-        sim.patch.nx = NX;
-        sim.patch.ny = NY;
+        sim.patch.logical_extents[3] = ny-1;
+        sim.patch.nx = nx;
+        sim.patch.ny = ny;
 #ifdef ENABLE_SENSEI
         sensei::Profiler::StartEvent("mandelbrot::compute");
 #endif

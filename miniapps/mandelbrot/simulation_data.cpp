@@ -7,7 +7,7 @@ simulation_data::simulation_data()
     cycle = 0;
     time = 0.;
     max_levels = 2;
-    refinement_ratio = 4;
+    refinement_ratio = 2;
     balance = false;
     log = false;
     patch_ctor(&patch);

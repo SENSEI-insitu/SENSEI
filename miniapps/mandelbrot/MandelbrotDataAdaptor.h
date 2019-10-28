@@ -29,6 +29,9 @@ public:
   int AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
+  int AddGhostCellsArray(vtkDataObject* mesh,
+    const std::string &meshName) override;
+
   int ReleaseData() override;
 
 protected:

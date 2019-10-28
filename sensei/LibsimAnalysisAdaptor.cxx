@@ -3,6 +3,7 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "VTKUtils.h"
+#include "STLUtils.h"
 #include "MPIUtils.h"
 #include "Profiler.h"
 #include "Error.h"
@@ -28,6 +29,8 @@
 #include <vtkOverlappingAMR.h>
 #include <vtkUniformGrid.h>
 #include <vtkDataObject.h>
+#include <vtkXMLUniformGridAMRWriter.h>
+#include <vtkUniformGridAMRDataIterator.h>
 
 #include <VisItControlInterface_V2.h>
 #include <VisItDataInterface_V2.h>
@@ -37,6 +40,11 @@
 #include <map>
 
 #include <mpi.h>
+
+
+// TODO -- this is temporary debugging code related to visit gui amr
+// patch/level selection
+//#define USE_REAL_DOMAIN
 
 #define VISIT_DEBUG_LOG
 
@@ -48,6 +56,7 @@ using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
 
 namespace sensei
 {
+using namespace sensei::STLUtils;
 
 ///////////////////////////////////////////////////////////////////////////////
 class PlotRecord
@@ -136,6 +145,7 @@ public:
     void SetVisItDirectory(const std::string &s);
     void SetComm(MPI_Comm Comm);
     void SetMode(const std::string &mode);
+    void SetComputeNesting(int v);
 
     void PrintSelf(ostream& os, vtkIndent indent);
 
@@ -178,12 +188,6 @@ private:
     int GetMesh(int dom, const std::string &meshName, vtkDataObject *&mesh);
     int GetVariable(int dom, const std::string &varName, vtkDataArray *&array);
 
-    int GetDomainList(const std::string &meshName,
-         std::vector<int> &localDomains, int &numDomains);
-
-    int GetDomainNesting(const std::string &meshName,
-        std::vector<std::vector<int>> &children);
-
     int DecodeVarName(const std::string &varName, std::string &meshName,
         std::string &arrayName, int &association);
 
@@ -203,6 +207,8 @@ private:
 
     std::map<std::string, vtkDataObjectPtr> Meshes;
     std::map<std::string, sensei::MeshMetadataPtr> Metadata;
+
+    int ComputeNesting;
 
     std::string               traceFile, options, visitdir;
     std::vector<PlotRecord>   plots;
@@ -234,6 +240,13 @@ LibsimAnalysisAdaptor::PrivateData::~PrivateData()
         if(VisItIsConnected())
             VisItDisconnect();
     }
+}
+
+// --------------------------------------------------------------------------
+void
+LibsimAnalysisAdaptor::PrivateData::SetComputeNesting(int val)
+{
+    this->ComputeNesting = val;
 }
 
 // --------------------------------------------------------------------------
@@ -428,24 +441,25 @@ LibsimAnalysisAdaptor::PrivateData::Initialize()
      }
      else
      {
-         // Try and initialize the runtime.
-         if(VisItInitializeRuntime() == VISIT_ERROR)
-         {
-             SENSEI_ERROR("Could not initialize the VisIt runtime library.")
-             return false;
-         }
-         else
-         {
-             // Register Libsim callbacks.
-             VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
-             VisItSetGetMetaData(GetMetaData, (void*)this);
-             VisItSetGetMesh(GetMesh, (void*)this);
-             VisItSetGetVariable(GetVariable, (void*)this);
-             VisItSetGetDomainList(GetDomainList, (void*)this);
-             VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
+        // Try and initialize the runtime.
+        if(VisItInitializeRuntime() == VISIT_ERROR)
+        {
+            SENSEI_ERROR("Could not initialize the VisIt runtime library.")
+            return false;
+        }
+        else
+        {
+            // Register Libsim callbacks.
+            VisItSetSlaveProcessCallback2(SlaveProcessCallback, (void*)this); // needed in batch?
+            VisItSetGetMetaData(GetMetaData, (void*)this);
+            VisItSetGetMesh(GetMesh, (void*)this);
+            VisItSetGetVariable(GetVariable, (void*)this);
+            VisItSetGetDomainList(GetDomainList, (void*)this);
+            if (this->ComputeNesting)
+                VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
 
-             initialized = true;
-         }
+            initialized = true;
+        }
     }
 
     return initialized;
@@ -814,7 +828,8 @@ LibsimAnalysisAdaptor::PrivateData::Execute_Interactive(int rank)
                 VisItSetGetMesh(GetMesh, (void*)this);
                 VisItSetGetVariable(GetVariable, (void*)this);
                 VisItSetGetDomainList(GetDomainList, (void*)this);
-                VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
+                if (this->ComputeNesting)
+                    VisItSetGetDomainNesting(GetDomainNesting, (void*)this);
 
                 // Pause when we connect.
                 this->paused = true;
@@ -1046,12 +1061,12 @@ static visit_handle
 vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
 {
     vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj);
-    /*if (!ds)
+    if (dobj && !ds)
     {
         SENSEI_ERROR("Can't convert a "
            << (dobj ? dobj->GetClassName() : "nullptr"))
         return VISIT_INVALID_HANDLE;
-    }*/
+    }
 
     visit_handle mesh = VISIT_INVALID_HANDLE;
     vtkImageData *igrid = vtkImageData::SafeDownCast(ds);
@@ -1078,18 +1093,7 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
         igrid->GetExtent(ext);
         igrid->GetOrigin(x0);
         igrid->GetSpacing(dx);
-#if 0
-int rank;
-MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-if(rank == 0)
-{
-cout << "dims=" << dims[0] << ", " << dims[1] << ", " << dims[2] << endl;
-cout << "ext=" << ext[0] << ", " << ext[1] << ", " << ext[2] << ", "
-               << ext[3] << ", " << ext[4] << ", " << ext[5] << endl;
-cout << "x0=" << x0[0] << ", " << x0[1] << ", " << x0[2] << endl;
-cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
-}
-#endif
+
         if(VisIt_RectilinearMesh_alloc(&mesh) == VISIT_OKAY)
         {
             int nx = std::max(dims[0], 1);
@@ -1337,7 +1341,8 @@ cout << "dx=" << dx[0] << ", " << dx[1] << ", " << dx[2] << endl;
     // TODO: expand to other mesh types.
     else
     {
-        SENSEI_ERROR("Unsupported VTK mesh type \"" << ds->GetClassName() << "\"")
+        SENSEI_ERROR("Unsupported VTK mesh type "
+          << (ds ? ds->GetClassName() : dobj ? dobj->GetClassName() : "nullptr"))
 #ifdef VISIT_DEBUG_LOG
         VisItDebug5("SENSEI: Unsupported VTK mesh type.\n");
 #endif
@@ -1450,6 +1455,11 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             return VISIT_INVALID_HANDLE;
         }
 
+        // this simplifies things substantially to be able to have a global view
+        // the driver behind this is AMR data, for which we require a global view.
+        if (!mmd->GlobalView)
+            mmd->GlobalizeView(This->Comm);
+
         // cache the metadata
         This->Metadata[mmd->MeshName] = mmd;
 
@@ -1482,7 +1492,17 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             VisIt_MeshMetaData_setGroupPieceName(vmmd, "level");
 
             for (int j = 0; j < mmd->NumBlocks; ++j)
-              VisIt_MeshMetaData_addGroupId(vmmd, mmd->BlockLevel[j]);
+            {
+                int b = 0;
+#ifdef USE_REAL_DOMAIN
+                for (; b < mmd->NumBlocks; ++b)
+                    if (mmd->BlockIds[b] == j)
+                        break;
+#else
+                b = j;
+#endif
+                VisIt_MeshMetaData_addGroupId(vmmd, mmd->BlockLevel[b]);
+            }
         }
         else
         {
@@ -1604,50 +1624,6 @@ void LibsimAnalysisAdaptor::PrivateData::ClearCache()
 }
 
 // --------------------------------------------------------------------------
-int
-LibsimAnalysisAdaptor::PrivateData::GetDomainList(const std::string &meshName,
-  std::vector<int> &localDomains, int &numDomains)
-{
-#ifdef VISIT_DEBUG_LOG
-    VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetDomainList\n");
-#endif
-    numDomains = 0;
-    localDomains.clear();
-
-    int rank = 0;
-    int nRanks = 1;
-
-    MPI_Comm_rank(this->Comm, &rank);
-    MPI_Comm_size(this->Comm, &nRanks);
-
-    // get the metadata, it should already be available
-    auto mdit = this->Metadata.find(meshName);
-    if (mdit == this->Metadata.end())
-    {
-        SENSEI_ERROR("No metadata for mesh \"" << meshName << "\"")
-        return -1;
-    }
-    MeshMetadataPtr mmd = mdit->second;
-
-    // not all simulations have rank orderd blocks
-    // simulation provided block ids and block owner arrays can be used
-    // to iterate over local blocks. this works for both global and
-    // local metadata views
-    int nIds = mmd->BlockIds.size();
-    for (int i = 0; i < nIds; ++i)
-    {
-        if (rank == mmd->BlockOwner[i])
-        {
-            localDomains.push_back(mmd->BlockIds[i]);
-        }
-    }
-
-    numDomains = mmd->NumBlocks;
-
-    return 0;
-}
-
-// --------------------------------------------------------------------------
 int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
     vtkDataObjectPtr &dobjp)
 {
@@ -1663,6 +1639,15 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
         if (this->Adaptor->GetMesh(meshName, false, dobj))
         {
             SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+            return -1;
+        }
+
+        // add ghost zones. if the simulation has them we always want/need
+        // them
+        if (this->Adaptor->AddGhostCellsArray(dobj, meshName))
+        {
+            SENSEI_ERROR("Failed to add ghost cells to mesh \""
+              << meshName << "\"")
             return -1;
         }
 
@@ -1684,6 +1669,7 @@ int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetVariable\n");
 #endif
+
     array = nullptr;
 
     // convert from visit variable name into sensei's mesh, centering, and
@@ -1725,17 +1711,47 @@ int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
     }
 
     // extract array from the requested block
-    for (; !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
+
+    // VTK's iterators for AMR datasets behave differently than for multiblock
+    // datasets.  we are going to have to handle AMR data as a special case for
+    // now.
+
+    vtkUniformGridAMRDataIterator *amrIt = dynamic_cast<vtkUniformGridAMRDataIterator*>(cdit);
+    vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(cd.Get());
+
+    for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
     {
-        long blockId = std::max(0u, cdit->GetCurrentFlatIndex() - 1);
+        long blockId = 0;
+        if (amrIt)
+        {
+            // special case for AMR
+            int level = amrIt->GetCurrentLevel();
+            int index = amrIt->GetCurrentIndex();
+            blockId = amrMesh->GetAMRBlockSourceIndex(level, index);
+        }
+        else
+        {
+            // other composite data
+            blockId = cdit->GetCurrentFlatIndex() - 1;
+        }
+
         if (blockId == dom)
         {
-            array = cdit->GetCurrentDataObject()->GetAttributes(association)->GetArray(arrayName.c_str());
+            array = cdit->GetCurrentDataObject()->GetAttributes(
+                association)->GetArray(arrayName.c_str());
             break;
         }
     }
 
     cdit->Delete();
+
+    if (!array)
+    {
+        SENSEI_ERROR("Failed to get array \"" << arrayName << "\" for domain "
+            << dom << " of mesh \"" << meshName << "\"")
+        return -1;
+    }
+
     return 0;
 }
 
@@ -1764,9 +1780,32 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom,
 
     // get the block that visit is after
     vtkCompositeDataIterator *cdit = cd->NewIterator();
-    for (; !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
+
+    // extract array from the requested block
+
+    // VTK's iterators for AMR datasets behave differently than for multiblock
+    // datasets.  we are going to have to handle AMR data as a special case for
+    // now.
+
+    vtkUniformGridAMRDataIterator *amrIt = dynamic_cast<vtkUniformGridAMRDataIterator*>(cdit);
+    vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(cd.Get());
+
+    for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
     {
-        long blockId = std::max(0u, cdit->GetCurrentFlatIndex() - 1);
+        long blockId = 0;
+        if (amrIt)
+        {
+            // special case for AMR
+            int level = amrIt->GetCurrentLevel();
+            int index = amrIt->GetCurrentIndex();
+            blockId = amrMesh->GetAMRBlockSourceIndex(level, index);
+        }
+        else
+        {
+            // other composite data
+            blockId = cdit->GetCurrentFlatIndex() - 1;
+        }
+
         if (blockId == dom)
         {
             mesh = cdit->GetCurrentDataObject();
@@ -1775,6 +1814,14 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom,
     }
 
     cdit->Delete();
+
+    if (!mesh)
+    {
+        SENSEI_ERROR("Failed to get domain " << dom << " from mesh \""
+            << meshName << "\"")
+        return -1;
+    }
+
     return 0;
 }
 
@@ -1822,13 +1869,22 @@ visit_handle
 LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *meshName, void *cbdata)
 {
     VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainList ====\n");
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::GetDomainList");
 
     PrivateData *This = (PrivateData *)cbdata;
 
+    int rank = 0;
+    MPI_Comm_rank(This->Comm, &rank);
+
+
     // Create a list of domains owned by this rank.
-    int nGlobalDomains = 0;
+    MeshMetadataPtr mmd = This->Metadata[meshName];
     std::vector<int> localDomains;
-    This->GetDomainList(meshName, localDomains, nGlobalDomains);
+    for (int i = 0; i < mmd->NumBlocks; ++i)
+    {
+        if (mmd->BlockOwner[i] == rank)
+            localDomains.push_back(mmd->BlockIds[i]);
+    }
 
     visit_handle h = VISIT_INVALID_HANDLE;
     if (localDomains.size() > 0)
@@ -1841,495 +1897,140 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainList(const char *meshName, void *cb
         VisIt_VariableData_setDataI(hdl, VISIT_OWNER_COPY,
             1, localDomains.size(), localDomains.data());
 
-        VisIt_DomainList_setDomains(h, nGlobalDomains, hdl);
+        VisIt_DomainList_setDomains(h, mmd->NumBlocks, hdl);
     }
 
     return h;
 }
 
-
-inline bool
-in_range(int value, int v0, int v1)
+std::array<int,6> refine(const std::array<int,6> &cext, const std::array<int,3> rr)
 {
-    return value >= v0 && value <= v1;
+    // refine the coarse patch to put it in the index space of the fine patch
+    return std::array<int,6>{{
+        cext[0]*rr[0], (cext[1] + 1) * rr[0] - 1,
+        cext[2]*rr[1], (cext[3] + 1) * rr[1] - 1,
+        cext[4]*rr[2], (cext[5] + 1) * rr[2] - 1}};
 }
 
-inline bool
-box_intersect(const int *ext, const int *extChild, int ratio)
+// check if a course patch,cext, intersects a rr refined fine patch, fext.
+// extents are to provided in VTK order: [ilo,ihi, jlo,jhi, klo,khi]
+// for 2D patches the 3d dim should have hi=lo and rr=1
+bool
+intersects(const std::array<int,6> &rcext, const std::array<int,6> &fext)
 {
-    // box is low,high, low,high, low,high
-    int parent[6];
-    parent[0] = ext[0]*ratio;
-    parent[1] = ext[1]*ratio;
-    parent[2] = ext[2]*ratio;
-    parent[3] = ext[3]*ratio;
-    parent[4] = ext[4]*ratio;
-    parent[5] = ext[5]*ratio;
+    // check that at least one corner of the fine patch is inside
+    // the coarse patch. calculation is made in the fine level index
+    // space
+    if ((((fext[0] >= rcext[0]) && (fext[0] <= rcext[1])) ||
+        ((fext[1] >= rcext[0]) && (fext[1] <= rcext[1]))) &&
+        (((fext[2] >= rcext[2]) && (fext[2] <= rcext[3])) ||
+        ((fext[3] >= rcext[2]) && (fext[3] <= rcext[3]))) &&
+        (((fext[4] >= rcext[4]) && (fext[4] <= rcext[5])) ||
+        ((fext[5] >= rcext[4]) && (fext[5] <= rcext[5]))))
+        return true;
 
-    bool inX = in_range(extChild[0], parent[0], parent[1]) ||
-               in_range(extChild[1], parent[0], parent[1]);
-    bool inY = in_range(extChild[2], parent[2], parent[3]) ||
-               in_range(extChild[3], parent[2], parent[3]);
-    // Ignore Z if 2D.
-    bool inZ = true;
-    if(parent[4] != parent[5] || parent[4] != 0)
-    {
-        inZ = in_range(extChild[4], parent[4], parent[5]) ||
-              in_range(extChild[5], parent[4], parent[5]);
-    }
-    return inX && inY && inZ;
+    return false;
 }
 
-// --------------------------------------------------------------------------
-int
-LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const std::string &meshName,
-    std::vector<std::vector<int>> &children)
-{
-
-    int rank = 0;
-    int nRanks = 1;
-
-    MPI_Comm_rank(this->Comm, &rank);
-    MPI_Comm_size(this->Comm, &nRanks);
-
-    // get the metadata, it should already be available
-    auto mdit = this->Metadata.find(meshName);
-    if (mdit == this->Metadata.end())
-    {
-        SENSEI_ERROR("No metadata for mesh \"" << meshName << "\"")
-        return -1;
-    }
-    MeshMetadataPtr mmd = mdit->second;
-
-    SENSEI_ERROR("TODO - fix this")
-    // construct a global view of the child relation ships.
-    /*
-    // this is one thing we decided should always be a local
-    // view as it can take a lot of space.
-    BinaryStream bss;
-    bss.Pack(mmd->BlockIds);
-    bss.Pack(mmd->BlockChildren);
-
-    std::vector<int> sizes(nRanks);
-    sizes[rank] = bss.Size();
-
-    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-        sizes.data(), 1, MPI_INT, this->Comm);
-
-    int totalSize = 0;
-    std::vector<int> offset(nRanks);
-    for (int i = 0; i < nRanks; ++i)
-    {
-        offset[i] = totalSize;
-        totalSize += sizes[i];
-    }
-
-    BinaryStream bsr;
-    bsr.Resize(totalSize);
-    int nLocal = bss.Size();
-    unsigned char *pbss = bss.GetData();
-    unsigned char *pbsr = bsr.GetData() + offset[rank];
-    for (int i = 0; i < nLocal; ++i)
-        pbsr[i] = pbss[i];
-
-    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-        bsr.GetData(), sizes.data(), offset.data(), MPI_BYTE,
-        this->Comm);
-
-    bss.Clear();
-    bsr.SetReadPos(0);
-
-    // put the info into block order
-    // things have been communicated in rank order but we need
-    // to preserve block order.
-    children.resize(mmd->NumBlocks);
-    for (int i = 0; i < nRanks; ++i)
-    {
-        std::vector<int> blockIds;
-        std::vector<std::vector<int>> blockChildren;
-
-        bsr.Unpack(blockIds);
-        bsr.Unpack(blockChildren);
-
-        int nri = blockIds.size();
-        for (int j = 0; j < nri; ++j)
-            children[blockIds[j]] = blockChildren[j];
-    }
-    bsr.Clear();
-    */
-
-    return 0;
-}
-
+// TODO -- this isn't working
 // --------------------------------------------------------------------------
 visit_handle
-LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *meshName, void *cbdata)
+LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name,
+    void *cbdata)
 {
     VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::GetDomainNesting");
 
-    SENSEI_ERROR("TODO - fix this")
-    return VISIT_INVALID_HANDLE;
-/*
+    visit_handle h = VISIT_INVALID_HANDLE;
+    std::string meshName(name);
+
     PrivateData *This = (PrivateData *)cbdata;
-
     MeshMetadataPtr mmd = This->Metadata[meshName];
 
     // skip non-amr datasets
     if (mmd->MeshType != VTK_OVERLAPPING_AMR)
         return VISIT_INVALID_HANDLE;
 
-    // invalid metadata
-    if (mmd->BlockChildren.empty())
-        return VISIT_INVALID_HANDLE;
-
-    // Populate the domain nesting structure.
-    visit_handle h = VISIT_INVALID_HANDLE;
-    VisIt_DomainNesting_alloc(&h);
-
-    int topdim = ((mmd->Extent[5] - mmd->Extent[4]) > 1) ? 3 : 2;
-
-    VisIt_DomainNesting_set_dimensions(h, mmd->NumBlocks,
-        mmd->NumLevels, topdim);
-
-    // Set the refinement ratios.
-    for (int i = 0; i < mmd->NumLevels; ++i)
-    {
-        std::array<int,3> rr = mmd->RefRatio[i];
-        rr[2] = (topdim > 2 ? rr[2] : 1);
-        VisIt_DomainNesting_set_levelRefinement(h, i, rr.data());
-    }
-
-    // set the child nesting info
-    for (int i = 0; i < mmd->NumBlocks; ++i)
-    {
-        const int *bext = mmd->BlockExtents[i].data();
-
-        // this would convert from vtk's extent convention
-        //int vbext[6] = {bext[0], bext[2], bext[4],
-        //    bext[1], bext[3], bext[5]};
-
-        int nc = mmd->BlockChildren[i].size();
-        int *pc = nc ? mmd->BlockChildren[i].data() : nullptr;
-        int lev = mmd->BlockLevel[i];
-
-        VisIt_DomainNesting_set_nestingForPatch(h, i, lev, pc, nc, (int*)bext);
-    }
-
-    return h;
-*/
-}
-
-// notes 8/2/2018 metadata revamp
-// the below comment is not 100% correct. AMReX has all the block info on
-// all ranks and passing that into ParaView and VTK seems to be necessary.
-// in conversation with Gunther he has indicated that it the domain bounds
-// structure in VisIt that is problematic. Based on those discussion we
-// decided that neighbor, parent, and child info in sensei will never be global.
-// however since AMR codes like AMReX, and CHOMBO have other block info in
-// all ranks we can expect global views of those.
-//
-// the below code does not work with the AMReX adaptor because below it is
-// assumed that block info in VTK data structures is local. as mentioned I
-// think that assumption is incorrect.
-//
-// I think we need to pass both ghost cell array and domain nesting to VisIt.
-// without domain nesting info VisIt can't do selections even if it has ghost
-// zones.
-//
-// I'm commenting this code out, but I think if we can resolve the issues it worth
-// having this or something like it to generate the domain nexting structure for
-// the miniapps. if nothing else this code would move into the mandelbrot miniapp
-
-// --------------------------------------------------------------------------
-// NOTE: VisIt's domain nesting structure needs to include all of the patches
-//       in the dataset across all ranks. This is may somewhat limit scalability
-//       since we have to deduce that stuff from the distributed VTK dataset.
-//       On the other hand, we don't even have to do this if we ghost the data
-//       ourselves.
-//
-/*
-visit_handle
-LibsimAnalysisAdaptor::PrivateData::GetDomainNestingOrig(const char *name, void *cbdata)
-{
-    PrivateData *This = (PrivateData *)cbdata;
-    visit_handle h = VISIT_INVALID_HANDLE;
-    std::string meshName(name);
-    VisItDebug5("==== LibsimAnalysisAdaptor::PrivateData::GetDomainNesting ====\n");
-
-    // See if there is a MeshInfo for the mesh.
-    std::map<std::string, MeshInfo *>::const_iterator it;
-    it = This->meshData.find(meshName);
-    if(it == This->meshData.end())
-    {
-        VisItDebug5("failed to locate mesh entry for %s\n", name);
-        return VISIT_INVALID_HANDLE;
-    }
-
-    // See if we know if the mesh datasets already had ghost cells. If so, return.
-    if(it->second->datasetsHaveGhostCells)
-    {
-        VisItDebug5("The mesh %s already had vtkGhostType ghost cells. "
-                    "We can skip creating the domain nesting object.\n", name);
-        return VISIT_INVALID_HANDLE;
-    }
-
-    // We might have made a mesh entry with nothing in it. If so, we need the data.
-    if(it->second->dataObj == nullptr)
-    {
-        VisItDebug5("Trying to fetch actual mesh for %s\n", meshName.c_str());
-        This->FetchMesh(meshName);
-        it = This->meshData.find(meshName);
-    }
-
-    // Make sure that the data were overlappingAMR.
-    vtkOverlappingAMR *overlappingAMR = vtkOverlappingAMR::SafeDownCast(it->second->dataObj);
-    if(overlappingAMR == nullptr)
-    {
-        VisItDebug5("The VTK dataset was not a vtkOverlappingAMR dataset.");
-        return VISIT_INVALID_HANDLE;
-    }
-
     // Try and allocate the domain nesting object.
     if(VisIt_DomainNesting_alloc(&h) == VISIT_ERROR)
     {
-        VisItDebug5("failed to allocate DomainNesting object.\n");
+        VisItDebug1("failed to allocate DomainNesting object.\n");
         return VISIT_INVALID_HANDLE;
     }
 
-    TimeEvent<128> mark("libsim::getdomainnesting");
     int rank, size;
     MPI_Comm_rank(This->Comm, &rank);
     MPI_Comm_size(This->Comm, &size);
 
-    // Now, we need the AMR box information for each patch. We don't have
-    // all data on each rank so we need to allreduce.
-    int sz = 6 * overlappingAMR->GetTotalNumberOfBlocks();
-    int *allext = new int[sz];
-    for(int i = 0; i < sz; ++i)
-        allext[i] = -1;
-    for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
-    {
-        unsigned int mylevel, mypatch;
-        overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
-        const vtkAMRBox &box = overlappingAMR->GetAMRBox(mylevel, mypatch);
-        if(!box.Empty())
-        {
-            box.GetDimensions(&allext[6*i]);
-        }
-    }
-    MPI_Allreduce(MPI_IN_PLACE, allext, sz, MPI_INT, MPI_MAX, This->Comm);
-//#define DEBUG_GETDOMAINNESTING
-#ifdef DEBUG_GETDOMAINNESTING
-    for(unsigned int i = 0; i < overlappingAMR->GetTotalNumberOfBlocks(); ++i)
-    {
-        unsigned int mylevel, mypatch;
-        overlappingAMR->GetLevelAndIndex(i, mylevel, mypatch);
-        std::stringstream ss;
-        if(i == 0)
-            ss << "TotalNumberOfBlocks = " << overlappingAMR->GetTotalNumberOfBlocks() << endl;
-        ss << "patch " << i << ": level=" << mylevel << ", id=" << mypatch
-                 << ",  box={"
-                 << allext[6*i+0] << ", "
-                 << allext[6*i+1] << ", "
-                 << allext[6*i+2] << ", "
-                 << allext[6*i+3] << ", "
-                 << allext[6*i+4] << ", "
-                 << allext[6*i+5] << "}"
-                 << endl;
-        VisItDebug5(ss.str().c_str());
-    }
-#endif
-    int topdim = ((allext[5] - allext[4]) > 1) ? 3 : 2;
+    int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
+        mmd->Extent[3] - mmd->Extent[2] + 1,
+        mmd->Extent[5] - mmd->Extent[4] + 1};
+
+    int topoDims = This->TopologicalDimension(dims);
 
     // Populate the domain nesting structure.
     VisIt_DomainNesting_set_dimensions(h,
-        overlappingAMR->GetTotalNumberOfBlocks(),
-        overlappingAMR->GetNumberOfLevels(),
-        topdim);
+        mmd->NumBlocks, mmd->NumLevels, topoDims);
 
     // Set the refinement ratios.
-    for(unsigned int i = 0; i < overlappingAMR->GetNumberOfLevels(); ++i)
+    for(int i = 0; i < mmd->NumLevels; ++i)
     {
-        int ratios[3] = {1,1,1};
-        ratios[0] = overlappingAMR->GetRefinementRatio(i);
-        ratios[1] = ratios[0];
-        ratios[2] = (topdim > 2) ? ratios[0] : 1;
-        VisIt_DomainNesting_set_levelRefinement(h, i, ratios);
+        std::array<int,3> &rr =  mmd->RefRatio[i];
+        VisIt_DomainNesting_set_levelRefinement(h, i, rr.data());
     }
 
-    // We don't have perfect parent/child data in the VTK AMR dataset. Maybe VTK
-    // isn't happy computing it when only some of the ranks have data. We have
-    // gathered the boxes for all patches in the dataset at this point.
-    // We can use that to determine parent/child. Make a list of all non-leaf
-    // patches that we can divide among ranks for computing parent/child.
-    std::vector<unsigned int> work;
-    for(unsigned int level = 0; level < overlappingAMR->GetNumberOfLevels()-1; ++level)
+    // for each block figure out the list of children
+    std::vector<int> nesting;
+    nesting.reserve(mmd->NumBlocks);
+    for (int i = 0; i < mmd->NumBlocks; ++i)
     {
-        unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
-        for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
-            work.push_back(overlappingAMR->GetCompositeIndex(level, i));
-    }
+        int activeLevel = mmd->BlockLevel[i];
+        int nextLevel = activeLevel + 1;
+        std::array<int,6> &activeExt = mmd->BlockExtents[i];
+        std::array<int,3> &rr = mmd->RefRatio[activeLevel];
 
-    // Now, there were a bunch of patches for which we need to compute the children.
-    // Figure out which ranks do which patches.
-    std::vector<unsigned int> mywork;
-    int ws = static_cast<int>(work.size());
-    int *rankn = new int[size];
-    memset(rankn, 0, sizeof(int)*size);
-    for(int i = 0; i < ws; ++i)
-        rankn[i % size]++;
-    int offset = 0;
-    for(int i = 0; i < rank; ++i)
-        offset += rankn[i];
-    for(int i = 0; i < rankn[rank]; ++i)
-        mywork.push_back(work[offset + i]);
-    delete [] rankn;
-
-    // Compute the children. We'll store them as {compositeIndex nChildren c0 c1 ...}...
-    std::vector<int> childData;
-    for(size_t i = 0; i < mywork.size(); ++i)
-    {
-        unsigned int dom = mywork[i];
-        int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
-
-        size_t start = childData.size();
-        childData.push_back(static_cast<int>(dom));
-        childData.push_back(0);
-
-        unsigned int level, patch;
-        overlappingAMR->GetLevelAndIndex(dom, level, patch);
-        unsigned int nextLevel = level+1;
-        int ratio = overlappingAMR->GetRefinementRatio(level);
-        unsigned int nDataSetsNextLevel = overlappingAMR->GetNumberOfDataSets(nextLevel);
-#ifdef DEBUG_GETDOMAINNESTING
-        std::stringstream ss;
-        ss << "Finding children of patch " << dom << ": level=" << level
-           << ", id=" << patch << ", start=" << start
-           << ", nextLevel=" << nextLevel << ", ndsnextlevel=" << nDataSetsNextLevel
-           << ", childData={";
-#endif
-        for(unsigned int j = 0; j < nDataSetsNextLevel; ++j)
+        // for blocks not on the finest level, find children
+        if (nextLevel < mmd->NumLevels)
         {
-            unsigned int childDom = overlappingAMR->GetCompositeIndex(nextLevel, j);
-            const int *extChild = &allext[6*childDom]; // lowi highi lowj highj lowk highk
-            if(box_intersect(ext, extChild, ratio))
+            // refine the active extent, calculations are made in
+            // the finer level index space
+            std::array<int,6> rActiveExt = refine(activeExt, rr);
+
+            for (int j = 0; j < mmd->NumBlocks; ++j)
             {
-                childData.push_back(static_cast<int>(childDom));
-                childData[start+1]++;
+                if (mmd->BlockLevel[j] != nextLevel)
+                    continue;
+
+                const std::array<int,6> &otherExt = mmd->BlockExtents[j];
+
+                if (intersects(rActiveExt, otherExt))
+                {
+#ifdef USE_REAL_DOMAIN
+                    nesting.push_back(mmd->BlockIds[j]);
+#else
+                    nesting.push_back(j);
+#endif
+                }
             }
         }
-#ifdef DEBUG_GETDOMAINNESTING
-        for(size_t j = start; j < childData.size(); ++j)
-            ss << childData[j] << ", ";
-        ss << "}" << endl;
-        VisItDebug5(ss.str().c_str());
+
+        // re-roder the block extent to be compatible w/ VisIt
+        int vExt[6] = {activeExt[0], activeExt[2], activeExt[4],
+            activeExt[1], activeExt[3], activeExt[5]};
+
+#ifdef USE_REAL_DOMAIN
+        VisIt_DomainNesting_set_nestingForPatch(h, mmd->BlockIds[i],
+            activeLevel, nesting.data(), nesting.size(), vExt);
+#else
+        VisIt_DomainNesting_set_nestingForPatch(h, i,
+            activeLevel, nesting.data(), nesting.size(), vExt);
 #endif
+
+        nesting.clear();
     }
-
-    // Get the work sizes on each rank.
-    int *worksize = new int[size];
-    memset(worksize, 0, sizeof(int)*size);
-    worksize[rank] = static_cast<int>(childData.size());
-    MPI_Allreduce(MPI_IN_PLACE, worksize, size, MPI_INT, MPI_MAX, This->Comm);
-
-    // Get the work results from each rank.
-    int n = 0;
-    for(int i =0; i < size; ++i)
-        n += worksize[i];
-    int *displs = new int[size];
-    displs[0] = 0;
-    for(int i = 1; i < size; ++i)
-        displs[i] = displs[i-1] + worksize[i-1];
-#ifdef DEBUG_GETDOMAINNESTING
-    std::stringstream ss;
-    ss << "\nworksize={";
-    for(int i = 0; i < size; ++i)
-        ss << worksize[i] << ", ";
-    ss << "}" << endl;
-    ss << "n=" << n << ", displs={";
-    for(int i = 0; i < size; ++i)
-        ss << displs[i] << ", ";
-    ss << "}\n" << endl;
-    VisItDebug5(ss.str().c_str());
-#endif
-    int *workresults = new int[n];
-    childData.push_back(0); // make sure that childData has at least 1 element now.
-    MPI_Allgatherv(&childData[0], worksize[rank], MPI_INT,
-                   workresults, worksize, displs, MPI_INT, This->Comm);
-    delete [] worksize;
-    delete [] displs;
-
-    // Now we have the work results, use them.
-    int *w = workresults;
-    int *end = workresults + n;
-    while(w < end)
-    {
-        unsigned int dom = static_cast<unsigned int>(w[0]);
-        int nChildren = w[1];
-        int *children = nChildren > 0 ? &w[2] : nullptr;
-
-        int *ext = &allext[6*dom]; // lowi highi lowj highj lowk highk
-        int logicalExt[6]; // lowi lowj lowk highi highj highk
-        logicalExt[0] = ext[0];
-        logicalExt[1] = ext[2];
-        logicalExt[2] = ext[4];
-        logicalExt[3] = ext[1];
-        logicalExt[4] = ext[3];
-        logicalExt[5] = ext[5];
-
-        unsigned int level, patch;
-        overlappingAMR->GetLevelAndIndex(dom, level, patch);
-        VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
-            children, nChildren, logicalExt);
-#ifdef DEBUG_GETDOMAINNESTING
-        std::stringstream ss;
-        ss << "patch " << dom << ": level=" << level << ", id=" << patch << ": children = {";
-        for(int r = 0; r < nChildren; ++r)
-            ss << children[r] << ", ";
-        ss << "}, ext={";
-        for(int r = 0; r < 6; ++r)
-            ss << logicalExt[r] << ", ";
-        ss << "}" << endl;
-        VisItDebug5(ss.str().c_str());
-#endif
-        w += (nChildren + 2);
-    }
-
-    // Add the leaves.
-    unsigned int level = overlappingAMR->GetNumberOfLevels()-1;
-    unsigned int nDataSetsThisLevel = overlappingAMR->GetNumberOfDataSets(level);
-    // There are no child patches here and the most patches should
-    // live here.
-    int children[2] ={0,0};
-    for(unsigned int i = 0; i < nDataSetsThisLevel; ++i)
-    {
-        unsigned int dom = overlappingAMR->GetCompositeIndex(level, i);
-        int *ext = &allext[6*dom];
-        int logicalExt[6];
-        logicalExt[0] = ext[0];
-        logicalExt[1] = ext[2];
-        logicalExt[2] = ext[4];
-        logicalExt[3] = ext[1];
-        logicalExt[4] = ext[3];
-        logicalExt[5] = ext[5];
-        VisIt_DomainNesting_set_nestingForPatch(h, dom, level,
-                    children, 0, logicalExt);
-#ifdef DEBUG_GETDOMAINNESTING
-        std::stringstream ss;
-        ss << "patch " << dom << ": level=" << level << ", id=" << i
-           << ": children = {}, logicalExt={";
-        for(int r = 0; r < 6; ++r)
-            ss << logicalExt[r] << ", ";
-        ss << "}" << endl;
-        VisItDebug5(ss.str().c_str());
-#endif
-    }
-
-    delete [] allext;
-    delete [] workresults;
 
     return h;
-}*/
+}
 
 
 
@@ -2369,6 +2070,12 @@ void LibsimAnalysisAdaptor::SetVisItDirectory(const std::string &s)
 }
 
 //-----------------------------------------------------------------------------
+void LibsimAnalysisAdaptor::SetComputeNesting(int val)
+{
+    internals->SetComputeNesting(val);
+}
+
+//-----------------------------------------------------------------------------
 void LibsimAnalysisAdaptor::SetMode(const std::string &mode)
 {
     internals->SetMode(mode);
@@ -2382,6 +2089,7 @@ bool LibsimAnalysisAdaptor::AddRender(int frequency, const std::string &session,
     const double origin[3], const double normal[3],
     const LibsimImageProperties &imgProps)
 {
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::AddRender");
     return internals->AddRender(frequency, session, plots, plotVars, slice,
       project2d, origin, normal, imgProps);
 }
@@ -2394,6 +2102,7 @@ bool LibsimAnalysisAdaptor::AddExport(int frequency, const std::string &session,
     const double origin[3], const double normal[3],
     const std::string &filename)
 {
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::AddExport");
     return internals->AddExport(frequency, session, plots, plotVars, slice,
       project2d, origin, normal, filename);
 }
@@ -2416,10 +2125,10 @@ bool LibsimAnalysisAdaptor::Execute(DataAdaptor* DataAdaptor)
 //-----------------------------------------------------------------------------
 int LibsimAnalysisAdaptor::Finalize()
 {
-  TimeEvent<128> mark("LibsimAnalysisAdaptor::Finalize");
-  delete this->internals;
-  this->internals = nullptr;
-  return 0;
+    TimeEvent<128> mark("LibsimAnalysisAdaptor::Finalize");
+    delete this->internals;
+    this->internals = nullptr;
+    return 0;
 }
 
 }

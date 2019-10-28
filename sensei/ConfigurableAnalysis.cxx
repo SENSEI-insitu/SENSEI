@@ -129,7 +129,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
   const char* analysisName = nullptr;
   bool logEnabled = Profiler::Enabled();
   if (logEnabled)
-  {
+    {
     std::ostringstream initName;
     std::ostringstream execName;
     std::ostringstream finiName;
@@ -142,7 +142,7 @@ int ConfigurableAnalysis::InternalsType::TimeInitialization(
     this->LogEventNames.push_back(finiName.str());
     analysisName = this->LogEventNames[3 * analysisNumber].c_str();
     Profiler::StartEvent(analysisName);
-  }
+    }
 
   int result = initializer();
 
@@ -579,20 +579,31 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   if (!this->LibsimAdaptor)
     {
     this->LibsimAdaptor = vtkSmartPointer<LibsimAnalysisAdaptor>::New();
+
     if (this->Comm != MPI_COMM_NULL)
       this->LibsimAdaptor->SetCommunicator(this->Comm);
+
     if(node.attribute("trace"))
       this->LibsimAdaptor->SetTraceFile(node.attribute("trace").value());
+
     if(node.attribute("options"))
       this->LibsimAdaptor->SetOptions(node.attribute("options").value());
+
     if(node.attribute("visitdir"))
       this->LibsimAdaptor->SetVisItDirectory(node.attribute("visitdir").value());
+
     if(node.attribute("mode"))
       this->LibsimAdaptor->SetMode(node.attribute("mode").value());
-    this->TimeInitialization(this->LibsimAdaptor, [&]() {
+
+    this->LibsimAdaptor->SetComputeNesting(
+      node.attribute("compute_nesting").as_int(0));
+
+    this->TimeInitialization(this->LibsimAdaptor, [&]()
+      {
       this->LibsimAdaptor->Initialize();
       return 0;
       });
+
     this->Analyses.push_back(this->LibsimAdaptor);
     }
 
@@ -602,22 +613,23 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 
   int frequency = 5;
   if(node.attribute("frequency") != NULL)
-      frequency = node.attribute("frequency").as_int();
+    frequency = node.attribute("frequency").as_int();
+
   if(frequency < 1)
-      frequency = 1;
+    frequency = 1;
 
   std::string filename;
   LibsimImageProperties imageProps;
   if(node.attribute("filename") != NULL)
-  {
+    {
     imageProps.SetFilename(node.attribute("filename").value());
     filename = node.attribute("filename").value();
-  }
+    }
   if(node.attribute("image-filename") != NULL)
-  {
+    {
     imageProps.SetFilename(node.attribute("image-filename").value());
     filename = node.attribute("image-filename").value();
-  }
+    }
 
   if(node.attribute("image-width") != NULL)
     imageProps.SetWidth(node.attribute("image-width").as_int());

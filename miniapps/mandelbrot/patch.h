@@ -53,5 +53,6 @@ void      patch_refine(patch_t *patch, int refinement_ratio,
                        void (*maskcb)(patch_t *, image_t*));
 long long patch_num_points(patch_t *patch);
 long long patch_num_cells(patch_t *patch);
+int       patch_find_patch(patch_t **plist, int np, int id, patch_t *&p);
 
 #endif
