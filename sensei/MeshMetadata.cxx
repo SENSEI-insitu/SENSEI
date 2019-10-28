@@ -235,7 +235,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
     {
     if (this->MeshType == VTK_OVERLAPPING_AMR)
       {
-      if (this->NumBlocks != int(this->BlockExtents.size()/6))
+      if (this->NumBlocks != int(this->BlockExtents.size()))
         {
         SENSEI_ERROR("BlockExtents are always a global view in AMR data")
         err = true;
