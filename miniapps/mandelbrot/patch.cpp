@@ -210,6 +210,13 @@ patch_flat_array(patch_t *patch, int *np)
     return patches;
 }
 
+void patch_free_flat_array(patch_t **pfa)
+{
+    FREE(pfa);
+}
+
+
+
 /******************************************************************************/
 
 typedef struct
@@ -684,4 +691,22 @@ patch_refine(patch_t *patch, int refinement_ratio,
         // on to the next patch.
         newpatch++;
     }
+}
+
+// **************************************************************************
+long long patch_num_points(patch_t *p)
+{
+  long long nx = p->logical_extents[1] - p->logical_extents[0] + 2;
+  long long ny = p->logical_extents[3] - p->logical_extents[2] + 2;
+  long long nz = 2;
+  return nx*ny*nz;
+}
+
+// **************************************************************************
+long long patch_num_cells(patch_t *p)
+{
+  long long nx = p->logical_extents[1] - p->logical_extents[0] + 1;
+  long long ny = p->logical_extents[3] - p->logical_extents[2] + 1;
+  long long nz = 1;
+  return nx*ny*nz;
 }

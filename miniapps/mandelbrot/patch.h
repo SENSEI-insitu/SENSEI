@@ -48,7 +48,10 @@ int       patch_num_patches(patch_t *patch);
 patch_t  *patch_get_patch(patch_t *patch, int id);
 int       patch_num_levels(patch_t *patch);
 patch_t **patch_flat_array(patch_t *patch, int *np);
+void      patch_free_flat_array(patch_t **pfa);
 void      patch_refine(patch_t *patch, int refinement_ratio, 
                        void (*maskcb)(patch_t *, image_t*));
+long long patch_num_points(patch_t *patch);
+long long patch_num_cells(patch_t *patch);
 
 #endif

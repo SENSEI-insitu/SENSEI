@@ -71,7 +71,7 @@ calculate_data(patch_t *patch)
 {
     unsigned char *data = patch->data;
 
-    // Compute x0, x1 and y0,y1 which help us locate cell centers. 
+    // Compute x0, x1 and y0,y1 which help us locate cell centers.
     float cellWidth = (patch->window[1] - patch->window[0]) / ((float)patch->nx);
     float x0 = patch->window[0] + cellWidth / 2.f;
     float x1 = patch->window[1] - cellWidth / 2.f;
@@ -131,7 +131,7 @@ detect_refinement(patch_t *patch, image_t *mask)
             int index = j*patch->nx+i;
             int dval = (int)patch->data[index] - neighbors(patch, i, j);
             if(dval < 0) dval = -dval;
-            if(dval > 2) 
+            if(dval > 2)
                 mask->data[index] = 1;
             else
                 mask->data[index] = 0;
@@ -159,7 +159,7 @@ log_patches(patch_t *patch, const char *msg)
         patch_t **patches_this_rank = patch_flat_array(patch, &np);
         for(int i = 0; i < np; ++i)
             patch_print(debuglog, patches_this_rank[i]);
-        FREE(patches_this_rank);  
+        FREE(patches_this_rank);
     }
 }
 #endif
@@ -257,7 +257,7 @@ sort_owners_by_workload(MPI_Comm comm, simulation_data *sim, patch_t *patch)
 void
 assign_patches(MPI_Comm comm, simulation_data *sim, patch_t *patch)
 {
-    // Decide how patches are assigned to processors. 
+    // Decide how patches are assigned to processors.
     if(patch->nowners > 1)
     {
 #ifdef DO_LOG
@@ -327,10 +327,10 @@ assign_patches(MPI_Comm comm, simulation_data *sim, patch_t *patch)
 void
 calculate_amr_helper(MPI_Comm comm, simulation_data *sim, patch_t *patch, int level)
 {
-    // Save the level 
+    // Save the level
     patch->level = level;
 
-    // Calculate the data on this patch 
+    // Calculate the data on this patch
     patch_alloc_data(patch, patch->nx, patch->ny);
     calculate_data(patch);
 
@@ -471,10 +471,10 @@ calculate_amr(MPI_Comm comm, simulation_data *sim)
     debuglog = fopen(filename, "wt");
 #endif
 
-    // Compute the AMR patches. 
+    // Compute the AMR patches.
     calculate_amr_helper(comm, sim, &sim->patch, 0);
 
-    // Assign ids to all of the AMR patches. 
+    // Assign ids to all of the AMR patches.
     assign_unique_patch_ids(comm, sim);
 
 #ifdef DO_LOG
@@ -490,11 +490,19 @@ calculate_amr(MPI_Comm comm, simulation_data *sim)
 // @brief Handle command line arguments.
 //
 void
-handle_command_line(int argc, char **argv, simulation_data *sim, 
+handle_command_line(int argc, char **argv, simulation_data *sim,
     int &max_iter, std::string &config_file)
 {
     for(int i = 1; i < argc; ++i)
     {
+        if (strcmp(argv[i], "-h") == 0)
+        {
+            std::cerr << "usage: mandelbrot [-i num iterations] "
+                << "[-f SENSEI analysis XML] [-l max level] [-b balance]"
+                << std::endl;
+            exit(0);
+        }
+
         if(strcmp(argv[i], "-f") == 0 && (i+1)<argc)
         {
             config_file = argv[i+1];
@@ -530,17 +538,6 @@ handle_command_line(int argc, char **argv, simulation_data *sim,
     }
 }
 
-// TODO -- remove or fix??
-// this function should be renamed, as gcc has one with same name
-// and it now breaks the build. It is not currently used, so I
-// commented it out for now.
-/*void pause()
-{
-    FILE *f = NULL;
-    while((f = fopen("pause.txt", "rt")) == NULL);
-    fclose(f);
-}*/
-
 //*****************************************************************************
 //
 // Purpose: This is the main function for the program.
@@ -564,12 +561,12 @@ int main(int argc, char **argv)
     std::string config_file("mandelbrot.xml");
     simulation_data sim;
 
-    // Initialize MPI 
+    // Initialize MPI
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &sim.par_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &sim.par_size);
 
-    // Handle any command line args. 
+    // Handle any command line args.
     handle_command_line(argc, argv, &sim, max_iter, config_file);
 
 #ifdef ENABLE_SENSEI
@@ -606,12 +603,6 @@ int main(int argc, char **argv)
     // Iterate.
     for(sim.cycle = 0; sim.cycle < max_iter; ++sim.cycle)
     {
-        if(sim.par_rank == 0)
-        {
-            std::cout << "Simulating time step: cycle=" << sim.cycle
-                      << ", time=" << sim.time << std::endl;
-        }
-
         const float window0[] = {-1.6f, 0.6f, -1.1f, 1.1f};
 #define ORIGINX -1.5f
 #define ORIGINY -0.5f
@@ -620,13 +611,21 @@ int main(int argc, char **argv)
 #define NX 256
 #define NY 256
 
-        // oscillate between 2 windows 
+        // oscillate between 2 windows
         float window[4];
         float t = 0.5f * sin(sim.time) + 0.5f;
         window[0] = (1.f - t)*window0[0] + t*window1[0];
         window[1] = (1.f - t)*window0[1] + t*window1[1];
         window[2] = (1.f - t)*window0[2] + t*window1[2];
         window[3] = (1.f - t)*window0[3] + t*window1[3];
+
+        if(sim.par_rank == 0)
+        {
+            std::cerr << "Simulating time step: cycle=" << sim.cycle
+                      << ", time=" << sim.time << " over domain "
+                      << window[0] << ", " << window[1] << ", "
+                      << window[2] << ", " << window[3] << std::endl;
+        }
 
         // Blow away the previous patch data and calculate.
         sim.patch.owners = NULL;
@@ -659,7 +658,7 @@ int main(int argc, char **argv)
 #ifdef ENABLE_SENSEI
         sensei::Profiler::EndEvent("mandelbrot::compute");
 
-        // Do in situ 
+        // Do in situ
         dataAdaptor->SetDataTime(sim.time);
         dataAdaptor->SetDataTimeStep(sim.cycle);
         analysisAdaptor->Execute(dataAdaptor.GetPointer());
