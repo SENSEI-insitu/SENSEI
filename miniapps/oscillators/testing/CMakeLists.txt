@@ -1,36 +1,36 @@
 if (BUILD_TESTING)
 
   senseiAddTest(testOscillatorHistogram
-    COMMAND oscillator -t 1 -b ${TEST_NP}
+    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorHistogramPar
     COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-     oscillator -t 1 -b ${TEST_NP}
+     oscillator -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorAutocorrelation
-    COMMAND oscillator -t 1 -b ${TEST_NP}
+    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorAutocorrelationPar
     COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-     oscillator -t 1 -b ${TEST_NP}
+     oscillator -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   if (ENABLE_VTK_IO)
     senseiAddTest(testOscillatorVTKWriter
-      COMMAND oscillator -t 1 -b ${TEST_NP}
+      COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_vtkwriter.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
     senseiAddTest(testOscillatorVTKWriterPar
       COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-       oscillator -t 1 -b ${TEST_NP}
+       oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_vtkwriter.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
   endif()
@@ -40,13 +40,13 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml @ONLY)
 
     senseiAddTest(testOscillatorCatalyst
-      COMMAND oscillator -t 1 -b ${TEST_NP}
+      COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
     senseiAddTest(testOscillatorCatalystPar
       COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-       oscillator -t 1 -b ${TEST_NP}
+       oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
   endif()
@@ -56,13 +56,13 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml @ONLY)
 
     senseiAddTest(testOscillatorLibsim
-      COMMAND oscillator -t 1 -b ${TEST_NP}
+      COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
     senseiAddTest(testOscillatorLibsimPar
       COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-       oscillator -t 1 -b ${TEST_NP}
+       oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
   endif()
