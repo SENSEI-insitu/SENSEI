@@ -191,16 +191,14 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if ((metadata->NumGhostCells > 0) &&
-      dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if (dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if ((metadata->NumGhostNodes > 0) &&
-      dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if (dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;

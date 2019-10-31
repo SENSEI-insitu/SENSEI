@@ -122,13 +122,13 @@ bool Histogram::Execute(DataAdaptor* data)
     }
 
   // add the ghost zones
-  if (mmd->NumGhostCells && data->AddGhostCellsArray(mesh, this->MeshName))
+  if (data->AddGhostCellsArray(mesh, this->MeshName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
     return false;
     }
 
-  if (mmd->NumGhostNodes && data->AddGhostNodesArray(mesh, this->MeshName))
+  if (data->AddGhostNodesArray(mesh, this->MeshName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost nodes.")
     return false;

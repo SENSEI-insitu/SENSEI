@@ -293,13 +293,13 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
     }
 
   // ghost cells
-  if ((mmd->NumGhostCells > 0) && dataAdaptor->AddGhostCellsArray(mesh, internals.MeshName))
+  if (dataAdaptor->AddGhostCellsArray(mesh, internals.MeshName))
     {
     SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost cells.")
     return false;
     }
 
-  if ((mmd->NumGhostNodes > 0) && dataAdaptor->AddGhostNodesArray(mesh, internals.MeshName))
+  if (dataAdaptor->AddGhostNodesArray(mesh, internals.MeshName))
     {
     SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost nodes.")
     return false;
