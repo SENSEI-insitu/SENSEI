@@ -306,6 +306,9 @@ int MeshMetadata::GlobalizeView(MPI_Comm comm)
     MPIUtils::GlobalViewV(comm, this->BlockExtents);
     MPIUtils::GlobalViewV(comm, this->BlockBounds);
     MPIUtils::GlobalViewV(comm, this->BlockArrayRange);
+    MPIUtils::GlobalViewV(comm, this->BlockLevel);
+
+    MPIUtils::GlobalCounts(comm, this->BlocksPerLevel);
 
     STLUtils::ReduceRange(this->BlockBounds, this->Bounds);
     STLUtils::ReduceRange(this->BlockExtents, this->Extent);

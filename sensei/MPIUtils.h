@@ -25,6 +25,16 @@ define_mpi_tt(float, MPI_FLOAT)
 define_mpi_tt(double, MPI_DOUBLE)
 
 
+// helper to recuce by summation elements in a vector
+// it's assumed that the vector is the same size on all
+// ranks.
+template<typename cpp_t>
+void GlobalCounts(MPI_Comm comm, std::vector<cpp_t> &vec)
+{
+  MPI_Allreduce(MPI_IN_PLACE, vec.data(), vec.size(),
+      mpi_tt<cpp_t>::datatype(), MPI_SUM, comm);
+}
+
 // helper function to compute an axis aligned bounding box
 // that bounds a collection of distrubted axis aligned bounding
 // boxes
