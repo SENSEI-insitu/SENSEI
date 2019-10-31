@@ -31,7 +31,7 @@ file=test.bp
 
 rm -f $file ${file}_writer_info.txt
 
-export TIMER_ENABLE=1 TIMER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
+export PROFILER_ENABLE=1 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
 
 ${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
