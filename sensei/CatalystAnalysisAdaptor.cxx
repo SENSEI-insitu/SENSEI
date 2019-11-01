@@ -169,13 +169,15 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
         }
 
       // add ghost zones
-      if (dataAdaptor->AddGhostNodesArray(dobj, meshName))
+      if (metadata[i]->NumGhostNodes &&
+        dataAdaptor->AddGhostNodesArray(dobj, meshName))
         {
         SENSEI_ERROR("Failed to get ghost nodes array for mesh \""
           << meshName << "\"")
         }
 
-      if (dataAdaptor->AddGhostCellsArray(dobj, meshName))
+      if (metadata[i]->NumGhostCells &&
+        dataAdaptor->AddGhostCellsArray(dobj, meshName))
         {
         SENSEI_ERROR("Failed to get ghost nodes array for mesh \""
           << meshName << "\"")

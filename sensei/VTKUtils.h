@@ -89,6 +89,13 @@ inline bool Amr(const MeshMetadataPtr &md)
 }
 
 /// Return true if the mesh or block type is logically Cartesian
+inline bool AMR(const MeshMetadataPtr &md)
+{
+  return (md->MeshType == VTK_OVERLAPPING_AMR) ||
+    (md->MeshType == VTK_NON_OVERLAPPING_AMR);
+}
+
+/// Return true if the mesh or block type is logically Cartesian
 inline bool Structured(const MeshMetadataPtr &md)
 {
   return (md->BlockType == VTK_STRUCTURED_GRID) ||

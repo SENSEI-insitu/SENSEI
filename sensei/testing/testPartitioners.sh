@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 
-if [[ $# < 12 ]]
+if [[ $# < 13 ]]
 then
   echo "testPartitioners.sh [mpiexec] [npflag] [writer nproc] [blocks x] [blocks y] [reader nproc] [src dir] [writer analysis xml] [reader analysis xml] [reader transport xml] [nits] [sync]"
   exit 1
 fi
 
-mpiexec=`basename $1`
-npflag=$2
-nproc_write=$3
-nblock_x=$4
-nblock_y=$5
-nproc_read=$6
-srcdir=$7
-writer_analysis_xml=$8
-reader_analysis_xml=$9
-reader_transport_xml=${10}
-nits=${11}
-sync_mode=${12}
+python=$1
+mpiexec=`basename $2`
+npflag=$3
+nproc_write=$4
+nblock_x=$5
+nblock_y=$6
+nproc_read=$7
+srcdir=$8
+writer_analysis_xml=$9
+reader_analysis_xml=${10}
+reader_transport_xml=${11}
+nits=${12}
+sync_mode=${13}
 delay=1
 maxDelay=30
 
@@ -33,7 +34,7 @@ rm -f $file ${file}_writer_info.txt
 
 export PROFILER_ENABLE=1 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
 
-${mpiexec} ${npflag} ${nproc_write} python ${srcdir}/testPartitionersWrite.py \
+${mpiexec} ${npflag} ${nproc_write} ${python} ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
   -6.2832 6.2832 -6.2832 6.2832 0 6.2832 &
 writePid=$!
@@ -68,7 +69,7 @@ fi
 
 export TIMER_ENABLE=1 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderMemProf.csv
 
-${mpiexec} ${npflag} ${nproc_read} python ${srcdir}/testPartitionersRead.py \
+${mpiexec} ${npflag} ${nproc_read} ${python} ${srcdir}/testPartitionersRead.py \
   "${srcdir}/${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"
 
 test_stat=$?
