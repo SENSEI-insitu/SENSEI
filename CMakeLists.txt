@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.6)
+cmake_policy(SET CMP0074 OLD)
 project(sensei)
 
 include(CMakeDependentOption)
