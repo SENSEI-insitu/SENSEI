@@ -218,7 +218,7 @@ int libISAnalysisAdaptor::InitializelibIS(
   if (!this->Schema)
     {
 
-    //libISInit(this->GetCommunicator(), this->port);
+    libISInit(this->GetCommunicator(), this->port);
 
     // define libIS variables
     this->Schema = new senseilibIS::DataObjectCollectionSchema;

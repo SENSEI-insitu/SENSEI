@@ -2829,7 +2829,7 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
     oss << "data_object_" << i << "/";
     std::string object_id = oss.str();
 
-    SENSEI_STATUS("DataObjectCollectionSchema::DefineVariables object_id " << object_id);
+    //SENSEI_STATUS("DataObjectCollectionSchema::DefineVariables object_id " << object_id);
 
     // what follows depends on a global view of the metadata
     if (!metadata[i]->GlobalView)

@@ -43,7 +43,8 @@ protected:
   libISAnalysisAdaptor();
   ~libISAnalysisAdaptor();
 
-  // intializes libIS in no-xml mode, allocate buffers, and declares a group
+  // intializes libIS
+  // fixme: may not need metadata
   int InitializelibIS(const std::vector<MeshMetadataPtr> &metadata);
 
   // writes the data collection
