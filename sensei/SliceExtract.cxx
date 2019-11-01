@@ -262,14 +262,14 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // add the ghost cell arrays to the mesh
-  if (dataAdaptor->AddGhostCellsArray(dobj, meshName))
+  if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
     return false;
     }
 
   // add the ghost node arrays to the mesh
-  if (dataAdaptor->AddGhostNodesArray(dobj, meshName))
+  if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"")
     return false;
@@ -367,14 +367,14 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (dataAdaptor->AddGhostCellsArray(dobj, meshName))
+    if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if (dataAdaptor->AddGhostNodesArray(dobj, meshName))
+    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"")
       return false;

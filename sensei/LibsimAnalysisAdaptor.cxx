@@ -1642,11 +1642,27 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
             return -1;
         }
 
+        // get the metadata, it should already be available
+        auto mdit = this->Metadata.find(meshName);
+        if (mdit == this->Metadata.end())
+        {
+            SENSEI_ERROR("No metadata for mesh \"" << meshName << "\"")
+            return -1;
+        }
+        MeshMetadataPtr mmd = mdit->second;
+
         // add ghost zones. if the simulation has them we always want/need
         // them
-        if (this->Adaptor->AddGhostCellsArray(dobj, meshName))
+        if (mmd->NumGhostCells && this->Adaptor->AddGhostCellsArray(dobj, meshName))
         {
             SENSEI_ERROR("Failed to add ghost cells to mesh \""
+              << meshName << "\"")
+            return -1;
+        }
+
+        if (mmd->NumGhostNodes && this->Adaptor->AddGhostNodesArray(dobj, meshName))
+        {
+            SENSEI_ERROR("Failed to add ghost nodes to mesh \""
               << meshName << "\"")
             return -1;
         }

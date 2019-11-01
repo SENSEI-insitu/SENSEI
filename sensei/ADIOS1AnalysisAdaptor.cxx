@@ -126,14 +126,14 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if (dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
