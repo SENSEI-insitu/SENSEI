@@ -1560,7 +1560,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
             // naming convention: <mesh>/<centering>/<var>
             std::string arrayName = mmd->MeshName + "/" +
-                (mmd->ArrayCentering[j] == vtkDataObject::POINT ? "node" : "cell") +
+                (mmd->ArrayCentering[j] == vtkDataObject::POINT ? "point" : "cell") +
                 "/" + mmd->ArrayName[j];
 
             VisIt_VariableMetaData_setName(vmd, arrayName.c_str());
