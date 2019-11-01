@@ -2,19 +2,22 @@
 #define sensei_DataAdaptor_h
 
 #include "senseiConfig.h"
-#include "vtkObjectBase.h"
+#include "MeshMetadata.h"
+
+#include <vtkObjectBase.h>
 
 #include <vector>
 #include <string>
 #include <mpi.h>
+#include <memory>
 
 class vtkAbstractArray;
 class vtkDataObject;
-class vtkInformation;
-class vtkInformationIntegerKey;
+class vtkCompositeDataSet;
 
 namespace sensei
 {
+
 
 /// @class DataAdaptor
 /// @brief DataAdaptor is an abstract base class that defines the data interface.
@@ -47,25 +50,16 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   virtual int GetNumberOfMeshes(unsigned int &numMeshes) = 0;
 
-  /// @brief Get the name of the i'th mesh
+  /// @brief Get metadata of the i'th mesh
   ///
-  /// The caller passes the integer id of the mesh for which the name is
-  /// desired, and a reference to string where the name is stored. See
-  /// GetNumberOfMeshes. If successfull the method returns 0, a non-zero
-  /// return indicates an error occurred.
+  /// The caller passes the integer id of the mesh for which the metadata is
+  /// desired, and a pointer to a MeshMetadata instance  where the metadata is
+  /// stored.
   ///
   /// @param[in] id index of the mesh to access
-  /// @param[out] meshName reference to a string where the name can be stored
+  /// @param[out] metadata a pointer to instance where metadata is stored
   /// @returns zero if successful, non zero if an error occurred
-  virtual int GetMeshName(unsigned int id, std::string &meshName) = 0;
-
-  /// @brief get a list of all mesh names
-  ///
-  /// A convenience method that returns a list of all mesh names
-  ///
-  /// @param[out] meshNames a vector where the list of names will be stored
-  /// @returns zero if successful, non-zero if an error occurred
-  virtual int GetMeshNames(std::vector<std::string> &meshNames);
+  virtual int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) = 0;
 
   /// @brief Return the data object with appropriate structure.
   ///
@@ -74,9 +68,10 @@ public:
   /// If \c structureOnly is set to true, then the geometry and topology
   /// information will not be populated. For data adaptors that produce a
   /// vtkCompositeDataSet subclass, passing \c structureOnly will still produce
-  /// appropriate composite data hierarchy.
+  /// appropriate composite data hierarchy. The caller takes ownership of the
+  /// returned mesh object, and will call Delete when it is no longer needed.
   ///
-  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
   /// @param[in] structureOnly When set to true (default; false) the returned mesh
   ///            may not have any geometry or topology information.
   /// @param[out] mesh a reference to a pointer where a new VTK object is stored
@@ -84,47 +79,28 @@ public:
   virtual int GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh) = 0;
 
-  /// @brief convenience method to get full mesh will all arrays added to the
-  /// mesh.
+  /// @brief Return the data as a composite (multi-block) object
   ///
-  /// Note that in some cases getting the complete mesh may cause significant
-  /// memory pressure.
-  ///
-  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
-  /// @param[in] structureOnly When set to true (default; false) the returned mesh
-  ///            may not have any geometry or topology information.
-  /// @param[out] mesh a reference to a pointer where a new VTK object is stored
-  /// @returns zero if successful, non zero if an error occurred
-  virtual int GetCompleteMesh(const std::string &meshName,
-    bool structureOnly, vtkDataObject *&mesh);
-
-  /// @brief Returns whether a mesh has ghost nodes.
-  ///
-  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
-  /// @param[out] nLayers  the number of layers of ghost nodes present or 0.
-  /// @returns zero if successful, non zero if an error occurred
-  virtual int GetMeshHasGhostNodes(const std::string &meshName, int &nLayers);
+  /// This method simplifies data access enuring that one can always iterate
+  /// through the blocks of data. If the simulation provides a legacy VTK object
+  /// per-rank this method efficiently converts it to a composite (multi-block)
+  /// object.
+  virtual int GetMesh(const std::string &meshName, bool structureOnly,
+    vtkCompositeDataSet *&mesh);
 
   /// @brief Adds ghost nodes on the specified mesh. The array name must be set
   ///        to "vtkGhostType".
   ///
   /// @param[in] mesh the VTK object returned from GetMesh
-  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
   /// @returns zero if successful, non zero if an error occurred
   virtual int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName);
-
-  /// @brief Returns whether a mesh has ghost cells.
-  ///
-  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
-  /// @param[out] nLayers  the number of layers of ghost cells present or 0.
-  /// @returns zero if successful, non zero if an error occurred
-  virtual int GetMeshHasGhostCells(const std::string &meshName, int &nLayers);
 
   /// @brief Adds ghost cells on the specified mesh. The array name must be set
   ///        to "vtkGhostType".
   ///
   /// @param[in] mesh the VTK object returned from GetMesh
-  /// @param[in] meshName the name of the mesh to access (see GetMeshName)
+  /// @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
   /// @returns zero if successful, non zero if an error occurred
   virtual int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName);
 
@@ -158,59 +134,6 @@ public:
   virtual int AddArrays(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::vector<std::string> &arrayName);
 
-  /// @brief Adds all of specified field's arrays to the mesh.
-  ///
-  /// This method will add all the field's arrays to the mesh
-  ///
-  /// @param[in] mesh the VTK object returned from GetMesh
-  /// @param[in] meshName the name of the mesh on which the array is stored
-  /// @param[in] association field association; one of
-  ///            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @returns zero if successful, non zero if an error occurred
-  virtual int AddArrays(vtkDataObject* mesh, const std::string &meshName,
-    int association);
-
-  /// @brief Return the number of field arrays available.
-  ///
-  /// This method will return the number of field arrays available. For data
-  /// adaptors producing composite datasets, this is a union of arrays available
-  /// on all parts of the composite dataset.
-  ///
-  /// @param association field association; one of
-  /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @return the number of arrays.
-  virtual int GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays) = 0;
-
-  /// @brief Return the name for a field array.
-  ///
-  /// This method will return the name for a field array given its index.
-  ///
-  /// @param association field association; one of
-  /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @param index index for the array. Must be less than value returned
-  /// GetNumberOfArrays().
-  ///
-  /// @param[in] meshName name of mesh
-  /// @param[in] association field association; one of
-  ///            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @param[in] index of the array
-  /// @param[out] arrayName reference to a string where the name will be stored
-  /// @returns zero if successful, non zero if an error occurred
-  virtual int GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName) = 0;
-
-  /// @brief get a list of the arrays on a given mesh
-  ///
-  /// A convenience method that returns a list of array names
-  ///
-  /// @param[in] meshName name of the mesh
-  /// @param[in] association what type of arrays
-  /// @param[out] arrayNames a vector where the list of names will be stored
-  /// @returns zero if successful, non-zero if an error occurred
-  int GetArrayNames(const std::string &meshName, int association,
-    std::vector<std::string> &arrayNames);
-
   /// @brief Release data allocated for the current timestep.
   ///
   /// Releases the data allocated for the current timestep. This is expected to
@@ -219,38 +142,13 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   virtual int ReleaseData() = 0;
 
-  /// @brief Provides access to meta-data about the current data.
-  ///
-  /// This method can provide all meta-data necessary, including global extents,
-  /// fields available, etc.
-  vtkInformation* GetInformation();
+  /// @brief Set/get the current simulated time.
+  virtual double GetDataTime();
+  virtual void SetDataTime(double time);
 
-  /// @brief Convenience method to get the time information.
-  double GetDataTime();
-
-  /// @brief Convenience method to get the time information.
-  double GetDataTime(vtkInformation*);
-
-  /// @brief Convenience methods to set the time information.
-  void SetDataTime(double time);
-
-  /// @brief Convenience methods to set the time information.
-  void SetDataTime(vtkInformation*, double time);
-
-  /// @brief Convenience method to get the time index information.
-  int GetDataTimeStep();
-
-  /// @brief Convenience method to get the time information.
-  int GetDataTimeStep(vtkInformation*);
-
-  /// @brief Convenience methods to set the time information.
-  void SetDataTimeStep(int index);
-
-  /// @brief Convenience methods to set the time information.
-  void SetDataTimeStep(vtkInformation*, int index);
-
-  /// @brief Key to store the timestep index.
-  static vtkInformationIntegerKey* DATA_TIME_STEP_INDEX();
+  /// @brief Set/get the current time step
+  virtual long GetDataTimeStep();
+  virtual void SetDataTimeStep(long index);
 
 protected:
   DataAdaptor();

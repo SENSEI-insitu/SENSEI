@@ -1,0 +1,7 @@
+<sensei>
+  <analysis type="libsim" mode="batch" frequency="1"
+    session="@CMAKE_CURRENT_SOURCE_DIR@/mandelbrot_libsim.session"
+    image-filename="mandelbrot_libsim_%ts.png" image-width="800"
+    image-height="800" image-format="png"
+    options="-debug 0" trace="0" enabled="1"/>
+</sensei>

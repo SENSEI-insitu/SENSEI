@@ -1,9 +1,11 @@
 #include "VTKDataAdaptor.h"
 #include "VTKUtils.h"
 #include "Error.h"
+#include "MeshMetadata.h"
 
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
+#include <vtkOverlappingAMR.h>
 #include <vtkDataSet.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkFieldData.h>
@@ -81,23 +83,58 @@ int VTKDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetMeshName(unsigned int id, std::string &meshName)
+int VTKDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 {
+  int rank = 0;
+  int nRanks = 1;
+
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+  MPI_Comm_size(this->GetCommunicator(), &nRanks);
+
   if (id >= this->Internals->MeshMap.size())
     {
-    SENSEI_ERROR("Mesh id " << id << " is greater than the number of meshes "
-      << this->Internals->MeshMap.size())
+    SENSEI_ERROR("Index " << id << " out of bounds")
     return -1;
     }
 
+  // get i'th mesh
   MeshMapType::iterator it = this->Internals->MeshMap.begin();
 
   for (unsigned int i = 0; i < id; ++i)
     ++it;
 
-  meshName = it->first;
+  std::string meshName = it->first;
+  vtkDataObject *dobj = it->second;
 
-  return 0;
+  // fill in metadata
+  metadata->MeshName = meshName;
+
+  // multiblock and amr
+  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+    {
+    if (VTKUtils::GetMetadata(this->GetCommunicator(), cd, metadata))
+      {
+      SENSEI_ERROR("Failed to get metadata for composite mesh \""
+        << meshName << "\"")
+      return -1;
+      }
+    return 0;
+    }
+
+  // ParaView's legacy domain decomp
+  if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+    {
+    if (VTKUtils::GetMetadata(this->GetCommunicator(), ds, metadata))
+      {
+      SENSEI_ERROR("Failed to get metadata for dataset mesh \""
+        << meshName << "\"")
+      return -1;
+      }
+    return 0;
+    }
+
+  SENSEI_ERROR("Unsupoorted data object type " << dobj->GetClassName())
+  return -1;
 }
 
 //----------------------------------------------------------------------------
@@ -130,8 +167,12 @@ int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
           }
         }
       cdo->SetDataSet(cdit, dobjo);
+      dobjo->Delete();
+
       cdit->GoToNextItem();
       }
+
+    cdit->Delete();
 
     mesh = cdo;
     return 0;
@@ -145,6 +186,8 @@ int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
       dsOut->CopyStructure(ds);
 
     mesh = dsOut;
+    // caller takes ownership
+
     return 0;
     }
 
@@ -195,6 +238,8 @@ int VTKDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
   return 0;
 }
 
+// TODO
+/*
 //----------------------------------------------------------------------------
 int VTKDataAdaptor::GetNumberOfArrays(const std::string &meshName,
   int association, unsigned int &numberOfArrays)
@@ -278,7 +323,7 @@ int VTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
 
   return 0;
 }
-
+*/
 //----------------------------------------------------------------------------
 int VTKDataAdaptor::ReleaseData()
 {

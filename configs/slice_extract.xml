@@ -1,0 +1,18 @@
+<sensei>
+  <analysis type="SliceExtract" verbose="1" operation="planar_slice" enabled="1">
+    <mesh name="mesh">
+        <cell_arrays> data </cell_arrays>
+    </mesh>
+    <point> 0.5 0.5 0.5 </point>
+    <normal> 0.8 -0.5 0.3 </normal>
+    <writer mode="paraview" output_dir="./slice" />
+  </analysis>
+
+  <analysis type="SliceExtract" operation="iso_surface" verbose="1" enabled="0">
+    <iso_values mesh_name="mesh" array_name="data" array_centering="cell">
+        -0.25 1.25 3.25
+    </iso_values>
+    <writer mode="paraview" output_dir="./iso" />
+  </analysis>
+
+</sensei>

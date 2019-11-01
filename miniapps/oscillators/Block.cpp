@@ -12,18 +12,24 @@ void Block::update_fields(float t)
     int i0 = bounds.min[0];
     int j0 = bounds.min[1];
     int k0 = bounds.min[2];
+    float dx = spacing[0];
+    float dy = spacing[1];
+    float dz = spacing[2];
+    float x0 = origin[0] + dx;
+    float y0 = origin[1] + dy;
+    float z0 = origin[2] + dz;
     float *pdata = grid.data();
     for (int k = 0; k < nk; ++k)
     {
-        float z = k0 + k;
+        float z = z0 + dz*(k0 + k);
         float *pdk = pdata + k*nij;
         for (int j = 0; j < nj; ++j)
         {
-            float y = j0 + j;
+            float y = y0 + dy*(j0 + j);
             float *pd = pdk + j*ni;
             for (int i = 0; i < ni; ++i)
             {
-                float x = i0 + i;
+                float x = x0 + dx*(i0 + i);
                 pd[i] = 0.f;
                 for (auto& o : oscillators)
                     pd[i] += o.evaluate({x,y,z}, t);

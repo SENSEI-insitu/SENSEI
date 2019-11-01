@@ -1,0 +1,5 @@
+<sensei>
+  <transport type="adios1" filename="test.bp" method="FLEXPATH">
+    <partitioner type="block"/>
+  </transport>
+</sensei>

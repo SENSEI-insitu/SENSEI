@@ -1,6 +1,8 @@
 #include "VTKAmrWriter.h"
 #include "senseiConfig.h"
 #include "DataAdaptor.h"
+#include "MeshMetadata.h"
+#include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 #include "Error.h"
 
@@ -140,11 +142,19 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
+  // see what the simulation is providing
+  MeshMetadataMap mdMap;
+  if (mdMap.Initialize(dataAdaptor))
+    {
+    SENSEI_ERROR("Failed to get metadata")
+    return false;
+    }
+
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
     {
-    if (this->Requirements.Initialize(dataAdaptor))
+    if (this->Requirements.Initialize(dataAdaptor, false))
       {
       SENSEI_ERROR("Failed to initialze dataAdaptor description")
       return false;
@@ -155,7 +165,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
 
-  for (; mit; ++mit)
+  while (mit)
     {
     // get the mesh
     vtkDataObject* dobj = nullptr;
@@ -173,26 +183,24 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       return false;
       }
 
-    // get ghost cell/node metadata always provide this information as
-    // it is essential to process the data objects
-    int nGhostCellLayers = 0;
-    int nGhostNodeLayers = 0;
-    if (dataAdaptor->GetMeshHasGhostCells(mit.MeshName(), nGhostCellLayers) ||
-      dataAdaptor->GetMeshHasGhostNodes(mit.MeshName(), nGhostNodeLayers))
+    MeshMetadataPtr metadata;
+    if (mdMap.GetMeshMetadata(mit.MeshName(), metadata))
       {
-      SENSEI_ERROR("Failed to get ghost layer info for mesh \"" << mit.MeshName() << "\"")
+      SENSEI_ERROR("Failed to get metadata for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost cell arrays to the mesh
-    if ((nGhostCellLayers > 0) && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if (metadata->NumGhostCells &&
+      dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if ((nGhostNodeLayers > 0) && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if (metadata->NumGhostNodes &&
+      dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -202,7 +210,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
     ArrayRequirementsIterator ait =
       this->Requirements.GetArrayRequirementsIterator(meshName);
 
-    for (; ait; ++ait)
+    while (ait)
       {
       if (dataAdaptor->AddArray(dobj, mit.MeshName(),
          ait.Association(), ait.Array()))
@@ -213,6 +221,8 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
           << meshName << "\"")
         return false;
         }
+
+      ++ait;
       }
 
     // initialize file id and time and step records
@@ -245,6 +255,9 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       this->TimeStep[meshName].push_back(step);
       }
 
+    dobj->Delete();
+
+    ++mit;
     }
 
   return true;

@@ -4,11 +4,15 @@ if (ENABLE_SENSEI)
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
-    DataAdaptor.cxx DataRequirements.cxx Error.cxx Histogram.cxx
-    ProgrammableDataAdaptor.cxx VTKHistogram.cxx VTKDataAdaptor.cxx
-    VTKUtils.cxx)
+    BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
+    ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
+    Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
+    IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx
+    MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx PlanarPartitioner.cxx
+    PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
+    VTKHistogram.cxx VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
 
-  set(senseiCore_libs pugixml thread timer sDIY sVTK sMPI)
+  set(senseiCore_libs pugixml thread sDIY sVTK sMPI)
 
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
@@ -26,10 +30,16 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sVTKm)
   endif()
 
-  if (ENABLE_ADIOS)
-    list(APPEND senseiCore_sources ADIOSSchema.cxx ADIOSAnalysisAdaptor.cxx
-      ADIOSDataAdaptor.cxx)
-    list(APPEND senseiCore_libs sADIOS)
+  if (ENABLE_ADIOS1)
+    list(APPEND senseiCore_sources ADIOS1Schema.cxx ADIOS1AnalysisAdaptor.cxx
+      ADIOS1DataAdaptor.cxx)
+    list(APPEND senseiCore_libs sADIOS1)
+  endif()
+
+ if (ENABLE_HDF5)
+       list(APPEND senseiCore_sources HDF5DataAdaptor.cxx HDF5AnalysisAdaptor.cxx
+        HDF5Schema.cxx)
+    list(APPEND senseiCore_libs sHDF5)
   endif()
 
   if (ENABLE_VTK_ACCELERATORS)
@@ -46,6 +56,9 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_sources VTKPosthocIO.cxx)
     if (ENABLE_VTK_MPI)
       list(APPEND senseiCore_sources VTKAmrWriter.cxx)
+    endif()
+    if (ENABLE_VTK_FILTERS)
+      list(APPEND senseiCore_sources SliceExtract.cxx)
     endif()
   endif()
 
@@ -76,7 +89,7 @@ if (ENABLE_SENSEI)
 
     include_directories(SYSTEM ${PYTHON_INCLUDE_PATH} ${NUMPY_INCLUDE_DIR})
     include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}
-      ${CMAKE_CURRENT_BINARY_DIR})
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR}/python)
 
     add_library(_PythonAnalysis SHARED
       ${CMAKE_CURRENT_BINARY_DIR}/_PythonAnalysis.cxx)

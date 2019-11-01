@@ -1,0 +1,9 @@
+<sensei>
+  <analysis type="catalyst" pipeline="pythonscript"
+    filename="@CMAKE_CURRENT_SOURCE_DIR@/catalyst_render_receiver_partition.py"
+    enabled="1" />
+
+  <analysis type="catalyst" pipeline="pythonscript"
+    filename="@CMAKE_CURRENT_SOURCE_DIR@/catalyst_render_sender_partition.py"
+    enabled="1" />
+</sensei>

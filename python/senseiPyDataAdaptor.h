@@ -3,6 +3,7 @@
 
 #include "senseiPyObject.h"
 #include "senseiPyGILState.h"
+#include "MeshMetadata.h"
 #include "Error.h"
 
 #include <Python.h>
@@ -10,24 +11,6 @@
 #include <vtkDataObject.h>
 #include <vtkPythonUtil.h>
 #include <string>
-
-// we are going to be overly verbose in an effort to help
-// the user debug their code. package this up for use in all
-// the callbacks.
-#define SENSEI_PY_CALLBACK_ERROR(_method, _cb_obj)        \
-  {                                                       \
-  PyObject *cb_str = PyObject_Str(_cb_obj);               \
-  const char *cb_c_str = PyString_AsString(cb_str);       \
-                                                          \
-  SENSEI_ERROR("An exception ocurred when invoking the "  \
-  "user supplied Python callback \"" << cb_c_str << "\""  \
-  "for DataAdaptor::" #_method ". The exception that "    \
-  " occurred is:")                                        \
-                                                          \
-  PyErr_Print();                                          \
-                                                          \
-  Py_XDECREF(cb_str);                                     \
-  }
 #include <iostream>
 using std::cerr;
 using std::endl;
@@ -65,7 +48,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, nullptr)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetNumberOfMeshesCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetNumberOfMeshesCallback, f)
       return -1;
       }
 
@@ -85,11 +68,11 @@ private:
   senseiPyObject::PyCallablePointer Callback;
 };
 
-// a container for the DataAdaptor::GetMeshName callable
-class PyGetMeshNameCallback
+// a container for the DataAdaptor::GetMeshMetadata callable
+class PyGetMeshMetadataCallback
 {
 public:
-  PyGetMeshNameCallback(PyObject *f) : Callback(f) {}
+  PyGetMeshMetadataCallback(PyObject *f) : Callback(f) {}
 
   void SetObject(PyObject *f)
   { this->Callback.SetObject(f); }
@@ -97,7 +80,7 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  int operator()(unsigned int index, std::string &meshName)
+  int operator()(unsigned int index, sensei::MeshMetadataPtr &mdp)
     {
     // lock the GIL
     senseiPyGILState gil;
@@ -107,31 +90,54 @@ public:
     if (!f)
       {
       PyErr_Format(PyExc_TypeError,
-        "A GetMeshNameCallback was not provided");
+        "A GetMeshMetadataCallback was not provided");
       return -1;
       }
 
+    // wrap the flags
+    PyObject *pyFlags = SWIG_NewPointerObj(
+      (void*)&mdp->Flags, SWIGTYPE_p_sensei__MeshMetadataFlags, 0);
+
     // build arguments list and call the callback
-    PyObject *args = Py_BuildValue("(I)", index);
+    // the tuple takes owner ship with N
+    PyObject *args = Py_BuildValue("(IN)", index, pyFlags);
 
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetMeshNameCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetMeshMetadataCallback, f)
       return -1;
       }
 
+    // delete the argument tuple
     Py_DECREF(args);
 
     // convert the return
-    if (!senseiPyObject::CppTT<char*>::IsType(ret))
+    int newmem = 0;
+    void *tmpvp = nullptr;
+    int ierr = SWIG_ConvertPtrAndOwn(ret, &tmpvp,
+      SWIGTYPE_p_std__shared_ptrT_sensei__MeshMetadata_t, 0, &newmem);
+
+    if (ierr == SWIG_ERROR)
       {
-      PyErr_Format(PyExc_TypeError,
-        "Bad return type from GetMeshNameCallback");
+      SENSEI_ERROR("GetMeshMetadata callback returned an invalid object")
       return -1;
       }
 
-    meshName = senseiPyObject::CppTT<char*>::Value(ret);
+    /* newmem = 1 SWIG_CAST_NEW_MEMORY = 2 tmpvp = 0x557e358ea080
+    std::cerr << "newmem = " << newmem << " SWIG_CAST_NEW_MEMORY = "
+       << SWIG_CAST_NEW_MEMORY  << " tmpvp = " << tmpvp << std::endl;*/
+
+    if (tmpvp)
+      mdp = *(reinterpret_cast< sensei::MeshMetadataPtr * >(tmpvp));
+
+    if (newmem & SWIG_CAST_NEW_MEMORY)
+      delete reinterpret_cast<sensei::MeshMetadataPtr*>(tmpvp);
+
+    // delete the python wrapping and release its reference
+    // now that we hold one
+    Py_DECREF(ret);
+
     return 0;
     }
 
@@ -175,7 +181,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetMeshCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetMeshCallback, f)
       return -1;
       }
 
@@ -184,6 +190,9 @@ public:
     // convert the return
     mesh = static_cast<vtkDataObject*>(
         vtkPythonUtil::GetPointerFromObject(ret, "vtkDataObject"));
+
+    // because VTK's python runtime akes ownership
+    mesh->Register(nullptr);
 
     return 0;
     }
@@ -229,7 +238,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(AddArrayCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::AddArrayCallback, f)
       return -1;
       }
 
@@ -275,7 +284,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetNumberOfArraysCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetNumberOfArraysCallback, f)
       return -1;
       }
 
@@ -331,7 +340,7 @@ public:
     PyObject *ret = nullptr;
     if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(GetArrayNameCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetArrayNameCallback, f)
       return -1;
       }
 
@@ -383,7 +392,7 @@ public:
     PyObject_CallObject(f, nullptr);
     if (PyErr_Occurred())
       {
-      SENSEI_PY_CALLBACK_ERROR(ReleaseDataCallback, f)
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::ReleaseDataCallback, f)
       }
 
     return 0;

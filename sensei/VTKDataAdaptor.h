@@ -56,17 +56,16 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
-  /// @ breif Get the name of the i'th mesh
+  /// @brief Get metadata of the i'th mesh
   ///
-  /// The caller passes the integer id of the mesh for which the name is
-  /// desired, and a reference to string where the name is stored. See
-  /// GetNumberOfMeshes. If successfull the method returns 0, a non-zero
-  /// return indicates an error occurred.
+  /// The caller passes the integer id of the mesh for which the metadata is
+  /// desired, and a pointer to a MeshMetadata instance  where the metadata is
+  /// stored.
   ///
   /// @param[in] id index of the mesh to access
-  /// @param[out] meshName reference to a string where the name can be stored
+  /// @param[out] metadata a pointer to instance where metadata is stored
   /// @returns zero if successful, non zero if an error occurred
-  int GetMeshName(unsigned int id, std::string &meshName) override;
+  int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   /// @brief Return the data object with appropriate structure.
   ///
@@ -99,36 +98,6 @@ public:
   /// @returns zero if successful, non zero if an error occurred
   int AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
-
-  /// @brief Return the number of field arrays available.
-  ///
-  /// This method will return the number of field arrays available. For data
-  /// adaptors producing composite datasets, this is a union of arrays available
-  /// on all parts of the composite dataset.
-  ///
-  /// @param association field association; one of
-  /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @return the number of arrays.
-  int GetNumberOfArrays(const std::string &meshName, int association,
-    unsigned int &numberOfArrays) override;
-
-  /// @brief Return the name for a field array.
-  ///
-  /// This method will return the name for a field array given its index.
-  ///
-  /// @param association field association; one of
-  /// vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @param index index for the array. Must be less than value returned
-  /// GetNumberOfArrays().
-  ///
-  /// @param[in] meshName name of mesh
-  /// @param[in] association field association; one of
-  ///            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-  /// @param[in] index of the array
-  /// @param[out] arrayName reference to a string where the name will be stored
-  /// @returns zero if successful, non zero if an error occurred
-  int GetArrayName(const std::string &meshName, int association,
-    unsigned int index, std::string &arrayName) override;
 
   /// @brief Release data allocated for the current timestep.
   ///

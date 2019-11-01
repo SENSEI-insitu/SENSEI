@@ -14,5 +14,4 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/opts"
   DESTINATION include)
 
 add_subdirectory(pugixml)
-add_subdirectory(timer)
 #add_subdirectory(ImageTester)

@@ -6,6 +6,8 @@
 #include <string>
 #include <mpi.h>
 
+namespace pugi { class xml_node; }
+
 namespace sensei
 {
 
@@ -14,7 +16,7 @@ namespace sensei
 class ConfigurableAnalysis : public AnalysisAdaptor
 {
 public:
-  static ConfigurableAnalysis* New();
+  static ConfigurableAnalysis *New();
   senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
@@ -26,9 +28,10 @@ public:
   int SetCommunicator(MPI_Comm comm) override;
 
   /// @brief Initialize the adaptor using the configuration specified.
-  int Initialize(const std::string& filename);
+  int Initialize(const std::string &filename);
+  int Initialize(const pugi::xml_node &root);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor *data) override;
 
   int Finalize() override;
 
@@ -41,7 +44,7 @@ protected:
 
 private:
   struct InternalsType;
-  InternalsType* Internals;
+  InternalsType *Internals;
 };
 
 }

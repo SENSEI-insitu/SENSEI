@@ -306,9 +306,7 @@ class data_adaptor:
         # connect all the callbacks
         self.pda = sensei.ProgrammableDataAdaptor.New()
         self.pda.SetGetNumberOfMeshesCallback(self.get_number_of_meshes())
-        self.pda.SetGetMeshNameCallback(self.get_mesh_name())
-        self.pda.SetGetNumberOfArraysCallback(self.get_number_of_arrays())
-        self.pda.SetGetArrayNameCallback(self.get_array_name())
+        self.pda.SetGetMeshMetadataCallback(self.get_mesh_metadata())
         self.pda.SetGetMeshCallback(self.get_mesh())
         self.pda.SetAddArrayCallback(self.add_array())
         self.pda.SetReleaseDataCallback(self.release_data())
@@ -336,6 +334,10 @@ class data_adaptor:
         self.arrays[name] = arr
 
     def set_array_3(self, vx,vy,vz, name):
+        # scalars
+        self.set_array_1(vx, name + 'x')
+        self.set_array_1(vy, name + 'y')
+        self.set_array_1(vz, name + 'z')
         # vector
         nx = len(x)
         vxyz = np.zeros(3*nx, dtype=vx.dtype)
@@ -353,6 +355,10 @@ class data_adaptor:
         self.arrays[mname] = vtkmv
 
     def set_geometry(self, x,y,z):
+        # scalars
+        self.set_array_1(x, 'x')
+        self.set_array_1(y, 'y')
+        self.set_array_1(z, 'z')
         # points
         nx = len(x)
         xyz = np.zeros(3*nx, dtype=x.dtype)
@@ -381,6 +387,27 @@ class data_adaptor:
     def get_number_of_meshes(self):
         def callback():
             return 1
+        return callback
+
+    def get_mesh_metadata(self):
+        def callback(idx, flags):
+            if idx != 0:
+                raise RuntimeError('invalid mesh index %d'%(idx))
+            md = sensei.MeshMetadata.New()
+            md.MeshName = "bodies"
+            md.MeshType = vtk.VTK_MULTIBLOCK_DATA_SET
+            md.BlockType = vtk.VTK_POLY_DATA
+            md.NumBlocks = n_ranks
+            md.NumLocalBlocks = [1]
+            md.BlockIds = [rank]
+            md.BlockOwner = [rank]
+            md.StaticMesh = 1
+            md.NumArrays = 13
+            md.ArrayName = ['ids','x','y','z','m','vx','vy','vz','fx','fy','fz','v','f',]
+            md.ArrayCentering = [vtk.vtkDataObject.POINT]*13
+            md.ArrayType = [vtk.VTK_ID_TYPE] + [vtk.VTK_DOUBLE]*10 + [vtk.VTK_FLOAT]*2
+            md.ArrayComponents = [1]*11 + [3]*2
+            return md
         return callback
 
     def get_mesh_name(self):
@@ -453,20 +480,11 @@ class analysis_adaptor:
             if check_arg(args,'script'):
                 self.AnalysisAdaptor = sensei.CatalystAnalysisAdaptor.New()
                 self.AnalysisAdaptor.AddPythonScriptPipeline(args['script'])
-        # VTK I/O
-        #elif analysis == 'posthoc':
-        #    if check_arg(args,'file','newton') and check_arg(args,'dir','./') \
-        #        and check_arg(args,'mode','0') and check_arg(args,'freq','1'):
-        #        # TODO -- mesh name API updates
-        #        self.AnalysisAdaptor = sensei.VTKPosthocIO.New()
-        #        self.AnalysisAdaptor.Initialize(comm, args['dir'],args['file'],\
-        #            [], ['ids','fx','fy','fz','f','vx','vy','vz','v','m'], \
-        #            int(args['mode']), int(args['freq']))
         # Libisim, ADIOS, etc
         elif analysis == 'configurable':
             if check_arg(args,'config'):
                 self.AnalysisAdaptor = sensei.ConfigurableAnalysis.New()
-                self.AnalysisAdaptor.Initialize(comm, args['config'])
+                self.AnalysisAdaptor.Initialize(args['config'])
 
         if self.AnalysisAdaptor is None:
             status('ERROR: Failed to initialize "%s"\n'%(analysis))
@@ -480,15 +498,9 @@ class analysis_adaptor:
         status('% 5d\n'%(i)) if i > 0 and i % 70 == 0 else None
         status('.')
 
-        #node = points_to_polydata(ids,x,y,z,m,vx,vy,vz,fx,fy,fz)
-        #
-        #mb = vtk.vtkMultiBlockDataSet()
-        #mb.SetNumberOfBlocks(n_ranks)
-        #mb.SetBlock(rank, node)
         self.DataAdaptor.update(i,t,ids,x,y,z,m,vx,vy,vz,fx,fy,fz)
         self.DataAdaptor.SetDataTime(t)
         self.DataAdaptor.SetDataTimeStep(i)
-        #self.DataAdaptor.SetDataObject(mb)
 
         self.AnalysisAdaptor.Execute(self.DataAdaptor.base())
 

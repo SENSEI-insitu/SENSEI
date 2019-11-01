@@ -21,6 +21,10 @@ public:
   senseiBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
+  /// @breif Set the level of verbosity of console output.
+  virtual void SetVerbose(int val){ this->Verbose = val; }
+  virtual int GetVerbose(){ return this->Verbose; }
+
   /// @brief Set the communicator used by the adaptor.
   /// The default communicator is a duplicate of MPI_COMMM_WORLD, giving
   /// each adaptor a unique communication space. Users wishing to override
@@ -54,6 +58,7 @@ protected:
   void operator=(const AnalysisAdaptor&) = delete;
 
   MPI_Comm Comm;
+  int Verbose;
 };
 
 }

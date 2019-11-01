@@ -1,6 +1,5 @@
 #include "senseiConfig.h"
 #include "VTKHistogram.h"
-#include "Timer.h"
 #include "Error.h"
 
 #include <algorithm>

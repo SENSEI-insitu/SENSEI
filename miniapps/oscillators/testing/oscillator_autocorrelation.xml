@@ -1,0 +1,4 @@
+<sensei>
+  <analysis type="autocorrelation" mesh="mesh" array="data" association="cell" window="10"
+    k-max="3" enabled="1" />
+</sensei>
