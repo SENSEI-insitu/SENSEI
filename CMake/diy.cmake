@@ -18,7 +18,5 @@ else()
 
   install(TARGETS sDIY EXPORT sDIY)
   install(EXPORT sDIY DESTINATION lib/cmake)
-  install(DIRECTORY "${DIY_DIR}"
-    DESTINATION include)
 endif()
 
