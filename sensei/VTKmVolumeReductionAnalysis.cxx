@@ -122,7 +122,7 @@ public:
                                                   Device)
 
   {
-    using DispatcherType = vtkm::worklet::DispatcherPointNeighborhood<VoxelMean, Device>;
+    using DispatcherType = vtkm::worklet::DispatcherPointNeighborhood<VoxelMean>;
 
     vtkm::cont::ArrayHandle<vtkm::Float32> out;
     vtkm::cont::ArrayHandle<vtkm::Float32> in;
