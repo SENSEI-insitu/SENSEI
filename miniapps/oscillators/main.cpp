@@ -2,7 +2,6 @@
 #include <chrono>
 #include <ctime>
 
-#include "./include/format.h"
 #include <opts/opts.h>
 
 #include <diy/master.hpp>
@@ -99,7 +98,7 @@ int main(int argc, char** argv)
         )
     {
         if (world.rank() == 0)
-            fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
+            std::cerr << "Usage: " << argv[0] << " [OPTIONS] OSCILLATORS.txt\n\n" << ops << std::endl;
         return 1;
     }
 
@@ -107,8 +106,8 @@ int main(int argc, char** argv)
     {
         if (world.rank() == 0)
         {
-            fmt::print("Error: too few blocks\n");
-            fmt::print("Usage: {} [OPTIONS] OSCILLATORS.txt\n\n{}\n", argv[0], ops);
+            std::cerr << "Error: too few blocks\n";
+            std::cerr << "Usage: " << argv[0] << " [OPTIONS] OSCILLATORS.txt\n\n" << ops << std::endl;
         }
         return 1;
     }
@@ -318,8 +317,10 @@ int main(int argc, char** argv)
             auto out_start = Time::now();
 
             // Save the corr buffer for debugging
-            std::string outfn = fmt::format("{}-{}.bin", out_prefix, t);
-            diy::mpi::io::file out(world, outfn, diy::mpi::io::file::wronly | diy::mpi::io::file::create);
+            std::ostringstream outfn;
+            outfn << out_prefix << "-" << t << ".bin";
+
+            diy::mpi::io::file out(world, outfn.str(), diy::mpi::io::file::wronly | diy::mpi::io::file::create);
             diy::io::BOV writer(out, shape);
             master.foreach([&writer](Block* b, const diy::Master::ProxyWithLink& cp)
                                            {
@@ -329,7 +330,7 @@ int main(int argc, char** argv)
             if (verbose && (world.rank() == 0))
             {
                 auto out_duration = std::chrono::duration_cast<ms>(Time::now() - out_start);
-                std::cerr << "Output time for " << outfn << ":" << out_duration.count() / 1000
+                std::cerr << "Output time for " << outfn.str() << ":" << out_duration.count() / 1000
                     << "." << out_duration.count() % 1000 << " s" << std::endl;
             }
         }

@@ -110,4 +110,9 @@ if (BUILD_TESTING)
       histogram.xml read_adios1_flexpath_default.xml 10 1
     FEATURES  ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
 
+  senseiAddTest(testAscent
+    COMMAND testAscent EXEC_NAME testAscent
+    SOURCES ascent_render_example.cpp LIBS sensei
+    FEATURES ${ENABLE_ASCENT})
+
 endif()

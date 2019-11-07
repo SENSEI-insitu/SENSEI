@@ -943,16 +943,16 @@ int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
   return( 1 );
 }
 
-static unsigned int cycle = 0;
 //------------------------------------------------------------------------------
-int VTK_To_State(vtkDataSet* , conduit::Node& node)
+int VTK_To_State(vtkDataSet *, conduit::Node& node, DataAdaptor* dataAdaptor)
 {
 #ifdef DEBUG_SAVE_DATA
-    //node["state/time"] = ;
-    node["state/cycle"] = cycle;
+    //node["state/time"] = ()dataAdaptor->GetDataTime();         // returns a double.
+    node["state/cycle"] = (int)dataAdaptor->GetDataTimeStep();   // returns a long.
     //node["state/domain"] = ;
 #else
     (void)node;
+    (void)dataAdaptor;
 #endif
 
     return( 1 );
@@ -1161,10 +1161,10 @@ void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, const 
 #endif
 }
 
-int Fill_VTK(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj)
+int Fill_VTK(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj, DataAdaptor* dataAdaptor)
 {
     //TODO: Zero copy for Coordsets and Topology
-    VTK_To_State(ds, node);
+    VTK_To_State(ds, node, dataAdaptor);
     VTK_To_Coordsets(ds, node);
     VTK_To_Topology(ds, node);
 
@@ -1224,16 +1224,16 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         return( false );
     }
 
-    // Add the ghost cell arrays to the mesh
-    if((metadata->NumGhostCells > 0) &&
+    // Add the ghost cell arrays to the mesh. NumGhostCells can return -1, no ghost but masking arrays.
+    if(metadata->NumGhostCells &&
        dataAdaptor->AddGhostCellsArray(obj, meshName))
     {
         SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
         return( false );
     }
 
-    // Add the ghost node arrays to the mesh
-    if((metadata->NumGhostNodes > 0) &&
+    // Add the ghost node arrays to the mesh. NumGhostNodes can return -1, no ghost but masking arrays.
+    if(metadata->NumGhostNodes &&
        dataAdaptor->AddGhostNodesArray(obj, meshName))
     {
         SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");
@@ -1266,12 +1266,12 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
             ++domainNum;
             conduit::Node &temp_node = root[domain];
 
-            Fill_VTK(ds, temp_node, arrayName, ds);
+            Fill_VTK(ds, temp_node, arrayName, ds, dataAdaptor);
           }
           else
           {
             conduit::Node &temp_node = root;
-            Fill_VTK(ds, temp_node, arrayName, ds);
+            Fill_VTK(ds, temp_node, arrayName, ds, dataAdaptor);
           }
         }
         itr->GoToNextItem();
@@ -1281,7 +1281,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     {
       conduit::Node &temp_node = root;
 
-      Fill_VTK(ds, temp_node, arrayName, obj);
+      Fill_VTK(ds, temp_node, arrayName, obj, dataAdaptor);
     }
     else
     {
@@ -1307,7 +1307,6 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     root.reset();
   }
 
-  ++cycle;
   return( true );
 }
 
