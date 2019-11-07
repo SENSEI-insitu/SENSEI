@@ -564,26 +564,20 @@ bool PerStepStreamHandler::NoMoreStep()
   unsigned int counter = 0;
   unsigned int MAXWAIT = 900;
 
-  while (true) {
+  while (true)
+  {
     GetCurrAvailStep();
     if ((m_NumStepsWritten < 0) && (m_TimeStepCounter > 0))
       return true; // all finished
-    
+
     if ((m_NumStepsWritten - m_TimeStepCounter) > 0)
       return false;
 
     if (m_AllStepsWritten && (0 == (m_NumStepsWritten - m_TimeStepCounter)))
       return true;
-    // either nothing is written ((m_timestepcounter == 0) && (
-    // m_numstepswritten <0)) or no new steps (numstepswritten = counter)
-    if (counter % 20 == 0) {
-      std::ostringstream oss;
-      oss << "H5Wait=" << m_TimeStepCounter << "_" << m_NumStepsWritten;
-      std::string evtName = oss.str();
-      timer::MarkEvent mark(evtName.c_str());
-    }
 
     sleep(1);
+
     counter++;
     if(counter > MAXWAIT)
       return true;
