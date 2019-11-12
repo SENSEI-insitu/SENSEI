@@ -36,12 +36,13 @@ data in a consistent way; and a number of implementations of both. For more
 information see our [SC16 paper](http://dl.acm.org/citation.cfm?id=3015010).
 
 #### DataAdaptors
-| Class             | Description |
-|-------------------|-------------|
-| DataAdaptor       | Base class declaring data adaptor API |
-| VTKDataAdaptor    | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
-| ADIOS1DataAdaptor | Implementation that serves up data from ADIOS 1. For use in an ADIOS 1 End point. |
-| HDF5DataAdaptor   | Implementation that serves up data from HDF5. For use in a HDF5  End point. |
+| Class                | Description |
+|----------------------|-------------|
+| DataAdaptor          | Base class declaring data adaptor API |
+| InTransitDataAdaptor | Base class declaring in transit data adaptor API |
+| VTKDataAdaptor       | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
+| ADIOS1DataAdaptor    | Implementation that serves up data from ADIOS 1. For use in the SENSEI End point. |
+| HDF5DataAdaptor      | Implementation that serves up data from HDF5. For use in the SENSEI End point. |
 
 #### AnalysisAdaptors
 | Class                   | Description |
@@ -50,11 +51,12 @@ information see our [SC16 paper](http://dl.acm.org/citation.cfm?id=3015010).
 | ADIOS1AnalysisAdaptor   | Implementation for using ADIOS 1 from your simulation. |
 | HDF5AnalysisAdaptor     | Implementation for using HDF5 from your simulation. |
 | LibsimAnalysisAdaptor   | Implementation for using Libsim from your simulation. |
-| CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulaiton. |
+| CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulation. |
+| AscentAnalysisAdaptor   | Implementation for using Ascent from your simulation. |
 | Autocorrelation         | Implementation that computes [autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation)  |
 | Histogram               | Implementation that computes histograms. |
-| PosthocIO               | Implementation that writes uniform meshes using VTK or MPI I/O. This was used in year II miniapp campaign. |
 | VTKPosthocIO            | Implementation that writes VTK data sets using VTK XML format to the ".visit" format readable by VisIt,  or ".pvd" format readable by ParaView. |
+| VTKAmrWriter            | Implementation that writes AMR data in VTK's XML format. Consumable by ParaView. |
 | ConfigurableAnalysis    | Implementation that reads an XML configuration to select and configure one or more of the other analysis adaptors. This can be used to quickly switch between the analysis adaptors at run time. |
 
 ### Mini-apps
@@ -68,10 +70,6 @@ autocorrelation.
 More information on each mini-app is provided in the coresponding README in the
 mini-app's source directory.
 
-* [Parallel3D](miniapps/parallel3d/README.md) The miniapp from year I generates
-  data on a uniform mesh and demonstrates usage with in situ infrasturctures
-  and histogram analysis.
-
 * [Oscillators](miniapps/oscillators/README.md) The miniapp from year II
   generates time varying data on a uniform mesh and demonstrates usage with in
   situ infrasturctures, histogram, and autocorrelation analyses.
@@ -79,13 +77,11 @@ mini-app's source directory.
 * [Newton](miniapps/newton/README.md) This Python n-body miniapp demonstrates
   usage of in situ infrastructures and custom analyses from Python.
 
-### End points
+### The SENSEI End point
 End points are programs that receive and analyze simulation data through transport
-layers such as ADIOS and LibIS. The end point uses the transport's data adaptor to
-reads data being serialized by the transport's analysis adaptor and pass it back
+layers such as ADIOS and LibIS. The SENSEI end point uses the transport's data adaptor to
+read data being serialized by the transport's analysis adaptor and pass it back
 into a SENSEI analysis for further processing.
-
-* [ADIOSAnalysisEndPoint](endpoints/README.md)
 
 ## Build and Install
 The SENSEI project uses CMake 3.0 or later. The CMake build options allow you
@@ -106,33 +102,35 @@ $ make install
 ### Build Options
 | Build Option | Default | Description                     |
 |--------------|---------|---------------------------------|
-| `ENABLE_SENSEI` | ON | Enables the core SENSEI library. Requires VTK. When this is disabled, the included mini-apps will run fixed analyses. When enabled, the mini-apps will pass data through SENSEI and the analysis may be configured at run-time. This allows SENSEI overhead to be characterized.|
 | `ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
 | `ENABLE_VTK_GENERIC_ARRAYS` | OFF | Enables use of VTK's generic array feature.  |
 | `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
 | `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
+| `ENABLE_ASCENT` | OFF | Enables the Ascent analysis adaptor. |
 | `ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
 | `ENABLE_HDF5` | OFF | Enables HDF5 adaptors and endpoints. Set `HDF5_DIR`. |
 | `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
 | `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
 | `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
 | `ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
-| `ENABLE_PARALLEL3D` | ON | Enables the parallel 3D mini-app. |
 | `ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
 | `VTK_DIR` | | Set to the directory containing VTKConfig.cmake. |
 | `ParaView_DIR` | | Set to the directory containing ParaViewConfig.cmake. |
 | `ADIOS_DIR` | | Set to the directory containing ADIOSConfig.cmake |
 | `LIBSIM_DIR` | | Path to libsim install. |
 
-
-### For use with ADIOS 1
+### For use with Ascent
 ```bash
-cmake -DENABLE_SENSEI=ON -DENABLE_ADIOS1=ON -DVTK_DIR=[your path] -DADIOS_DIR=[your path] ..
+cmake -DENABLE_ASCENT=ON -DVTKM_DIR=[your path] -DVTKH_DIR=[your path] \
+    -DCONDUIT_DIR=[your path] -DAscent_DIR=[your path] -DVTK_DIR=[your path] \
+    ..
 ```
-Can be used with either `ParaView_DIR` when configuring in conjunction with
-Catalyst, or `VTK_DIR` otherwise.
+Note that the VTK build needs to explicitly disable use of VTK-m as this will
+conflict with the version required by Ascent.  We used the instructions for
+building Ascent and its dependencies (VTK-m, VTK-h, Conduit, etc) manually as
+described in the Ascent documentation.
 
-### For use with Libsim
+### For use the Libsim
 ```bash
 cmake -DENABLE_SENSEI=ON -DENABLE_LIBSIM=ON -DVTK_DIR=[your path] -DLIBSIM_DIR=[your path] ..
 ```
@@ -147,13 +145,29 @@ Note that a development version of ParaView is required when building with
 both `ENABLE_CATALYST` and `ENABLE_VTKM` are enabled as released versions of
 ParaView (5.5.2 and earlier) do not include a modern-enough version of vtk-m.
 
+### For use with ADIOS 1
+```bash
+cmake -DENABLE_SENSEI=ON -DENABLE_ADIOS1=ON -DVTK_DIR=[your path] -DADIOS_DIR=[your path] ..
+```
+Can be used with either `ParaView_DIR` when configuring in conjunction with
+Catalyst, or `VTK_DIR` otherwise.
+
+### For use with Python
+In essence this is as simple as adding `-DENABLE_PYTHON=ON -DSENSEI_PYTHON_VERSION=3`
+However, VTK (or ParaView when used with Catalyst) needs to be built with
+Python enabled and the SENSEI build needs to use the same version; and NumPy,
+mpi4py, and SWIG are required. Note that there are some caveats when used with
+Catalyst and Libsim. These are described in more detail in the Newton mini app
+[README](miniapps/newton/README.md).
+
+
 ### Enable writing to Visit ".visit" format or ParaView ".pvd" format
 ```bash
 cmake -DENABLE_SENSEI=ON -DENABLE_VTK_IO=ON  -DVTK_DIR=[your path] ..
 ```
 Can be used with either `ParaView_DIR` or `VTK_DIR`.
 
-### For use with VTK-m
+### For use with experimental VTK-m analyses
 ```bash
 cmake -DENABLE_SENSEI=ON -DENABLE_VTKM=ON -DVTK_DIR=[your path] ..
 ```
@@ -161,14 +175,7 @@ Note that a development version of VTK is required when building with
 both `ENABLE_SENSEI` and `ENABLE_VTKM` are enabled as released versions of
 VTK (8.1.1 and earlier) do not include a modern-enough version of vtk-m.
 
-### Enabling Python bindings
-In essence this is as simple as adding `-DENABLE_PYTHON=ON`. However, VTK (or
-ParaView when used with Catalyst) needs to be built with Python enabled, and
-NumPy, mpi4py, and SWIG are required. Note that there are some caveats when
-used with Catalyst and Libsim. These are described in more detail in the Newton
-mini app [README](miniapps/newton/README.md).
-
-## Using the SENSEI library
+## Using the SENSEI library from another project
 To use SENSEI from your CMake based project include the SENSEI CMake config in
 your CMakeLists.txt.
 ```cmake
@@ -187,7 +194,6 @@ The SENSEI framework includes the following software:
 * [DIY2](https://github.com/diatomic/diy), Copyright (c) 2015, The Regents of the University of California, through
 Lawrence Berkeley National Laboratory (subject to receipt of any required
 approvals from the U.S. Dept. of Energy).
-* [{fmt}](https://github.com/fmtlib/fmt), Copyright (c) 2012-2016, Victor Zverovich.
 * [pugixml](https://github.com/zeux/pugixml), Copyright (c) 2006-2016 Arseny Kapoulkine.
 
 The SENSEI framework makes use of (links to) the following software:

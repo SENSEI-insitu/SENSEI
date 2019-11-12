@@ -3,11 +3,11 @@
 
 #include <string>
 #include <cmath>
-#include <diy/point.hpp>
+#include <sdiy/point.hpp>
 
 struct Oscillator
 {
-    using Vertex = diy::Point<float,3>;
+    using Vertex = sdiy::Point<float,3>;
 
     static constexpr float pi = 3.14159265358979323846;
 

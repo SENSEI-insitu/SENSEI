@@ -1,10 +1,10 @@
 #include "Particles.h"
 
 // --------------------------------------------------------------------------
-diy::DiscreteBounds remove_ghosts(const diy::DiscreteBounds &domain,
-    const diy::DiscreteBounds &gbounds, int nghosts)
+sdiy::DiscreteBounds remove_ghosts(const sdiy::DiscreteBounds &domain,
+    const sdiy::DiscreteBounds &gbounds, int nghosts)
 {
-    diy::DiscreteBounds bds = gbounds;
+    sdiy::DiscreteBounds bds = gbounds;
 
     // remove ghost zones
     if (nghosts > 0)

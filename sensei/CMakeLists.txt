@@ -19,7 +19,12 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sConduit)
   endif()
 
-  if (ENABLE_CATALYST)
+  if(ENABLE_ASCENT)
+    list(APPEND senseiCore_sources AscentAnalysisAdaptor.cxx)
+    list(APPEND senseiCore_libs sAscent)
+  endif()
+
+  if(ENABLE_CATALYST)
     list(APPEND senseiCore_sources CatalystAnalysisAdaptor.cxx
       CatalystParticle.cxx CatalystSlice.cxx CatalystUtilities.cxx)
   endif()

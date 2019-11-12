@@ -27,8 +27,8 @@
 #include <vtkStructuredPointsReader.h>
 #include <vtkStructuredPoints.h>
 
-#include <diy/master.hpp>
-#include <diy/mpi.hpp>
+#include <sdiy/master.hpp>
+#include <sdiy/mpi.hpp>
 
 #include <algorithm>
 #include <vector>
@@ -87,8 +87,8 @@ struct Block
   std::map<vtkIdType, vtkStructuredNeighbor>* Neighbors;
 };
 
-void SendGhostRegion(Block* b, const diy::Master::ProxyWithLink& cp,
-  std::vector<int>& ext, diy::BlockID& target)
+void SendGhostRegion(Block* b, const sdiy::Master::ProxyWithLink& cp,
+  std::vector<int>& ext, sdiy::BlockID& target)
 {
   vtkNew<vtkExtractVOI> evoi;
   evoi->SetInputData(b->GhostedData);
@@ -111,10 +111,10 @@ void SendGhostRegion(Block* b, const diy::Master::ProxyWithLink& cp,
 }
 
 void SendGhosts(Block* b,
-                const diy::Master::ProxyWithLink& cp,
+                const sdiy::Master::ProxyWithLink& cp,
                 void*)
 {
-  diy::Link*    l = cp.link();
+  sdiy::Link*    l = cp.link();
   for (int i = 0; i < l->size(); ++i)
     {
     vtkIdType neighborID = l->target(i).gid;
@@ -128,7 +128,7 @@ void SendGhosts(Block* b,
 }
 
 void ReceiveGhosts(Block* b,
-                   const diy::Master::ProxyWithLink& cp,
+                   const sdiy::Master::ProxyWithLink& cp,
                    void*)
 {
   vtkNew<vtkStructuredPointsReader> reader;
@@ -316,9 +316,9 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
 
   vtkMPICommunicator *vtkcomm = vtkMPICommunicator::SafeDownCast(
     contr->GetCommunicator());
-  diy::mpi::communicator comm(*vtkcomm->GetMPIComm()->GetHandle());
+  sdiy::mpi::communicator comm(*vtkcomm->GetMPIComm()->GetHandle());
 
-  diy::Master master(comm);
+  sdiy::Master master(comm);
 
   std::vector<Block> blocks;
   blocks.reserve(nblocks);
@@ -329,7 +329,7 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
     vtkIdType myBlock = iblock - offset;
     blocks[myBlock] = Block(&localExtents[myBlock*6], nGhosts, datasets[myBlock], ghostedDatasets[myBlock], sgc.GetPointer());
 
-    diy::Link* link = new diy::Link;
+    sdiy::Link* link = new sdiy::Link;
 
     std::map<vtkIdType, vtkStructuredNeighbor>* ns =
       new std::map<vtkIdType, vtkStructuredNeighbor>;
@@ -340,7 +340,7 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
       {
       vtkStructuredNeighbor neighborInfo =
         sgc->GetGridNeighbor(iblock, j);
-      diy::BlockID  neighbor;
+      sdiy::BlockID  neighbor;
       vtkIdType id = neighborInfo.NeighborID;
       (*ns)[id] = neighborInfo;
       neighbor.gid = id;

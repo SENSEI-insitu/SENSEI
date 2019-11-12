@@ -1,22 +1,22 @@
 #include <memory>
 #include <vector>
 
-#include <diy/master.hpp>
-#include <diy/reduce.hpp>
-#include <diy/partners/merge.hpp>
-#include <diy/io/numpy.hpp>
-#include <diy/grid.hpp>
-#include <diy/vertices.hpp>
+#include <sdiy/master.hpp>
+#include <sdiy/reduce.hpp>
+#include <sdiy/partners/merge.hpp>
+#include <sdiy/io/numpy.hpp>
+#include <sdiy/grid.hpp>
+#include <sdiy/vertices.hpp>
 
 #include "analysis.h"
 
-using GridRef = diy::GridRef<float,3>;
+using GridRef = sdiy::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
 struct Autocorrelation
 {
-    using Grid = diy::Grid<float,4>;
+    using Grid = sdiy::Grid<float,4>;
 
                     Autocorrelation(size_t window_, int gid_, Vertex from_, Vertex to_):
                         window(window_),
@@ -36,7 +36,7 @@ struct Autocorrelation
         GridRef g(data, shape);
 
         // record the values
-        diy::for_each(g.shape(), [&](const Vertex& v)
+        sdiy::for_each(g.shape(), [&](const Vertex& v)
         {
             auto gv = g(v);
 
@@ -78,11 +78,11 @@ struct add_vectors
     using Vector = std::vector<T>;
     Vector  operator()(const Vector& lhs, const Vector& rhs) const      { Vector res(lhs.size(), 0); for (size_t i = 0; i < lhs.size(); ++i) res[i] = lhs[i] + rhs[i]; return res; }
 };
-namespace diy { namespace mpi { namespace detail {
+namespace sdiy { namespace mpi { namespace detail {
   template<class U> struct mpi_op< add_vectors<U> >         { static MPI_Op  get() { return MPI_SUM; }  };
 } } }
 
-std::unique_ptr<diy::Master> master;
+std::unique_ptr<sdiy::Master> master;
 Vertex                       domain_shape;
 Vertex4D                     buffer_shape;
 
@@ -101,7 +101,7 @@ void init_analysis(MPI_Comm world,
                    int* from_x, int* from_y, int* from_z,
                    int* to_x,   int* to_y,   int* to_z)
 {
-    master = make_unique<diy::Master>(world, -1, -1,
+    master = make_unique<sdiy::Master>(world, -1, -1,
                                       &Autocorrelation::create,
                                       &Autocorrelation::destroy);
     domain_shape = Vertex { domain_shape_x, domain_shape_y, domain_shape_z };
@@ -113,7 +113,7 @@ void init_analysis(MPI_Comm world,
         Vertex from { from_x[i], from_y[i], from_z[i] };
         Vertex to   { to_x[i],   to_y[i],   to_z[i] };
         Autocorrelation* b = new Autocorrelation(window, gid[i], from, to);
-        master->add(gid[i], b, new diy::Link);
+        master->add(gid[i], b, new sdiy::Link);
     }
 }
 
@@ -134,12 +134,12 @@ void analysis_final(size_t k_max, size_t nblocks)
 {
 #if 0
     // Save the corr buffer for debugging
-    diy::mpi::io::file out(master->communicator(), "buffer.npy", diy::mpi::io::file::wronly | diy::mpi::io::file::create);
-    diy::io::NumPy writer(out);
+    sdiy::mpi::io::file out(master->communicator(), "buffer.npy", sdiy::mpi::io::file::wronly | sdiy::mpi::io::file::create);
+    sdiy::io::NumPy writer(out);
     writer.write_header<float>(buffer_shape);
-    master->foreach([&writer](Autocorrelation* b, const diy::Master::ProxyWithLink)
+    master->foreach([&writer](Autocorrelation* b, const sdiy::Master::ProxyWithLink)
                                      {
-                                       diy::DiscreteBounds bounds;
+                                       sdiy::DiscreteBounds bounds;
                                        for (size_t i = 0; i < 3; ++i)
                                        {
                                          bounds.min[i] = b->from[i];
@@ -152,10 +152,10 @@ void analysis_final(size_t k_max, size_t nblocks)
 #endif
 
     // add up the autocorrellations
-    master->foreach([](Autocorrelation* b, const diy::Master::ProxyWithLink& cp)
+    master->foreach([](Autocorrelation* b, const sdiy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
-                                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                                        sdiy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                                         {
                                             size_t w = v[3];
                                             sums[w] += b->corr(v);
@@ -174,18 +174,18 @@ void analysis_final(size_t k_max, size_t nblocks)
             std::cout << ' ' << result[i];
         std::cout << std::endl;
     }
-    master->foreach([](Autocorrelation*, const diy::Master::ProxyWithLink& cp)
+    master->foreach([](Autocorrelation*, const sdiy::Master::ProxyWithLink& cp)
                                      {
                                         cp.collectives()->clear();
                                      });
 
     // select k strongest autocorrelations for each shift
-    diy::ContiguousAssigner     assigner(master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
-    //diy::RegularMergePartners   partners(3, nblocks, 2, true);
-    diy::RegularDecomposer<diy::DiscreteBounds> decomposer(1, diy::interval(0, nblocks-1), nblocks);
-    diy::RegularMergePartners   partners(decomposer, 2);
-    diy::reduce(*master, assigner, partners,
-                [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
+    sdiy::ContiguousAssigner     assigner(master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
+    //sdiy::RegularMergePartners   partners(3, nblocks, 2, true);
+    sdiy::RegularDecomposer<sdiy::DiscreteBounds> decomposer(1, sdiy::interval(0, nblocks-1), nblocks);
+    sdiy::RegularMergePartners   partners(decomposer, 2);
+    sdiy::reduce(*master, assigner, partners,
+                [k_max](void* b_, const sdiy::ReduceProxy& rp, const sdiy::RegularMergePartners&)
                 {
                     Autocorrelation*  b        = static_cast<Autocorrelation*>(b_);
                     //unsigned round = rp.round(); // current round number
@@ -195,7 +195,7 @@ void analysis_final(size_t k_max, size_t nblocks)
                     MaxHeapVector maxs(b->window);
                     if (rp.in_link().size() == 0)
                     {
-                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                        sdiy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                         {
                             size_t offset = v[3];
                             float val = b->corr(v);
