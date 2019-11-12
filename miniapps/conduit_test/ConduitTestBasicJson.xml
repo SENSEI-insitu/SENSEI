@@ -1,6 +1,0 @@
- <!-- SENSEI ConfigurableAnalysis Configuration file.
-      set enabled="1" on analyses you wish to enable -->
-<sensei>
-  <analysis type="ascent" json="AscentActionsBasic.json" enabled="1" />
-</sensei>
-
