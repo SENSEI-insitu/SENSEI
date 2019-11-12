@@ -318,13 +318,22 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
   SENSEI_ERROR("Ascent was requested but is disabled in this build")
   return( -1 );
 #else
-
   vtkNew<AscentAnalysisAdaptor> ascent;
+
   if (this->Comm != MPI_COMM_NULL)
     ascent->SetCommunicator(this->Comm);
 
-  this->Analyses.push_back(ascent.GetPointer());
+  // get the data requirements for this run
+  DataRequirements req;
+  if (req.Initialize(node) || req.Empty())
+    {
+    SENSEI_ERROR("Failed to initialize the AscentAnalysisAdaptor."
+      << " Missing data requirements.")
+    return -1;
+    }
+  ascent->SetDataRequirements(req);
 
+  // get the json files used to configure ascent
   std::string options_file;
   std::string actions_file;
 
@@ -333,12 +342,27 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
     options_file = node.attribute("options").value();
 
   // Check if the xml file has the ascent actions filename.
-  if(node.attribute("json"))
-    actions_file = node.attribute("json").value();
+  if (XMLUtils::RequireAttribute(node, "actions"))
+    {
+    SENSEI_ERROR("Failed to initialize the AscentAnalysisAdaptor");
+    return -1;
+    }
 
-  ascent->Initialize(actions_file, options_file);
+  actions_file = node.attribute("actions").value();
 
-  return( 0 );
+  if (ascent->Initialize(actions_file, options_file))
+    {
+    SENSEI_ERROR("Failed to initialize ascent using the actions \""
+      << actions_file << "\" and options \"" << options_file << "\"")
+    return -1;
+    }
+
+  this->Analyses.push_back(ascent.GetPointer());
+
+  SENSEI_STATUS("Configured the AscentAnalysisAdaptor with actions \""
+    << actions_file << "\" and options \"" << options_file << "\"")
+
+  return 0;
 #endif
 }
 

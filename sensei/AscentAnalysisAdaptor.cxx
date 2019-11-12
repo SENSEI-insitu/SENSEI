@@ -1,3 +1,9 @@
+#include "AscentAnalysisAdaptor.h"
+#include "DataAdaptor.h"
+#include "Error.h"
+#include "MeshMetadataMap.h"
+#include "VTKUtils.h"
+
 #include <mpi.h>
 
 #include <conduit_blueprint.hpp>
@@ -22,15 +28,42 @@
 #include <vtkDataArrayTemplate.h>
 #include <vtkUnsignedCharArray.h>
 
-#include "AscentAnalysisAdaptor.h"
-#include "DataAdaptor.h"
-#include "Error.h"
-#include "MeshMetadataMap.h"
-#include "VTKUtils.h"
-
-namespace sensei
+namespace
 {
+// --------------------------------------------------------------------------
+template<typename n_t> struct conduit_tt {};
 
+#define declare_conduit_tt(cpp_t, conduit_t) \
+template<> struct conduit_tt<cpp_t>          \
+{                                            \
+  using conduit_type = conduit_t;            \
+};
+
+declare_conduit_tt(char, conduit::int8);
+declare_conduit_tt(signed char, conduit::int8);
+declare_conduit_tt(unsigned char, conduit::uint8);
+declare_conduit_tt(short, conduit::int16);
+declare_conduit_tt(unsigned short, conduit::uint16);
+declare_conduit_tt(int, conduit::int32);
+declare_conduit_tt(unsigned int, conduit::uint32);
+declare_conduit_tt(long, conduit::int32);
+declare_conduit_tt(unsigned long, conduit::uint32);
+declare_conduit_tt(long long, conduit::int64);
+declare_conduit_tt(unsigned long long, conduit::uint64);
+declare_conduit_tt(float, conduit::float32);
+declare_conduit_tt(double, conduit::float64);
+declare_conduit_tt(long double, conduit::float64);
+
+//------------------------------------------------------------------------------
+void GetShape(std::string &shape, int type)
+{
+  if(type == 1) shape = "point";
+  else if(type == 2) shape = "line";
+  else if(type == 3) shape = "tri";
+  else if(type == 4) shape = "quad";
+  else if(type == 8) shape = "hex";
+  else SENSEI_ERROR("Error: Unsupported element shape");
+}
 //#define DEBUG_SAVE_DATA
 #ifdef DEBUG_SAVE_DATA
 void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode )
@@ -65,60 +98,39 @@ void DebugSaveAscentData( conduit::Node &data, conduit::Node &_optionsNode )
     // close ascent
     a.close();
 }
-#else
-void DebugSaveAscentData( conduit::Node &, conduit::Node & ) {}
 #endif  // DEBUG_SAVE_DATA
 
 //------------------------------------------------------------------------------
-senseiNewMacro(AscentAnalysisAdaptor);
-
-//------------------------------------------------------------------------------
-AscentAnalysisAdaptor::AscentAnalysisAdaptor()
+int PassGhostsZones(vtkDataSet* ds, conduit::Node& node)
 {
-}
+  // Check if the mesh has ghost zone data.
+  if( ds->HasAnyGhostCells() || ds->HasAnyGhostPoints() )
+  {
+    // If so, add the data for Acsent.
+    node["fields/ascent_ghosts/association"] = "element";
+    node["fields/ascent_ghosts/topology"] = "mesh";
+    node["fields/ascent_ghosts/type"] = "scalar";
 
-//------------------------------------------------------------------------------
-AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
-{
-}
+    vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(ds->GetCellData()->GetArray("vtkGhostType"));
+    unsigned char *gcp = (unsigned char *)gc->GetVoidPointer( 0 );
+    auto size = gc->GetSize();
 
-//------------------------------------------------------------------------------
-template<typename n_t> struct conduit_tt {};
+    // In Acsent, 0 means real data, 1 means ghost data, and 2 or greater means garbage data.
+    std::vector<conduit::int32> ghost_flags(size);
 
-#define declare_conduit_tt(cpp_t, conduit_t) \
-template<> struct conduit_tt<cpp_t>          \
-{                                            \
-  using conduit_type = conduit_t;            \
-};
+    // Ascent needs int32 not unsigned char. I don't know why, that is the way.
+    for(vtkIdType i=0; i < size ;++i)
+    {
+        ghost_flags[i] = gcp[i];
+    }
+    node["fields/ascent_ghosts/values"].set(ghost_flags);
+  }
 
-declare_conduit_tt(char, conduit::int8);
-declare_conduit_tt(signed char, conduit::int8);
-declare_conduit_tt(unsigned char, conduit::uint8);
-declare_conduit_tt(short, conduit::int16);
-declare_conduit_tt(unsigned short, conduit::uint16);
-declare_conduit_tt(int, conduit::int32);
-declare_conduit_tt(unsigned int, conduit::uint32);
-declare_conduit_tt(long, conduit::int32);
-declare_conduit_tt(unsigned long, conduit::uint32);
-declare_conduit_tt(long long, conduit::int64);
-declare_conduit_tt(unsigned long long, conduit::uint64);
-declare_conduit_tt(float, conduit::float32);
-declare_conduit_tt(double, conduit::float64);
-declare_conduit_tt(long double, conduit::float64);
-
-//------------------------------------------------------------------------------
-void GetShape(std::string &shape, int type)
-{
-  if(type == 1) shape = "point";
-  else if(type == 2) shape = "line";
-  else if(type == 3) shape = "tri";
-  else if(type == 4) shape = "quad";
-  else if(type == 8) shape = "hex";
-  else SENSEI_ERROR("Error: Unsupported element shape");
+  return 0;
 }
 
 /* TODO look at
-int VTK_To_Fields(vtkDataSetAttributes *dsa, int centering, conduit::Node &node)
+int PassFields(vtkDataSetAttributes *dsa, int centering, conduit::Node &node)
 {
   int nArrays = dsa->GetNumberOfArrays();
   for (int i = 0; i < nArrays; ++i)
@@ -223,16 +235,16 @@ int VTK_To_Fields(vtkDataSetAttributes *dsa, int centering, conduit::Node &node)
   return( 0 );
 }
 
-int VTK_To_Fields(int bid, vtkDataSet *ds, conduit::Node &node)
+int PassFields(int bid, vtkDataSet *ds, conduit::Node &node)
 {
   // handle the arrays
-  if (VTK_To_Fields(ds->GetPointData(), vtkDataObject::POINT, node))
+  if (PassFields(ds->GetPointData(), vtkDataObject::POINT, node))
   {
     SENSEI_ERROR("Failed to transfer point data from block " << bid);
     return( -1 );
   }
 
-  if (VTK_To_Fields(ds->GetCellData(), vtkDataObject::CELL, node))
+  if (PassFields(ds->GetCellData(), vtkDataObject::CELL, node))
   {
     SENSEI_ERROR("Failed to transfer cell data from block " << bid);
     return( -1 );
@@ -242,41 +254,10 @@ int VTK_To_Fields(int bid, vtkDataSet *ds, conduit::Node &node)
 }
 */
 
-//------------------------------------------------------------------------------
-void AddGhostsZones(vtkDataSet* ds, conduit::Node& node)
+// **************************************************************************
+int PassFields(vtkDataSet* ds, conduit::Node& node,
+  const std::string &arrayName, int arrayCen)
 {
-  // Check if the mesh has ghost zone data.
-  if( ds->HasAnyGhostCells() || ds->HasAnyGhostPoints() )
-  {
-    // If so, add the data for Acsent.
-    node["fields/ascent_ghosts/association"] = "element";
-    node["fields/ascent_ghosts/topology"] = "mesh";
-    node["fields/ascent_ghosts/type"] = "scalar";
-
-    vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(ds->GetCellData()->GetArray("vtkGhostType"));
-    unsigned char *gcp = (unsigned char *)gc->GetVoidPointer( 0 );
-    auto size = gc->GetSize();
-
-    // In Acsent, 0 means real data, 1 means ghost data, and 2 or greater means garbage data.
-    std::vector<conduit::int32> ghost_flags(size);
-
-    // Ascent needs int32 not unsigned char. I don't know why, that is the way.
-    for(vtkIdType i=0; i < size ;++i)
-    {
-        ghost_flags[i] = gcp[i];
-    }
-    node["fields/ascent_ghosts/values"].set(ghost_flags);
-  }
-}
-
-//------------------------------------------------------------------------------
-int VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj)
-{
-  vtkImageData *uniform             = vtkImageData::SafeDownCast(ds);
-  vtkRectilinearGrid *rectilinear   = vtkRectilinearGrid::SafeDownCast(ds);
-  vtkStructuredGrid *structured     = vtkStructuredGrid::SafeDownCast(ds);
-  vtkUnstructuredGrid *unstructured = vtkUnstructuredGrid::SafeDownCast(ds);
-
   std::stringstream ss;
   ss << "fields/" << arrayName << "/association";
   std::string assocPath = ss.str();
@@ -322,536 +303,90 @@ int VTK_To_Fields(vtkDataSet* ds, conduit::Node& node, const std::string &arrayN
   //std::string matValPath = ss.str();
   //ss.str(std::string());
 
-  AddGhostsZones(ds, node);
 
-  if(uniform != nullptr)
+  // tell ascent the centering
+  vtkDataSetAttributes *atts = ds->GetAttributes(arrayCen);
+  vtkDataArray *da = atts->GetArray(arrayName.c_str());
+  std::string cenType;
+  if (arrayCen == vtkDataObject::POINT)
   {
-    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
-    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
-    vtkDataArray *point = attrP->GetArray(0);
-    vtkDataArray *cell = attrC->GetArray(0);
-
-    if(point)
-    {
-      node[assocPath] = "vertex";
-
-      int components = point->GetNumberOfComponents();
-      int tuples     = point->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = point->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else if(cell)
-    {
-      node[assocPath] = "element";
-
-      int components = cell->GetNumberOfComponents();
-      int tuples     = cell->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = cell->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-          wVals[i] = cell->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else
-    {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element");
-      return( -1 );
-    }
-    node[topoPath] = "mesh";
+    cenType = "vertex";
   }
-  else if(rectilinear != nullptr)
+  else if (arrayCen == vtkDataObject::CELL)
   {
-    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
-    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
-    vtkDataArray *point = attrP->GetArray(0);
-    vtkDataArray *cell = attrC->GetArray(0);
-
-    if(point)
-    {
-      node[assocPath] = "vertex";
-
-      int components = point->GetNumberOfComponents();
-      int tuples     = point->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = point->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else if(cell)
-    {
-      node[assocPath] = "element";
-
-      int components = cell->GetNumberOfComponents();
-      int tuples     = cell->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-          vals[i] = cell->GetComponent(i, 0);
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-          wVals[i] = cell->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else
-    {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element");
-      return( -1 );
-    }
-    node[topoPath] = "mesh";
-  }
-  else if(structured != nullptr)
-  {
-    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
-    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
-    vtkDataArray *point = attrP->GetArray(0);
-    vtkDataArray *cell = attrC->GetArray(0);
-
-    if(point)
-    {
-      node[assocPath] = "vertex";
-
-      int components = point->GetNumberOfComponents();
-      int tuples     = point->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = point->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else if(cell)
-    {
-      node[assocPath] = "element";
-
-      int components = cell->GetNumberOfComponents();
-      int tuples     = cell->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples,0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = cell->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-          wVals[i] = cell->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else
-    {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element");
-      return( -1 );
-    }
-    node[topoPath] = "mesh";
-  }
-  else if(unstructured != nullptr)
-  {
-    vtkDataSetAttributes *attrP = obj->GetAttributes(vtkDataObject::POINT);
-    vtkDataSetAttributes *attrC = obj->GetAttributes(vtkDataObject::CELL);
-    vtkDataArray *point = attrP->GetArray(0);
-    vtkDataArray *cell = attrC->GetArray(0);
-
-    if(point)
-    {
-      node[assocPath] = "vertex";
-
-      int components = point->GetNumberOfComponents();
-      int tuples     = point->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = point->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = point->GetComponent(i, 0);
-          vVals[i] = point->GetComponent(i, 1);
-          wVals[i] = point->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else if(cell)
-    {
-      node[assocPath] = "element";
-
-      int components = cell->GetNumberOfComponents();
-      int tuples     = cell->GetNumberOfTuples();
-
-      if(components == 1)
-      {
-        node[typePath] = "scalar";
-
-        std::vector<conduit::float64> vals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          vals[i] = cell->GetComponent(i, 0);
-        }
-        node[valPath].set(vals);
-      }
-      else if(components == 2)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-      }
-      else if(components == 3)
-      {
-        node[typePath] = "vector";
-
-        std::vector<conduit::float64> uVals(tuples, 0.0);
-        std::vector<conduit::float64> vVals(tuples, 0.0);
-        std::vector<conduit::float64> wVals(tuples, 0.0);
-
-        for(int i = 0; i < tuples; ++i)
-        {
-          uVals[i] = cell->GetComponent(i, 0);
-          vVals[i] = cell->GetComponent(i, 1);
-          wVals[i] = cell->GetComponent(i, 2);
-        }
-        node[uValPath].set(uVals);
-        node[vValPath].set(vVals);
-        node[wValPath].set(wVals);
-      }
-      else
-      {
-        SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
-        return( -1 );
-      }
-    }
-    else
-    {
-      SENSEI_ERROR("Field Orientation unsupported :: Must be vertex or element");
-      return (-1 );
-    }
-    node[topoPath] = "mesh";
+    cenType = "element";
   }
   else
   {
-    SENSEI_ERROR("Mesh structure not supported");
-    return( -1 );
+    SENSEI_ERROR("Invlaid centering " << arrayCen)
+    return -1;
+  }
+  node[assocPath] = cenType;
+
+  // FIXME -- zero coopy transfer the data
+  int components = da->GetNumberOfComponents();
+  int tuples = da->GetNumberOfTuples();
+
+  if(components == 1)
+  {
+    node[typePath] = "scalar";
+
+    // FIXME -- get the type from VTK
+    std::vector<conduit::float64> vals(tuples, 0.0);
+
+    for(int i = 0; i < tuples; ++i)
+    {
+      vals[i] = da->GetComponent(i, 0);
+    }
+    node[valPath].set(vals);
+  }
+  else if(components == 2)
+  {
+    node[typePath] = "vector";
+
+    std::vector<conduit::float64> uVals(tuples, 0.0);
+    std::vector<conduit::float64> vVals(tuples, 0.0);
+
+    for(int i = 0; i < tuples; ++i)
+    {
+      uVals[i] = da->GetComponent(i, 0);
+      vVals[i] = da->GetComponent(i, 1);
+    }
+    node[uValPath].set(uVals);
+    node[vValPath].set(vVals);
+  }
+  else if(components == 3)
+  {
+    node[typePath] = "vector";
+
+    std::vector<conduit::float64> uVals(tuples, 0.0);
+    std::vector<conduit::float64> vVals(tuples, 0.0);
+    std::vector<conduit::float64> wVals(tuples, 0.0);
+
+    for(int i = 0; i < tuples; ++i)
+    {
+      uVals[i] = da->GetComponent(i, 0);
+      vVals[i] = da->GetComponent(i, 1);
+      wVals[i] = da->GetComponent(i, 2);
+    }
+    node[uValPath].set(uVals);
+    node[vValPath].set(vVals);
+    node[wValPath].set(wVals);
+  }
+  else
+  {
+    SENSEI_ERROR("Too many components (" << components << ") associated with " << arrayName);
+    return -1;
   }
 
-  return( 1 );
+  // tell ascent which topology the array belongs to
+  node[topoPath] = "mesh";
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
-int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
+int PassTopology(vtkDataSet* ds, conduit::Node& node)
 {
   vtkImageData *uniform             = vtkImageData::SafeDownCast(ds);
   vtkRectilinearGrid *rectilinear   = vtkRectilinearGrid::SafeDownCast(ds);
@@ -940,26 +475,19 @@ int VTK_To_Topology(vtkDataSet* ds, conduit::Node& node)
     return( -1 );
   }
 
-  return( 1 );
+  return 0;
 }
 
 //------------------------------------------------------------------------------
-int VTK_To_State(vtkDataSet *, conduit::Node& node, DataAdaptor* dataAdaptor)
+int PassState(vtkDataSet *, conduit::Node& node, sensei::DataAdaptor *dataAdaptor)
 {
-#ifdef DEBUG_SAVE_DATA
-    //node["state/time"] = ()dataAdaptor->GetDataTime();         // returns a double.
-    node["state/cycle"] = (int)dataAdaptor->GetDataTimeStep();   // returns a long.
-    //node["state/domain"] = ;
-#else
-    (void)node;
-    (void)dataAdaptor;
-#endif
-
-    return( 1 );
+    node["state/time"] = dataAdaptor->GetDataTime();
+    node["state/cycle"] = (int)dataAdaptor->GetDataTimeStep();
+    return  0;
 }
 
 //------------------------------------------------------------------------------
-int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
+int PassCoordsets(vtkDataSet* ds, conduit::Node& node)
 {
   vtkImageData *uniform             = vtkImageData::SafeDownCast(ds);
   vtkRectilinearGrid *rectilinear   = vtkRectilinearGrid::SafeDownCast(ds);
@@ -1093,12 +621,13 @@ int VTK_To_Coordsets(vtkDataSet* ds, conduit::Node& node)
   else
   {
     SENSEI_ERROR("Mesh type not supported");
-    return( -1 );
+    return -1;
   }
 
-  return( 1 );
+  return 0;
 }
 
+// **************************************************************************
 void NodeIter(const conduit::Node& node, std::set<std::string>& fields)
 {
   if(node.number_of_children() > 0)
@@ -1120,38 +649,102 @@ void NodeIter(const conduit::Node& node, std::set<std::string>& fields)
   }
 }
 
+// **************************************************************************
+int PassData(vtkDataSet* ds, conduit::Node& node,
+  const std::string &arrayName, int arrayCen, sensei::DataAdaptor *dataAdaptor)
+{
+    // FIXME -- do error checking on all these and report any errors
+    PassState(ds, node, dataAdaptor);
+    PassCoordsets(ds, node);
+    PassTopology(ds, node);
+    PassFields(ds, node, arrayName, arrayCen);
+    PassGhostsZones(ds, node);
+    return 0;
+}
+
+
+//------------------------------------------------------------------------------
+int LoadConfig(const std::string &file_name, conduit::Node& node)
+{
+  if (!conduit::utils::is_file(file_name))
+  {
+    SENSEI_ERROR("Failed to load ascent config. \"" << file_name
+      << "\" is not a valid ascent config.")
+    return -1;
+  }
+
+  conduit::Node file_node;
+  file_node.load(file_name, "json");
+  node.update(file_node);
+
+  return 0;
+}
+
+}
+
+
+
+namespace sensei
+{
+//------------------------------------------------------------------------------
+senseiNewMacro(AscentAnalysisAdaptor);
+
+//------------------------------------------------------------------------------
+AscentAnalysisAdaptor::AscentAnalysisAdaptor()
+{
+}
+
+//------------------------------------------------------------------------------
+AscentAnalysisAdaptor::~AscentAnalysisAdaptor()
+{
+}
+
+//-----------------------------------------------------------------------------
+int AscentAnalysisAdaptor::SetDataRequirements(const DataRequirements &reqs)
+{
+  this->Requirements = reqs;
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int AscentAnalysisAdaptor::AddDataRequirement(const std::string &meshName,
+  int association, const std::vector<std::string> &arrays)
+{
+  this->Requirements.AddRequirement(meshName, association, arrays);
+  return 0;
+}
+
 //------------------------------------------------------------------------------
 void AscentAnalysisAdaptor::GetFieldsFromActions()
 {
-  // TODO why the temp node.
   const conduit::Node& temp = this->actionsNode;
   NodeIter(temp, this->Fields);
 }
 
 //------------------------------------------------------------------------------
-void JSONFileToNode(const std::string &file_name, conduit::Node& node)
+int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
+  const std::string &options_file_path)
 {
-  if(conduit::utils::is_file(file_name))
+  if (!options_file_path.empty() &&
+    ::LoadConfig(options_file_path, this->optionsNode))
   {
-    // TODO why the temp file_node, load to node variable.
-    conduit::Node file_node;
-    file_node.load(file_name, "json");
-    node.update(file_node);
+    SENSEI_ERROR("Failed to load options from \""
+      << options_file_path << "\"")
+    return -1;
   }
-}
 
-//------------------------------------------------------------------------------
-void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, const std::string &options_file_path)
-{
-  JSONFileToNode(options_file_path, this->optionsNode);
   optionsNode["mpi_comm"] = MPI_Comm_c2f(this->GetCommunicator());
   //optionsNode["runtime/type"] = "ascent";
 
   this->_ascent.open(this->optionsNode);
 
-  JSONFileToNode(json_file_path, this->actionsNode);
+  if (::LoadConfig(json_file_path, this->actionsNode))
+  {
+    SENSEI_ERROR("Failed to load actionss from \""
+      << json_file_path << "\"")
+    return -1;
+  }
 
-  // Debug
 #ifdef DEBUG_SAVE_DATA
   std::cout << "------ "  << options_file_path << " ------" << std::endl;
   this->optionsNode.print();
@@ -1159,33 +752,49 @@ void AscentAnalysisAdaptor::Initialize(const std::string &json_file_path, const 
   this->actionsNode.print();
   std::cout << "----------------------------" << std::endl;
 #endif
-}
 
-int Fill_VTK(vtkDataSet* ds, conduit::Node& node, const std::string &arrayName, vtkDataObject *obj, DataAdaptor* dataAdaptor)
-{
-    //TODO: Zero copy for Coordsets and Topology
-    VTK_To_State(ds, node, dataAdaptor);
-    VTK_To_Coordsets(ds, node);
-    VTK_To_Topology(ds, node);
-
-    VTK_To_Fields(ds, node, arrayName, obj);
-/* TODO new stuff not working
-    if (VTK_To_Fields(bid, ds, node))
-    {
-        SENSEI_ERROR("Failed to transfer block " << bid);
-        return( -1 );
-    }
-*/
-
-    return( 0 );
+  return 0;
 }
 
 //------------------------------------------------------------------------------
 bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
+  // FIXME -- data requirements needs to be determined from ascent
+  // configs.
+  // get the mesh name
+  if (this->Requirements.Empty())
+    {
+    SENSEI_ERROR("Data requirements have not been provided")
+    return false;
+    }
+
+  MeshRequirementsIterator mit =
+    this->Requirements.GetMeshRequirementsIterator();
+
+  if (!mit)
+    {
+    SENSEI_ERROR("Invalid data requirements")
+    return false;
+    }
+
+  const std::string &meshName = mit.MeshName();
+
+  // get the array name
+  ArrayRequirementsIterator ait =
+    this->Requirements.GetArrayRequirementsIterator(meshName);
+
+  if (!ait)
+    {
+    SENSEI_ERROR("Invalid data requirements. No array for mesh \""
+      << meshName << "\"")
+    return false;
+    }
+
+  std::string arrayName = ait.Array();
+  int arrayCen = ait.Association();
+
   conduit::Node root;
   vtkDataObject* obj = nullptr;
-  std::string meshName = "mesh";
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;
@@ -1201,111 +810,105 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     return( false );
   }
 
-  GetFieldsFromActions();
-  std::vector<std::string> vec(this->Fields.begin(), this->Fields.end());
-  int size = vec.size();
-
-  for(int i = 0; i < size; ++i)
+  if (dataAdaptor->AddArray(obj, meshName, arrayCen, arrayName))
   {
-    std::string arrayName = vec[i];
-
-    if(dataAdaptor->AddArray(obj, meshName, 1, arrayName))
-    {
-        SENSEI_ERROR("Failed to add "
-        << " data array \"" << arrayName << "\" to mesh \""
-        << meshName << "\"");
-        return( -1 );
-    }
-
-    MeshMetadataPtr metadata;
-    if(mdMap.GetMeshMetadata(meshName, metadata))
-    {
-        SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"");
-        return( false );
-    }
-
-    // Add the ghost cell arrays to the mesh. NumGhostCells can return -1, no ghost but masking arrays.
-    if(metadata->NumGhostCells &&
-       dataAdaptor->AddGhostCellsArray(obj, meshName))
-    {
-        SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
-        return( false );
-    }
-
-    // Add the ghost node arrays to the mesh. NumGhostNodes can return -1, no ghost but masking arrays.
-    if(metadata->NumGhostNodes &&
-       dataAdaptor->AddGhostNodesArray(obj, meshName))
-    {
-        SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");
-        return( false );
-    }
-
-    int domainNum = 0;
-    if (vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(obj))
-    {
-      size_t numBlocks = 0;
-      vtkCompositeDataIterator *itr = cds->NewIterator();
-
-      // TODO: Is there a better way to get the number of data sets?
-      vtkCompositeDataIterator *iter = cds->NewIterator();
-      iter->SkipEmptyNodesOn();
-      for(iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
-        ++numBlocks;
-
-      itr->SkipEmptyNodesOn();
-      itr->InitTraversal();
-      while(!itr->IsDoneWithTraversal())
-      {
-        //int bid = std::max(0u, itr->GetCurrentFlatIndex() - 1);
-        if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(cds->GetDataSet(itr)))
-        {
-          char domain[20] = "";
-          if( numBlocks > 1 )
-          {
-            snprintf( domain, sizeof(domain), "domain_%.6d", domainNum );
-            ++domainNum;
-            conduit::Node &temp_node = root[domain];
-
-            Fill_VTK(ds, temp_node, arrayName, ds, dataAdaptor);
-          }
-          else
-          {
-            conduit::Node &temp_node = root;
-            Fill_VTK(ds, temp_node, arrayName, ds, dataAdaptor);
-          }
-        }
-        itr->GoToNextItem();
-      }
-    }
-    else if (vtkDataSet *ds = vtkDataSet::SafeDownCast(obj))
-    {
-      conduit::Node &temp_node = root;
-
-      Fill_VTK(ds, temp_node, arrayName, obj, dataAdaptor);
-    }
-    else
-    {
-      SENSEI_ERROR("Data object " << obj->GetClassName() << " is not supported.");
-      return( -1 );
-    }
-
-    // Debug
-    /*
-    std::cout << "----------------------------" << std::endl;
-    std::cout << "i: " << i << " size: " << size << std::endl;
-    std::cout << "ACTIONS" << std::endl;
-    this->actionsNode.print();
-    std::cout << "NODE" << std::endl;
-    root.print();
-    std::cout << "----------------------------" << std::endl;
-    */
-
-    DebugSaveAscentData( root, this->optionsNode );
-
-    this->_ascent.publish(root);
-    this->_ascent.execute(this->actionsNode);
-    root.reset();
+    SENSEI_ERROR("Failed to add "
+      << " data array \"" << arrayName << "\" to mesh \""
+      << meshName << "\"");
+    return( -1 );
   }
+
+  // get metadata for the requested mesh
+  MeshMetadataPtr metadata;
+  if(mdMap.GetMeshMetadata(meshName, metadata))
+  {
+    SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"");
+    return( false );
+  }
+
+  // Add the ghost cell arrays to the mesh.
+  if(metadata->NumGhostCells &&
+    dataAdaptor->AddGhostCellsArray(obj, meshName))
+  {
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
+      return( false );
+  }
+
+  // Add the ghost node arrays to the mesh.
+  if(metadata->NumGhostNodes &&
+    dataAdaptor->AddGhostNodesArray(obj, meshName))
+  {
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");
+      return( false );
+  }
+
+  int domainNum = 0;
+  if (vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(obj))
+  {
+    size_t numBlocks = 0;
+    vtkCompositeDataIterator *itr = cds->NewIterator();
+
+    // FIXME - use metadata to get the number of blocks
+    vtkCompositeDataIterator *iter = cds->NewIterator();
+    iter->SkipEmptyNodesOn();
+    for(iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+      ++numBlocks;
+
+    itr->SkipEmptyNodesOn();
+    itr->InitTraversal();
+    while(!itr->IsDoneWithTraversal())
+    {
+      if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(cds->GetDataSet(itr)))
+      {
+        char domain[20] = "";
+        if( numBlocks > 1 )
+        {
+          snprintf( domain, sizeof(domain), "domain_%.6d", domainNum );
+          ++domainNum;
+          conduit::Node &temp_node = root[domain];
+
+          // FIXME -- check retuirn for error
+          ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+        }
+        else
+        {
+          conduit::Node &temp_node = root;
+          // FIXME -- check retuirn for error
+          ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+        }
+      }
+      itr->GoToNextItem();
+    }
+  }
+  else if (vtkDataSet *ds = vtkDataSet::SafeDownCast(obj))
+  {
+    conduit::Node &temp_node = root;
+
+    // FIXME -- check retuirn for error
+    ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+  }
+  else
+  {
+    SENSEI_ERROR("Data object " << obj->GetClassName()
+      << " is not supported.");
+    return( -1 );
+  }
+
+#ifdef DEBUG_SAVE_DATA
+  std::cout << "----------------------------" << std::endl;
+  std::cout << "i: " << i << " size: " << size << std::endl;
+  std::cout << "ACTIONS" << std::endl;
+  this->actionsNode.print();
+  std::cout << "NODE" << std::endl;
+  root.print();
+  std::cout << "----------------------------" << std::endl;
+
+  DebugSaveAscentData( root, this->optionsNode );
+#endif
+
+  this->_ascent.publish(root);
+  this->_ascent.execute(this->actionsNode);
+  root.reset();
 
   return( true );
 }
