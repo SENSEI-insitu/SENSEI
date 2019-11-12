@@ -1,8 +1,8 @@
 if(ENABLE_CONDUITTEST)
-  message(STATUS "Enabled: CONDUIT TEST miniapp.")
+  message(STATUS "Enabled: Conduit miniapp.")
   add_subdirectory(conduit_test)
 else()
-  message(STATUS "Disabled: conduit_test miniapp.")
+  message(STATUS "Disabled: conduit miniapp.")
 endif()
 
 if(ENABLE_OSCILLATORS)
@@ -32,3 +32,4 @@ if(ENABLE_VORTEX)
 else()
   message(STATUS "Disabled: Vortex miniapp.")
 endif()
+

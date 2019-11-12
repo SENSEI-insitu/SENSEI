@@ -44,6 +44,9 @@
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #endif
+#ifdef ENABLE_ASCENT
+#include "AscentAnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
@@ -89,6 +92,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios1(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
+  int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
@@ -305,6 +309,63 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
   return 0;
 #endif
 }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
+{
+#ifndef ENABLE_ASCENT
+  (void)node;
+  SENSEI_ERROR("Ascent was requested but is disabled in this build")
+  return( -1 );
+#else
+  vtkNew<AscentAnalysisAdaptor> ascent;
+
+  if (this->Comm != MPI_COMM_NULL)
+    ascent->SetCommunicator(this->Comm);
+
+  // get the data requirements for this run
+  DataRequirements req;
+  if (req.Initialize(node) || req.Empty())
+    {
+    SENSEI_ERROR("Failed to initialize the AscentAnalysisAdaptor."
+      << " Missing data requirements.")
+    return -1;
+    }
+  ascent->SetDataRequirements(req);
+
+  // get the json files used to configure ascent
+  std::string options_file;
+  std::string actions_file;
+
+  // Check if the xml file has the ascent options filename.
+  if(node.attribute("options"))
+    options_file = node.attribute("options").value();
+
+  // Check if the xml file has the ascent actions filename.
+  if (XMLUtils::RequireAttribute(node, "actions"))
+    {
+    SENSEI_ERROR("Failed to initialize the AscentAnalysisAdaptor");
+    return -1;
+    }
+
+  actions_file = node.attribute("actions").value();
+
+  if (ascent->Initialize(actions_file, options_file))
+    {
+    SENSEI_ERROR("Failed to initialize ascent using the actions \""
+      << actions_file << "\" and options \"" << options_file << "\"")
+    return -1;
+    }
+
+  this->Analyses.push_back(ascent.GetPointer());
+
+  SENSEI_STATUS("Configured the AscentAnalysisAdaptor with actions \""
+    << actions_file << "\" and options \"" << options_file << "\"")
+
+  return 0;
+#endif
+}
+
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
@@ -1089,6 +1150,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))

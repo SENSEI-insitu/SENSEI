@@ -17,25 +17,25 @@
 #include <vtkPolyData.h>
 #include <vtkNew.h>
 
-#include <diy/master.hpp>
+#include <sdiy/master.hpp>
 
 
 static
-long getBlockNumCells(const diy::DiscreteBounds &ext)
+long getBlockNumCells(const sdiy::DiscreteBounds &ext)
 {
   return (ext.max[0] - ext.min[0] + 1)*
    (ext.max[1] - ext.min[1] + 1)*(ext.max[2] - ext.min[2] + 1);
 }
 
 static
-long getBlockNumPoints(const diy::DiscreteBounds &ext)
+long getBlockNumPoints(const sdiy::DiscreteBounds &ext)
 {
   return (ext.max[0] - ext.min[0] + 2)*
    (ext.max[1] - ext.min[1] + 2)*(ext.max[2] - ext.min[2] + 2);
 }
 
 static
-void getBlockBounds(const diy::DiscreteBounds &ext,
+void getBlockBounds(const sdiy::DiscreteBounds &ext,
   const double x0[3], const double dx[3], double *bounds)
 {
   bounds[0] = x0[0] + dx[0]*ext.min[0];
@@ -47,7 +47,7 @@ void getBlockBounds(const diy::DiscreteBounds &ext,
 }
 
 static
-void getBlockExtent(const diy::DiscreteBounds &db, int *ext)
+void getBlockExtent(const sdiy::DiscreteBounds &db, int *ext)
 {
   // converts from DIY layout to VTK
   ext[0] = db.min[0];
@@ -60,7 +60,7 @@ void getBlockExtent(const diy::DiscreteBounds &db, int *ext)
 
 static
 vtkImageData *newCartesianBlock(double *origin,
-  double *spacing, const diy::DiscreteBounds &cellExts,
+  double *spacing, const sdiy::DiscreteBounds &cellExts,
   bool structureOnly)
 {
   vtkImageData *id = vtkImageData::New();
@@ -79,7 +79,7 @@ vtkImageData *newCartesianBlock(double *origin,
 
 static
 vtkUnstructuredGrid *newUnstructuredBlock(const double *origin,
-  const double *spacing, const diy::DiscreteBounds &cellExts,
+  const double *spacing, const sdiy::DiscreteBounds &cellExts,
   bool structureOnly)
 {
   vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
@@ -253,7 +253,7 @@ int newParticleArray(const std::vector<Particle> &particles,
 
 static
 vtkUnsignedCharArray *newGhostCellsArray(int *shape,
-  diy::DiscreteBounds &cellExt, int ng)
+  sdiy::DiscreteBounds &cellExt, int ng)
 {
     // This sim is a:lways 3D.
     int imin = cellExt.min[0];
@@ -336,8 +336,8 @@ struct DataAdaptor::InternalsType
     Spacing{1,1,1}, Shape{}, NumGhostCells(0) {}
 
   long NumBlocks;                                   // total number of blocks on all ranks
-  diy::DiscreteBounds DomainExtent;                 // global index space
-  std::map<long, diy::DiscreteBounds> BlockExtents; // local block extents, indexed by global block id
+  sdiy::DiscreteBounds DomainExtent;                 // global index space
+  std::map<long, sdiy::DiscreteBounds> BlockExtents; // local block extents, indexed by global block id
   std::map<long, float*> BlockData;                 // local data array, indexed by block id
   std::map<long, const std::vector<Particle>*> ParticleData;
 

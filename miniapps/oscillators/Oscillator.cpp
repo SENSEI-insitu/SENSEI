@@ -8,7 +8,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include <diy/point.hpp>
+#include <sdiy/point.hpp>
 
 
 // trim() from http://stackoverflow.com/a/217605/44738

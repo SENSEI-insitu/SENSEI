@@ -1,0 +1,36 @@
+ <!-- SENSEI ConfigurableAnalysis Configuration file.
+      set enabled="1" on analyses you wish to enable -->
+<sensei>
+  <!-- Contour Tests -->
+  <analysis type="ascent" action="add_pipelines" pipeline="contour" levels="5" plot="pseudocolor" plotvars="braid" enabled="1" />
+  <analysis type="ascent" action="add_pipelines" pipeline="contour" value="-0.4" plot="pseudocolor" plotvars="braid" enabled="1" />
+  <analysis type="ascent" action="add_pipelines" pipeline="contour" levels="5" plot="pseudocolor" plotvars="radial" enabled="1" />
+
+  <!-- Threshold Tests -->
+  <analysis type="ascent" action="add_pipelines" pipeline="threshold" min_value="-0.2" max_value="0.2" plot="pseudocolor" plotvars="braid" enabled="1" />
+
+  <!-- Slice Tests -->
+  <analysis type="ascent" action="add_pipelines" pipeline="slice" plane="0,0,0" normal="0,0,1" plot="pseudocolor" plotvars="braid" enabled="1" />
+
+  <!-- 3D Slice Tests -->
+  <analysis type="ascent" action="add_pipelines" pipeline="3slice" offset="1.0,0.0,-1.0" plot="pseudocolor" plotvars="braid" enabled="1" />
+
+  <!-- Clip Tests options: shape:"sphere", "box", "plane" -->
+  <!--    sphere: radius (5.0) and center (0, 0, 0)       -->
+  <!--    box: box_min (0, 0, 0) and box_max (10, 10, 10) -->
+  <!--    plane: plane (0, 0, 0) and normal (0, 0, 1)     -->
+  <analysis type="ascent" action="add_pipelines" pipeline="clip" shape="sphere" radius="11.0" center="0,0,0" plot="pseudocolor" plotvars="braid" enabled="1" />
+  <analysis type="ascent" action="add_pipelines" pipeline="clip" shape="box" box_min="0,0,0" box_max="10.01,10.01,10.01" plot="pseudocolor" plotvars="braid" enabled="1" />
+  <analysis type="ascent" action="add_pipelines" pipeline="clip" shape="plane" plane="0,0,0" normal="1,0,0" plot="pseudocolor" plotvars="braid" enabled="1" />
+
+  <!-- Clip with Field Tests -->
+  <analysis type="ascent" action="add_pipelines" pipeline="clip_with_field" clip_value="3" plot="pseudocolor" plotvars="braid" enabled="1" />
+
+  <!-- ISO Volume Tests -->
+  <!-- analysis type="ascent" action="add_pipelines" pipeline="iso_volume" min_value="-5" max_value="5" plot="pseudocolor" plotvars="braid" enabled="1" /-->
+
+  <!-- Scenes Tests -->
+  <analysis type="ascent" action="add_scenes" plot="pseudocolor"  plotvars="braid" enabled="1"/>
+  <analysis type="ascent" action="add_scenes" plot="pseudocolor"  plotvars="radial" enabled="1"/>
+</sensei>
+
