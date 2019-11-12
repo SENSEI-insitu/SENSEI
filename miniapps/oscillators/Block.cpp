@@ -51,9 +51,9 @@ void Block::update_fields(float t)
 }
 
 // --------------------------------------------------------------------------
-void Block::move_particles(float dt, const diy::Master::ProxyWithLink& cp)
+void Block::move_particles(float dt, const sdiy::Master::ProxyWithLink& cp)
 {
-    auto link = static_cast<diy::RegularGridLink*>(cp.link());
+    auto link = static_cast<sdiy::RegularGridLink*>(cp.link());
 
     auto particle = particles.begin();
     while (particle != particles.end())
@@ -63,7 +63,7 @@ void Block::move_particles(float dt, const diy::Master::ProxyWithLink& cp)
 
         // warp position if needed
         // applies periodic bci
-        diy::Bounds<float> wsdom = world_space_bounds(domain, origin, spacing);
+        sdiy::Bounds<float> wsdom = world_space_bounds(domain, origin, spacing);
         for (int i = 0; i < 3; ++i)
         {
             if ((particle->position[i] > wsdom.max[i]) ||
@@ -124,9 +124,9 @@ void Block::move_particles(float dt, const diy::Master::ProxyWithLink& cp)
 }
 
 // --------------------------------------------------------------------------
-void Block::handle_incoming_particles(const diy::Master::ProxyWithLink& cp)
+void Block::handle_incoming_particles(const sdiy::Master::ProxyWithLink& cp)
 {
-    auto link = static_cast<diy::RegularGridLink*>(cp.link());
+    auto link = static_cast<sdiy::RegularGridLink*>(cp.link());
     for (int i = 0; i < link->size(); ++i)
     {
         auto nbr = link->target(i).gid;

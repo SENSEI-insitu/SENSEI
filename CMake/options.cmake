@@ -68,10 +68,6 @@ cmake_dependent_option(ENABLE_VTKM_RENDERING
   "Enable analysis methods that use VTK-m's rendering library" OFF
   "ENABLE_VTKM" OFF)
 
-cmake_dependent_option(ENABLE_DIY
-  "Use the Sensei diy library. If OFF, you will need to define -DDIY_DIR=<path to diy headers>" ON
-  "ENABLE_SENSEI" OFF)
-
 option(ENABLE_OPTS "A version of the getopt function" ON)
 
 option(ENABLE_PROFILER "Enable the internal profiler" OFF)

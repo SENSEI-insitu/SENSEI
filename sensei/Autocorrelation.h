@@ -30,7 +30,7 @@ public:
   /// @param arrayname together with \c association, identifies the array to
   ///         compute autocorrelation for.
   /// @param kMax number of strongest autocorrelations to report
-  /// @param numThreads number of threads in diy's thread pool
+  /// @param numThreads number of threads in sdiy's thread pool
   void Initialize(size_t window, const std::string &meshName,
     int association, const std::string &arrayname, size_t kMax,
     int numThreads = 1);

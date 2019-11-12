@@ -21,12 +21,12 @@
 #include <memory>
 #include <vector>
 
-#include <diy/master.hpp>
-#include <diy/reduce.hpp>
-#include <diy/partners/merge.hpp>
-#include <diy/io/numpy.hpp>
-#include <diy/grid.hpp>
-#include <diy/vertices.hpp>
+#include <sdiy/master.hpp>
+#include <sdiy/reduce.hpp>
+#include <sdiy/partners/merge.hpp>
+#include <sdiy/io/numpy.hpp>
+#include <sdiy/grid.hpp>
+#include <sdiy/vertices.hpp>
 
 
 // http://stackoverflow.com/a/12580468
@@ -49,7 +49,7 @@ struct add_vectors
     }
 };
 
-namespace diy { namespace mpi { namespace detail {
+namespace sdiy { namespace mpi { namespace detail {
 template<class U> struct mpi_op<add_vectors<U>>
 {
   static MPI_Op get()
@@ -60,13 +60,13 @@ template<class U> struct mpi_op<add_vectors<U>>
 namespace sensei
 {
 
-using GridRef = diy::GridRef<float,3>;
+using GridRef = sdiy::GridRef<float,3>;
 using Vertex  = GridRef::Vertex;
 using Vertex4D = Vertex::UPoint;
 
 struct AutocorrelationImpl
 {
-  using Grid = diy::Grid<float,4>;
+  using Grid = sdiy::Grid<float,4>;
   AutocorrelationImpl(size_t window_, int gid_, Vertex from_, Vertex to_):
     window(window_),
     gid(gid_),
@@ -85,9 +85,9 @@ struct AutocorrelationImpl
 
     if (ghostArray)
       {
-      diy::GridRef<unsigned char, 3> ghost(ghostArray, shape);
+      sdiy::GridRef<unsigned char, 3> ghost(ghostArray, shape);
       // record the values
-      diy::for_each(g.shape(), [&](const Vertex& v)
+      sdiy::for_each(g.shape(), [&](const Vertex& v)
         {
         auto gv = (ghost(v) == 0) ? g(v) : 0;
 
@@ -107,7 +107,7 @@ struct AutocorrelationImpl
     else
       {
       // record the values
-      diy::for_each(g.shape(), [&](const Vertex& v)
+      sdiy::for_each(g.shape(), [&](const Vertex& v)
         {
         auto gv = g(v);
 
@@ -147,7 +147,7 @@ private:
 class Autocorrelation::AInternals
 {
 public:
-  std::unique_ptr<diy::Master> Master;
+  std::unique_ptr<sdiy::Master> Master;
   size_t KMax;
   std::string MeshName;
   int Association;
@@ -181,7 +181,7 @@ public:
       Vertex to   { ext[1], ext[3], ext[5] };
       int bid = this->Master->communicator().rank();
       AutocorrelationImpl* b = new AutocorrelationImpl(this->Window, bid, from, to);
-      this->Master->add(bid, b, new diy::Link);
+      this->Master->add(bid, b, new sdiy::Link);
       this->NumberOfBlocks = this->Master->communicator().size();
       }
     else if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
@@ -210,7 +210,7 @@ public:
           Vertex to   { ext[1], ext[3], ext[5] };
 
           AutocorrelationImpl* b = new AutocorrelationImpl(this->Window, bid, from, to);
-          this->Master->add(bid, b, new diy::Link);
+          this->Master->add(bid, b, new sdiy::Link);
           }
         }
       this->NumberOfBlocks = bid;
@@ -242,7 +242,7 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 
   AInternals& internals = (*this->Internals);
 
-  internals.Master = make_unique<diy::Master>(this->GetCommunicator(),
+  internals.Master = make_unique<sdiy::Master>(this->GetCommunicator(),
     numThreads, -1, &AutocorrelationImpl::create, &AutocorrelationImpl::destroy);
 
   internals.MeshName = meshName;
@@ -371,10 +371,10 @@ void Autocorrelation::PrintResults(size_t k_max)
   size_t nblocks = internals.NumberOfBlocks;
 
     // add up the autocorrellations
-  internals.Master->foreach([](AutocorrelationImpl* b, const diy::Master::ProxyWithLink& cp)
+  internals.Master->foreach([](AutocorrelationImpl* b, const sdiy::Master::ProxyWithLink& cp)
                                      {
                                         std::vector<float> sums(b->window, 0);
-                                        diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                                        sdiy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                                         {
                                             size_t w = v[3];
                                             sums[w] += b->corr(v);
@@ -394,19 +394,19 @@ void Autocorrelation::PrintResults(size_t k_max)
     }
 
   internals.Master->foreach(
-    [](AutocorrelationImpl*, const diy::Master::ProxyWithLink& cp)
+    [](AutocorrelationImpl*, const sdiy::Master::ProxyWithLink& cp)
     {
     cp.collectives()->clear();
     });
 
 
   // select k strongest autocorrelations for each shift
-  diy::ContiguousAssigner     assigner(internals.Master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
-  diy::RegularDecomposer<diy::DiscreteBounds> decomposer(1, diy::interval(0, nblocks-1), nblocks);
-  diy::RegularMergePartners   partners(decomposer, 2);
-  //diy::RegularMergePartners   partners(3, nblocks, 2, true);
-  diy::reduce(*internals.Master, assigner, partners,
-              [k_max](void* b_, const diy::ReduceProxy& rp, const diy::RegularMergePartners&)
+  sdiy::ContiguousAssigner     assigner(internals.Master->communicator().size(), nblocks);     // NB: this is coupled to main(...) in oscillator.cpp
+  sdiy::RegularDecomposer<sdiy::DiscreteBounds> decomposer(1, sdiy::interval(0, nblocks-1), nblocks);
+  sdiy::RegularMergePartners   partners(decomposer, 2);
+  //sdiy::RegularMergePartners   partners(3, nblocks, 2, true);
+  sdiy::reduce(*internals.Master, assigner, partners,
+              [k_max](void* b_, const sdiy::ReduceProxy& rp, const sdiy::RegularMergePartners&)
               {
                   AutocorrelationImpl* b = static_cast<AutocorrelationImpl*>(b_);
                   //unsigned round = rp.round(); // current round number
@@ -416,7 +416,7 @@ void Autocorrelation::PrintResults(size_t k_max)
                   MaxHeapVector maxs(b->window);
                   if (rp.in_link().size() == 0)
                   {
-                      diy::for_each(b->corr.shape(), [&](const Vertex4D& v)
+                      sdiy::for_each(b->corr.shape(), [&](const Vertex4D& v)
                       {
                           size_t offset = v[3];
                           float val = b->corr(v);

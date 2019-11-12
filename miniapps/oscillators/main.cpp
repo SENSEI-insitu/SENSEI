@@ -4,12 +4,12 @@
 
 #include <opts/opts.h>
 
-#include <diy/master.hpp>
-#include <diy/decomposition.hpp>
-#include <diy/io/bov.hpp>
-#include <diy/grid.hpp>
-#include <diy/vertices.hpp>
-#include <diy/point.hpp>
+#include <sdiy/master.hpp>
+#include <sdiy/decomposition.hpp>
+#include <sdiy/io/bov.hpp>
+#include <sdiy/grid.hpp>
+#include <sdiy/vertices.hpp>
+#include <sdiy/point.hpp>
 
 #include "Oscillator.h"
 #include "Particles.h"
@@ -25,13 +25,13 @@
 #include <Profiler.h>
 
 
-using Grid   = diy::Grid<float,3>;
+using Grid   = sdiy::Grid<float,3>;
 using Vertex = Grid::Vertex;
-using SpPoint = diy::Point<float,3>;
-using Bounds = diy::Point<float,6>;
+using SpPoint = sdiy::Point<float,3>;
+using Bounds = sdiy::Point<float,6>;
 
-using Link   = diy::RegularGridLink;
-using Master = diy::Master;
+using Link   = sdiy::RegularGridLink;
+using Master = sdiy::Master;
 using Proxy  = Master::ProxyWithLink;
 
 using RandomSeedType = std::default_random_engine::result_type;
@@ -44,8 +44,8 @@ int main(int argc, char** argv)
     sensei::MPIManager mpiMan(argc, argv);
     auto start = Time::now();
 
-    //diy::mpi::environment     env(argc, argv);
-    diy::mpi::communicator    world;
+    //sdiy::mpi::environment     env(argc, argv);
+    sdiy::mpi::communicator    world;
 
     using namespace opts;
 
@@ -132,7 +132,7 @@ int main(int argc, char** argv)
                 std::cerr << world.rank() << " seed = " << seed << std::endl;
         }
 
-        diy::mpi::broadcast(world, seed, 0);
+        sdiy::mpi::broadcast(world, seed, 0);
     }
 
     std::default_random_engine rng(static_cast<RandomSeedType>(seed));
@@ -145,15 +145,15 @@ int main(int argc, char** argv)
     if (world.rank() == 0)
     {
         oscillators = read_oscillators(infn);
-        diy::MemoryBuffer bb;
-        diy::save(bb, oscillators);
-        diy::mpi::broadcast(world, bb.buffer, 0);
+        sdiy::MemoryBuffer bb;
+        sdiy::save(bb, oscillators);
+        sdiy::mpi::broadcast(world, bb.buffer, 0);
     }
     else
     {
-        diy::MemoryBuffer bb;
-        diy::mpi::broadcast(world, bb.buffer, 0);
-        diy::load(bb, oscillators);
+        sdiy::MemoryBuffer bb;
+        sdiy::mpi::broadcast(world, bb.buffer, 0);
+        sdiy::load(bb, oscillators);
     }
 
     if (verbose && (world.rank() == 0))
@@ -162,13 +162,13 @@ int main(int argc, char** argv)
               << " radius = " << o.radius << " omega0 = " << o.omega0
               << " zeta = " << o.zeta << std::endl;
 
-    diy::Master master(world, threads, -1,
+    sdiy::Master master(world, threads, -1,
                        &Block::create,
                        &Block::destroy);
 
-    diy::ContiguousAssigner assigner(world.size(), nblocks);
+    sdiy::ContiguousAssigner assigner(world.size(), nblocks);
 
-    diy::DiscreteBounds domain;
+    sdiy::DiscreteBounds domain;
     domain.min[0] = domain.min[1] = domain.min[2] = 0;
     for (unsigned i = 0; i < 3; ++i)
       domain.max[i] = shape[i] - 1;
@@ -200,14 +200,14 @@ int main(int argc, char** argv)
                      from_x, from_y, from_z,
                      to_x,   to_y,   to_z;
 
-    diy::RegularDecomposer<diy::DiscreteBounds>::BoolVector share_face;
-    diy::RegularDecomposer<diy::DiscreteBounds>::BoolVector wrap(3, true);
-    diy::RegularDecomposer<diy::DiscreteBounds>::CoordinateVector ghosts = {ghostCells, ghostCells, ghostCells};
+    sdiy::RegularDecomposer<sdiy::DiscreteBounds>::BoolVector share_face;
+    sdiy::RegularDecomposer<sdiy::DiscreteBounds>::BoolVector wrap(3, true);
+    sdiy::RegularDecomposer<sdiy::DiscreteBounds>::CoordinateVector ghosts = {ghostCells, ghostCells, ghostCells};
 
     // decompose the domain
-    diy::decompose(3, world.rank(), domain, assigner,
-                   [&](int gid, const diy::DiscreteBounds &, const diy::DiscreteBounds &bounds,
-                       const diy::DiscreteBounds &domain, const Link& link)
+    sdiy::decompose(3, world.rank(), domain, assigner,
+                   [&](int gid, const sdiy::DiscreteBounds &, const sdiy::DiscreteBounds &bounds,
+                       const sdiy::DiscreteBounds &domain, const Link& link)
                    {
                       Block *b = new Block(gid, bounds, domain, origin,
                         spacing, ghostCells, oscillators, velocity_scale);
@@ -320,9 +320,9 @@ int main(int argc, char** argv)
             std::ostringstream outfn;
             outfn << out_prefix << "-" << t << ".bin";
 
-            diy::mpi::io::file out(world, outfn.str(), diy::mpi::io::file::wronly | diy::mpi::io::file::create);
-            diy::io::BOV writer(out, shape);
-            master.foreach([&writer](Block* b, const diy::Master::ProxyWithLink& cp)
+            sdiy::mpi::io::file out(world, outfn.str(), sdiy::mpi::io::file::wronly | sdiy::mpi::io::file::create);
+            sdiy::io::BOV writer(out, shape);
+            master.foreach([&writer](Block* b, const sdiy::Master::ProxyWithLink& cp)
                                            {
                                              auto link = static_cast<Link*>(cp.link());
                                              writer.write(link->bounds(), b->grid.data(), true);

@@ -1,6 +1,5 @@
 #include <cassert>
 #include <sstream>
-#include <diy/master.hpp>
 
 #include <conduit_blueprint.hpp>
 
