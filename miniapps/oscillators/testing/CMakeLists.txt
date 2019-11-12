@@ -67,6 +67,22 @@ if (BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
   endif()
 
+  if (ENABLE_ASCENT)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml @ONLY)
+
+    senseiAddTest(testOscillatorAscent
+      COMMAND oscillator -t 2 -b ${TEST_NP} -g 0
+        -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/random_2d_64.osc)
+
+    senseiAddTest(testOscillatorAscentPar
+      COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+       oscillator -t 2 -b ${TEST_NP} -g 0
+        -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/random_2d_64.osc)
+  endif()
+
   # TODO -- this test breaks dashboard builds
   #if (ENABLE_CATALYST)
   #  add_test(NAME testCatalystSlice
