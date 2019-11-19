@@ -10,6 +10,8 @@ run-time via an XML configuration file. This document is targeted at scientists
 and developers wishing to run simulations instrumented with SENSEI, instrument
 a new simulation, or develop new analysis back-ends.
 
+.. Use this style https://documentation-style-guide-sphinx.readthedocs.io/en/latest/style-guide.html
+
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
