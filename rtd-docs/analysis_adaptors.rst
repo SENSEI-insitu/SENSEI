@@ -1,4 +1,4 @@
 AnalysisAdaptor API
 ===================
 
-Deep dive into the API, template for writing a new adaptor
+Show the API in-line, template for writing a new adaptor
