@@ -23,7 +23,7 @@ class ADIOS2AnalysisAdaptor : public AnalysisAdaptor
 public:
   static ADIOS2AnalysisAdaptor* New();
   senseiTypeMacro(ADIOS2AnalysisAdaptor, AnalysisAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+
   void AddAdios2Parameter(std::string key, std::string value);
 
   /// @brief Set the ADIOS2 engine

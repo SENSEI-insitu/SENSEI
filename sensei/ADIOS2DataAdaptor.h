@@ -5,7 +5,6 @@
 
 #include <adios2_c.h>
 #include <mpi.h>
-#include <map>
 #include <string>
 
 namespace pugi { class xml_node; }
@@ -19,7 +18,6 @@ class ADIOS2DataAdaptor : public sensei::InTransitDataAdaptor
 public:
   static ADIOS2DataAdaptor* New();
   senseiTypeMacro(ADIOS2DataAdaptor, sensei::InTransitDataAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   int SetFileName(const std::string &fileName);
 

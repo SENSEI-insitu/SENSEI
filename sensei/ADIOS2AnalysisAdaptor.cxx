@@ -5,7 +5,7 @@
 #include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 #include "MPIUtils.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "Error.h"
 
 #include <vtkCellTypes.h>
@@ -31,7 +31,6 @@
 #include <vtkSmartPointer.h>
 
 #include <mpi.h>
-#include <adios.h>
 #include <vector>
 
 namespace sensei
@@ -71,7 +70,7 @@ int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 //----------------------------------------------------------------------------
 bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
-  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::Execute");
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
 
   // figure out what the simulation can provide. include the full
   // suite of metadata for the end-point partitioners
@@ -188,7 +187,7 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 int ADIOS2AnalysisAdaptor::InitializeADIOS2(
   const std::vector<MeshMetadataPtr> &metadata)
 {
-  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::IntializeADIOS2");
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::IntializeADIOS2");
 
   if (!this->Schema)
     {
@@ -242,7 +241,7 @@ int ADIOS2AnalysisAdaptor::FinalizeADIOS2()
 //----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::Finalize()
 {
-  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::Finalize");
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Finalize");
 
   if (this->Schema)
     {
@@ -270,7 +269,7 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
   const std::vector<vtkCompositeDataSet*> &objects)
 {
-  timer::MarkEvent mark("ADIOS2AnalysisAdaptor::WriteTimestep");
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::WriteTimestep");
 
   int ierr = 0;
   if (!this->Handles.engine)
@@ -331,13 +330,6 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 void ADIOS2AnalysisAdaptor::AddAdios2Parameter(std::string key, std::string value)
 {
     ADIOSParameters.emplace_back(key, value);
-}
-
-
-//----------------------------------------------------------------------------
-void ADIOS2AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
-{
-  this->Superclass::PrintSelf(os, indent);
 }
 
 }

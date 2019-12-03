@@ -3,7 +3,7 @@
 #include "Partitioner.h"
 #include "BlockPartitioner.h"
 #include "Error.h"
-#include "Timer.h"
+#include "Profiler.h"
 #include "ADIOS2Schema.h"
 #include "VTKUtils.h"
 #include "XMLUtils.h"
@@ -60,7 +60,7 @@ int ADIOS2DataAdaptor::SetReadEngine(const std::string &engine)
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::Initialize");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::Initialize");
 
   // let the base class handle initialization of the partitioner etc
   if (this->InTransitDataAdaptor::Initialize(node))
@@ -82,14 +82,14 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::Finalize()
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::Finalize");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::Finalize");
   return 0;
 }
 
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::OpenStream()
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::OpenStream");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::OpenStream");
 
   if (this->Internals->Stream.Open(this->GetCommunicator()))
     {
@@ -113,7 +113,7 @@ int ADIOS2DataAdaptor::StreamGood()
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::CloseStream()
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::CloseStream");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::CloseStream");
 
   this->Internals->Stream.Close();
 
@@ -123,7 +123,7 @@ int ADIOS2DataAdaptor::CloseStream()
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::AdvanceStream()
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::AdvanceStream");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::AdvanceStream");
 
   if (this->Internals->Stream.AdvanceTimeStep())
     return -1;
@@ -137,7 +137,7 @@ int ADIOS2DataAdaptor::AdvanceStream()
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::UpdateTimeStep()
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::UpdateTimeStep");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::UpdateTimeStep");
 
   // update data object time and time step
   unsigned long timeStep = 0;
@@ -177,7 +177,7 @@ int ADIOS2DataAdaptor::UpdateTimeStep()
 int ADIOS2DataAdaptor::GetSenderMeshMetadata(unsigned int id,
   MeshMetadataPtr &metadata)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::SenderMeshMetadata");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::SenderMeshMetadata");
   if (this->Internals->Schema.GetSenderMeshMetadata(id, metadata))
     {
     SENSEI_ERROR("Failed to get metadata for object " << id)
@@ -190,7 +190,7 @@ int ADIOS2DataAdaptor::GetSenderMeshMetadata(unsigned int id,
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::GetNumberOfMeshes");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::GetNumberOfMeshes");
   numMeshes = 0;
   if (this->Internals->Schema.GetNumberOfObjects(numMeshes))
     return -1;
@@ -200,7 +200,7 @@ int ADIOS2DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::GetMeshMetadata");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::GetMeshMetadata");
   // check if an analysis told us how the data should land by
   // passing in reciever metadata
   if (this->GetReceiverMeshMetadata(id, metadata))
@@ -254,7 +254,7 @@ int ADIOS2DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadat
 int ADIOS2DataAdaptor::GetMesh(const std::string &meshName,
    bool structureOnly, vtkDataObject *&mesh)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::GetMesh");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::GetMesh");
 
   mesh = nullptr;
 
@@ -273,7 +273,7 @@ int ADIOS2DataAdaptor::GetMesh(const std::string &meshName,
 int ADIOS2DataAdaptor::AddGhostNodesArray(vtkDataObject *mesh,
   const std::string &meshName)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::AddGhostNodesArray");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::AddGhostNodesArray");
   return AddArray(mesh, meshName, vtkDataObject::POINT, "vtkGhostType");
 }
 
@@ -281,7 +281,7 @@ int ADIOS2DataAdaptor::AddGhostNodesArray(vtkDataObject *mesh,
 int ADIOS2DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh,
   const std::string &meshName)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::AddGhostCellsArray");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::AddGhostCellsArray");
   return AddArray(mesh, meshName, vtkDataObject::CELL, "vtkGhostType");
 }
 
@@ -289,7 +289,7 @@ int ADIOS2DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh,
 int ADIOS2DataAdaptor::AddArray(vtkDataObject* mesh,
   const std::string &meshName, int association, const std::string& arrayName)
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::AddArray");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::AddArray");
 
   // the mesh should never be null. there must have been an error
   // upstream.
@@ -313,14 +313,8 @@ int ADIOS2DataAdaptor::AddArray(vtkDataObject* mesh,
 //----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::ReleaseData()
 {
-  timer::MarkEvent mark("ADIOS2DataAdaptor::ReleaseData");
+  TimeEvent<128> mark("ADIOS2DataAdaptor::ReleaseData");
   return 0;
-}
-
-//----------------------------------------------------------------------------
-void ADIOS2DataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
-{
-  this->sensei::DataAdaptor::PrintSelf(os, indent);
 }
 
 }
