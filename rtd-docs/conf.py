@@ -44,7 +44,7 @@ release = u'2.2.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinxcontrib.doxylink'
+    'sphinxcontrib.doxylink', 'sphinx.ext.mathjax'
 ]
 
 numfig = True
