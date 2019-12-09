@@ -14,6 +14,7 @@
 #
 import os
 import sys
+import re
 # sys.path.insert(0, os.path.abspath('.'))
 
 readTheDocs = os.environ.get('READTHEDOCS', None) != None
@@ -28,10 +29,11 @@ project = u'SENSEI'
 copyright = u'2018, Lawrence Berkeley Lab, Oak Ridge Lab, Argonne Lab, Intelligent Light, Kitware'
 author = u'Lawrence Berkeley Lab, Oak Ridge Lab, Argonne Lab, Intelligent Light, Kitware'
 
-# The short X.Y version
-version = u'2.2'
-# The full version, including alpha/beta/rc tags
-release = u'2.2.1'
+
+# The full version, including alpha/beta/rc tags.
+release = re.sub('^v', '', os.popen('git describe').read().strip())
+# The short X.Y version.
+version = release
 
 
 # -- General configuration ---------------------------------------------------
@@ -43,9 +45,7 @@ release = u'2.2.1'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinxcontrib.doxylink', 'sphinx.ext.mathjax'
-]
+extensions = [ 'sphinxcontrib.doxylink', 'sphinx.ext.mathjax' ]
 
 numfig = True
 
@@ -71,10 +71,14 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store']
+# add any included files to this list to silence warnings about 
+# duplicate references
+exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store', \
+     'reaction_rate_demo', 'adaptor_apisi.rst', 'data_addaptor_apis.rst', \
+     'analysis_adaptor_apis.rst']
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'friendly'
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -106,11 +110,14 @@ html_static_path = ['_static']
 html_sidebars = {'**':['globaltoc.html', 'relations.html', 'sourcelink.html', 'searchbox.html']}
 #
 
+html_logo = 'images/sensei_logo_very_very_small.png'
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'SENSEIdoc'
+
+
 
 
 # -- Options for LaTeX output ------------------------------------------------

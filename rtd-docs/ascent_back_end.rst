@@ -1,7 +1,9 @@
-Ascent
-======
-brief 1 paragraph description of the back-end. You could grab this from their web site.
-
+Ascent back-end
+===============
+Ascent is a many-core capable lightweight in-situ visualization and analysis
+infrastructure for multi-physics HPC simulations. The SENSEI
+AscentAnalysisAdaptor enables simulations instrumented with SENSEI to process
+data using Ascent.
 
 SENSEI XML
 ----------
@@ -16,19 +18,16 @@ The ascent back-end is activated using the :code:`<analysis type="ascent">`. The
 +-------------------+--------------------------------------------------------+
 
 
-XML Examples
-^^^^^^^^^^^^
-Brief 1/2 sentences about what this ex. does
-
-.. codeblock:: XML
-
-   <analysis type="NAME_OF_BACK_END" >
-   </analysis>
-
 Back-end specific configurarion
 -------------------------------
-Brief description of where to find more information. Put links to the project's documentation.
+SENSEI uses XML to select the specific back-end, in this case Ascent. The
+SENSEI XML will also contain references to Ascent specific configuration files
+that tell Ascent what to do. These files are native to Ascent. More information
+about configuring Ascent can be found in the Ascent documentation at
+https://ascent.readthedocs.io/en/latest/
 
-Example
--------
-Link to osciallator demo
+Examples
+--------
+Reaction rate in situ demo :ref:`ascent_insitu_demo`.
+
+

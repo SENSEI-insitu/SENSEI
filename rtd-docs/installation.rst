@@ -1,5 +1,6 @@
+************
 Installation
-=============
+************
 note follow pattern from the VM
 
 Managing dependencies
@@ -14,7 +15,7 @@ Installation with Libsim
 Installation with Python
 --------------------------
 
-Installation with ADIOS-1
+Installation with ADIOS
 --------------------------
 
 Installation with Ascent
