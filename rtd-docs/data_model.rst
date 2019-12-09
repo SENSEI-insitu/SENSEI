@@ -133,7 +133,7 @@ Zero-copy into VTK
 The following snippet of code shows how to pass a 3 component vector field in
 the AOS layout from the simulation into VTK using the zero-copy mechanism:
 
-.. code-block:: C++
+.. code-block:: cpp
 
     // VTK's default is AOS, no need to use vtkAOSDataArrayTemplate
     vtkDoubleArray *aos = vtkDoubleArray::New();
@@ -150,7 +150,7 @@ the AOS layout from the simulation into VTK using the zero-copy mechanism:
 The following snippet of code shows how to pass a 3 component vector field in
 the SOA layout from the simulation into VTK using the zero-copy mechanism:
 
-.. code-block:: C++
+.. code-block:: cpp
 
     // use the SOA class
     vtkSOADataArrayTemplate<double> *soa = vtkSOADataArrayTemplate<double>::New();
@@ -360,3 +360,4 @@ run-time of the simulation. A selection of the results are shown in figure
 The full details of the performance and scaling studies can be found in our `SC16 paper`_.
 
 .. _SC16 paper: https://dl.acm.org/citation.cfm?id=3015010
+

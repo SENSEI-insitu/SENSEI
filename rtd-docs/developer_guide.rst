@@ -1,12 +1,16 @@
+********************
 Developer Guidelines
-====================
-Git workflow
--------------
+********************
 
+Git workflow
+============
+1. The master branch is only updated at releases. Do not merge anything onto  master unless you are making a release.
+2. The development branch is updated as needed. Pull/merge requests should be made with develop as the traget.
+3. A code review should be obtained prior to a merge.
 
 
 Code style
-----------
+==========
 Here are some of the guidelines
 
 * use 2 spaces for indentation, no tabs or trailing white space
@@ -91,5 +95,12 @@ and a snippet to illustrate:
     }
 
 Regressions tests
------------------
+=================
+New classes should be submitted with a regression test.
+
+
+User guide code style
+=====================
+Use this style https://documentation-style-guide-sphinx.readthedocs.io/en/latest/style-guide.html
+
 
