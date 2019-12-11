@@ -20,7 +20,7 @@ Example XML
 ^^^^^^^^^^^
 Catalyst Python script example. This XML configures a Catalyst with a Python script that creates a pipeline(s).
 
-.. codeblock:: XML
+.. code-block:: XML
 
   <sensei>
   <analysis type="catalyst" pipeline="pythonscript"
