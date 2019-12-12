@@ -1,3 +1,5 @@
+.. _reaction_rate_demo:
+
 Chemical reaction on a 2D substrate
 ===================================
 This example illustrates how to select different back-ends at run time via XML,
@@ -94,7 +96,7 @@ ParaView Catalyst in situ demo
    :width: 80 %
    :align: center
 
-   A pseudocolor plot rendered by ParaView Ctalyst of the rectaion rate field
+   A pseudocolor plot rendered by ParaView Catalyst of the rectaion rate field
    with an iso-contour plotted at a reaction rate of 1.0.
 
 In the demo data from the reaction rate proxy simulation is processed using
