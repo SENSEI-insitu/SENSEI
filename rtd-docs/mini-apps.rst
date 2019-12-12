@@ -6,7 +6,7 @@ oscillator
 ----------
 
 The oscillator mini-application computes a sum of damped, decaying, or periodic oscillators, convolved with (unnormalized) Gaussians, on a grid. It could be used as a proxy for configured as a proxy for
-simulation of a chemical reaction on a two-dimensional substrate (see :ref:`_reaction_rate_demo`).
+simulation of a chemical reaction on a two-dimensional substrate (see :ref:`reaction_rate_demo`).
 
 +-----------------------------+----------------------------------------------------+
 | option                      | description                                        |
@@ -33,16 +33,17 @@ simulation of a chemical reaction on a two-dimensional substrate (see :ref:`_rea
 +-----------------------------+----------------------------------------------------+
 |  -v, --v-scale FLOAT        | Gradient to Velocity scale factor [default: 50].   |
 +-----------------------------+----------------------------------------------------+
-|  -r, --seed INT             | Random seed [default: 1].                    |
+|  -r, --seed INT             | Random seed [default: 1].                          |
 +-----------------------------+----------------------------------------------------+
 |  --sync                     | The end time [default: 10].                        |
 +-----------------------------+----------------------------------------------------+
 |  -h, --help                 | Show help.                                         |
 +-----------------------------+----------------------------------------------------+
 
-The oscillators' locations and parameters are specified in an input file (see `input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs>` folder for examples). 
+The oscillators' locations and parameters are specified in an input file (see `input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs>`_ folder for examples). 
 
-::
+.. code-block::
+
    # type      center      r       omega0      zeta
    damped      32 32 32    10.     3.14        .3
    damped      16 32 16    10.     9.5         .1
@@ -50,12 +51,13 @@ The oscillators' locations and parameters are specified in an input file (see `i
    decaying    16 32 48    15      3.14
    periodic    48 32 16    15      3.14
 
-Note that the `generate_input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs/generate_input>` script can generate a set of randomly initialized oscillators.
+Note that the `generate_input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs/generate_input>`_ script can generate a set of randomly initialized oscillators.
 
-The simulation code is in ` main.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/main.cpp>` while the computational kernel is in `Oscillator.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/Oscillator.cpp>`.
+The simulation code is in `main.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/main.cpp>`_ while the computational kernel is in `Oscillator.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/Oscillator.cpp>`_.
 
 To run:
-.. code-block:: bash
+
+.. code-block::
 
    mpiexec -n 4 \
        oscillator -b 4 -t 0.25 -s 64,64,64 -g 1 -p 0 \
