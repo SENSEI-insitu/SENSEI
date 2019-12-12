@@ -6,7 +6,7 @@ oscillator
 ----------
 
 The oscillator mini-application computes a sum of damped, decaying, or periodic oscillators, convolved with (unnormalized) Gaussians, on a grid. It could be used as a proxy for configured as a proxy for
-simulation of a chemical reaction on a two-dimensional substrate (see :ref:`_reaction_rate_demo`).
+simulation of a chemical reaction on a two-dimensional substrate (see :ref:`reaction_rate_demo`).
 
 +-----------------------------+----------------------------------------------------+
 | option                      | description                                        |
@@ -33,7 +33,7 @@ simulation of a chemical reaction on a two-dimensional substrate (see :ref:`_rea
 +-----------------------------+----------------------------------------------------+
 |  -v, --v-scale FLOAT        | Gradient to Velocity scale factor [default: 50].   |
 +-----------------------------+----------------------------------------------------+
-|  -r, --seed INT             | Random seed [default: 1].                    |
+|  -r, --seed INT             | Random seed [default: 1].                          |
 +-----------------------------+----------------------------------------------------+
 |  --sync                     | The end time [default: 10].                        |
 +-----------------------------+----------------------------------------------------+
@@ -53,7 +53,7 @@ The oscillators' locations and parameters are specified in an input file (see `i
 
 Note that the `generate_input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs/generate_input>`_ script can generate a set of randomly initialized oscillators.
 
-The simulation code is in ` main.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/main.cpp>`_ while the computational kernel is in `Oscillator.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/Oscillator.cpp>`_.
+The simulation code is in `main.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/main.cpp>`_ while the computational kernel is in `Oscillator.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/Oscillator.cpp>`_.
 
 To run:
 
