@@ -5,8 +5,7 @@ Miniapps
 oscillator
 ----------
 
-The oscillator mini-application computes a sum of damped, decaying, or periodic oscillators, convolved with (unnormalized) Gaussians, on a grid. It could be used as a proxy for configured as a proxy for
-simulation of a chemical reaction on a two-dimensional substrate (see :ref:`reaction_rate_demo`).
+The oscillator mini-application computes a sum of damped, decaying, or periodic oscillators, convolved with (unnormalized) Gaussians, on a grid. It could be configured as a proxy for simulation of a chemical reaction on a two-dimensional substrate (see :ref:`reaction_rate_demo`).
 
 +-----------------------------+----------------------------------------------------+
 | option                      | description                                        |
@@ -51,6 +50,8 @@ The oscillators' locations and parameters are specified in an input file (see `i
    decaying    16 32 48    15      3.14
    periodic    48 32 16    15      3.14
 
+   <h1>`sample.osc` input for oscillator locations and types.</h1>
+
 Note that the `generate_input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs/generate_input>`_ script can generate a set of randomly initialized oscillators.
 
 The simulation code is in `main.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/main.cpp>`_ while the computational kernel is in `Oscillator.cpp <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/Oscillator.cpp>`_.
@@ -59,9 +60,7 @@ To run:
 
 .. code-block::
 
-   mpiexec -n 4 \
-       oscillator -b 4 -t 0.25 -s 64,64,64 -g 1 -p 0 \
-       -f sample.xml sample.osc
+   mpiexec -n 4 oscillator -b 4 -t 0.25 -s 64,64,64 -g 1 -p 0 -f sample.xml sample.osc
 
 newton
 ------
