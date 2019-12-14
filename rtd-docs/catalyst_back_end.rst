@@ -1,10 +1,18 @@
+.. _catalyst_back_end:
+
 Catalyst back-end
 =================
-ParaView Catalyst (Catalyst) is an in situ use case library, with an adaptable application programming interface (API), that orchestrates the delicate alliance between simulation and analysis and/or visualization tasks. It brings the renown, scaling capabilities of VTK and ParaView to bear on the in situ use case. The analysis and visualization tasks can be implemented in C++ or Python, and Python scripts can be crafted from scratch or using the ParaView GUI to interactively setup Catalyst scripts.
+
+ParaView Catalyst (Catalyst) is an in situ use case library, with an adaptable application programming interface (API), that orchestrates the delicate alliance between simulation and analysis and/or visualization tasks. It brings the renown, scaling capabilities of VTK and ParaView to bear on the in situ use case. The analysis and visualization tasks can be implemented in C++ or Python, and Python scripts can be crafted from scratch or using the ParaView GUI to interactively setup Catalyst scripts (see `Catalyst User Guide <https://www.paraview.org/files/catalyst/docs/ParaViewCatalystUsersGuide_v2.pdf>`_).
+
+.. _catalyst_xml_options:
 
 SENSEI XML Options
 ------------------
+
 The Catalyst back-end is activated using the :code:`<analysis type="catalyst">`. 
+
+.. _catalyst_python_script:
 
 Python Script
 ^^^^^^^^^^^^^
@@ -23,6 +31,7 @@ The supported attributes are:
 
 Example XML
 """""""""""
+
 Catalyst Python script example. This XML configures a Catalyst with a Python script that creates a pipeline(s).
 
 .. code-block:: XML
@@ -34,6 +43,7 @@ Catalyst Python script example. This XML configures a Catalyst with a Python scr
 
 Back-end specific configuration
 """""""""""""""""""""""""""""""
+
 The easiest way to create a python script for Catalyst: 
 
 #. Load a sample of the data (possibly downsampled) into ParaView, including all the desired fields.
@@ -41,7 +51,9 @@ The easiest way to create a python script for Catalyst:
 #. Define a Catalyst extracts with the menu choice *Catalyst→Define Exports*: this will pop up the *Catalyst Export Inspector* panel.
 #. Export the Catalyst Python script using the menu *Catalyst→Export Catalyst Script*.
 
-The Catalyst Export Inspector and `Catalyst User Guide <https://www.paraview.org/files/catalyst/docs/ParaViewCatalystUsersGuide_v2.pdf>`_ reference.
+The Catalyst Export Inspector reference.
+
+.. _catalyst_slice_fixed:
 
 Slice Fixed Pipeline
 ^^^^^^^^^^^^^^^^^^^^
@@ -91,6 +103,8 @@ This XML configures a C++-based fixed pipeline for a slice using Catalyst.
               enabled="1" />
   </sensei>
 
+.. _catalyst_particles_fixed:
+
 Particles Fixed Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -132,6 +146,7 @@ For the Catalyst particle fixed pipeline the supported attributes are:
 
 Example XML
 """""""""""
+
 This XML configures a C++-based fixed pipeline for particles using Catalyst.
 
 .. code-block:: XML
@@ -146,6 +161,8 @@ This XML configures a C++-based fixed pipeline for particles using Catalyst.
               enabled="1" />
 
   </sensei>
+
+.. _catalyst_example:
 
 Example
 -------
