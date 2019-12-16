@@ -14,9 +14,9 @@ The Autocorrelation back-end is activated using the :code:`<analysis type="autoc
 +-------------------+--------------------------------------------------------+
 | attribute         | description                                            |
 +-------------------+--------------------------------------------------------+
-|  mesh             | The name of the mesh for histogram.                    |
+|  mesh             | The name of the mesh for autocorrelation.              |
 +-------------------+--------------------------------------------------------+
-|  array            | The data array name for histogram.                     |
+|  array            | The data array name for autocorrelation.               |
 +-------------------+--------------------------------------------------------+
 |  association      | Either "cell" or "point" data.                         |
 +-------------------+--------------------------------------------------------+
