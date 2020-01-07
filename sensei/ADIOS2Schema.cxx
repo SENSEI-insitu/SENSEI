@@ -1155,8 +1155,8 @@ int ArraySchema::Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons
         return -1;
         }
 
-      uint64_t start = block_offset;
-      uint64_t count = num_elem_local;
+      size_t start = block_offset;
+      size_t count = num_elem_local;
       adios2_set_selection(vinfo, 1, &start, &count);
 
       vtkDataArray *array = vtkDataArray::CreateDataArray(array_type);
@@ -1415,8 +1415,8 @@ int PointSchema::Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons
           return -1;
           }
 
-        uint64_t start = 3*block_offset;
-        uint64_t count = 3*num_local;
+        size_t start = 3*block_offset;
+        size_t count = 3*num_local;
         adios2_set_selection(vinfo, 1, &start, &count);
 
         vtkDataArray *points = vtkDataArray::CreateDataArray(md->CoordinateType);
@@ -1681,8 +1681,8 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
         // /data_object_<id>/cell_types
-        uint64_t ct_start = cell_types_block_offset;
-        uint64_t ct_count = num_cells_local;
+        size_t ct_start = cell_types_block_offset;
+        size_t ct_count = num_cells_local;
         adios2_set_selection(vinfo, 1, &ct_start, &ct_count);
 
         vtkUnsignedCharArray *cell_types = vtkUnsignedCharArray::New();
@@ -1710,8 +1710,8 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
         // /data_object_<id>/cell_array
-        uint64_t ca_start = cell_array_block_offset;
-        uint64_t ca_count = cell_array_size_local;
+        size_t ca_start = cell_array_block_offset;
+        size_t ca_count = cell_array_size_local;
         adios2_set_selection(ca_vinfo, 1, &ca_start, &ca_count);
 
         vtkIdTypeArray *cell_array = vtkIdTypeArray::New();
@@ -2019,8 +2019,8 @@ int PolydataCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
         std::vector<vtkIdType> cell_array(cell_array_size_local);
         std::vector<unsigned char> cell_types(num_cells_local);
 
-        uint64_t ct_start = cell_block_offset;
-        uint64_t ct_count = num_cells_local;
+        size_t ct_start = cell_block_offset;
+        size_t ct_count = num_cells_local;
         adios2_set_selection(ct_vinfo, 1, &ct_start, &ct_count);
 
         // /data_object_<id>/cell_types
@@ -2044,8 +2044,8 @@ int PolydataCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
 
-        uint64_t ca_start = cell_array_block_offset;
-        uint64_t ca_count = cell_array_size_local;
+        size_t ca_start = cell_array_block_offset;
+        size_t ca_count = cell_array_size_local;
         adios2_set_selection(ca_vinfo, 1, &ca_start, &ca_count);
 
         // /data_object_<id>/cell_array
@@ -2365,8 +2365,8 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
         // /data_object_<id>/data_array_<id>/extent
-        uint64_t hexplet_start = 6*j;
-        uint64_t hexplet_count = 6;
+        size_t hexplet_start = 6*j;
+        size_t hexplet_count = 6;
         adios2_set_selection(vinfo, 1, &hexplet_start, &hexplet_count);
 
         int ext[6] = {0};
@@ -2580,8 +2580,8 @@ int UniformCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        uint64_t triplet_start = 3*j;
-        uint64_t triplet_count = 3;
+        size_t triplet_start = 3*j;
+        size_t triplet_count = 3;
         adios2_set_selection(origin_vinfo, 1, &triplet_start, &triplet_count);
 
         // /data_object_<id>/data_array_<id>/origin
@@ -2870,8 +2870,8 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
         // /data_object_<id>/data_array_<id>/x_coords
-        uint64_t x_start = xc_offset;
-        uint64_t x_count = nx_local;
+        size_t x_start = xc_offset;
+        size_t x_count = nx_local;
         adios2_set_selection(xc_vinfo, 1, &x_start, &x_count);
 
         vtkDataArray *x_coords = vtkDataArray::CreateDataArray(md->CoordinateType);
@@ -2890,8 +2890,8 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
         // /data_object_<id>/data_array_<id>/y_coords
-        uint64_t y_start = yc_offset;
-        uint64_t y_count = ny_local;
+        size_t y_start = yc_offset;
+        size_t y_count = ny_local;
         adios2_set_selection(yc_vinfo, 1, &y_start, &y_count);
 
         vtkDataArray *y_coords = vtkDataArray::CreateDataArray(md->CoordinateType);
@@ -2911,8 +2911,8 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           }
 
         // /data_object_<id>/data_array_<id>/z_coords
-        uint64_t z_start = zc_offset;
-        uint64_t z_count = nz_local;
+        size_t z_start = zc_offset;
+        size_t z_count = nz_local;
         adios2_set_selection(zc_vinfo, 1, &z_start, &z_count);
 
         vtkDataArray *z_coords = vtkDataArray::CreateDataArray(md->CoordinateType);
