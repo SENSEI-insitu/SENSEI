@@ -106,6 +106,18 @@ if (BUILD_TESTING)
       testADIOS2SST.bp SST SST 3
     FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS2})
 
+  senseiAddTest(testPartitionersADIOS2BP4
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
+      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} adios2_bp4 3 3 3 0
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS2} ${ENABLE_CATALYST})
+
+  senseiAddTest(testPartitionersADIOS2SST
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
+      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} adios2_sst 3 3 3 1
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_ADIOS2} ${ENABLE_CATALYST})
+
   senseiAddTest(testPartitionersHDF5A
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
@@ -124,5 +136,12 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
       histogram.xml read_adios1_flexpath_default.xml 10 1
     FEATURES  ${ENABLE_PYTHON} ${ENABLE_ADIOS1})
+
+  senseiAddTest(testADIOS2SSTHistogram
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
+      ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
+      histogram.xml read_adios2_sst_block.xml 10 1
+    FEATURES  ${ENABLE_PYTHON} ${ENABLE_ADIOS2})
 
 endif()

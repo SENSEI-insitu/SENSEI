@@ -1,6 +1,6 @@
 from mpi4py import *
 from sensei import VTKDataAdaptor,ConfigurableInTransitDataAdaptor, \
-  ConfigurableAnalysis,ADIOS1DataAdaptor,Profiler
+  ConfigurableAnalysis,Profiler
 import sys,os
 import numpy as np
 import vtk, vtk.util.numpy_support as vtknp

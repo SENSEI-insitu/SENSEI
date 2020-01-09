@@ -44,11 +44,14 @@ do
     if [[ -z "${VERBOSE}" ]]
     then
       test_output=$(eval ${cmd} 2>&1)
+      test_stat=$?
+      echo $test_output | grep "[Ee][Rr][Rr][Oo][Rr]"
+      test_err=$?
     else
       eval ${cmd}
+      test_stat=$?
     fi
-    test_stat=$?
-    if (( $test_stat != 0 ))
+    if [[ (( $test_stat != 0 )) || (( $test_err == 0 )) ]]
     then
       echo "ERROR"
       echo

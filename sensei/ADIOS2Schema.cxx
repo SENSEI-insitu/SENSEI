@@ -3133,10 +3133,12 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
 
 struct DataObjectCollectionSchema::InternalsType
 {
+  InternalsType() : BlockOwnerArrayMetadata(0) {}
   VersionSchema Version;
   DataObjectSchema DataObject;
   sensei::MeshMetadataMap SenderMdMap;
   sensei::MeshMetadataMap ReceiverMdMap;
+  int BlockOwnerArrayMetadata;
 };
 
 // --------------------------------------------------------------------------
@@ -3183,20 +3185,26 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
 
     md->FromStream(bs);
 
+    // FIXME
     // Don't add internally generated arrays, as these
     // interfere with ghost cell/node arrays which are
-    // also special cases.
-    /*md->ArrayName.push_back("SenderBlockOwner");
-    md->ArrayCentering.push_back(vtkDataObject::CELL);
-    md->ArrayComponents.push_back(1);
-    md->ArrayType.push_back(VTK_INT);
+    // also special cases. adding these breaks the numbering
+    // scheme we used but these arrays here are useful for
+    // testing and validation eg. visualizing the decomp
+    if (this->Internals->BlockOwnerArrayMetadata)
+      {
+      md->ArrayName.push_back("SenderBlockOwner");
+      md->ArrayCentering.push_back(vtkDataObject::CELL);
+      md->ArrayComponents.push_back(1);
+      md->ArrayType.push_back(VTK_INT);
 
-    md->ArrayName.push_back("ReceiverBlockOwner");
-    md->ArrayCentering.push_back(vtkDataObject::CELL);
-    md->ArrayComponents.push_back(1);
-    md->ArrayType.push_back(VTK_INT);
+      md->ArrayName.push_back("ReceiverBlockOwner");
+      md->ArrayCentering.push_back(vtkDataObject::CELL);
+      md->ArrayComponents.push_back(1);
+      md->ArrayType.push_back(VTK_INT);
 
-    md->NumArrays += 2;*/
+      md->NumArrays += 2;
+      }
 
     this->Internals->SenderMdMap.PushBack(md);
     }
