@@ -9,7 +9,7 @@ cmake_dependent_option(ENABLE_CATALYST
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_CATALYST_PYTHON
-  "Enable analysis methods that use Catalyst Python scripts" OFF
+  "Enable analysis methods that use Catalyst Python scripts" ON
   "ENABLE_CATALYST" OFF)
 
 cmake_dependent_option(ENABLE_ADIOS1
@@ -100,7 +100,6 @@ message(STATUS "ENABLE_VTK_FILTERS=${ENABLE_VTK_FILTERS}")
 message(STATUS "ENABLE_VTKM=${ENABLE_VTKM}")
 message(STATUS "ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")
 message(STATUS "ENABLE_PROFILER=${ENABLE_PROFILER}")
-message(STATUS "ENABLE_DIY=${ENABLE_DIY}")
 message(STATUS "ENABLE_OPTS=${ENABLE_OPTS}")
 message(STATUS "ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")
 message(STATUS "ENABLE_CONDUITTEST=${ENABLE_CONDUITTEST}")
