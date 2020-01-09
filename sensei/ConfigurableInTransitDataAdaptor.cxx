@@ -102,7 +102,6 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     return -1;
 #else
     adaptor = ADIOS2DataAdaptor::New();
-    return -1;
 #endif
     }
   else if (type == "hdf5")

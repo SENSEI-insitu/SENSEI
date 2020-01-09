@@ -1193,8 +1193,8 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
-      || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "adios2") && !this->Internals->AddAdios2(node))
+      || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
@@ -1220,6 +1220,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 
     std::string type = node.attribute("type").value();
     if (!(((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))))
       {
       SENSEI_ERROR("Failed to add \"" << type << "\" transport")
