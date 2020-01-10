@@ -26,20 +26,19 @@ nblocks=`echo ${nblock_x}*${nblock_y} | bc`
 
 trap 'eval echo $BASH_COMMAND' DEBUG
 
-# TODO -- clean up old files, this is not generic
-# this does not affect h5. which uses the file name in the xml
+# safe guard against left over files from a previous crashed run
+# if these are present the test may deadlock or crash
 file=test.bp
+rm -rf $file ${file}_writer_info.txt ${file}.sst
 
-rm -f $file ${file}_writer_info.txt
-
-export PROFILER_ENABLE=1 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
+export PROFILER_ENABLE=2 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
 
 ${mpiexec} ${npflag} ${nproc_write} ${python} ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
   -6.2832 6.2832 -6.2832 6.2832 0 6.2832 &
 writePid=$!
 
-# TODO -- this should be integrated into the ADIOS1DataAdaptor
+# TODO -- this should be integrated into the adaptors
 if [[ "${sync_mode}" == "0" ]]
 then
   # wait for the write side to completely finish before starting the read side
@@ -52,7 +51,7 @@ then
   echo "waiting for writer to start ${delay}"
   while [[ True ]]
   do
-    if [[ -e "${file}_writer_info.txt" ]]
+    if [[ -e "${file}_writer_info.txt"  || -e "${file}.sst" ]]
     then
       break
     elif [[ ${maxDelay} -le 0 ]]
@@ -67,7 +66,7 @@ then
   done
 fi
 
-export TIMER_ENABLE=1 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderMemProf.csv
+export PROFILER_ENABLE=2 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderMemProf.csv
 
 ${mpiexec} ${npflag} ${nproc_read} ${python} ${srcdir}/testPartitionersRead.py \
   "${srcdir}/${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"

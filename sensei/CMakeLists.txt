@@ -41,6 +41,12 @@ if (ENABLE_SENSEI)
     list(APPEND senseiCore_libs sADIOS1)
   endif()
 
+if (ENABLE_ADIOS2)
+    list(APPEND senseiCore_sources ADIOS2Schema.cxx ADIOS2AnalysisAdaptor.cxx
+      ADIOS2DataAdaptor.cxx)
+    list(APPEND senseiCore_libs sADIOS2)
+  endif()
+
  if (ENABLE_HDF5)
        list(APPEND senseiCore_sources HDF5DataAdaptor.cxx HDF5AnalysisAdaptor.cxx
         HDF5Schema.cxx)

@@ -36,6 +36,9 @@
 #ifdef ENABLE_ADIOS1
 #include "ADIOS1AnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_ADIOS2
+#include "ADIOS2AnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_HDF5
 #include "HDF5AnalysisAdaptor.h"
 #endif
@@ -91,6 +94,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios1(pugi::xml_node node);
+  int AddAdios2(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
   int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
@@ -406,6 +410,45 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
   SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
     << filename.value() << "\" method " << method.value()
     << " max_buffer_size=" << maxBufSize)
+
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
+{
+#ifndef ENABLE_ADIOS2
+  (void)node;
+  SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
+  return -1;
+#else
+  auto adios = vtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    adios->SetCommunicator(this->Comm);
+
+  pugi::xml_attribute filename = node.attribute("filename");
+  if (filename)
+    adios->SetFileName(filename.value());
+
+  pugi::xml_attribute engineName = node.attribute("engine");
+  if (engineName)
+    adios->SetEngineName(engineName.value());
+
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS 2.")
+    return -1;
+    }
+  adios->SetDataRequirements(req);
+
+  this->TimeInitialization(adios);
+  this->Analyses.push_back(adios.GetPointer());
+
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
+    << filename.value() << "\" engine " << engineName.value())
 
   return 0;
 #endif
@@ -1150,6 +1193,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
@@ -1176,6 +1220,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 
     std::string type = node.attribute("type").value();
     if (!(((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))))
       {
       SENSEI_ERROR("Failed to add \"" << type << "\" transport")

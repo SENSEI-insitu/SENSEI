@@ -213,6 +213,15 @@ VTK_DERIVED(ADIOS1AnalysisAdaptor)
 SENSEI_IN_TRANSIT_DATA_ADAPTOR(ADIOS1DataAdaptor)
 #endif
 
+/****************************************************************************
+ * ADIOS2AnalysisAdaptor/DataAdaptor
+ ***************************************************************************/
+#ifdef ENABLE_ADIOS2
+VTK_DERIVED(ADIOS2AnalysisAdaptor)
+SENSEI_IN_TRANSIT_DATA_ADAPTOR(ADIOS2DataAdaptor)
+#endif
+
+
 #ifdef ENABLE_VTK_IO
 /****************************************************************************
  * VTKPosthocIO
