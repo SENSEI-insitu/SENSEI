@@ -94,7 +94,7 @@ public:
   /// @}
 
   /// invoke in situ processing with VisIt Libsim
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// shut down and cleanup VisIt Libsim.
   int Finalize() override;

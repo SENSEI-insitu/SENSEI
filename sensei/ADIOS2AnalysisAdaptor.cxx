@@ -74,8 +74,6 @@ int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
   return 0;
 }
 
-
-
 //-----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::FetchFromProducer(
   sensei::DataAdaptor *dataAdaptor,
@@ -189,7 +187,7 @@ int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency)
 }
 
 //----------------------------------------------------------------------------
-bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   long step = dataAdaptor->GetDataTimeStep();
 

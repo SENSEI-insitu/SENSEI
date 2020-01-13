@@ -1228,8 +1228,16 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 }
 
 //----------------------------------------------------------------------------
-bool ConfigurableAnalysis::Execute(DataAdaptor* data)
+bool ConfigurableAnalysis::Execute(DataAdaptor* data, DataAdaptor*& result)
 {
+  result = nullptr;
+
+  // Currently, we'll assume that only 1 analysis adaptor will generate
+  // non-null result to report as the result; in case of multiple, the last one wins.
+  // In future, we can extend the XML
+  // specification to support identifying which analysis generates results of
+  // interest and potentially how results are propagated between analyses.
+
   TimeEvent<128> event("ConfigurableAnalysis::Execute");
 
   int ai = 0;
@@ -1245,7 +1253,7 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
       Profiler::StartEvent(analysisName);
       }
 
-    if (!(*iter)->Execute(data))
+    if (!(*iter)->Execute(data, result))
       {
       SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
       MPI_Abort(this->GetCommunicator(), -1);

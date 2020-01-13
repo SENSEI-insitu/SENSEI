@@ -132,7 +132,8 @@ int main(int argc, char **argv)
   analysisAdaptor->Initialize(gNBins, "mesh", svtkDataObject::POINT,
      "normal", "");
 
-  analysisAdaptor->Execute(dataAdaptor);
+  sensei::DataAdaptor* reply = nullptr;
+  analysisAdaptor->Execute(dataAdaptor, reply);
   dataAdaptor->Delete();
 
 

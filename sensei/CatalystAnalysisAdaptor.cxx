@@ -242,9 +242,8 @@ int CatalystAnalysisAdaptor::SetFrequency(unsigned int frequency)
   return 0;
 }
 
-
 //----------------------------------------------------------------------------
-bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   long step = dataAdaptor->GetDataTimeStep();
 

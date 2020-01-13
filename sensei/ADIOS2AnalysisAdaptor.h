@@ -107,7 +107,7 @@ public:
   /// @}
 
   /// Invokes ADIOS2 based I/O or streaming.
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*& result) override;
 
   /// Shut down and clean up including flushing and closing all streams and files.
   int Finalize() override;

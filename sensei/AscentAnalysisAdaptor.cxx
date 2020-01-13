@@ -950,7 +950,7 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 }
 
 //------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
     // return AscentAnalysisAdaptor::Execute_original(dataAdaptor);
     return AscentAnalysisAdaptor::Execute_new(dataAdaptor);

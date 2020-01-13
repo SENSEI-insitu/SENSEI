@@ -50,7 +50,7 @@ public:
   /// @}
 
   /// Invoke in situ processing using Ascent
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Shut down and clean up the Ascent library.
   int Finalize() override;

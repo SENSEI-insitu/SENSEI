@@ -15,6 +15,11 @@ class DataAdaptor;
  * transformed as needed by the underlying processing, movement or I/O library.
  * Simulations invoke in situ processing by calling the ::Execute method.
  * Typically simulations will make use of the ::ConfigurableAnalysis.
+ *
+ * An analysis adaptor can optionally generate an "output" in Execute, and
+ * return it via a DataAdaptor.  Such an output may be used for further
+ * analysis or provide feedback and other control information  back to the
+ * simulation itself.
  */
 class AnalysisAdaptor : public svtkObjectBase
 {
@@ -53,7 +58,7 @@ public:
    *          error. In that case callers should abort so as not to waste compute
    *          resources.
    */
-  virtual bool Execute(DataAdaptor* data) = 0;
+  virtual bool Execute(DataAdaptor* data, DataAdaptor*& result) = 0;
 
   /** Clean up and shut down the data consuming library if needed.  This method
    * is called when the run is finsihed clean up and shut down should occur

@@ -53,7 +53,7 @@ public:
   ///@}
 
   /// Invoke in situ processing using Catalyst
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Shuts ParaView catalyst down.
   int Finalize() override;

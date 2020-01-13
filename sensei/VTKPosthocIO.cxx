@@ -250,7 +250,7 @@ int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
 
 
 //-----------------------------------------------------------------------------
-bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
+bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   long step = dataAdaptor->GetDataTimeStep();
 

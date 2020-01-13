@@ -94,7 +94,7 @@ public:
   /// @}
 
   /// Invokes I/O
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Closes and flushes all files and creates metadata files for VisIt or ParaView.
   int Finalize() override;

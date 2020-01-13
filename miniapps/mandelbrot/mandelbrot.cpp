@@ -671,7 +671,12 @@ int main(int argc, char **argv)
         // Do in situ
         dataAdaptor->SetDataTime(sim.time);
         dataAdaptor->SetDataTimeStep(sim.cycle);
-        analysisAdaptor->Execute(dataAdaptor.GetPointer());
+        sensei::DataAdaptor* reply = nullptr;
+        analysisAdaptor->Execute(dataAdaptor.GetPointer(), reply);
+        if (reply)
+        {
+          reply->ReleaseData();
+        }
 
         dataAdaptor->ReleaseData();
 #endif

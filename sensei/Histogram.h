@@ -26,7 +26,7 @@ public:
     const std::string &fileName);
 
   /// compute the histogram for this time step
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// finalize the run
   int Finalize() override;

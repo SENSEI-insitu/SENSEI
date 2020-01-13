@@ -103,7 +103,7 @@ public:
   /// @}
 
   /// Compute a slice and write it to disk.
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Flush and close all open files.
   int Finalize() override;

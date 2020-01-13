@@ -58,7 +58,7 @@ public:
   ///@}
 
   /// Triggers I/O and processing on the receiving side.
-  bool Execute(DataAdaptor *data) override;
+  bool Execute(DataAdaptor *data, DataAdaptor*&) override;
 
   /// Flushes and closes all open streams and files.
   int Finalize() override;
