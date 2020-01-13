@@ -57,7 +57,7 @@ const char *Histogram::GetGhostArrayName()
 }
 
 //-----------------------------------------------------------------------------
-bool Histogram::Execute(DataAdaptor* data)
+bool Histogram::Execute(DataAdaptor* data, DataAdaptor*&)
 {
   TimeEvent<128> mark("Histogram::Execute");
 

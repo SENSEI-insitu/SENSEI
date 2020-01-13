@@ -25,7 +25,7 @@ public:
   int Initialize(const std::string &json_file_path,
     const std::string &options_file_path);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   int Finalize() override;
 

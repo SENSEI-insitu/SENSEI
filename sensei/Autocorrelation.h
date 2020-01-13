@@ -35,7 +35,7 @@ public:
     int association, const std::string &arrayname, size_t kMax,
     int numThreads = 1);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   int Finalize() override;
 

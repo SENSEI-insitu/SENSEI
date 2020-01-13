@@ -38,7 +38,7 @@ public:
   // Let the caller explicitly initialize.
   void Initialize();
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   int Finalize() override;
 

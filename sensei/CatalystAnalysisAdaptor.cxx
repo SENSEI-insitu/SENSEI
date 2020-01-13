@@ -232,7 +232,7 @@ int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
 }
 
 //----------------------------------------------------------------------------
-bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("CatalystAnalysisAdaptor::Execute");
 

@@ -560,7 +560,7 @@ LibsimAnalysisAdaptor::PrivateData::DetermineExportFilename(const std::string &f
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
+LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor, DataAdaptor*&)
 {
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Execute\n");

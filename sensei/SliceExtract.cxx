@@ -191,7 +191,7 @@ int SliceExtract::AddDataRequirement(const std::string &meshName,
 }
 
 // --------------------------------------------------------------------------
-bool SliceExtract::Execute(DataAdaptor* dataAdaptor)
+bool SliceExtract::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("SliceExtract::Execute");
   if (this->Internals->Operation == OP_PLANAR_SLICE)

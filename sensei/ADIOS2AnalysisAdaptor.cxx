@@ -68,7 +68,7 @@ int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
 

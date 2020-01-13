@@ -25,7 +25,7 @@ public:
     int association, const std::string& arrayName,
     const std::string &fileName);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   int Finalize() override;
 

@@ -370,7 +370,7 @@ vtkSmartPointer<vtkMultiBlockDataSet> ExchangeGhosts(
 }
 
 //-----------------------------------------------------------------------------
-bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data)
+bool VTKmContourAnalysis::Execute(sensei::DataAdaptor* data, sensei::DataAdaptor*&)
 {
   TimeEvent<128> mark("VTKmContourAnalysis::Execute");
 

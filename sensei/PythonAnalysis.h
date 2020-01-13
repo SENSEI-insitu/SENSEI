@@ -71,7 +71,7 @@ public:
   int Initialize();
 
   /// SENSEI AnalysisAdaptor API
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
   int Finalize() override;
 
 protected:

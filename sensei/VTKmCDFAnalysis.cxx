@@ -97,7 +97,7 @@ void VTKmCDFAnalysis::Initialize(
 }
 
 //-----------------------------------------------------------------------------
-bool VTKmCDFAnalysis::Execute(DataAdaptor* data)
+bool VTKmCDFAnalysis::Execute(DataAdaptor* data, DataAdaptor*&)
 {
   TimeEvent<128> mark("VTKmCDFAnalysis::execute");
   this->Helper->AddTimeEntry();

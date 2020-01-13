@@ -50,7 +50,7 @@ public:
     int association, const std::vector<std::string> &arrays);
 
   // SENSEI AnalysisAdaptor API
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*& result) override;
   int Finalize() override;
 
 protected:

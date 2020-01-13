@@ -67,7 +67,7 @@ public:
 
   // SENSEI API
   void SetVerbose(int val) override;
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
   int Finalize() override;
 
 private:

@@ -71,7 +71,7 @@ int HDF5AnalysisAdaptor::AddDataRequirement(
 }
 
 //----------------------------------------------------------------------------
-bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("HDF5AnalysisAdaptor::Execute");
 

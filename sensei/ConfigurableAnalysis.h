@@ -31,7 +31,7 @@ public:
   int Initialize(const std::string &filename);
   int Initialize(const pugi::xml_node &root);
 
-  bool Execute(DataAdaptor *data) override;
+  bool Execute(DataAdaptor *data, DataAdaptor* &result) override;
 
   int Finalize() override;
 

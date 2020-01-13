@@ -34,7 +34,7 @@ public:
   /// Adds a pipeline initialized from a Catalyst python script
   virtual void AddPythonScriptPipeline(const std::string &fileName);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   int Finalize() override;
 

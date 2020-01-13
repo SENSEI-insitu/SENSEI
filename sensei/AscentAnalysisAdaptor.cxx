@@ -757,7 +757,7 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
 }
 
 //------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   // FIXME -- data requirements needs to be determined from ascent
   // configs.

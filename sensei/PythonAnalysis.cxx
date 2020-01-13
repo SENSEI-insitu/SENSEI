@@ -351,7 +351,7 @@ int PythonAnalysis::Initialize()
 }
 
 //-----------------------------------------------------------------------------
-bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor)
+bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor, DataAdaptor*&)
 {
   if (!this->Internals->Execute)
     {

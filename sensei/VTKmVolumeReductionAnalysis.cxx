@@ -230,7 +230,7 @@ void VTKmVolumeReductionAnalysis::Initialize(
 }
 
 //-----------------------------------------------------------------------------
-bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data)
+bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data, DataAdaptor*&)
 {
   TimeEvent<128> mark("VTKmVolumeReductionAnalysis::Execute");
   this->Helper->AddTimeEntry();

@@ -15,6 +15,9 @@ class DataAdaptor;
 /// AnalysisAdaptor is an adaptor for any insitu analysis framework or
 /// algorithm. Concrete subclasses use DataAdaptor instance passed to
 /// the Execute() method to access simulation data for further processing.
+/// They can optionally generate an "output" in Execute. Such
+/// an output may be used for further analysis or provide feedback and other
+/// control information  back to the simulation itself.
 class AnalysisAdaptor : public vtkObjectBase
 {
 public:
@@ -36,8 +39,10 @@ public:
   /// @brief Execute the analysis routine.
   ///
   /// This method is called to execute the analysis routine per simulation
-  /// iteration.
-  virtual bool Execute(DataAdaptor* data) = 0;
+  /// iteration. This override lets subclasses generate a result.
+  /// Default implementation simply calls `this->Execute(data)` and sets result
+  /// to `nullptr`.
+  virtual bool Execute(DataAdaptor* data, DataAdaptor*& result) = 0;
 
   /// @brief Finalize the analysis routine
   ///

@@ -253,7 +253,7 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 }
 
 //-----------------------------------------------------------------------------
-bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
+bool Autocorrelation::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("Autocorrelation::Execute");
 
