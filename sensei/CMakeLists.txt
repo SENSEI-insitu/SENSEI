@@ -73,6 +73,10 @@ if (ENABLE_ADIOS2)
     endif()
   endif()
 
+  if (ENABLE_VTK_FILTERS)
+    list(APPEND senseiCore_sources Calculator.cxx)
+  endif()
+
   add_library(senseiCore ${senseiCore_sources})
 
   target_include_directories(senseiCore PUBLIC

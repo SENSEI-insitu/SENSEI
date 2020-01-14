@@ -62,6 +62,10 @@
 #include "SliceExtract.h"
 #endif
 
+#if defined(ENABLE_VTK_FILTERS)
+#include "Calculator.h"
+#endif
+
 using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
 using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 
@@ -104,6 +108,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKAmrWriter(pugi::xml_node node);
   int AddPythonAnalysis(pugi::xml_node node);
   int AddSliceExtract(pugi::xml_node node);
+  int AddCalculator(pugi::xml_node node);
 
 public:
   // list of all analyses. api calls are forwareded to each
@@ -1121,8 +1126,51 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 #endif
 }
 
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
+{
+#if !defined(ENABLE_VTK_FILTERS)
+  (void)node;
+  SENSEI_ERROR("Calculator requested but is disabled in this build")
+  return -1;
+#else
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "expression") ||
+      XMLUtils::RequireAttribute(node, "result"))
+    {
+    SENSEI_ERROR("Failed to initialize Calculator");
+    return -1;
+    }
 
+  int association = 0;
+  std::string assocStr = node.attribute("association").as_string("point");
+  if (VTKUtils::GetAssociation(assocStr, association))
+    {
+    SENSEI_ERROR("Failed to initialize Calculator");
+    return -1;
+    }
 
+  std::string mesh = node.attribute("mesh").value();
+  std::string expression = node.attribute("expression").value();
+  std::string result = node.attribute("result").value();
+
+  auto calculator = vtkSmartPointer<Calculator>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    calculator->SetCommunicator(this->Comm);
+
+  this->TimeInitialization(calculator, [&]() {
+      calculator->Initialize(mesh, association, expression, result);
+      return 0;
+    });
+  this->Analyses.push_back(calculator.GetPointer());
+
+  SENSEI_STATUS("Configured calculator with expression '" << expression
+    << "' on mesh '" << mesh << "' to generate '" << result << "' on "
+    << assocStr);
+
+  return 0;
+#endif
+}
 
 //----------------------------------------------------------------------------
 senseiNewMacro(ConfigurableAnalysis);
@@ -1204,7 +1252,8 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
       || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))
-      || ((type == "SliceExtract") && !this->Internals->AddSliceExtract(node))))
+      || ((type == "SliceExtract") && !this->Internals->AddSliceExtract(node))
+      || ((type == "calculator") && !this->Internals->AddCalculator(node))))
       {
       SENSEI_ERROR("Failed to add \"" << type << "\" analysis")
       MPI_Abort(this->GetCommunicator(), -1);
