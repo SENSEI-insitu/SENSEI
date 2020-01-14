@@ -5,6 +5,10 @@
 #include <string>
 
 #include "Particles.h"
+namespace sensei
+{
+class DataAdaptor;
+}
 
 namespace bridge
 {
@@ -15,8 +19,9 @@ namespace bridge
 
   void set_data(int gid, float* data);
   void set_particles(int gid, const std::vector<Particle> &particles);
+  void set_oscillators(sensei::DataAdaptor* oscillators);
 
-  void execute(long step, float time);
+  void execute(long step, float time, sensei::DataAdaptor*& reply);
 
   void finalize();
 }

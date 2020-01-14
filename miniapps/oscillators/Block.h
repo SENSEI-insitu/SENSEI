@@ -36,23 +36,27 @@ struct Block
     void handle_incoming_particles(const sdiy::Master::ProxyWithLink& cp);
 
     // sdiy memory management hooks
-    static void *create(){ return new Block; }
+    static void *create(){
+      static std::vector<Oscillator> empty;
+      return new Block(empty);
+    }
     static void destroy(void* b){ delete static_cast<Block*>(b); }
 
     int                             gid;    // block id
     float                           velocity_scale;
-    sdiy::DiscreteBounds             bounds; // cell centered index space dimensions of this block
-    sdiy::DiscreteBounds             domain; // cell centered index space dimensions of the computational domain
-    sdiy::Point<float,3>             origin;  // lower left most corner in the computational domain
-    sdiy::Point<float,3>             spacing; // mesh spacing
+    sdiy::DiscreteBounds            bounds; // cell centered index space dimensions of this block
+    sdiy::DiscreteBounds            domain; // cell centered index space dimensions of the computational domain
+    sdiy::Point<float,3>            origin;  // lower left most corner in the computational domain
+    sdiy::Point<float,3>            spacing; // mesh spacing
     int                             nghost; // number of ghost zones
-    sdiy::Grid<float,3>              grid;   // container for the gridded data arrays
+    sdiy::Grid<float,3>             grid;   // container for the gridded data arrays
     std::vector<Particle>           particles;
-    std::vector<Oscillator>         oscillators;
+    const std::vector<Oscillator>&  oscillators;
 
  private:
     // for create; to let Master manage the blocks
-    Block() : gid(-1), velocity_scale(1.0f), nghost(0)
+    Block(const std::vector<Oscillator>& oscillators_) : gid(-1), velocity_scale(1.0f), nghost(0),
+      oscillators(oscillators_)
     {
         origin[0] = origin[1] = origin[2] = 0.0f;
         spacing[0] = spacing[1] = spacing[2] = 1.0f;

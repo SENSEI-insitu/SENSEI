@@ -22,6 +22,20 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
+
+  if (ENABLE_VTK_FILTERS)
+    senseiAddTest(testOscillatorCalculator
+      COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+        -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_calculator.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+
+    senseiAddTest(testOscillatorCalculatorPar
+      COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+       oscillator -t 1 -b ${TEST_NP} -g 1
+        -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_calculator.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+  endif()
+
   if (ENABLE_VTK_IO)
     senseiAddTest(testOscillatorVTKWriter
       COMMAND oscillator -t 1 -b ${TEST_NP} -g 1

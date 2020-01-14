@@ -4,6 +4,7 @@
 #include <string>
 #include <cmath>
 #include <sdiy/point.hpp>
+#include <sdiy/mpi.hpp>
 
 struct Oscillator
 {
@@ -56,9 +57,32 @@ struct Oscillator
     float   omega0;
     float   zeta;
 
-    enum { damped, decaying, periodic } type;
+    enum Type { damped, decaying, periodic };
+    Type type;
+
+    bool operator==(const Oscillator& other) const
+    {
+      return this->center == other.center &&
+              this->radius == other.radius &&
+              this->omega0 == other.omega0 &&
+              this->zeta == other.zeta &&
+              this->type == other.type;
+    }
 };
 
 std::vector<Oscillator> read_oscillators(std::string fn);
+
+namespace sensei
+{
+  class DataAdaptor;
+};
+
+/// Generate a new `sensei::DataAdaptor` that provides a "mesh" that represents
+/// the oscillators provided.
+sensei::DataAdaptor* new_adaptor(sdiy::mpi::communicator& world, const std::vector<Oscillator>& oscillators);
+
+/// Generate a vector of Oscillators given the `sensei::DataAdaptor`. This
+/// expects an "oscillators" mesh with appropriate arrays.
+std::vector<Oscillator> read_oscillators(sensei::DataAdaptor* data);
 
 #endif

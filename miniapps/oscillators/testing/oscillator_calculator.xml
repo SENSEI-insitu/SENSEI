@@ -1,0 +1,4 @@
+<sensei>
+  <analysis type="calculator" mesh="oscillators" association="point" expression="coords + data_time * iHat"
+    result="coords" enabled="1" />
+</sensei>
