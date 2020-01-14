@@ -54,6 +54,7 @@ public:
 
   int ReleaseData() override;
 
+  void SetOscillators(sensei::DataAdaptor* oscillators);
 protected:
   DataAdaptor();
   ~DataAdaptor();

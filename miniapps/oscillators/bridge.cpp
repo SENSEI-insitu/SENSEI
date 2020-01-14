@@ -52,14 +52,21 @@ void set_particles(int gid, const std::vector<Particle> &particles)
 }
 
 //-----------------------------------------------------------------------------
-void execute(long step, float time)
+void set_oscillators(sensei::DataAdaptor* oscillators)
+{
+  DataAdaptor->SetOscillators(oscillators);
+}
+
+//-----------------------------------------------------------------------------
+void execute(long step, float time, sensei::DataAdaptor** reply)
 {
   sensei::Profiler::StartEvent("oscillators::bridge::Execute");
 
   DataAdaptor->SetDataTimeStep(step);
   DataAdaptor->SetDataTime(time);
 
-  AnalysisAdaptor->Execute(DataAdaptor.GetPointer(), nullptr);
+  *reply = nullptr;
+  AnalysisAdaptor->Execute(DataAdaptor.GetPointer(), reply);
 
   DataAdaptor->ReleaseData();
 

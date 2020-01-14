@@ -24,7 +24,36 @@
 #include "analysis.h"
 #endif
 #include <Profiler.h>
+#include <DataAdaptor.h>
 
+/// Helper function to synchronize Oscillators between ranks.
+static void sync_oscillators(sdiy::mpi::communicator& world, std::vector<Oscillator>& oscillators)
+{
+  if (world.rank() == 0)
+  {
+    sdiy::MemoryBuffer bb;
+    sdiy::save(bb, oscillators);
+    sdiy::mpi::broadcast(world, bb.buffer, 0);
+  }
+  else
+  {
+    oscillators.clear();
+    sdiy::MemoryBuffer bb;
+    sdiy::mpi::broadcast(world, bb.buffer, 0);
+    sdiy::load(bb, oscillators);
+  }
+}
+
+/// Helper function to print information about oscillators.
+static void print_oscillators(sdiy::mpi::communicator& world, std::vector<Oscillator>& oscillators)
+{
+  if (world.rank() == 0)
+    for (auto& o : oscillators)
+      std::cerr << world.rank() << " center = " << o.center
+        << " radius = " << o.radius << " omega0 = " << o.omega0
+        << " zeta = " << o.zeta << std::endl;
+
+}
 
 using Grid   = sdiy::Grid<float,3>;
 using Vertex = Grid::Vertex;
@@ -346,8 +375,31 @@ int main(int argc, char** argv)
                               bridge::set_data(b->gid, b->grid.data());
                               bridge::set_particles(b->gid, b->particles);
                               });
+        auto oscAdaptor = new_adaptor(world, oscillators);
+        bridge::set_oscillators(oscAdaptor);
+
         // push data to sensei
-        bridge::execute(t_count, t);
+        sensei::DataAdaptor* reply = nullptr;
+        bridge::execute(t_count, t, reply);
+        if (reply != nullptr)
+        {
+          // If the analysis modified the oscillators, let's process the
+          // updates.
+          auto new_oscillators = read_oscillators(reply);
+          sync_oscillators(world, new_oscillators);
+          if (new_oscillators != oscillators)
+          {
+            oscillators = new_oscillators;
+            if (verbose)
+              print_oscillators(world, oscillators);
+          }
+          reply->ReleaseData();
+          reply->Delete();
+        }
+
+        oscAdaptor->ReleaseData();
+        oscAdaptor->Delete();
+
 #else
         // do the analysis without using sensei
         // call the analysis function for each block

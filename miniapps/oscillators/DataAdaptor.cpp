@@ -359,6 +359,8 @@ struct DataAdaptor::InternalsType
 
   int Shape[3];
   int NumGhostCells;                                 // number of ghost cells
+
+  vtkSmartPointer<sensei::DataAdaptor> Oscillators;
 };
 
 //-----------------------------------------------------------------------------
@@ -445,9 +447,20 @@ void DataAdaptor::SetParticleData(int gid, const std::vector<Particle> &particle
 }
 
 //-----------------------------------------------------------------------------
+void DataAdaptor::SetOscillators(sensei::DataAdaptor* oscillators)
+{
+  this->Internals->Oscillators = oscillators;
+}
+
+//-----------------------------------------------------------------------------
 int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
     svtkDataObject *&mesh)
 {
+  if (meshName == "oscillators")
+  {
+    return this->Internals->Oscillators->GetMesh(meshName, structureOnly, mesh);
+  }
+
   mesh = nullptr;
 
   if ((meshName != "mesh") && (meshName != "ucdmesh") && (meshName != "particles"))
@@ -503,6 +516,11 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 int DataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
+  if (meshName == "oscillators")
+    {
+    return this->Internals->Oscillators->AddArray(mesh, meshName, association, arrayName);
+    }
+
   svtkMultiBlockDataSet *mb = dynamic_cast<svtkMultiBlockDataSet*>(mesh);
   if (!mb)
     {
@@ -588,6 +606,11 @@ int DataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
 //----------------------------------------------------------------------------
 int DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh, const std::string &meshName)
 {
+  if (meshName == "oscillators")
+  {
+    return this->Internals->Oscillators->AddGhostCellsArray(mesh, meshName);
+  }
+
   if ((meshName != "mesh") && (meshName != "ucdmesh"))
     {
     SENSEI_ERROR("the miniapp provides meshes \"mesh\" and \"ucdmesh\".")
@@ -631,18 +654,23 @@ int DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh, const std::string &mes
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
-  numMeshes = 2;
+  numMeshes = 3;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata)
 {
-  if (id > 1)
+  if (id > 2)
     {
     SENSEI_ERROR("invalid mesh id " << id)
     return -1;
     }
+
+  if (id == 2)
+  {
+    return this->Internals->Oscillators->GetMeshMetadata(0, metadata);
+  }
 
   int rank = 0;
   int nRanks = 1;
@@ -772,6 +800,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 //-----------------------------------------------------------------------------
 int DataAdaptor::ReleaseData()
 {
+  this->Internals->Oscillators = nullptr;
   return 0;
 }
 
