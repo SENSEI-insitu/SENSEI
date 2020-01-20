@@ -45,7 +45,8 @@ public:
    * representative dataset. The ::VTKPosthocIO and VTKAmrWriter can be used to
    * obtain such data.
    */
-  virtual void AddPythonScriptPipeline(const std::string &fileName);
+  virtual void AddPythonScriptPipeline(const std::string &fileName,
+    const std::string& resultProducer, const std::string& resultMesh);
 
   /// Control how frequently the in situ processing occurs.
   int SetFrequency(unsigned int frequency);

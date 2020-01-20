@@ -4,7 +4,10 @@
 #include "MeshMetadata.h"
 #include "SVTKUtils.h"
 #include "Error.h"
+#include "MeshMetadata.h"
 #include "Profiler.h"
+#include "VTKDataAdaptor.h"
+#include "VTKUtils.h"
 
 #include <svtkDataObject.h>
 #include <svtkImageData.h>
@@ -12,23 +15,116 @@
 #include <svtkRectilinearGrid.h>
 #include <svtkStructuredGrid.h>
 
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
+#include <vtkAlgorithm.h>
 #include <vtkCommunicator.h>
 #include <vtkCPAdaptorAPI.h>
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
 #include <vtkMultiProcessController.h>
 #include <vtkCPProcessor.h>
-
 #include <vtkPVConfig.h>
-
+#include <vtkSmartPointer.h>
+#include <vtkSMProxyManager.h>
+#include <vtkSMSessionProxyManager.h>
+#include <vtkSMSourceProxy.h>
 #ifdef ENABLE_CATALYST_PYTHON
 #include <vtkCPPythonScriptPipeline.h>
 #endif
 
+#include <cassert>
+
 namespace sensei
 {
+
+#ifdef ENABLE_CATALYST_PYTHON
+/// This vtkCPPythonScriptPipeline subclass helps us pass back data
+/// from producer identified in the configuration as result using a
+/// DataAdaptor.
+class CatalystScriptPipeline : public vtkCPPythonScriptPipeline
+{
+public:
+  static CatalystScriptPipeline* New();
+  vtkTypeMacro(CatalystScriptPipeline, vtkCPPythonScriptPipeline);
+
+  //@{
+  /// Get/Set result producer algorithm's registration name.
+  vtkSetStringMacro(ResultProducer);
+  vtkGetStringMacro(ResultProducer);
+  //@}
+
+  //@{
+  /// Get/Set result mesh name.
+  vtkSetStringMacro(ResultMesh);
+  vtkGetStringMacro(ResultMesh);
+  //@}
+
+  vtkDataObject* GetResultData() { return this->ResultData.GetPointer(); }
+
+  /// helper function to find the first CatalystScriptPipeline know to the
+  /// processor to return the result from.
+  static std::pair<std::string, vtkDataObject*> GetResultData(vtkCPProcessor* processor)
+  {
+    for (int cc=0, max = processor->GetNumberOfPipelines(); cc < max; ++cc)
+      {
+      if (auto csp = CatalystScriptPipeline::SafeDownCast(processor->GetPipeline(cc)))
+        {
+        if (csp->GetResultData() != nullptr)
+          return std::make_pair(std::string(csp->GetResultMesh()), csp->GetResultData());
+        }
+      }
+    return std::pair<std::string, vtkDataObject*>();
+  }
+
+protected:
+  CatalystScriptPipeline()  : ResultProducer(nullptr), ResultMesh(nullptr) {}
+  ~CatalystScriptPipeline() override
+  {
+    this->SetResultProducer(nullptr);
+    this->SetResultMesh(nullptr);
+  }
+
+  int CoProcess(vtkCPDataDescription* dataDescription) override
+  {
+    this->ResultData = nullptr;
+
+    const auto status = this->Superclass::CoProcess(dataDescription);
+    if (!status || this->ResultProducer == nullptr || this->ResultProducer[0] == '\0')
+      {
+      return status;
+      }
+
+
+    // find `ResultProducer` proxy and update it and get its data.
+    auto pxm = vtkSMProxyManager::GetProxyManager()->GetActiveSessionProxyManager();
+    assert(pxm != nullptr);
+
+    auto producer = vtkSMSourceProxy::SafeDownCast(pxm->GetProxy("sources", this->ResultProducer));
+    if (!producer)
+    {
+      SENSEI_ERROR("Failed to locate producer '" << this->ResultProducer << "'. "
+        "Please check the configuration or the Catalyst Python script for errors.");
+      return 0;
+    }
+    producer->UpdatePipeline(dataDescription->GetTime());
+    if (auto result = vtkAlgorithm::SafeDownCast(producer->GetClientSideObject())->GetOutputDataObject(0))
+    {
+      this->ResultData.TakeReference(result->NewInstance());
+      this->ResultData->ShallowCopy(result);
+    }
+    return 1;
+  }
+
+
+private:
+  CatalystScriptPipeline(const CatalystScriptPipeline&) = delete;
+  void operator=(const CatalystScriptPipeline&) = delete;
+
+  char* ResultProducer;
+  char* ResultMesh;
+  vtkSmartPointer<vtkDataObject> ResultData;
+};
+vtkStandardNewMacro(CatalystScriptPipeline);
+#endif // ENABLE_CATALYST_PYTHON
 
 static int vtkCPAdaptorAPIInitializationCounter = 0;
 
@@ -68,19 +164,27 @@ void CatalystAnalysisAdaptor::AddPipeline(vtkCPPipeline* pipeline)
 }
 
 //-----------------------------------------------------------------------------
-void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
-  const std::string &fileName)
+void CatalystAnalysisAdaptor::AddPythonScriptPipeline(const std::string &fileName,
+  const std::string& resultProducer, const std::string& resultMesh)
 {
 #ifdef ENABLE_CATALYST_PYTHON
 #if PARAVIEW_VERSION_MAJOR > 5 || (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 9)
+  (void) resultMesh;
+  (void) resultProducer;
+  // TODO -- update the bi directional work for PV 5.9.0
   this->AddPipeline(vtkCPPythonPipeline::CreateAndInitializePipeline(fileName.c_str()));
 #else
+  // 5.8.0 version of bi-directional work
   vtkNew<vtkCPPythonScriptPipeline> pythonPipeline;
+  vtkNew<sensei::CatalystScriptPipeline> pythonPipeline;
+  pythonPipeline->SetResultProducer(!resultProducer.empty() ? resultProducer.c_str() : nullptr);
+  pythonPipeline->SetResultMesh(!resultMesh.empty() ? resultMesh.c_str() : nullptr);
   pythonPipeline->Initialize(fileName.c_str());
   this->AddPipeline(pythonPipeline.GetPointer());
 #endif
 #else
   (void)fileName;
+  (void)resultProducer;
   SENSEI_ERROR("Failed to add Python script pipeline. "
     "Re-compile with ENABLE_CATALYST_PYTHON=ON")
 #endif
@@ -247,7 +351,7 @@ int CatalystAnalysisAdaptor::SetFrequency(unsigned int frequency)
 }
 
 //----------------------------------------------------------------------------
-bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& result)
 {
   long step = dataAdaptor->GetDataTimeStep();
 
@@ -305,7 +409,16 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       }
 
     // transfer control to Catalyst
-    proc->CoProcess(dataDesc.GetPointer());
+    if (proc->CoProcess(dataDesc.GetPointer()))
+      {
+        auto data = sensei::CatalystScriptPipeline::GetResultData(proc);
+        if (data.second != nullptr)
+        {
+          VTKDataAdaptor* vtkresult = VTKDataAdaptor::New();
+          vtkresult->SetDataObject(data.first, data.second);
+          result = vtkresult;
+        }
+      }
     }
 
   return true;
