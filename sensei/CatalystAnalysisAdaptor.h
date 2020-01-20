@@ -32,7 +32,8 @@ public:
   virtual void AddPipeline(vtkCPPipeline* pipeline);
 
   /// Adds a pipeline initialized from a Catalyst python script
-  virtual void AddPythonScriptPipeline(const std::string &fileName);
+  virtual void AddPythonScriptPipeline(const std::string &fileName,
+    const std::string& resultProducer, const std::string& resultMesh);
 
   bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 

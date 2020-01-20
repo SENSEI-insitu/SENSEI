@@ -63,6 +63,20 @@ if (BUILD_TESTING)
        $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml @ONLY)
+
+    senseiAddTest(testOscillatorCatalystBiDirectional
+      COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+        -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+
+    senseiAddTest(testOscillatorCatalystBiDirectionalPar
+      COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+       $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
+        -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
   endif()
 
   if (ENABLE_LIBSIM)
