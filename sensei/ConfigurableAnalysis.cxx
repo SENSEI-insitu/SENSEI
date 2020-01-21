@@ -663,9 +663,14 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     if (node.attribute("filename"))
       {
       std::string fileName = node.attribute("filename").value();
+      std::string producer, mesh;
+      if (auto resultnode = node.child("result"))
+      {
+        producer = resultnode.attribute("producer").as_string();
+        mesh = resultnode.attribute("mesh").as_string();
+      }
       this->CatalystAdaptor->AddPythonScriptPipeline(fileName,
-          std::string(node.attribute("result_producer").as_string()),
-          std::string(node.attribute("result_mesh").as_string()));
+          producer, mesh);
       }
 #endif
     }
