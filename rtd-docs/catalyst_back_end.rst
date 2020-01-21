@@ -3,14 +3,21 @@
 Catalyst back-end
 =================
 
-ParaView Catalyst (Catalyst) is an in situ use case library, with an adaptable application programming interface (API), that orchestrates the delicate alliance between simulation and analysis and/or visualization tasks. It brings the renown, scaling capabilities of VTK and ParaView to bear on the in situ use case. The analysis and visualization tasks can be implemented in C++ or Python, and Python scripts can be crafted from scratch or using the ParaView GUI to interactively setup Catalyst scripts (see `Catalyst User Guide <https://www.paraview.org/files/catalyst/docs/ParaViewCatalystUsersGuide_v2.pdf>`_).
+ParaView Catalyst (Catalyst) is an in situ use case library, with an adaptable
+application programming interface (API), that orchestrates the delicate
+alliance between simulation and analysis and/or visualization tasks. It brings
+the renown, scaling capabilities of VTK and ParaView to bear on the in situ use
+case. The analysis and visualization tasks can be implemented in C++ or Python,
+and Python scripts can be crafted from scratch or using the ParaView GUI to
+interactively setup Catalyst scripts
+(see `Catalyst User Guide <https://www.paraview.org/files/catalyst/docs/ParaViewCatalystUsersGuide_v2.pdf>`_).
 
 .. _catalyst_xml_options:
 
 SENSEI XML Options
 ------------------
 
-The Catalyst back-end is activated using the :code:`<analysis type="catalyst">`. 
+The Catalyst back-end is activated using the :code:`<analysis type="catalyst">`.
 
 .. _catalyst_python_script:
 
@@ -30,7 +37,7 @@ The supported attributes are:
 +-------------------+--------------------------------------------------------+
 
 Example XML
-"""""""""""
+~~~~~~~~~~~
 
 Catalyst Python script example. This XML configures a Catalyst with a Python script that creates a pipeline(s).
 
@@ -42,9 +49,9 @@ Catalyst Python script example. This XML configures a Catalyst with a Python scr
   </sensei>
 
 Back-end specific configuration
-"""""""""""""""""""""""""""""""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The easiest way to create a python script for Catalyst: 
+The easiest way to create a python script for Catalyst:
 
 #. Load a sample of the data (possibly downsampled) into ParaView, including all the desired fields.
 #. Create analysis and visualization pipeline(s) in ParaView by applying successive filters producing subsetted or alternative visual metaphors of data.
@@ -89,7 +96,7 @@ For the Catalyst slice fixed pipeline the supported attributes are:
 +-------------------+--------------------------------------------------------+
 
 Example XML
-"""""""""""
+~~~~~~~~~~~
 This XML configures a C++-based fixed pipeline for a slice using Catalyst.
 
 .. code-block:: XML
@@ -145,21 +152,20 @@ For the Catalyst particle fixed pipeline the supported attributes are:
 +-------------------+--------------------------------------------------------+
 
 Example XML
-"""""""""""
+~~~~~~~~~~~
 
 This XML configures a C++-based fixed pipeline for particles using Catalyst.
 
 .. code-block:: XML
 
   <sensei>
-    <analysis type="catalyst" 
-              pipeline="particle" mesh="particles" array="data" association="point"
-              image-filename="/tmp/particles-%ts.png" image-width="1920" image-height="1080"
-              particle-style="Black-edged circle" particle-radius="0.5"
-              color-range="0.0,1024.0" color-log="0"
-              camera-position="150,150,100" camera-focus="0,0,0"
-              enabled="1" />
-
+    <analysis type="catalyst"
+       pipeline="particle" mesh="particles" array="data" association="point"
+       image-filename="/tmp/particles-%ts.png" image-width="1920" image-height="1080"
+       particle-style="Black-edged circle" particle-radius="0.5"
+       color-range="0.0,1024.0" color-log="0"
+       camera-position="150,150,100" camera-focus="0,0,0"
+       enabled="1" />
   </sensei>
 
 .. _catalyst_example:
