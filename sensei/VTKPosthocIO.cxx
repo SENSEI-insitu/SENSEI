@@ -381,7 +381,10 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
       vtkDataArray *ga = ds->GetCellData()->GetArray("vtkGhostType");
       if (ga)
+        {
         ga->SetName(this->GetGhostArrayName().c_str());
+        ds->UpdateCellGhostArrayCache();
+        }
 
       if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)
         {
