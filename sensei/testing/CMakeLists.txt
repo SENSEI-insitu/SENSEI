@@ -46,13 +46,13 @@ if (BUILD_TESTING)
     ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
     EXEC_NAME testPythonAnalysis SOURCES testPythonAnalysis.cpp
     LIBS sensei
-    FEATURES ${ENABLE_PYTHON})
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_VTK_IO})
 
   senseiAddTest(testPythonAnalysisParallel
     COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG}
       ${TEST_NP} ${MPIEXEC_POSTFLAGS} testPythonAnalysis
       ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
-    FEATURES ${ENABLE_PYTHON})
+    FEATURES ${ENABLE_PYTHON} ${ENABLE_VTK_IO})
 
   senseiAddTest(testPartitionerPy
     COMMAND ${MPIEXEC} ${MPIEXEC_PREFLAGS} ${MPIEXEC_NUMPROC_FLAG}
