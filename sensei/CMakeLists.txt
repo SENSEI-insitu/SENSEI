@@ -105,6 +105,16 @@ if (ENABLE_ADIOS2)
     add_library(_PythonAnalysis SHARED
       ${CMAKE_CURRENT_BINARY_DIR}/_PythonAnalysis.cxx)
 
+    # include the directory containing _PythonAnalysis in the rpath
+    # this enables one not to have to set (DY)LD_LIBRARY_PATH
+    # prior to importing teca.
+    if (APPLE)
+      set_target_properties(_PythonAnalysis PROPERTIES SUFFIX .so)
+      set_target_properties(_PythonAnalysis PROPERTIES INSTALL_RPATH "@loader_path/./")
+    elseif(UNIX)
+      set_target_properties(_PythonAnalysis PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
+    endif()
+
     set_target_properties(_PythonAnalysis PROPERTIES PREFIX "")
     target_link_libraries(_PythonAnalysis PUBLIC senseiCore sPython)
 
