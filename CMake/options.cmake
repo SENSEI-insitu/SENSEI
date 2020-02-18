@@ -53,7 +53,7 @@ cmake_dependent_option(ENABLE_VTK_MPI
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_RENDERING
-  "Enable use of VTK's rendering libraries" ON
+  "Enable use of VTK's rendering libraries" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_ACCELERATORS

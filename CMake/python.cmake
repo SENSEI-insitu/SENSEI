@@ -1,5 +1,6 @@
 if (ENABLE_PYTHON)
-  set(SENSEI_PYTHON_VERSION 2 CACHE STRING "The major version number of Python SENSEI should use.")
+  set(SENSEI_PYTHON_VERSION 3 CACHE STRING
+    "The major version number of Python SENSEI should use.")
   set_property(CACHE SENSEI_PYTHON_VERSION PROPERTY STRINGS 2 3)
   find_package(PythonInterp ${SENSEI_PYTHON_VERSION} REQUIRED)
   find_package(PythonLibs ${SENSEI_PYTHON_VERSION} REQUIRED)
