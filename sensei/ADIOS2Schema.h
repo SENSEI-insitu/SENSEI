@@ -100,7 +100,6 @@ private:
 
   struct InternalsType;
   InternalsType *Internals;
-  size_t ADIOS2_BIG_SIZE = INT_MAX;
 };
 
 
