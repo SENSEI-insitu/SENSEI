@@ -265,7 +265,8 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // add the ghost cell arrays to the mesh
-  if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
+  if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+    dataAdaptor->AddGhostCellsArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
     return false;

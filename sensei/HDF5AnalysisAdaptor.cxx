@@ -171,7 +171,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         }
 
       // add the ghost cell arrays to the mesh
-      if (md->NumGhostCells &&
+      if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
           dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
         {
           SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName()

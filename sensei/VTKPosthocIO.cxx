@@ -299,7 +299,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (mmd->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
+    if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+      dataAdaptor->AddGhostCellsArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
       return false;
