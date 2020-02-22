@@ -419,98 +419,6 @@ int adiosInq(InputStream &iStream, const std::string &path, val_t &val)
   return 0;
 }
 
-// dataset_function takes a vtkDataSet*, it might be nullptr,
-// does some processing, and returns and integer code.
-//
-// return codes:
-//  1   : successfully processed the dataset, end the traversal
-//  0   : successfully processed the dataset, continue traversal
-//  < 0 : an error occured, report it and end traversal
-using dataset_function =
-  std::function<int(unsigned int,unsigned int,vtkDataSet*)>;
-
-// --------------------------------------------------------------------------
-// apply given function to each leaf in the data object.
-int apply(unsigned int doid, unsigned int dsid, vtkDataObject* dobj,
-  dataset_function &func, int skip_empty=1)
-{
-  if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
-    {
-    vtkSmartPointer<vtkCompositeDataIterator> iter;
-    iter.TakeReference(cd->NewIterator());
-    iter->SetSkipEmptyNodes(skip_empty);
-    for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
-      {
-      // recurse
-      int ierr = 0;
-      if ((ierr = apply(doid, iter->GetCurrentFlatIndex(),
-        iter->GetCurrentDataObject(), func, skip_empty)))
-        return ierr;
-      }
-    }
-  else if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
-    {
-    int ierr = func(doid, dsid, ds);
-#ifdef ADIOSSchemaDEBUG
-    if (ierr < 0)
-      {
-      SENSEI_ERROR("Apply failed, functor returned error code " << ierr)
-      }
-#endif
-    return ierr;
-    }
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-// returns the number of datasets(on this process) with the given type
-template<typename dataset_t>
-unsigned int getNumberOfDatasets(vtkDataObject *dobj)
-{
-  unsigned int number_of_datasets = 0;
-  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
-    {
-    // function to count number of datasets of the given type
-    dataset_function func = [&number_of_datasets](unsigned int, unsigned int, vtkDataSet *ds) -> int
-    {
-      if (dynamic_cast<dataset_t*>(ds))
-        ++number_of_datasets;
-      return 0;
-    };
-
-    if (apply(0, 0, dobj, func))
-      return -1;
-    }
-  else if (dynamic_cast<dataset_t*>(dobj))
-    {
-    ++number_of_datasets;
-    }
-
-  return number_of_datasets;
-}
-
-// --------------------------------------------------------------------------
-unsigned int getNumberOfDatasets(MPI_Comm comm, vtkDataObject *dobj,
-  int local_only)
-{
-  unsigned int number_of_datasets = 0;
-  // function that counts number of datasets of any type
-  dataset_function func = [&number_of_datasets](unsigned int, unsigned int, vtkDataSet*) -> int
-  {
-    ++number_of_datasets;
-    return 0;
-  };
-
-  if (apply(0, 0, dobj, func) < 0)
-    return -1;
-
-  if (!local_only)
-    MPI_Allreduce(MPI_IN_PLACE, &number_of_datasets, 1,
-      MPI_UNSIGNED, MPI_SUM, comm);
-
-  return number_of_datasets;
-}
-
 
 
 
@@ -853,7 +761,8 @@ struct ArraySchema
     unsigned long long num_points_total, unsigned long long num_cells_total,
     unsigned int num_blocks, const std::vector<long> &block_num_points,
     const std::vector<long> &block_num_cells,
-    const std::vector<int> &block_owner, std::vector<size_t> &putVarsStart, std::vector<size_t> &putVarsCount, std::vector<std::string> &putVarsName);
+    const std::vector<int> &block_owner, std::vector<size_t> &putVarsStart,
+    std::vector<size_t> &putVarsCount, std::string &putVarsName);
 
   int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
@@ -861,7 +770,8 @@ struct ArraySchema
   int Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
     const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
     unsigned int num_blocks, const std::vector<int> &block_owner,
-    const std::vector<size_t> &putVarsStart, const std::vector<size_t> &putVarsCount, const std::vector<std::string> &putVarsName);
+    const std::vector<size_t> &putVarsStart, const std::vector<size_t> &putVarsCount,
+    const std::string &putVarsName);
 
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const std::string &array_name, int centering,
@@ -890,10 +800,9 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   const std::vector<int> &block_owner,
   std::vector<size_t> &putVarsStart,
   std::vector<size_t> &putVarsCount,
-  std::vector<std::string> &putVarsName)
+  std::string &putVarsName)
 {
-  sensei::TimeEvent<128> mark(
-    "senseiADIOS2::ArraySchema::DefineVariable");
+  sensei::TimeEvent<128> mark("senseiADIOS2::ArraySchema::DefineVariable");
 
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
@@ -909,6 +818,10 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   std::ostringstream ans;
   ans << ons << "data_array_" << i << "/";
 
+   // /data_object_<id>/data_array_<id>/data
+  std::string path = ans.str() + "data";
+  putVarsName = path;
+
   // select global size either point or cell data
   unsigned long num_elem_total = (array_cen == vtkDataObject::POINT ?
     num_points_total : num_cells_total)*num_components;
@@ -919,17 +832,18 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   // define the variable once for each block
   unsigned long block_offset = 0;
 
-   // /data_object_<id>/data_array_<id>/data
-  std::string path = ans.str() + "data";
   size_t defaultVal = 0;
-  adios2_variable *put_var = adios2_define_variable(handles.io, path.c_str(), elem_type,
-     1, &num_elem_total, &defaultVal, &defaultVal, adios2_constant_dims_false);
 
-  if (put_var == NULL)
-  {
-  SENSEI_ERROR("adios2_define_variable failed at: " << __FILE__ << " "
-    << __LINE__ <<" with " << num_elem_total << " "  << path << " -Err END-")
-  }
+  adios2_variable *put_var = adios2_define_variable(handles.io,
+     path.c_str(), elem_type, 1, &num_elem_total, &defaultVal,
+     &defaultVal, adios2_constant_dims_false);
+
+  if (!put_var)
+    {
+    SENSEI_ERROR("adios2_define_variable failed with "
+      << "num_elem_total=" << num_elem_total << " path=\""
+      << path << "\"")
+    }
 
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
@@ -943,7 +857,6 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
       // save the var attr. to use later for putting
       putVarsStart[i*num_blocks + j] = block_offset;
       putVarsCount[i*num_blocks + j] = num_elem_local;
-      putVarsName[i*num_blocks + j] = path;
       }
 
     // update the block offset
@@ -968,12 +881,16 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
 
-  unsigned int num_ghost_arrays =
-    md->NumGhostCells ? 1 : 0 + md->NumGhostNodes ? 1 : 0;
+  bool have_ghost_cells = md->NumGhostCells || sensei::VTKUtils::AMR(md);
 
-  putVarsStart.resize(num_blocks*(num_arrays + num_ghost_arrays));
-  putVarsCount.resize(num_blocks*(num_arrays + num_ghost_arrays));
-  putVarsName.resize(num_blocks*(num_arrays + num_ghost_arrays));
+  unsigned int num_ghost_arrays =
+    (have_ghost_cells ? 1 : 0) + (md->NumGhostNodes ? 1 : 0);
+
+  unsigned int num_arrays_total = num_arrays + num_ghost_arrays;
+
+  putVarsStart.resize(num_blocks*num_arrays_total);
+  putVarsCount.resize(num_blocks*num_arrays_total);
+  putVarsName.resize(num_arrays_total);
 
   // compute global sizes
   unsigned long long num_points_total = 0;
@@ -990,29 +907,26 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
     if (this->DefineVariable(comm, handles, ons, i, md->ArrayType[i],
       md->ArrayComponents[i], md->ArrayCentering[i], num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
+      md->BlockOwner, putVarsStart, putVarsCount, putVarsName[i]))
       return -1;
     }
 
   // define ghost arrays
-  if (md->NumGhostCells)
-    {
-    if (this->DefineVariable(comm, handles, ons, num_arrays, VTK_UNSIGNED_CHAR,
-      1, vtkDataObject::CELL, num_points_total, num_cells_total, num_blocks,
-      md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
-      return -1;
-    num_arrays += 1;
-    }
-
-  if (md->NumGhostNodes && this->DefineVariable(comm, handles, ons, num_arrays,
-      VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
+  if (have_ghost_cells && this->DefineVariable(comm, handles, ons,
+      num_arrays, VTK_UNSIGNED_CHAR, 1, vtkDataObject::CELL, num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
+      md->BlockOwner, putVarsStart, putVarsCount, putVarsName[num_arrays]))
+      return -1;
+
+  if (md->NumGhostNodes && this->DefineVariable(comm, handles, ons,
+      num_arrays, VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
+      num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
+      md->BlockOwner, putVarsStart, putVarsCount,
+      putVarsName[num_arrays + (have_ghost_cells ? 1 : 0)]))
       return -1;
 
   return 0;
 }
-
 
 // --------------------------------------------------------------------------
 int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
@@ -1020,7 +934,7 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
   unsigned int num_blocks, const std::vector<int> &block_owner,
   const std::vector<size_t> &putVarsStart,
   const std::vector<size_t> &putVarsCount,
-  const std::vector<std::string> &putVarsName)
+  const std::string &putVarsName)
 {
   sensei::Profiler::StartEvent("senseiADIOS2::ArraySchema::Write");
   long long numBytes = 0ll;
@@ -1055,11 +969,13 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
         }
 
       adios2_variable *currVar =
-        adios2_inquire_variable(handles.io, putVarsName[i*num_blocks + j].c_str());
+        adios2_inquire_variable(handles.io, putVarsName.c_str());
+
       adios2_set_selection(currVar, 1, &(putVarsStart[i*num_blocks + j]),
         &(putVarsCount[i*num_blocks + j]));
-      adios2_put_by_name(handles.engine, putVarsName[i*num_blocks + j].c_str(),
-                 da->GetVoidPointer(0), adios2_mode_sync);
+
+      adios2_put_by_name(handles.engine,
+        putVarsName.c_str(), da->GetVoidPointer(0), adios2_mode_sync);
 
       numBytes += da->GetNumberOfTuples()*
         da->GetNumberOfComponents()*size(da->GetDataType());
@@ -1089,25 +1005,25 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles,
 
   // write data arrays
   unsigned int num_arrays = md->NumArrays;
+  bool have_ghost_cells = md->NumGhostCells || sensei::VTKUtils::AMR(md);
+
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
     if (this->Write(comm, handles, i, md->ArrayName[i], md->ArrayCentering[i],
-      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
+      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVarsName[i]))
       return -1;
     }
 
   // write ghost arrays
-  if (md->NumGhostCells)
-    {
-    if (this->Write(comm, handles, num_arrays, "vtkGhostType", vtkDataObject::CELL,
-      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
+  if (have_ghost_cells && this->Write(comm, handles, num_arrays, "vtkGhostType",
+    vtkDataObject::CELL, dobj, md->NumBlocks, md->BlockOwner, putVarsStart,
+    putVarsCount, putVarsName[num_arrays]))
       return -1;
-    num_arrays += 1;
-    }
 
   if (md->NumGhostNodes && this->Write(comm, handles, num_arrays,
     "vtkGhostType", vtkDataObject::POINT, dobj, md->NumBlocks,
-     md->BlockOwner, putVarsStart, putVarsCount, putVarsName))
+    md->BlockOwner, putVarsStart, putVarsCount,
+    putVarsName[num_arrays + (have_ghost_cells ? 1 : 0)]))
     return -1;
 
   return 0;
@@ -1165,14 +1081,10 @@ int ArraySchema::Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons
       array->SetName(array_name.c_str());
 
       // /data_object_<id>/data_array_<id>/data
-      adios2_error getErr = adios2_get(handles.engine,
-                                       vinfo,
-                                       array->GetVoidPointer(0),
-                                       adios2_mode_sync);
-
-      if (getErr != 0)
+      if (adios2_get(handles.engine, vinfo, array->GetVoidPointer(0),
+        adios2_mode_sync))
         {
-        SENSEI_ERROR("Failed to read points")
+        SENSEI_ERROR("Failed to read array " << i << " \"" << array_name << "\"")
         return -1;
         }
 
@@ -1217,15 +1129,17 @@ int ArraySchema::Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons
   unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
 
+  bool have_ghost_cells = md->NumGhostCells || sensei::VTKUtils::AMR(md);
+
   // read ghost arrays
   if (name == "vtkGhostType")
     {
-    unsigned int i = centering == vtkDataObject::CELL ?
-      num_arrays : num_arrays + 1;
+    unsigned int i = (centering == vtkDataObject::CELL ?
+      num_arrays : num_arrays + (have_ghost_cells ? 1 : 0));
 
-    return this->Read(comm, handles, ons, i, "vtkGhostType", VTK_UNSIGNED_CHAR,
-      1, centering, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, dobj);
+    return this->Read(comm, handles, ons, i, "vtkGhostType",
+      VTK_UNSIGNED_CHAR, 1, centering, num_blocks, md->BlockNumPoints,
+      md->BlockNumCells, md->BlockOwner, dobj);
     }
 
   // read data arrays
@@ -2311,6 +2225,7 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
               dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
           case VTK_IMAGE_DATA:
+          case VTK_UNIFORM_GRID:
             adios2_put(handles.engine, writeVars[j],
               dynamic_cast<vtkImageData*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
@@ -2391,6 +2306,7 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
             dynamic_cast<vtkRectilinearGrid*>(dobj)->SetExtent(ext);
             break;
           case VTK_IMAGE_DATA:
+          case VTK_UNIFORM_GRID:
               dynamic_cast<vtkImageData*>(dobj)->SetExtent(ext);
             break;
           case VTK_STRUCTURED_GRID:
