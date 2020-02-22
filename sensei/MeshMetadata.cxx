@@ -154,9 +154,6 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
 // --------------------------------------------------------------------------
 int MeshMetadata::ToStream(ostream &str) const
 {
-  std::vector<int> rr; //(this->RefRatio.data(), this->RefRatio.data()+this->RefRatio.size());
-  std::vector<int> pbc; //(this->PeriodicBoundary.begin(), this->PeriodicBoundary.data());
-
   str << "{";
   str << "GlobalView = " << this->GlobalView << std::endl;
   str << "MeshName = " << this->MeshName << std::endl;
@@ -186,10 +183,10 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "BlockExtents = " << this->BlockExtents << std::endl;
   str << "BlockBounds = " << this->BlockBounds << std::endl;
   str << "BlockArrayRange = " << this->BlockArrayRange << std::endl;
-  str << "RefRatio = " << rr << std::endl;
+  str << "RefRatio = " << this->RefRatio << std::endl;
   str << "BlocksPerLevel = " << this->BlocksPerLevel << std::endl;
   str << "BlockLevel = " << this->BlockLevel << std::endl;
-  str << "PeriodicBoundary = " << pbc << std::endl;
+  str << "PeriodicBoundary = " << this->PeriodicBoundary << std::endl;
   str << "Flags = "; this->Flags.ToStream(str); str << std::endl;
   str << "}";
   return 0;
@@ -210,83 +207,159 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
   // if the dataset is empty there may not be any metadata. for instance
   // in the VTKDataAdaptor metadata is determined by examining the available
   // data.
-  int localBlocks = ((this->NumBlocks > 0) &&
+  bool localBlocks = ((this->NumBlocks > 0) ||
     ((this->NumBlocksLocal.size() > 0) && ((this->GlobalView ?
     this->NumBlocksLocal[rank] : this->NumBlocksLocal[0]) > 0)));
 
-  if (localBlocks && this->Flags.BlockDecompSet() &&
-    requiredFlags.BlockDecompSet() && (this->BlockOwner.empty() || this->BlockIds.empty()))
-    {
-    SENSEI_ERROR("Metadata is missing block deocomp arrays, BlockDecomp and/or BlockIds")
-    err = true;
-    }
+  if (!localBlocks)
+    return 0;
 
-  if (localBlocks && this->Flags.BlockSizeSet() && requiredFlags.BlockSizeSet() &&
-    (this->BlockNumCells.empty() || this->BlockNumPoints.empty() ||
-    (((this->BlockType == VTK_UNSTRUCTURED_GRID) ||
-    (this->BlockType == VTK_POLY_DATA)) && this->BlockCellArraySize.empty())))
-    {
-    SENSEI_ERROR("Metadata is missing block sizes")
-    err = true;
-    }
+  // figure out what the valid size is in this case
+  bool global = this->GlobalView || (this->MeshType == VTK_OVERLAPPING_AMR);
+  bool haveLocal = this->NumBlocksLocal.size() > 0;
+  bool haveAllLocal = this->NumBlocksLocal.size() == unsigned(nRanks);
+  unsigned long validSize = (global || !haveLocal ? this->NumBlocks :
+     (haveAllLocal ? this->NumBlocksLocal[rank] : this->NumBlocksLocal[0]));
 
-  if (localBlocks && this->Flags.BlockExtentsSet() &&
-    !((this->BlockType == VTK_UNSTRUCTURED_GRID) || (this->BlockType == VTK_POLY_DATA)))
+  // check block decomp
+  if (this->Flags.BlockDecompSet() || requiredFlags.BlockDecompSet())
     {
-    if (this->MeshType == VTK_OVERLAPPING_AMR)
+    if (this->BlockOwner.size() != validSize)
       {
-      if (this->NumBlocks != int(this->BlockExtents.size()))
-        {
-        SENSEI_ERROR("BlockExtents are always a global view in AMR data")
-        err = true;
-        }
-      if (this->Extent.size() != 6)
-        {
-        SENSEI_ERROR("Extent is required for AMR data")
-        err = true;
-        }
+      SENSEI_ERROR("Metadata inconsistency. BlockOwner has " << this->BlockOwner.size()
+        << " elements but should have " << validSize)
+      err = true;
       }
-    else if (((this->BlockType == VTK_IMAGE_DATA)
-      || (this->BlockType == VTK_RECTILINEAR_GRID) || (this->BlockType == VTK_STRUCTURED_GRID)))
+    if (this->BlockIds.size() != validSize)
       {
-      if (this->BlockExtents.empty())
+      SENSEI_ERROR("Metadata inconsistency. BlockIds has " << this->BlockOwner.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    }
+
+  // check block size
+  if (this->Flags.BlockSizeSet() || requiredFlags.BlockSizeSet())
+    {
+    if (this->BlockNumCells.size() != validSize)
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockNumCells has " << this->BlockNumCells.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    if (this->BlockNumPoints.size() != validSize)
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockNumPoints has " << this->BlockNumPoints.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    if (((this->BlockType == VTK_UNSTRUCTURED_GRID) || (this->BlockType == VTK_POLY_DATA)) &&
+      (this->BlockCellArraySize.size() != validSize))
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockCellArraySize has " << this->BlockCellArraySize.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    }
+
+  // check block extent
+  if ((this->Flags.BlockExtentsSet() || requiredFlags.BlockExtentsSet()) &&
+    ((this->MeshType == VTK_OVERLAPPING_AMR) || (this->BlockType == VTK_IMAGE_DATA) ||
+    (this->BlockType == VTK_RECTILINEAR_GRID) || (this->BlockType == VTK_STRUCTURED_GRID)))
+    {
+    if (this->BlockExtents.size() != validSize)
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockExtents has " << this->BlockExtents.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    if ((this->MeshType == VTK_OVERLAPPING_AMR) && (this->BlockLevel.size() != validSize))
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockLevel has " << this->BlockLevel.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    }
+
+  // check block bounds
+  if (this->Flags.BlockBoundsSet() || requiredFlags.BlockBoundsSet())
+    {
+    if (this->BlockBounds.size() != validSize)
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockBounds has " << this->BlockBounds.size()
+        << " elements but should have " << validSize)
+      err = true;
+      }
+    }
+
+  // check arrays
+  unsigned long numArrays = this->NumArrays;
+  if (this->ArrayName.size() != numArrays)
+    {
+    SENSEI_ERROR("Metadata inconsistency. ArrayName has " << this->ArrayName.size()
+      << " elements but should have " << numArrays)
+    err = true;
+    }
+  if (this->ArrayCentering.size() != numArrays)
+    {
+    SENSEI_ERROR("Metadata inconsistency. ArrayCentering has " << this->ArrayCentering.size()
+      << " elements but should have " << numArrays)
+    err = true;
+    }
+  if (this->ArrayComponents.size() != numArrays)
+    {
+    SENSEI_ERROR("Metadata inconsistency. ArrayComponents has " << this->ArrayComponents.size()
+      << " elements but should have " << numArrays)
+    err = true;
+    }
+  if (this->ArrayType.size() != numArrays)
+    {
+    SENSEI_ERROR("Metadata inconsistency. ArrayType has " << this->ArrayType.size()
+      << " elements but should have " << numArrays)
+    err = true;
+    }
+
+  // check block array ranges
+  if (this->Flags.BlockArrayRangeSet() || requiredFlags.BlockArrayRangeSet())
+    {
+    if (this->BlockArrayRange.size() != validSize)
+      {
+      SENSEI_ERROR("Metadata inconsistency. BlockArrayRange has "
+        << this->BlockArrayRange.size() << " elements but should have " << validSize)
+      err = true;
+      }
+    else
+      {
+      for (unsigned long i = 0; i < validSize; ++i)
         {
-        if (requiredFlags.BlockExtentsSet())
+        if (this->BlockArrayRange[i].size() != numArrays)
           {
-          SENSEI_ERROR("Metadata is missing block extents")
+          SENSEI_ERROR("Metadata inconsistency. BlockArrayRange at block " << i
+            << " has " << this->BlockArrayRange[i].size()
+            << " elements but should have " << numArrays)
           err = true;
           }
         }
       }
-    }
-
-  if (localBlocks && this->Flags.BlockBoundsSet() && ((this->BlockType == VTK_IMAGE_DATA)
-    || (this->BlockType == VTK_RECTILINEAR_GRID) || (this->BlockType == VTK_STRUCTURED_GRID)))
-    {
-    if (this->BlockBounds.empty())
+    if (this->GlobalView && (this->ArrayRange.size() != numArrays))
       {
-      if (requiredFlags.BlockBoundsSet())
-        {
-        SENSEI_ERROR("Metadata is missing block bounds")
-        err = true;
-        }
-      }
-    else if (this->Bounds.empty())
-      {
-      if (requiredFlags.BlockBoundsSet())
-        {
-        SENSEI_ERROR("Metadata is missing bounds")
-        err = true;
-        }
+      SENSEI_ERROR("Metadata inconsistency. ArrayRange has " << this->ArrayRange.size()
+        << " elements but should have " << numArrays)
+      err = true;
       }
     }
 
-  if (localBlocks && this->Flags.BlockArrayRangeSet() &&
-    (this->ArrayRange.empty() || this->BlockArrayRange.empty()))
+  // check amr specific
+  if (this->MeshType == VTK_OVERLAPPING_AMR)
     {
-    SENSEI_ERROR("Metadata is missing array range and/or block array range")
-    err = true;
+    if (this->RefRatio.size() != unsigned(this->NumLevels))
+      {
+      SENSEI_ERROR("Metadata inconsistency. RefRatio has " << this->RefRatio.size()
+        << " elements but should have " << this->NumLevels)
+      err = true;
+      }
     }
+
 
   return err ? -1 : 0;
 }
