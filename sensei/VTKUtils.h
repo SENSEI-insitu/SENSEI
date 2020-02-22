@@ -83,12 +83,6 @@ vtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
   vtkDataObject *dobj, bool take = true);
 
 /// Return true if the mesh or block type is AMR
-inline bool Amr(const MeshMetadataPtr &md)
-{
-  return (md->MeshType == VTK_OVERLAPPING_AMR);
-}
-
-/// Return true if the mesh or block type is logically Cartesian
 inline bool AMR(const MeshMetadataPtr &md)
 {
   return (md->MeshType == VTK_OVERLAPPING_AMR) ||

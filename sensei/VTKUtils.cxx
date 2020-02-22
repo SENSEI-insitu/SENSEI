@@ -656,12 +656,9 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
       {
       sg->GetExtent(ext.data());
       }
-    else
-      {
-      SENSEI_ERROR("Extents requested on non-Cartesian block encountered")
-      return -1;
-      }
     blockExtents.emplace_back(std::move(ext));
+
+    // TODO -- for AMR meshes extract blocvk level
     }
 
   if (flags.BlockBoundsSet())
