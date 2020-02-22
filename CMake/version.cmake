@@ -8,7 +8,7 @@ endif()
 if(NOT tmp)
     set(tmp "v0.0.0")
 endif()
-set(SENSEI_VERSION ${tmp} CACHE STRING "SENSEI version")
+set(SENSEI_VERSION ${tmp} CACHE STRING "SENSEI version" FORCE)
 
 string(REGEX REPLACE "^v([0-9]+)\\.([0-9]+)\\.([0-9]+)(.*$)"
   "\\1" SENSEI_VERSION_MAJOR ${SENSEI_VERSION})
