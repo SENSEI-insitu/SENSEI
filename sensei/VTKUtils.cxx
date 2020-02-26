@@ -1195,6 +1195,8 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
     return -1;
     }
 
+  bool haveAMR = VTKUtils::AMR(md);
+
   int numPoints = 8*(md->NumBlocks + 1);
   int numCells = md->NumBlocks + 1;
 
@@ -1225,6 +1227,16 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   ids->SetName("BlockIds");
   double *pIds = ids->GetPointer(0);
 
+  vtkIntArray *lev = nullptr;
+  int *pLev = nullptr;
+  if (VTKUtils::AMR(md))
+    {
+    lev = vtkIntArray::New();
+    lev->SetNumberOfTuples(numCells);
+    lev->SetName("BlockLevel");
+    pLev = lev->GetPointer(0);
+    }
+
   // define a hex for every block
   for (int i = 0; i < md->NumBlocks; ++i)
     {
@@ -1232,6 +1244,8 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
     HexCell(i, pCta, pClocs, pCids);
     pIds[i] = md->BlockIds[i];
     pOwner[i] = md->BlockOwner[i];
+    if (haveAMR)
+      pLev[i] = md->BlockLevel[i];
     }
 
   // and one for an enclosing box
@@ -1239,6 +1253,8 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   HexCell(md->NumBlocks, pCta, pClocs, pCids);
   pIds[md->NumBlocks] = -2;
   pOwner[md->NumBlocks] = -2;
+  if (haveAMR)
+    pLev[md->NumBlocks] = -2;
 
   vtkPoints *pts = vtkPoints::New();
   pts->SetData(coords);
@@ -1253,6 +1269,11 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   ug->SetCells(cta, clocs, ca);
   ug->GetCellData()->AddArray(ids);
   ug->GetCellData()->AddArray(owner);
+  if (haveAMR)
+    {
+    ug->GetCellData()->AddArray(lev);
+    lev->Delete();
+    }
 
   ids->Delete();
   owner->Delete();
