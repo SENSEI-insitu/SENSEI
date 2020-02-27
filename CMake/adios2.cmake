@@ -1,5 +1,6 @@
 if(ENABLE_ADIOS2)
   find_package(ADIOS2 REQUIRED)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
 
   add_library(sADIOS2 INTERFACE)
   target_link_libraries(sADIOS2 INTERFACE adios2::adios2)
