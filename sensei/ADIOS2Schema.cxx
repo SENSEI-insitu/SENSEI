@@ -559,9 +559,11 @@ int VersionSchema::Write(AdiosHandle handles)
 {
   sensei::Profiler::StartEvent("senseiADIOS2::VersionSchema::Write");
 
-  adios2_put_by_name(handles.engine, "DataObjectSchema", &this->Revision, adios2_mode_sync);
+  adios2_put_by_name(handles.engine, "DataObjectSchema",
+    &this->Revision, adios2_mode_sync);
 
-  sensei::Profiler::EndEvent("senseiADIOS2::VersionSchema::Write", sizeof(this->Revision));
+  sensei::Profiler::EndEvent("senseiADIOS2::VersionSchema::Write",
+     sizeof(this->Revision));
   return 0;
 }
 
@@ -608,10 +610,10 @@ int InputStream::Open(MPI_Comm comm)
 }
 
 //----------------------------------------------------------------------------
-// Add parameter to adios in string key value pairs
-void InputStream::AddAdios2Parameter(std::string key, std::string value)
+int InputStream::AddParameter(const std::string &key, const std::string &value)
 {
-    this->ADIOSParameters.emplace_back(key, value);
+  this->Parameters.emplace_back(key, value);
+  return 0;
 }
 
 // --------------------------------------------------------------------------
@@ -626,29 +628,27 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
   this->Close();
 
   // initialize adios2
-  // args  0: comm
-  //       1: debug mode
   this->Adios = adios2_init(comm, adios2_debug_mode_off);
 
   // Open the io handle
   this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
 
-  if (this->ReadEngine == "SST")
-    adios2_set_parameters(this->Handles.io, "RendezvousReaderCount=1 , RegistrationMethod=File");
-
   // If the user set additional parameters, add them now to ADIOS2
-  for (unsigned int j = 0; j < this->ADIOSParameters.size(); j++)
+  unsigned int nParms = this->Parameters.size();
+  for (unsigned int j = 0; j < nParms; ++j)
     {
+    std::pair<std::string,std::string> &parm = this->Parameters[j];
+
     adios2_set_parameter(this->Handles.io,
-                         this->ADIOSParameters[j].first.c_str(),
-                         this->ADIOSParameters[j].second.c_str());
+      parm.first.c_str(), parm.second.c_str());
     }
 
   // Open the engine now variables are declared
   adios2_set_engine(this->Handles.io, this->ReadEngine.c_str());
 
   // open the file
-  this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_read);
+  this->Handles.engine = adios2_open(this->Handles.io,
+    this->FileName.c_str(), adios2_mode_read);
 
   if (!this->Handles.engine)
     {
@@ -658,7 +658,9 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
 
   // begin step
   adios2_step_status status;
-  adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_read, -1, &status);
+
+  adios2_error err = adios2_begin_step(this->Handles.engine,
+    adios2_step_mode_read, -1, &status);
 
   if (err != 0)
     {
@@ -677,7 +679,7 @@ int InputStream::Open(MPI_Comm comm, std::string engine,
 
   // Check if the status says we are at the end or no step is ready, if so, just leave
   if (status == adios2_step_status::adios2_step_status_end_of_stream ||
-      status == adios2_step_status::adios2_step_status_not_ready)
+    status == adios2_step_status::adios2_step_status_not_ready)
     {
     this->Close();
     return -1;

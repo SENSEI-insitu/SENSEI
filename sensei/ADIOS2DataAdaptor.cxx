@@ -58,6 +58,13 @@ int ADIOS2DataAdaptor::SetReadEngine(const std::string &engine)
 }
 
 //----------------------------------------------------------------------------
+int ADIOS2DataAdaptor::AddParameter(const std::string &name,
+  const std::string &value)
+{
+  return this->Internals->Stream.AddParameter(name, value);
+}
+
+//----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 {
   TimeEvent<128> mark("ADIOS2DataAdaptor::Initialize");
@@ -65,7 +72,7 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
   // let the base class handle initialization of the partitioner etc
   if (this->InTransitDataAdaptor::Initialize(node))
     {
-    SENSEI_ERROR("Failed to intialize InTransitDataAdaptor")
+    SENSEI_ERROR("Failed to intialize the ADIOSDataAdaptor")
     return -1;
     }
 
@@ -74,6 +81,11 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 
   if (node.attribute("engine") &&
     this->SetReadEngine(node.attribute("engine").value()))
+    return -1;
+
+  if (node.attribute("timeout") &&
+    this->AddParameter("OpenTimeoutSecs",
+      node.attribute("timeout").value()))
     return -1;
 
   return 0;

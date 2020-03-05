@@ -23,6 +23,10 @@ public:
 
   int SetReadEngine(const std::string &readEngine);
 
+  // add name value pairs to pass into ADIOS after the
+  // engine has been created
+  int AddParameter(const std::string &name, const std::string &value);
+
   /// SENSEI InTransitDataAdaptor control API
   int Initialize(pugi::xml_node &parent) override;
   int Finalize() override;

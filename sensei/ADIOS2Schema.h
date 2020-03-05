@@ -116,7 +116,7 @@ struct InputStream
     }
 
   // pass engine parameters to ADIOS2 in key value pairs
-  void AddAdios2Parameter(std::string key, std::string value);
+  int AddParameter(const std::string &key, const std::string &value);
 
   int SetReadEngine(const std::string &engine);
 
@@ -135,7 +135,7 @@ struct InputStream
   adios2_adios *Adios;
   std::string ReadEngine;
   std::string FileName;
-  std::vector<std::pair<std::string,std::string>> ADIOSParameters;
+  std::vector<std::pair<std::string,std::string>> Parameters;
 };
 
 }
