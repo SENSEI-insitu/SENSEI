@@ -194,9 +194,8 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
   if (!this->Schema)
     {
     // initialize adios2
-    // args  0: comm
-    //       1: debug mode
-    this->Adios = adios2_init(this->GetCommunicator(), adios2_debug_mode_off);
+    this->Adios = adios2_init(this->GetCommunicator(),
+      adios2_debug_mode_off);
 
     // Open the io handle
     this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
@@ -280,11 +279,11 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
       adios2_set_parameters(this->Handles.io, "RendezvousReaderCount=1 , RegistrationMethod=File");
 
     // If the user set additional parameters, add them now to ADIOS2
-    for (unsigned int j = 0; j < this->ADIOSParameters.size(); j++)
+    for (unsigned int j = 0; j < this->Parameters.size(); j++)
       {
         adios2_set_parameter(this->Handles.io,
-                             this->ADIOSParameters[j].first.c_str(),
-                             this->ADIOSParameters[j].second.c_str());
+                             this->Parameters[j].first.c_str(),
+                             this->Parameters[j].second.c_str());
       }
 
     this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_write);
@@ -322,16 +321,16 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     {
     SENSEI_ERROR("ADIOS2 error on adios2_end_step call, error code enum: " << endErr )
     return -1;
-  }
+    }
 
   return ierr;
 }
 
 //----------------------------------------------------------------------------
-// Add parameter to adios in string key value pairs
-void ADIOS2AnalysisAdaptor::AddAdios2Parameter(std::string key, std::string value)
+void ADIOS2AnalysisAdaptor::AddParameter(const std::string &key,
+  const std::string &value)
 {
-    ADIOSParameters.emplace_back(key, value);
+  this->Parameters.emplace_back(key, value);
 }
 
 }

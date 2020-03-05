@@ -19,15 +19,12 @@ class vtkDataObject;
 namespace senseiADIOS2
 {
 
-
-// typedef struct {
-class AdiosHandle
+struct AdiosHandle
 {
-public:
-   adios2_io *io;
-   adios2_engine *engine;
-}; //AdiosHandle;
-
+  AdiosHandle() : io(nullptr), engine(nullptr) {}
+  adios2_io *io;
+  adios2_engine *engine;
+};
 
 struct InputStream;
 
