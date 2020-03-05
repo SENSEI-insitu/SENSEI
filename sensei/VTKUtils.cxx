@@ -58,7 +58,7 @@
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkSOADataArrayTemplate.h>
 #endif
-#include <vtkUnstructuredGridWriter.h>
+#include <vtkXMLUnstructuredGridWriter.h>
 #include <vtkPoints.h>
 #include <vtkDoubleArray.h>
 #include <vtkIdTypeArray.h>
@@ -1280,9 +1280,11 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   pts->Delete();
   ca->Delete();
 
-  vtkUnstructuredGridWriter *w = vtkUnstructuredGridWriter::New();
+  vtkXMLUnstructuredGridWriter *w = vtkXMLUnstructuredGridWriter::New();
   w->SetInputData(ug);
   w->SetFileName(fileName.c_str());
+  w->SetCompressorTypeToNone();
+  w->EncodeAppendedDataOff();
   w->Write();
 
   w->Delete();
