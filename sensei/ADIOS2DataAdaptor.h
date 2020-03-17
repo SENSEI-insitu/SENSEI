@@ -19,9 +19,16 @@ public:
   static ADIOS2DataAdaptor* New();
   senseiTypeMacro(ADIOS2DataAdaptor, sensei::InTransitDataAdaptor);
 
+  // set the file name used to connect. this will be the same
+  // name given to the write side analysis adaptor
   int SetFileName(const std::string &fileName);
 
+  // set te adios engine to use. this will be the same engine
+  // given to the write side analysis adaptor
   int SetReadEngine(const std::string &readEngine);
+
+  // enable/disable adios internal debug messages
+  int SetDebugMode(int mode);
 
   // add name value pairs to pass into ADIOS after the
   // engine has been created

@@ -104,21 +104,21 @@ private:
 /// High level operations on an ADIOS file/stream
 struct InputStream
 {
-  InputStream()
-    {
-    Handles.engine = nullptr;
-    Handles.io = nullptr;
-    ReadEngine = "";
-    FileName = "";
-    }
+  InputStream() : Handles(), Adios(nullptr),
+    ReadEngine(""), FileName(""), DebugMode(0) {}
 
   // pass engine parameters to ADIOS2 in key value pairs
   int AddParameter(const std::string &key, const std::string &value);
 
+  // set the ADIOS engine to use. Must be the same as on
+  // the write side.
   int SetReadEngine(const std::string &engine);
 
+  // set debug mode 0 off, 1 on
+  int SetDebugMode(int mode);
+
   int Open(MPI_Comm comm, std::string readEngine,
-    const std::string &fileName);
+    const std::string &fileName, int debugMode);
 
   int Open(MPI_Comm Comm);
 
@@ -133,6 +133,7 @@ struct InputStream
   std::string ReadEngine;
   std::string FileName;
   std::vector<std::pair<std::string,std::string>> Parameters;
+  int DebugMode;
 };
 
 }

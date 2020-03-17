@@ -47,6 +47,9 @@ public:
   std::string GetFileName() const
   { return this->FileName; }
 
+  void SetDebugMode(int mode)
+  { this->DebugMode = mode; }
+
   /// data requirements tell the adaptor what to push
   /// if none are given then all data is pushed.
   int SetDataRequirements(const DataRequirements &reqs);
@@ -80,6 +83,7 @@ protected:
   senseiADIOS2::AdiosHandle Handles;
   adios2_adios *Adios;
   std::vector<std::pair<std::string,std::string>> Parameters;
+  int DebugMode;
 
 private:
   ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;

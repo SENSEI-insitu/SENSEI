@@ -452,6 +452,9 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   if (!bufferMode.empty())
     adiosAdaptor->AddParameter("QueueFullPolicy", bufferMode);
 
+  // turn on/off debug output
+  adiosAdaptor->SetDebugMode(node.attribute("debug_mode").as_int(0));
+
   DataRequirements req;
   if (req.Initialize(node))
     {
