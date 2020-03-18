@@ -1,5 +1,5 @@
 <sensei>
-  <transport type="adios2" filename="test.bp" method="bp4">
+  <transport type="adios2" filename="test.bp" debug_mode="1" engine="bp4">
     <partitioner type="mapped">
       <block_id>    0 1 2 3 4 5 6 7 8 </block_id>
       <block_owner> 0 0 0 0 1 0 0 0 0 </block_owner>

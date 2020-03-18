@@ -810,7 +810,7 @@ struct ArraySchema
     unsigned int num_blocks, const std::vector<long> &block_num_points,
     const std::vector<long> &block_num_cells,
     const std::vector<int> &block_owner, std::vector<size_t> &putVarsStart,
-    std::vector<size_t> &putVarsCount, std::string &putVarsName);
+    std::vector<size_t> &putVarsCount, adios2_variable *&putVar);
 
   int Write(MPI_Comm comm, AdiosHandle handles,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
@@ -819,7 +819,7 @@ struct ArraySchema
     const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
     unsigned int num_blocks, const std::vector<int> &block_owner,
     const std::vector<size_t> &putVarsStart, const std::vector<size_t> &putVarsCount,
-    const std::string &putVarsName);
+    adios2_variable *putVar);
 
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const std::string &array_name, int centering,
@@ -834,7 +834,7 @@ struct ArraySchema
 
   std::map<std::string,std::vector<size_t>> PutVarsStart;
   std::map<std::string,std::vector<size_t>> PutVarsCount;
-  std::map<std::string,std::vector<std::string>> PutVarsName;
+  std::map<std::string,std::vector<adios2_variable*>> PutVars;
 };
 
 
@@ -848,7 +848,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   const std::vector<int> &block_owner,
   std::vector<size_t> &putVarsStart,
   std::vector<size_t> &putVarsCount,
-  std::string &putVarsName)
+  adios2_variable *&putVar)
 {
   sensei::TimeEvent<128> mark("senseiADIOS2::ArraySchema::DefineVariable");
 
@@ -868,7 +868,6 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
 
    // /data_object_<id>/data_array_<id>/data
   std::string path = ans.str() + "data";
-  putVarsName = path;
 
   // select global size either point or cell data
   unsigned long num_elem_total = (array_cen == vtkDataObject::POINT ?
@@ -877,22 +876,26 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
   // adios2 type of the array
   adios2_type elem_type = adiosType(array_type);
 
-  // define the variable once for each block
-  unsigned long block_offset = 0;
+  // unlike ADIOS1 in ADIOS2 you can't define the variable once for
+  // each write. Instead define it once with an empty size. and calculate
+  // all the book keeping info to later write each block's chunk of
+  // the array in the correct spot.
 
-  size_t defaultVal = 0;
+  size_t localStart = 0;
+  size_t localCount = 0;
 
-  adios2_variable *put_var = adios2_define_variable(handles.io,
-     path.c_str(), elem_type, 1, &num_elem_total, &defaultVal,
-     &defaultVal, adios2_constant_dims_false);
+  putVar = adios2_define_variable(handles.io,
+     path.c_str(), elem_type, 1, &num_elem_total, &localStart,
+     &localCount, adios2_constant_dims_false);
 
-  if (!put_var)
+  if (!putVar)
     {
     SENSEI_ERROR("adios2_define_variable failed with "
       << "num_elem_total=" << num_elem_total << " path=\""
       << path << "\"")
     }
 
+  unsigned long block_offset = 0;
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     // get the block size
@@ -900,7 +903,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, AdiosHandle handles,
       block_num_points[j] : block_num_cells[j])*num_components;
 
     // define the variable for a local block
-    if (block_owner[j] ==  rank)
+    if (block_owner[j] == rank)
       {
       // save the var attr. to use later for putting
       putVarsStart[i*num_blocks + j] = block_offset;
@@ -923,7 +926,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 
   std::vector<size_t> &putVarsStart = this->PutVarsStart[md->MeshName];
   std::vector<size_t> &putVarsCount = this->PutVarsCount[md->MeshName];
-  std::vector<std::string> &putVarsName = this->PutVarsName[md->MeshName];
+  std::vector<adios2_variable*> &putVars = this->PutVars[md->MeshName];
 
   // allocate write ids
   unsigned int num_blocks = md->NumBlocks;
@@ -938,7 +941,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 
   putVarsStart.resize(num_blocks*num_arrays_total);
   putVarsCount.resize(num_blocks*num_arrays_total);
-  putVarsName.resize(num_arrays_total);
+  putVars.resize(num_arrays_total);
 
   // compute global sizes
   unsigned long long num_points_total = 0;
@@ -955,7 +958,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
     if (this->DefineVariable(comm, handles, ons, i, md->ArrayType[i],
       md->ArrayComponents[i], md->ArrayCentering[i], num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, putVarsStart, putVarsCount, putVarsName[i]))
+      md->BlockOwner, putVarsStart, putVarsCount, putVars[i]))
       return -1;
     }
 
@@ -963,14 +966,14 @@ int ArraySchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   if (have_ghost_cells && this->DefineVariable(comm, handles, ons,
       num_arrays, VTK_UNSIGNED_CHAR, 1, vtkDataObject::CELL, num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
-      md->BlockOwner, putVarsStart, putVarsCount, putVarsName[num_arrays]))
+      md->BlockOwner, putVarsStart, putVarsCount, putVars[num_arrays]))
       return -1;
 
   if (md->NumGhostNodes && this->DefineVariable(comm, handles, ons,
       num_arrays, VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
       md->BlockOwner, putVarsStart, putVarsCount,
-      putVarsName[num_arrays + (have_ghost_cells ? 1 : 0)]))
+      putVars[num_arrays + (have_ghost_cells ? 1 : 0)]))
       return -1;
 
   return 0;
@@ -982,7 +985,7 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
   unsigned int num_blocks, const std::vector<int> &block_owner,
   const std::vector<size_t> &putVarsStart,
   const std::vector<size_t> &putVarsCount,
-  const std::string &putVarsName)
+  adios2_variable *putVar)
 {
   sensei::Profiler::StartEvent("senseiADIOS2::ArraySchema::Write");
   long long numBytes = 0ll;
@@ -1017,35 +1020,28 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles, unsigned int i,
         return -1;
         }
 
-      adios2_variable *currVar =
-        adios2_inquire_variable(handles.io, putVarsName.c_str());
-
-      if (!currVar)
+      // select the spot in the global array that this block's
+      // data will land
+      size_t start = putVarsStart[i*num_blocks + j];
+      size_t count = putVarsCount[i*num_blocks + j];
+      if (adios2_set_selection(putVar, 1, &start, &count))
         {
-        SENSEI_ERROR("adios2_inquire_variable \"" << putVarsName
-          << "\" block " << j << " array " << i << " failed")
+        SENSEI_ERROR("adios2_set_selection start=" << start
+          << " count=" << count << " block " << j << " array "
+          << i << " failed")
         return -1;
         }
 
-      if (adios2_set_selection(currVar, 1, &(putVarsStart[i*num_blocks + j]),
-        &(putVarsCount[i*num_blocks + j])))
+      // do the write
+      if (adios2_put(handles.engine, putVar,
+        da->GetVoidPointer(0), adios2_mode_sync))
         {
-        SENSEI_ERROR("adios2_set_selection start=" << putVarsStart[i*num_blocks + j]
-          << " count=" << putVarsCount[i*num_blocks + j]
-          << "\" block " << j << " array " << i << " failed")
+        SENSEI_ERROR("adios2_put block " << j << " array "
+          << i << " failed")
         return -1;
         }
 
-      if (adios2_put_by_name(handles.engine,
-        putVarsName.c_str(), da->GetVoidPointer(0), adios2_mode_sync))
-        {
-        SENSEI_ERROR("adios2_put_by_name \"" << putVarsName
-          << "\" block " << j << " array " << i << " failed")
-        return -1;
-        }
-
-      numBytes += da->GetNumberOfTuples()*
-        da->GetNumberOfComponents()*size(da->GetDataType());
+      numBytes += count*size(da->GetDataType());
       }
 
     it->GoToNextItem();
@@ -1068,7 +1064,7 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles,
 
   std::vector<size_t> &putVarsStart = this->PutVarsStart[md->MeshName];
   std::vector<size_t> &putVarsCount = this->PutVarsCount[md->MeshName];
-  std::vector<std::string> &putVarsName = this->PutVarsName[md->MeshName];
+  std::vector<adios2_variable*> &putVars = this->PutVars[md->MeshName];
 
   // write data arrays
   unsigned int num_arrays = md->NumArrays;
@@ -1077,20 +1073,20 @@ int ArraySchema::Write(MPI_Comm comm, AdiosHandle handles,
   for (unsigned int i = 0; i < num_arrays; ++i)
     {
     if (this->Write(comm, handles, i, md->ArrayName[i], md->ArrayCentering[i],
-      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVarsName[i]))
+      dobj, md->NumBlocks, md->BlockOwner, putVarsStart, putVarsCount, putVars[i]))
       return -1;
     }
 
   // write ghost arrays
   if (have_ghost_cells && this->Write(comm, handles, num_arrays, "vtkGhostType",
     vtkDataObject::CELL, dobj, md->NumBlocks, md->BlockOwner, putVarsStart,
-    putVarsCount, putVarsName[num_arrays]))
+    putVarsCount, putVars[num_arrays]))
       return -1;
 
   if (md->NumGhostNodes && this->Write(comm, handles, num_arrays,
     "vtkGhostType", vtkDataObject::POINT, dobj, md->NumBlocks,
     md->BlockOwner, putVarsStart, putVarsCount,
-    putVarsName[num_arrays + (have_ghost_cells ? 1 : 0)]))
+    putVars[num_arrays + (have_ghost_cells ? 1 : 0)]))
     return -1;
 
   return 0;
@@ -1246,28 +1242,24 @@ struct PointSchema
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<adios2_variable*>> PutVars;
+  std::map<std::string, std::vector<size_t>> Starts;
+  std::map<std::string, std::vector<size_t>> Counts;
+  std::map<std::string, adios2_variable*> PutVars;
 };
 
 // --------------------------------------------------------------------------
 int PointSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
+  (void)comm;
+
   if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
     || sensei::VTKUtils::Polydata(md))
     {
-    sensei::TimeEvent<128> mark(
-      "senseiADIOS2::PointSchema::DefineVariables");
-
-    int rank = 0;
-    MPI_Comm_rank(comm, &rank);
-
-    // allocate write ids
-    std::vector<adios2_variable*> &putVars = this->PutVars[md->MeshName];
-    unsigned int num_blocks = md->NumBlocks;
-    putVars.resize(num_blocks);
+    sensei::TimeEvent<128> mark("senseiADIOS2::PointSchema::DefineVariables");
 
     // calc global size
+    unsigned int num_blocks = md->NumBlocks;
     unsigned long long num_total = 0;
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
@@ -1279,42 +1271,41 @@ int PointSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 
     // global size
     size_t gdims = 3*num_total;
+    size_t ldims = 0;
+    size_t loffs = 0;
 
-    // define the variable once for each block
+    // /data_object_<id>/points
+    std::string path_pts = ons + "points";
+
+    adios2_variable *var = adios2_define_variable(
+      handles.io, path_pts.c_str(), type, 1,  &gdims, &loffs,
+      &ldims, adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_pts << "\" failed")
+      return -1;
+      }
+
+    // save the id for subsequent write
+    this->PutVars[md->MeshName] = var;
+
+    // calculate the starts and counts for each write
+    std::vector<size_t> &starts = this->Starts[md->MeshName];
+    std::vector<size_t> &counts = this->Counts[md->MeshName];
+
+    starts.resize(num_blocks);
+    counts.resize(num_blocks);
+
     unsigned long long block_offset = 0;
 
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
-      // get the block size
       unsigned long long num_local = md->BlockNumPoints[j];
 
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        // local size as a string
-        size_t ldims = 3*num_local;
+      counts[j] = 3*num_local;
+      starts[j] = 3*block_offset;
 
-        // offset as a string
-        size_t boffs = 3*block_offset;
-
-        // /data_object_<id>/data_array_<id>/points
-        std::string path_pts = ons + "points";
-
-        adios2_variable *put_var = adios2_define_variable(
-          handles.io, path_pts.c_str(), type, 1,  &gdims, &boffs,
-          &ldims, adios2_constant_dims_true);
-
-        if (put_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_pts
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-        // save the id for subsequent write
-        putVars[j] = put_var;
-        }
-
-      // update the block offset
       block_offset += num_local;
       }
     }
@@ -1335,7 +1326,9 @@ int PointSchema::Write(MPI_Comm comm, AdiosHandle handles,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<adios2_variable*> &putVars = this->PutVars[md->MeshName];
+    const std::vector<size_t> &starts = this->Starts[md->MeshName];
+    const std::vector<size_t> &counts = this->Counts[md->MeshName];
+    adios2_variable *putVar = this->PutVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -1353,8 +1346,19 @@ int PointSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
+        // select the spot in the global array that this block's
+        // data will land
+        size_t start = starts[j];
+        size_t count = counts[j];
+        if (adios2_set_selection(putVar, 1, &start, &count))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << start
+            << " count=" << count << " block " << j << " failed")
+          return -1;
+          }
+
         vtkDataArray *da = ds->GetPoints()->GetData();
-        if (adios2_put(handles.engine, putVars[j],
+        if (adios2_put(handles.engine, putVar,
           da->GetVoidPointer(0), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put \"" << md->MeshName
@@ -1362,8 +1366,7 @@ int PointSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        numBytes += da->GetNumberOfTuples()*
-          da->GetNumberOfComponents()*size(da->GetDataType());
+        numBytes += count*size(da->GetDataType());
         }
 
       it->GoToNextItem();
@@ -1482,30 +1485,28 @@ struct UnstructuredCellSchema
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<adios2_variable*>> TypeWriteVars;
-  std::map<std::string, std::vector<adios2_variable*>> ArrayWriteVars;
+  std::map<std::string, adios2_variable*> CellTypeVars;
+  std::map<std::string, std::vector<size_t>> CellTypeStarts;
+  std::map<std::string, std::vector<size_t>> CellTypeCounts;
+
+  std::map<std::string, adios2_variable*> CellArrayVars;
+  std::map<std::string, std::vector<size_t>> CellArrayStarts;
+  std::map<std::string, std::vector<size_t>> CellArrayCounts;
 };
 
 // --------------------------------------------------------------------------
 int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
+  (void)comm;
+
   if (sensei::VTKUtils::Unstructured(md))
     {
     sensei::TimeEvent<128> mark(
       "senseiADIOS2::UnstructuredCellSchema::DefineVariables");
 
-    int rank = 0;
-    MPI_Comm_rank(comm, &rank);
-
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
-
-    std::vector<adios2_variable*> &typeWriteVars = this->TypeWriteVars[md->MeshName];
-    typeWriteVars.resize(num_blocks);
-
-    std::vector<adios2_variable*> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
-    arrayWriteVars.resize(num_blocks);
 
     // calculate global size
     unsigned long long num_cells_total = 0;
@@ -1522,73 +1523,71 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
 
     // global sizes
     size_t cell_type_gdmins = num_cells_total;
-
     size_t cell_array_gdims = cell_array_size_total;
+    size_t start = 0;
+    size_t count = 0;
 
-    // define the variable once for each block
-    unsigned long long cell_types_block_offset = 0;
-    unsigned long long cell_array_block_offset = 0;
+    // /data_object_<id>/cell_array
+    std::string path_ca = ons + "cell_array";
 
+    adios2_variable *var = adios2_define_variable(handles.io,
+      path_ca.c_str(), cell_array_type, 1, &cell_array_gdims,
+      &start, &count, adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_ca << "\" failed")
+      return -1;
+      }
+
+    // save the variable for later writes
+    this->CellTypeVars[md->MeshName] = var;
+
+    // /data_object_<id>/cell_types
+    std::string path_ct = ons + "cell_types";
+
+    var = adios2_define_variable(handles.io, path_ct.c_str(),
+      adios2_type_uint8_t, 1, &cell_type_gdmins, &start, &count,
+      adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable " << path_ct << "\" failed")
+      return -1;
+      }
+
+    // save the variable for later writes
+    this->CellArrayVars[md->MeshName] = var;
+
+    // calculate start and count for writing each block
+    std::vector<size_t> &cellArrayStarts = this->CellArrayStarts[md->MeshName];
+    std::vector<size_t> &cellArrayCounts = this->CellArrayCounts[md->MeshName];
+    cellArrayStarts.resize(num_blocks);
+    cellArrayCounts.resize(num_blocks);
+
+    std::vector<size_t> &cellTypeStarts = this->CellTypeStarts[md->MeshName];
+    std::vector<size_t> &cellTypeCounts = this->CellTypeCounts[md->MeshName];
+    cellTypeStarts.resize(num_blocks);
+    cellTypeCounts.resize(num_blocks);
+
+    size_t cellTypesStart = 0;
+    size_t cellArrayStart = 0;
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
       // get the block size
-      unsigned long long num_cells_local = md->BlockNumCells[j];
-      unsigned long long cell_array_size_local = md->BlockCellArraySize[j];
+      size_t numCellsLocal = md->BlockNumCells[j];
+      size_t cellArraySizeLocal = md->BlockCellArraySize[j];
 
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        // local size as a string
-        size_t cell_array_ldims = cell_array_size_local;
+      // local size & offset
+      cellArrayCounts[j]  = cellArraySizeLocal;
+      cellArrayStarts[j] = cellArrayStart;
 
-        // offset as a string
-        size_t cell_array_boffs = cell_array_block_offset;
-
-        // /data_object_<id>/cell_array
-        std::string path_ca = ons + "cell_array";
-
-        adios2_variable *cell_array_write_var = adios2_define_variable(handles.io,
-            path_ca.c_str(), cell_array_type, 1, &cell_array_gdims,
-            &cell_array_boffs, &cell_array_ldims, adios2_constant_dims_true);
-
-        if (cell_array_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_ca
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        arrayWriteVars[j] = cell_array_write_var;
-
-        // local size as a string
-        size_t cell_types_ldims = num_cells_local;
-
-        // offset as a string
-        size_t cell_types_boffs = cell_types_block_offset;
-
-        // /data_object_<id>/cell_types
-        std::string path_ct = ons + "cell_types";
-
-        adios2_variable *cell_type_write_var = adios2_define_variable(handles.io,
-            path_ct.c_str(), adios2_type_uint8_t, 1,
-            &cell_type_gdmins, &cell_types_boffs, &cell_types_ldims,
-            adios2_constant_dims_true);
-
-        if (cell_type_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable " << path_ct
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the write id to tell adios which block we are writing later
-        typeWriteVars[j] = cell_type_write_var;
-        }
+      cellTypeCounts[j]  = numCellsLocal;
+      cellTypeStarts[j] = cellTypesStart;
 
       // update the block offset
-      cell_types_block_offset += num_cells_local;
-      cell_array_block_offset += cell_array_size_local;
+      cellTypesStart += numCellsLocal;
+      cellArrayStart += cellArraySizeLocal;
       }
     }
 
@@ -1607,8 +1606,13 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<adios2_variable*> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
-    std::vector<adios2_variable*> &typeWriteVars = this->TypeWriteVars[md->MeshName];
+    adios2_variable *cellArrayVar = this->CellArrayVars[md->MeshName];
+    std::vector<size_t> &cellArrayStarts = this->CellArrayStarts[md->MeshName];
+    std::vector<size_t> &cellArrayCounts = this->CellArrayCounts[md->MeshName];
+
+    adios2_variable *cellTypeVar = this->CellTypeVars[md->MeshName];
+    std::vector<size_t> &cellTypeStarts = this->CellTypeStarts[md->MeshName];
+    std::vector<size_t> &cellTypeCounts = this->CellTypeCounts[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -1628,10 +1632,20 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        vtkDataArray *cta = ds->GetCellTypesArray();
-        vtkDataArray *ca = ds->GetCells()->GetData();
+        // select the spot in the global cellArray that this block's
+        // data will land
+        size_t ctStart = cellTypeStarts[j];
+        size_t ctCount = cellTypeCounts[j];
+        if (adios2_set_selection(cellTypeVar, 1, &ctStart, &ctCount))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << ctStart
+            << " count=" << ctCount << " block " << j << " failed")
+          return -1;
+          }
 
-        if (adios2_put(handles.engine, typeWriteVars[j],
+        // write cell cellTypes
+        vtkDataArray *cta = ds->GetCellTypesArray();
+        if (adios2_put(handles.engine, cellTypeVar,
           cta->GetVoidPointer(0), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put cell types for mesh \""
@@ -1639,7 +1653,20 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        if (adios2_put(handles.engine, arrayWriteVars[j],
+        // select the spot in the global cellArray that this block's
+        // data will land
+        size_t caStart = cellArrayStarts[j];
+        size_t caCount = cellArrayCounts[j];
+        if (adios2_set_selection(cellArrayVar, 1, &caStart, &caCount))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << caStart
+            << " count=" << caCount << " block " << j << " failed")
+          return -1;
+          }
+
+        // write cell cellArray
+        vtkDataArray *ca = ds->GetCells()->GetData();
+        if (adios2_put(handles.engine, cellArrayVar,
           ca->GetVoidPointer(0), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put cell array for mesh \""
@@ -1647,14 +1674,17 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        numBytes += cta->GetNumberOfTuples()*size(cta->GetDataType()) +
-          ca->GetNumberOfTuples()*size(ca->GetDataType());
+        numBytes += ctCount*size(cta->GetDataType()) +
+          caCount*size(ca->GetDataType());
         }
+
       it->GoToNextItem();
       }
+
     it->Delete();
 
-    sensei::Profiler::EndEvent("senseiADIOS2::UnstructuredCellSchema::Write", numBytes);
+    sensei::Profiler::EndEvent("senseiADIOS2::UnstructuredCellSchema::Write",
+      numBytes);
     }
 
   return 0;
@@ -1811,30 +1841,27 @@ struct PolydataCellSchema
     const std::string &ons, const sensei::MeshMetadataPtr &md,
     vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<adios2_variable*>> TypeWriteVars;
-  std::map<std::string, std::vector<adios2_variable*>> ArrayWriteVars;
+  std::map<std::string, adios2_variable*> CellTypeVars;
+  std::map<std::string, std::vector<size_t>> CellTypeStarts;
+  std::map<std::string, std::vector<size_t>> CellTypeCounts;
+
+  std::map<std::string, adios2_variable*> CellArrayVars;
+  std::map<std::string, std::vector<size_t>> CellArrayStarts;
+  std::map<std::string, std::vector<size_t>> CellArrayCounts;
 };
 
 // --------------------------------------------------------------------------
 int PolydataCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
+  (void)comm;
+
   if (sensei::VTKUtils::Polydata(md))
     {
-    sensei::TimeEvent<128> mark(
-      "senseiADIOS2::PolydataCellSchema::DefineVariables");
-
-    int rank = 0;
-    MPI_Comm_rank(comm, &rank);
+    sensei::TimeEvent<128> mark("senseiADIOS2::PolydataCellSchema::DefineVariables");
 
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
-
-    std::vector<adios2_variable*> &typeWriteVars = this->TypeWriteVars[md->MeshName];
-    typeWriteVars.resize(num_blocks);
-
-    std::vector<adios2_variable*> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
-    arrayWriteVars.resize(num_blocks);
 
     // calculate global size
     unsigned long long num_cells_total = 0;
@@ -1850,71 +1877,72 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
     adios2_type cell_array_type = adiosIdType();
 
     // global sizes
-    size_t cell_types_gdims = num_cells_total;
+    size_t cell_type_gdmins = num_cells_total;
     size_t cell_array_gdims = cell_array_size_total;
+    size_t start = 0;
+    size_t count = 0;
 
-    // define the variable once for each block
-    unsigned long long cell_type_block_offset = 0;
-    unsigned long long cell_array_block_offset = 0;
+    // /data_object_<id>/cell_array
+    std::string path_ca = ons + "cell_array";
 
+    adios2_variable *var = adios2_define_variable(handles.io,
+      path_ca.c_str(), cell_array_type, 1, &cell_array_gdims,
+      &start, &count, adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_ca << "\" failed")
+      return -1;
+      }
+
+    // save the variable for later writes
+    this->CellArrayVars[md->MeshName] = var;
+
+    // /data_object_<id>/cell_types
+    std::string path_ct = ons + "cell_types";
+
+    var = adios2_define_variable(handles.io, path_ct.c_str(),
+      adios2_type_uint8_t, 1, &cell_type_gdmins, &start, &count,
+      adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable " << path_ct << "\" failed")
+      return -1;
+      }
+
+    // save the variable for later writes
+    this->CellTypeVars[md->MeshName] = var;
+
+    // calculate start and count for writing each block
+    std::vector<size_t> &cellArrayStarts = this->CellArrayStarts[md->MeshName];
+    std::vector<size_t> &cellArrayCounts = this->CellArrayCounts[md->MeshName];
+    cellArrayStarts.resize(num_blocks);
+    cellArrayCounts.resize(num_blocks);
+
+    std::vector<size_t> &cellTypeStarts = this->CellTypeStarts[md->MeshName];
+    std::vector<size_t> &cellTypeCounts = this->CellTypeCounts[md->MeshName];
+    cellTypeStarts.resize(num_blocks);
+    cellTypeCounts.resize(num_blocks);
+
+    size_t cellTypesStart = 0;
+    size_t cellArrayStart = 0;
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
       // get the block size
-      unsigned long long num_cells_local = md->BlockNumCells[j];
-      unsigned long long cell_array_size_local = md->BlockCellArraySize[j];
+      size_t numCellsLocal = md->BlockNumCells[j];
+      size_t cellArraySizeLocal = md->BlockCellArraySize[j];
 
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        // local size
-        size_t cell_array_ldims = cell_array_size_local;
+      // local size & offset
+      cellArrayCounts[j]  = cellArraySizeLocal;
+      cellArrayStarts[j] = cellArrayStart;
 
-        // local size
-        size_t cell_types_ldims = num_cells_local;
-
-        // offset
-        size_t cell_types_boffs = cell_type_block_offset;
-
-        // /data_object_<id>/cell_types
-        std::string path_ct = ons + "cell_types";
-
-        adios2_variable *cell_type_write_var = adios2_define_variable(handles.io, path_ct.c_str(),
-           adios2_type_uint8_t, 1, &cell_types_gdims,
-           &cell_types_boffs, &cell_types_ldims, adios2_constant_dims_true);
-
-        if (cell_type_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_ct
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the write id to tell adios which block we are writing later
-        typeWriteVars[j] = cell_type_write_var;
-
-        // offset
-        size_t cell_array_boffs = cell_array_block_offset;
-
-        // /data_object_<id>/cell_array
-        std::string path_ca = ons + "cell_array";
-        adios2_variable *cell_array_write_var = adios2_define_variable(handles.io, path_ca.c_str(),
-           cell_array_type, 1, &cell_array_gdims,
-           &cell_array_boffs, &cell_array_ldims, adios2_constant_dims_true);
-
-        if (cell_array_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_ca
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        arrayWriteVars[j] = cell_array_write_var;
-        }
+      cellTypeCounts[j]  = numCellsLocal;
+      cellTypeStarts[j] = cellTypesStart;
 
       // update the block offset
-      cell_type_block_offset += num_cells_local;
-      cell_array_block_offset += cell_array_size_local;
+      cellTypesStart += numCellsLocal;
+      cellArrayStart += cellArraySizeLocal;
       }
     }
 
@@ -1933,8 +1961,13 @@ int PolydataCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<adios2_variable*> &typeWriteVars = this->TypeWriteVars[md->MeshName];
-    std::vector<adios2_variable*> &arrayWriteVars = this->ArrayWriteVars[md->MeshName];
+    adios2_variable *cellArrayVar = this->CellArrayVars[md->MeshName];
+    std::vector<size_t> &cellArrayStarts = this->CellArrayStarts[md->MeshName];
+    std::vector<size_t> &cellArrayCounts = this->CellArrayCounts[md->MeshName];
+
+    adios2_variable *cellTypeVar = this->CellTypeVars[md->MeshName];
+    std::vector<size_t> &cellTypeStarts = this->CellTypeStarts[md->MeshName];
+    std::vector<size_t> &cellTypeCounts = this->CellTypeCounts[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -1991,19 +2024,48 @@ int PolydataCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
           cells.insert(cells.end(), ps, ps + pd->GetStrips()->GetData()->GetNumberOfTuples());
           }
 
-        if (adios2_put(handles.engine, typeWriteVars[j], types.data(), adios2_mode_sync))
+        // select the spot in the global cellArray that this block's
+        // data will land
+        size_t ctStart = cellTypeStarts[j];
+        size_t ctCount = cellTypeCounts[j];
+        if (adios2_set_selection(cellTypeVar, 1, &ctStart, &ctCount))
           {
-          SENSEI_ERROR("adios2_put cell types for block " << j << " failed")
+          SENSEI_ERROR("adios2_set_selection start=" << ctStart
+            << " count=" << ctCount << " block " << j << " failed")
           return -1;
           }
 
-        if (adios2_put(handles.engine, arrayWriteVars[j], cells.data(), adios2_mode_sync))
+        // write cell cellTypes
+        if (adios2_put(handles.engine, cellTypeVar,
+          types.data(), adios2_mode_sync))
           {
-          SENSEI_ERROR("adios2_put cell array for block " << j << " failed")
+          SENSEI_ERROR("adios2_put cell types for mesh \""
+            << md->MeshName << "\" block " << j << " failed")
           return -1;
           }
 
-        numBytes += types.size()*sizeof(unsigned char) + cells.size()*sizeof(vtkIdType);
+        // select the spot in the global cellArray that this block's
+        // data will land
+        size_t caStart = cellArrayStarts[j];
+        size_t caCount = cellArrayCounts[j];
+        if (adios2_set_selection(cellArrayVar, 1, &caStart, &caCount))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << caStart
+            << " count=" << caCount << " block " << j << " failed")
+          return -1;
+          }
+
+        // write cell cellArray
+        if (adios2_put(handles.engine, cellArrayVar,
+          cells.data(), adios2_mode_sync))
+          {
+          SENSEI_ERROR("adios2_put cell array for mesh \""
+            << md->MeshName << "\" block " << j << " failed")
+          return -1;
+          }
+
+        numBytes += types.size()*sizeof(unsigned char) +
+          cells.size()*sizeof(vtkIdType);
         }
 
       // go to the next block
@@ -2011,7 +2073,8 @@ int PolydataCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
       }
     it->Delete();
 
-    sensei::Profiler::EndEvent("senseiADIOS2::PolydataCellSchema::Write", numBytes);
+    sensei::Profiler::EndEvent("senseiADIOS2::PolydataCellSchema::Write",
+      numBytes);
     }
 
   return 0;
@@ -2266,61 +2329,42 @@ struct LogicallyCartesianSchema
     const std::string &ons, const sensei::MeshMetadataPtr &md,
     vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<adios2_variable*>> WriteVars;
+  std::map<std::string, adios2_variable*> WriteVars;
 };
 
 // --------------------------------------------------------------------------
 int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
+  (void)comm;
+
   if (sensei::VTKUtils::LogicallyCartesian(md))
     {
-    sensei::TimeEvent<128> mark(
-      "senseiADIOS2::LogicallyCartesianSchema::DefineVariables");
-
-    int rank = 0;
-    MPI_Comm_rank(comm, &rank);
-
-    // allocate write ids
-    unsigned int num_blocks = md->NumBlocks;
-
-    std::vector<adios2_variable*> &writeVars = this->WriteVars[md->MeshName];
-    writeVars.resize(num_blocks);
+    sensei::TimeEvent<128> mark("senseiADIOS2::"
+      "LogicallyCartesianSchema::DefineVariables");
 
     // global sizes
-    size_t hexplet_gdims = 6*num_blocks;
+    unsigned int num_blocks = md->NumBlocks;
+    size_t gdims = 6*num_blocks;
+    size_t start = 0;
+    size_t count = 0;
 
-    // define for each block
-    for (unsigned int j = 0; j < num_blocks; ++j)
+    // /data_object_<id>/extent
+    std::string path_extent = ons + "extent";
+
+    adios2_variable *var = adios2_define_variable(handles.io,
+       path_extent.c_str(), adios2_type_int32_t, 1, &gdims,
+       &start, &count, adios2_constant_dims_false);
+
+    if (var == nullptr)
       {
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        // local size
-        size_t hexplet_ldims = 6;
-
-        // offset as a string
-        size_t hexplet_boffs = 6*j;
-
-        // /data_object_<id>/data_array_<id>/extent
-        std::string path_extent = ons + "extent";
-
-        adios2_variable *extent_write_var =
-           adios2_define_variable(handles.io, path_extent.c_str(),
-             adios2_type_int32_t, 1, &hexplet_gdims,
-             &hexplet_boffs, &hexplet_ldims, adios2_constant_dims_true);
-
-        if (extent_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_extent
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        writeVars[j] = extent_write_var;
-        }
+      SENSEI_ERROR("adios2_define_variable \"" << path_extent
+        << "\"  failed")
+      return -1;
       }
+
+    // save the id for subsequent write
+    this->WriteVars[md->MeshName] = var;
     }
 
   return 0;
@@ -2332,13 +2376,15 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
 {
   if (sensei::VTKUtils::LogicallyCartesian(md))
     {
-    sensei::Profiler::StartEvent("senseiADIOS2::LogicallyCartesianSchema::Write");
+    sensei::Profiler::StartEvent("senseiADIOS2::"
+      "LogicallyCartesianSchema::Write");
+
     long long numBytes = 0ll;
 
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<adios2_variable*> &writeVars = this->WriteVars[md->MeshName];
+    adios2_variable *writeVar = this->WriteVars[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -2356,36 +2402,55 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
           SENSEI_ERROR("Failed to get block " << j)
           return -1;
           }
+
+        // select the spot in the global cellArray that this block's
+        // data will land
+        size_t start = 6*j;
+        size_t count = 6;
+        if (adios2_set_selection(writeVar, 1, &start, &count))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << start
+            << " count=" << count << " block " << j << " failed")
+          return -1;
+          }
+
         int ierr = 0;
         switch (md->BlockType)
           {
           case VTK_RECTILINEAR_GRID:
-            ierr = adios2_put(handles.engine, writeVars[j],
+            ierr = adios2_put(handles.engine, writeVar,
               dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent(),
               adios2_mode_sync);
             break;
+
           case VTK_IMAGE_DATA:
           case VTK_UNIFORM_GRID:
-            ierr = adios2_put(handles.engine, writeVars[j],
+            ierr = adios2_put(handles.engine, writeVar,
               dynamic_cast<vtkImageData*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
+
           case VTK_STRUCTURED_GRID:
-            ierr = adios2_put(handles.engine, writeVars[j],
+            ierr = adios2_put(handles.engine, writeVar,
               dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent(), adios2_mode_sync);
             break;
           }
+
         if (ierr)
           {
           SENSEI_ERROR("adios2_put extent for block " << j << " failed")
           return -1;
           }
+
         numBytes += 6*sizeof(int);
         }
+
       it->GoToNextItem();
       }
+
     it->Delete();
 
-    sensei::Profiler::EndEvent("senseiADIOS2::LogicallyCartesianSchema::Write", numBytes);
+    sensei::Profiler::EndEvent("senseiADIOS2::LogicallyCartesianSchema::Write",
+      numBytes);
     }
 
   return 0;
@@ -2424,7 +2489,7 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        // /data_object_<id>/data_array_<id>/extent
+        // /data_object_<id>/extent
         size_t hexplet_start = 6*j;
         size_t hexplet_count = 6;
         if (adios2_set_selection(vinfo, 1, &hexplet_start, &hexplet_count))
@@ -2489,79 +2554,61 @@ struct UniformCartesianSchema
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<adios2_variable*>> OriginWriteVars;
-  std::map<std::string, std::vector<adios2_variable*>> SpacingWriteVars;
+  std::map<std::string, adios2_variable*> OriginWriteVar;
+  std::map<std::string, adios2_variable*> SpacingWriteVar;
 };
 
 // --------------------------------------------------------------------------
 int UniformCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
+  (void)comm;
+
   if (sensei::VTKUtils::UniformCartesian(md))
     {
     sensei::TimeEvent<128> mark(
       "senseiADIOS2::UniformCartesianSchema::DefineVariables");
 
-    int rank = 0;
-    MPI_Comm_rank(comm, &rank);
-
     // allocate write ids
     unsigned int num_blocks = md->NumBlocks;
 
-    std::vector<adios2_variable*> &originWriteVars = this->OriginWriteVars[md->MeshName];
-    originWriteVars.resize(num_blocks);
+    // global and local sizes. in adios2 only global sizes are specified
+    // upfront. local sizes are specified at the time of the write.
+    size_t gdims = 3*num_blocks;
+    size_t ldims = 0;
+    size_t loffs = 0;
 
-    std::vector<adios2_variable*> &spacingWriteVars = this->SpacingWriteVars[md->MeshName];
-    spacingWriteVars.resize(num_blocks);
+    // /data_object_<id>/origin
+    std::string path_origin = ons + "origin";
 
-    // global sizes
-    size_t triplet_gdims = 3*num_blocks;
+    adios2_variable *var = adios2_define_variable(handles.io,
+      path_origin.c_str(), adios2_type_double, 1, &gdims,
+      &loffs, &ldims, adios2_constant_dims_false);
 
-    // define for each block
-    for (unsigned int j = 0; j < num_blocks; ++j)
+    if (var == nullptr)
       {
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        // local size
-        size_t triplet_ldims = 3;
-
-        // offset
-        size_t triplet_boffs = 3*j;
-
-        // /data_object_<id>/data_array_<id>/origin
-        std::string path_origin = ons + "origin";
-        adios2_variable *origin_write_var = adios2_define_variable(handles.io, path_origin.c_str(),
-           adios2_type_double, 1, &triplet_gdims,
-           &triplet_boffs, &triplet_ldims, adios2_constant_dims_true);
-
-        if (origin_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_origin
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        originWriteVars[j] = origin_write_var;
-
-        // /data_object_<id>/data_array_<id>/spacing
-        std::string path_spacing = ons + "spacing";
-        adios2_variable *spacing_write_var = adios2_define_variable(handles.io, path_spacing.c_str(),
-           adios2_type_double, 1, &triplet_gdims,
-           &triplet_boffs,  &triplet_ldims, adios2_constant_dims_true);
-
-        if (spacing_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_spacing
-            << "\" block " << j <<  " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        spacingWriteVars[j] = spacing_write_var;
-        }
+      SENSEI_ERROR("adios2_define_variable \"" << path_origin << "\" failed")
+      return -1;
       }
+
+    // save the id for subsequent write
+    this->OriginWriteVar[md->MeshName] = var;
+
+    // /data_object_<id>/spacing
+    std::string path_spacing = ons + "spacing";
+
+    var = adios2_define_variable(handles.io, path_spacing.c_str(),
+       adios2_type_double, 1, &gdims, &loffs,  &ldims,
+       adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_spacing << "\" failed")
+      return -1;
+      }
+
+    // save the id for subsequent write
+    this->SpacingWriteVar[md->MeshName] = var;
     }
 
   return 0;
@@ -2579,8 +2626,8 @@ int UniformCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<adios2_variable*> &originWriteVars = this->OriginWriteVars[md->MeshName];
-    std::vector<adios2_variable*> &spacingWriteVars = this->SpacingWriteVars[md->MeshName];
+    adios2_variable *originWriteVar = this->OriginWriteVar[md->MeshName];
+    adios2_variable *spacingWriteVar = this->SpacingWriteVar[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -2599,14 +2646,31 @@ int UniformCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        if (adios2_put(handles.engine, originWriteVars[j],
+        // set the spot to write this block's contribution to the global array
+        size_t start = 3*j;
+        size_t count = 3;
+        if (adios2_set_selection(originWriteVar, 1, &start, &count))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << start
+            << " count=" << count << " block " << j << " failed")
+          return -1;
+          }
+
+        if (adios2_put(handles.engine, originWriteVar,
           ds->GetOrigin(), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put origin block " << j << " failed")
           return -1;
           }
 
-        if (adios2_put(handles.engine, spacingWriteVars[j],
+        if (adios2_set_selection(spacingWriteVar, 1, &start, &count))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << start
+            << " count=" << count << " block " << j << " failed")
+          return -1;
+          }
+
+        if (adios2_put(handles.engine, spacingWriteVar,
           ds->GetSpacing(), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put spacing block " << j << " failed")
@@ -2743,9 +2807,17 @@ struct StretchedCartesianSchema
   int Read(MPI_Comm comm, AdiosHandle handles, const std::string &ons,
     const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
 
-  std::map<std::string, std::vector<adios2_variable*>> XCoordWriteVars;
-  std::map<std::string, std::vector<adios2_variable*>> YCoordWriteVars;
-  std::map<std::string, std::vector<adios2_variable*>> ZCoordWriteVars;
+  std::map<std::string, adios2_variable*> XCoordWriteVars;
+  std::map<std::string, std::vector<size_t>> XCoordStarts;
+  std::map<std::string, std::vector<size_t>> XCoordCounts;
+
+  std::map<std::string, adios2_variable*> YCoordWriteVars;
+  std::map<std::string, std::vector<size_t>> YCoordStarts;
+  std::map<std::string, std::vector<size_t>> YCoordCounts;
+
+  std::map<std::string, adios2_variable*> ZCoordWriteVars;
+  std::map<std::string, std::vector<size_t>> ZCoordStarts;
+  std::map<std::string, std::vector<size_t>> ZCoordCounts;
 };
 
 // --------------------------------------------------------------------------
@@ -2763,19 +2835,11 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
     unsigned int num_blocks = md->NumBlocks;
 
     // allocate write ids
-    std::vector<adios2_variable*> &xCoordWriteVars = this->XCoordWriteVars[md->MeshName];
-    xCoordWriteVars.resize(num_blocks);
-
-    std::vector<adios2_variable*> &yCoordWriteVars = this->YCoordWriteVars[md->MeshName];
-    yCoordWriteVars.resize(num_blocks);
-
-    std::vector<adios2_variable*> &zCoordWriteVars = this->ZCoordWriteVars[md->MeshName];
-    zCoordWriteVars.resize(num_blocks);
 
     // calc global size
-    unsigned long long nx_total = 0;
-    unsigned long long ny_total = 0;
-    unsigned long long nz_total = 0;
+    size_t nx_total = 0;
+    size_t ny_total = 0;
+    size_t nz_total = 0;
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
       int *ext = md->BlockExtents[j].data();
@@ -2787,85 +2851,95 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, AdiosHandle handles
     // data type for points
     adios2_type point_type = adiosType(md->CoordinateType);
 
-    // global sizes
-    size_t x_gdims = nx_total;
-    size_t y_gdims = ny_total;
-    size_t z_gdims = nz_total;
+    // size and offset calculated later
+    size_t start = 0;
+    size_t count = 0;
 
-    // define the variable once for each block
-    unsigned long long x_block_offset = 0;
-    unsigned long long y_block_offset = 0;
-    unsigned long long z_block_offset = 0;
+    // /data_object_<id>/x_coords
+    std::string path_xc = ons + "x_coords";
+
+    adios2_variable *var = adios2_define_variable(handles.io,
+       path_xc.c_str(), point_type, 1, &nx_total, &start, &count,
+       adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_xc << "\" failed")
+      return -1;
+      }
+
+    // save the id for subsequent write
+    this->XCoordWriteVars[md->MeshName] = var;
+
+    // /data_object_<id>/y_coords
+    std::string path_yc = ons + "y_coords";
+
+    var = adios2_define_variable(handles.io, path_yc.c_str(),
+       point_type, 1, &ny_total, &start, &count,
+       adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_yc << "\" failed")
+      return -1;
+      }
+
+    // save the id for subsequent write
+    this->YCoordWriteVars[md->MeshName] = var;
+
+    // /data_object_<id>/data_array_<id>/z_coords
+    std::string path_zc = ons + "z_coords";
+
+    var = adios2_define_variable(handles.io,
+      path_zc.c_str(), point_type, 1, &nz_total, &start, &count,
+      adios2_constant_dims_false);
+
+    if (var == nullptr)
+      {
+      SENSEI_ERROR("adios2_define_variable \"" << path_zc << "\" failed")
+      return -1;
+      }
+
+    // save the id for subsequent write
+    this->ZCoordWriteVars[md->MeshName] = var;
+
+    // calculate the write selections for each block
+    std::vector<size_t> &xcStarts = this->XCoordStarts[md->MeshName];
+    std::vector<size_t> &xcCounts = this->XCoordCounts[md->MeshName];
+    xcStarts.resize(num_blocks);
+    xcCounts.resize(num_blocks);
+
+    std::vector<size_t> &ycStarts = this->YCoordStarts[md->MeshName];
+    std::vector<size_t> &ycCounts = this->YCoordCounts[md->MeshName];
+    ycStarts.resize(num_blocks);
+    ycCounts.resize(num_blocks);
+
+    std::vector<size_t> &zcStarts = this->ZCoordStarts[md->MeshName];
+    std::vector<size_t> &zcCounts = this->ZCoordCounts[md->MeshName];
+    zcStarts.resize(num_blocks);
+    zcCounts.resize(num_blocks);
+
+    size_t x_block_offset = 0;
+    size_t y_block_offset = 0;
+    size_t z_block_offset = 0;
 
     for (unsigned int j = 0; j < num_blocks; ++j)
       {
       // get the block size
       int *ext = md->BlockExtents[j].data();
-      unsigned long long nx_local = ext[1] - ext[0] + 2;
-      unsigned long long ny_local = ext[3] - ext[2] + 2;
-      unsigned long long nz_local = ext[5] - ext[4] + 2;
+      size_t nx_local = ext[1] - ext[0] + 2;
+      size_t ny_local = ext[3] - ext[2] + 2;
+      size_t nz_local = ext[5] - ext[4] + 2;
 
-      // define the variable for a local block
-      if (md->BlockOwner[j] ==  rank)
-        {
-        // local size
-        size_t x_ldims = nx_local;
-        size_t y_ldims = ny_local;
-        size_t z_ldims = nz_local;
+      // local size
+      xcCounts[j] = nx_local;
+      ycCounts[j] = ny_local;
+      zcCounts[j] = nz_local;
 
-        // offset
-        size_t x_boffs = x_block_offset;
-        size_t y_boffs = y_block_offset;
-        size_t z_boffs = z_block_offset;
-
-        // /data_object_<id>/data_array_<id>/x_coords
-        std::string path_xc = ons + "x_coords";
-
-        adios2_variable *xc_write_var = adios2_define_variable(handles.io, path_xc.c_str(),
-           point_type, 1, &x_gdims, &x_boffs, &x_ldims, adios2_constant_dims_true);
-
-        if (xc_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_xc
-            << "\" block " << j << " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        xCoordWriteVars[j] = xc_write_var;
-
-        // /data_object_<id>/data_array_<id>/y_coords
-        std::string path_yc = ons + "y_coords";
-
-        adios2_variable *yc_write_var = adios2_define_variable(handles.io, path_yc.c_str(),
-           point_type, 1, &y_gdims, &y_boffs, &y_ldims, adios2_constant_dims_true);
-
-        if (yc_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_yc
-            << "\" block " << j << " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        yCoordWriteVars[j] = yc_write_var;
-
-        // /data_object_<id>/data_array_<id>/z_coords
-        std::string path_zc = ons + "z_coords";
-
-        adios2_variable *zc_write_var = adios2_define_variable(handles.io, path_zc.c_str(),
-           point_type, 1, &z_gdims, &z_boffs, &z_ldims, adios2_constant_dims_true);
-
-        if (zc_write_var == NULL)
-          {
-          SENSEI_ERROR("adios2_define_variable \"" << path_zc
-            << "\" block " << j << " failed")
-          return -1;
-          }
-
-        // save the id for subsequent write
-        zCoordWriteVars[j] = zc_write_var;
-        }
+      // offset
+      xcStarts[j] = x_block_offset;
+      ycStarts[j] = y_block_offset;
+      zcStarts[j] = z_block_offset;
 
       // update the block offset
       x_block_offset += nx_local;
@@ -2889,9 +2963,17 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    std::vector<adios2_variable*> &xCoordWriteVars = this->XCoordWriteVars[md->MeshName];
-    std::vector<adios2_variable*> &yCoordWriteVars = this->YCoordWriteVars[md->MeshName];
-    std::vector<adios2_variable*> &zCoordWriteVars = this->ZCoordWriteVars[md->MeshName];
+    adios2_variable *xcVar = this->XCoordWriteVars[md->MeshName];
+    std::vector<size_t> &xcStarts = this->XCoordStarts[md->MeshName];
+    std::vector<size_t> &xcCounts = this->XCoordCounts[md->MeshName];
+
+    adios2_variable *ycVar = this->YCoordWriteVars[md->MeshName];
+    std::vector<size_t> &ycStarts = this->YCoordStarts[md->MeshName];
+    std::vector<size_t> &ycCounts = this->YCoordCounts[md->MeshName];
+
+    adios2_variable *zcVar = this->ZCoordWriteVars[md->MeshName];
+    std::vector<size_t> &zcStarts = this->ZCoordStarts[md->MeshName];
+    std::vector<size_t> &zcCounts = this->ZCoordCounts[md->MeshName];
 
     vtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
@@ -2909,34 +2991,62 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
           return -1;
           }
 
-        vtkDataArray *xda = ds->GetXCoordinates();
-        vtkDataArray *yda = ds->GetYCoordinates();
         vtkDataArray *zda = ds->GetZCoordinates();
 
-        if (adios2_put(handles.engine, xCoordWriteVars[j],
+        // write x-coords
+        size_t xcStart = xcStarts[j];
+        size_t xcCount = xcCounts[j];
+        if (adios2_set_selection(xcVar, 1, &xcStart, &xcCount))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << xcStart
+            << " count=" << xcCount << " block " << j << " failed")
+          return -1;
+          }
+
+        vtkDataArray *xda = ds->GetXCoordinates();
+        if (adios2_put(handles.engine, xcVar,
           xda->GetVoidPointer(0), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put x-coordinates block " << j << " failed")
           return -1;
           }
 
-        if (adios2_put(handles.engine, yCoordWriteVars[j],
+        // write y-coords
+        size_t ycStart = ycStarts[j];
+        size_t ycCount = ycCounts[j];
+        if (adios2_set_selection(ycVar, 1, &ycStart, &ycCount))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << ycStart
+            << " count=" << ycCount << " block " << j << " failed")
+          return -1;
+          }
+
+        vtkDataArray *yda = ds->GetYCoordinates();
+        if (adios2_put(handles.engine, ycVar,
           yda->GetVoidPointer(0), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put y-coordinates block " << j << " failed")
           return -1;
           }
 
-        if (adios2_put(handles.engine, zCoordWriteVars[j],
+        // write z-coords
+        size_t zcStart = zcStarts[j];
+        size_t zcCount = zcCounts[j];
+        if (adios2_set_selection(zcVar, 1, &zcStart, &zcCount))
+          {
+          SENSEI_ERROR("adios2_set_selection start=" << zcStart
+            << " count=" << zcCount << " block " << j << " failed")
+          return -1;
+          }
+
+        if (adios2_put(handles.engine, zcVar,
           zda->GetVoidPointer(0), adios2_mode_sync))
           {
           SENSEI_ERROR("adios2_put y-coordinates block " << j << " failed")
           return -1;
           }
 
-        long long cts = size(xda->GetDataType());
-        numBytes += xda->GetNumberOfTuples()*cts +
-          yda->GetNumberOfTuples()*cts + zda->GetNumberOfTuples()*cts;
+        numBytes += (xcCount + ycCount +zcCount)*size(xda->GetDataType());
         }
 
       it->GoToNextItem();
@@ -2944,7 +3054,8 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, AdiosHandle handles,
 
     it->Delete();
 
-    sensei::Profiler::EndEvent("senseiADIOS2::StretchedCartesianSchema::Write", numBytes);
+    sensei::Profiler::EndEvent("senseiADIOS2::StretchedCartesianSchema::Write",
+      numBytes);
     }
 
   return 0;
