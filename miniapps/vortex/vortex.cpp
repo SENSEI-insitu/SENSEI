@@ -715,7 +715,7 @@ int main(int argc, char **argv)
 #endif
     //pause();
 
-    ofstream log;
+    std::ofstream log;
     if(sim.log && sim.par_rank == 0)
     {
         log.open("vortex.log");
