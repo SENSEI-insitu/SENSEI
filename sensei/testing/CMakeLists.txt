@@ -139,7 +139,7 @@ if (BUILD_TESTING)
 
   senseiAddTest(testADIOS2SSTHistogram
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
+      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
       histogram.xml read_adios2_sst_block.xml 10 1
     FEATURES  ${ENABLE_PYTHON} ${ENABLE_ADIOS2})

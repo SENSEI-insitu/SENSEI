@@ -423,18 +423,37 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
   return -1;
 #else
-  auto adios = vtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
+  auto adiosAdaptor = vtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
 
   if (this->Comm != MPI_COMM_NULL)
-    adios->SetCommunicator(this->Comm);
+    adiosAdaptor->SetCommunicator(this->Comm);
 
-  pugi::xml_attribute filename = node.attribute("filename");
-  if (filename)
-    adios->SetFileName(filename.value());
+  if (XMLUtils::RequireAttribute(node, "engine") ||
+    XMLUtils::RequireAttribute(node, "filename"))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS2AnalysisAdaptor");
+    return -1;
+    }
 
-  pugi::xml_attribute engineName = node.attribute("engine");
-  if (engineName)
-    adios->SetEngineName(engineName.value());
+  std::string filename = node.attribute("filename").value();
+  adiosAdaptor->SetFileName(filename);
+
+  std::string engine = node.attribute("engine").value();
+  adiosAdaptor->SetEngineName(engine);
+
+  // buffer size is given in the units of number of time steps,
+  // 0 means buffer all steps
+  std::string bufferSize = node.attribute("buffer_size").as_string("");
+  if (!bufferSize.empty())
+    adiosAdaptor->AddParameter("QueueLimit", bufferSize);
+
+  // valid modes are Block or Discard
+  std::string bufferMode = node.attribute("buffer_mode").as_string("");
+  if (!bufferMode.empty())
+    adiosAdaptor->AddParameter("QueueFullPolicy", bufferMode);
+
+  // turn on/off debug output
+  adiosAdaptor->SetDebugMode(node.attribute("debug_mode").as_int(0));
 
   DataRequirements req;
   if (req.Initialize(node))
@@ -442,13 +461,17 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
     SENSEI_ERROR("Failed to initialize ADIOS 2.")
     return -1;
     }
-  adios->SetDataRequirements(req);
+  adiosAdaptor->SetDataRequirements(req);
 
-  this->TimeInitialization(adios);
-  this->Analyses.push_back(adios.GetPointer());
+  this->TimeInitialization(adiosAdaptor);
+  this->Analyses.push_back(adiosAdaptor.GetPointer());
 
   SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
-    << filename.value() << "\" engine " << engineName.value())
+    << filename << "\" engine=" << engine
+    << (!bufferMode.empty() ? "buffer_mode=" : "")
+    << (!bufferMode.empty() ? bufferMode.c_str() : "")
+    << (!bufferSize.empty() ? "buffer_size=" : "")
+    << (!bufferSize.empty() ? bufferSize.c_str() : ""))
 
   return 0;
 #endif

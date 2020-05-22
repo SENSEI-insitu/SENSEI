@@ -4,6 +4,7 @@
 #include "MeshMetadataMap.h"
 #include "Profiler.h"
 #include "VTKHistogram.h"
+#include "VTKUtils.h"
 #include "Error.h"
 
 #include <vtkCompositeDataIterator.h>
@@ -122,7 +123,8 @@ bool Histogram::Execute(DataAdaptor* data)
     }
 
   // add the ghost zones
-  if (mmd->NumGhostCells && data->AddGhostCellsArray(mesh, this->MeshName))
+  if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+    data->AddGhostCellsArray(mesh, this->MeshName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
     return false;

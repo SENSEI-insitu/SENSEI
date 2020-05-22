@@ -58,6 +58,19 @@ int ADIOS2DataAdaptor::SetReadEngine(const std::string &engine)
 }
 
 //----------------------------------------------------------------------------
+int ADIOS2DataAdaptor::SetDebugMode(int mode)
+{
+  return this->Internals->Stream.SetDebugMode(mode);
+}
+
+//----------------------------------------------------------------------------
+int ADIOS2DataAdaptor::AddParameter(const std::string &name,
+  const std::string &value)
+{
+  return this->Internals->Stream.AddParameter(name, value);
+}
+
+//----------------------------------------------------------------------------
 int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 {
   TimeEvent<128> mark("ADIOS2DataAdaptor::Initialize");
@@ -65,16 +78,30 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
   // let the base class handle initialization of the partitioner etc
   if (this->InTransitDataAdaptor::Initialize(node))
     {
-    SENSEI_ERROR("Failed to intialize InTransitDataAdaptor")
+    SENSEI_ERROR("Failed to intialize the ADIOSDataAdaptor")
     return -1;
     }
 
-  if (node.attribute("filename"))
-    this->SetFileName(node.attribute("filename").value());
-
-  if (node.attribute("engine") &&
-    this->SetReadEngine(node.attribute("engine").value()))
+  // required attributes
+  if (XMLUtils::RequireAttribute(node, "engine") ||
+    XMLUtils::RequireAttribute(node, "filename"))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS2DataAdaptor");
     return -1;
+    }
+
+  this->SetFileName(node.attribute("filename").value());
+
+  if (this->SetReadEngine(node.attribute("engine").value()))
+    return -1;
+
+  // optional attributes
+  if (node.attribute("timeout") &&
+    this->AddParameter("OpenTimeoutSecs",
+      node.attribute("timeout").value()))
+    return -1;
+
+  this->SetDebugMode(node.attribute("debug_mode").as_int(0));
 
   return 0;
 }

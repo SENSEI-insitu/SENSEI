@@ -1427,6 +1427,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         return VISIT_INVALID_HANDLE;
     }
 
+    // TODO -- we are not pasasing all metadata that we could to visit
     // set up the metadata cache
     This->Metadata.clear();
 
@@ -1437,7 +1438,6 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         // enable optional metadata
         mmd->Flags.SetBlockDecomp();
         mmd->Flags.SetBlockExtents();
-        mmd->Flags.SetBlockBounds();
 
         if (Adaptor->GetMeshMetadata(i, mmd))
         {
@@ -1446,8 +1446,9 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         }
 
         // check if the sim gave us what we asked for
-        MeshMetadataFlags reqFlags = mmd->Flags;
-        reqFlags.ClearBlockBounds();
+        MeshMetadataFlags reqFlags;
+        reqFlags.SetBlockDecomp();
+        reqFlags.SetBlockExtents();
 
         if (mmd->Validate(This->Comm, reqFlags))
         {
@@ -1653,14 +1654,16 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
 
         // add ghost zones. if the simulation has them we always want/need
         // them
-        if (mmd->NumGhostCells && this->Adaptor->AddGhostCellsArray(dobj, meshName))
+        if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+          this->Adaptor->AddGhostCellsArray(dobj, meshName))
         {
             SENSEI_ERROR("Failed to add ghost cells to mesh \""
               << meshName << "\"")
             return -1;
         }
 
-        if (mmd->NumGhostNodes && this->Adaptor->AddGhostNodesArray(dobj, meshName))
+        if (mmd->NumGhostNodes &&
+          this->Adaptor->AddGhostNodesArray(dobj, meshName))
         {
             SENSEI_ERROR("Failed to add ghost nodes to mesh \""
               << meshName << "\"")

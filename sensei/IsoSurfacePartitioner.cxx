@@ -140,8 +140,8 @@ int IsoSurfacePartitioner::GetPartition(MPI_Comm comm,
       {
       oss << it;
       VTKUtils::WriteDomainDecomp(comm, mdOut,
-        "iso_surface_partitioner_receiver_decomp_" + oss.str() + ".vtk");
-      oss.str();
+        "iso_surface_partitioner_receiver_decomp_" + oss.str() + ".vtu");
+      oss.str("");
       }
 
     // calculate number of cells moved
@@ -156,7 +156,7 @@ int IsoSurfacePartitioner::GetPartition(MPI_Comm comm,
       }
 
     // report number of blocks moved
-    oss << "IsoSurfacePartitioner: NumBlocks=" << mdIn->NumBlocks
+    oss << "IsoSurfacePartitioner: it=" << it << " NumBlocks=" << mdIn->NumBlocks
       << " NumActiveBlocks=" << activeBlocks.size() << " numCellsMoved=" << numCellsMoved
       << " numCellsLeft=" << numCellsLeft << " movedFraction="
       << double(numCellsMoved)/double(numCellsMoved + numCellsLeft);

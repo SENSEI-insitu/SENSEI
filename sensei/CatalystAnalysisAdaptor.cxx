@@ -169,7 +169,7 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
         }
 
       // add ghost zones
-      if (metadata[i]->NumGhostNodes &&
+      if ((metadata[i]->NumGhostCells || VTKUtils::AMR(metadata[i])) &&
         dataAdaptor->AddGhostNodesArray(dobj, meshName))
         {
         SENSEI_ERROR("Failed to get ghost nodes array for mesh \""

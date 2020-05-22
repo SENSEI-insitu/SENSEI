@@ -804,7 +804,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     return( false );
   }
 
-  if(dataAdaptor->GetMesh(meshName, false, obj))
+  if (dataAdaptor->GetMesh(meshName, false, obj))
   {
     SENSEI_ERROR("Failed to get mesh");
     return( false );
@@ -820,14 +820,14 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 
   // get metadata for the requested mesh
   MeshMetadataPtr metadata;
-  if(mdMap.GetMeshMetadata(meshName, metadata))
+  if (mdMap.GetMeshMetadata(meshName, metadata))
   {
     SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"");
     return( false );
   }
 
   // Add the ghost cell arrays to the mesh.
-  if(metadata->NumGhostCells &&
+  if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
     dataAdaptor->AddGhostCellsArray(obj, meshName))
   {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
@@ -835,7 +835,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
 
   // Add the ghost node arrays to the mesh.
-  if(metadata->NumGhostNodes &&
+  if (metadata->NumGhostNodes &&
     dataAdaptor->AddGhostNodesArray(obj, meshName))
   {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");

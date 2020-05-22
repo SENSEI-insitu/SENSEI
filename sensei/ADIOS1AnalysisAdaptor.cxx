@@ -78,6 +78,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   flags.SetBlockDecomp();
   flags.SetBlockSize();
   flags.SetBlockBounds();
+  flags.SetBlockExtents();
   flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
@@ -126,7 +127,8 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+      dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;

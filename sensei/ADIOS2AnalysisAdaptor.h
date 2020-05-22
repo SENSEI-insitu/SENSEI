@@ -11,7 +11,12 @@
 #include <string>
 #include <mpi.h>
 
-namespace senseiADIOS2 { class AdiosHandle; class DataObjectCollectionSchema; }
+namespace senseiADIOS2
+{
+struct AdiosHandle;
+class DataObjectCollectionSchema;
+}
+
 class vtkDataObject;
 class vtkCompositeDataSet;
 
@@ -24,7 +29,8 @@ public:
   static ADIOS2AnalysisAdaptor* New();
   senseiTypeMacro(ADIOS2AnalysisAdaptor, AnalysisAdaptor);
 
-  void AddAdios2Parameter(std::string key, std::string value);
+  /// Add name value pairs to be passed to ADIOS
+  void AddParameter(const std::string &key, const std::string &value);
 
   /// @brief Set the ADIOS2 engine
   void SetEngineName(const std::string &engineName)
@@ -34,13 +40,15 @@ public:
   { return this->EngineName; }
 
   /// @brief Set the filename.
-  ///
   /// Default value is "sensei.bp"
   void SetFileName(const std::string &filename)
   { this->FileName = filename; }
 
   std::string GetFileName() const
   { return this->FileName; }
+
+  void SetDebugMode(int mode)
+  { this->DebugMode = mode; }
 
   /// data requirements tell the adaptor what to push
   /// if none are given then all data is pushed.
@@ -74,7 +82,8 @@ protected:
   std::string FileName;
   senseiADIOS2::AdiosHandle Handles;
   adios2_adios *Adios;
-  std::vector<std::pair<std::string,std::string>> ADIOSParameters;
+  std::vector<std::pair<std::string,std::string>> Parameters;
+  int DebugMode;
 
 private:
   ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;

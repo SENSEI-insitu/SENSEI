@@ -19,15 +19,12 @@ class vtkDataObject;
 namespace senseiADIOS2
 {
 
-
-// typedef struct {
-class AdiosHandle
+struct AdiosHandle
 {
-public:
-   adios2_io *io;
-   adios2_engine *engine;
-}; //AdiosHandle;
-
+  AdiosHandle() : io(nullptr), engine(nullptr) {}
+  adios2_io *io;
+  adios2_engine *engine;
+};
 
 struct InputStream;
 
@@ -107,21 +104,21 @@ private:
 /// High level operations on an ADIOS file/stream
 struct InputStream
 {
-  InputStream()
-    {
-    Handles.engine = nullptr;
-    Handles.io = nullptr;
-    ReadEngine = "";
-    FileName = "";
-    }
+  InputStream() : Handles(), Adios(nullptr),
+    ReadEngine(""), FileName(""), DebugMode(0) {}
 
   // pass engine parameters to ADIOS2 in key value pairs
-  void AddAdios2Parameter(std::string key, std::string value);
+  int AddParameter(const std::string &key, const std::string &value);
 
+  // set the ADIOS engine to use. Must be the same as on
+  // the write side.
   int SetReadEngine(const std::string &engine);
 
+  // set debug mode 0 off, 1 on
+  int SetDebugMode(int mode);
+
   int Open(MPI_Comm comm, std::string readEngine,
-    const std::string &fileName);
+    const std::string &fileName, int debugMode);
 
   int Open(MPI_Comm Comm);
 
@@ -135,7 +132,8 @@ struct InputStream
   adios2_adios *Adios;
   std::string ReadEngine;
   std::string FileName;
-  std::vector<std::pair<std::string,std::string>> ADIOSParameters;
+  std::vector<std::pair<std::string,std::string>> Parameters;
+  int DebugMode;
 };
 
 }

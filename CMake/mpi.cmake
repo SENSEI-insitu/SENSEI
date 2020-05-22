@@ -6,9 +6,9 @@ if (ENABLE_CRAY_MPICH OR (NOT DEFINED ENABLE_CRAY_MPICH AND NOT ("$ENV{CRAY_MPIC
     set(MPI_C_INCLUDE_PATH ${CRAY_MPICH_INCLUDE_DIRS} CACHE STRING "MPI include directories")
     set(MPI_C_LIBRARIES ${CRAY_MPICH_LDFLAGS} CACHE STRING "MPI link dependencies")
     set(MPIEXEC srun CACHE STRING "Platform MPI run equivalent")
-    set(MPI_C_FOUND CACHE BOOL ON "status of MPI config")
+    set(MPI_C_FOUND CACHE BOOL TRUE "status of MPI config")
 else()
-    find_package(MPI)
+    find_package(MPI COMPONENTS C)
 endif()
 
 if (NOT MPI_C_FOUND)

@@ -40,7 +40,8 @@ namespace sensei
 senseiNewMacro(ADIOS2AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : Schema(nullptr), FileName("sensei.bp")
+ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : Schema(nullptr),
+    FileName("sensei.bp"), DebugMode(0)
 {
   this->Handles.io = nullptr;
   this->Handles.engine = nullptr;
@@ -78,6 +79,7 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   flags.SetBlockDecomp();
   flags.SetBlockSize();
   flags.SetBlockBounds();
+  flags.SetBlockExtents();
   flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
@@ -126,7 +128,8 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+        dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -192,18 +195,32 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
   if (!this->Schema)
     {
     // initialize adios2
-    // args  0: comm
-    //       1: debug mode
-    this->Adios = adios2_init(this->GetCommunicator(), adios2_debug_mode_off);
+    this->Adios = adios2_init(this->GetCommunicator(),
+      adios2_debug_mode(this->DebugMode));
+
+    if (this->Adios == nullptr)
+      {
+      SENSEI_ERROR("adios2_init failed")
+      return -1;
+      }
 
     // Open the io handle
     this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
+    if (this->Handles.io == nullptr)
+      {
+      SENSEI_ERROR("adios2_declare_io failed")
+      return -1;
+      }
 
     // create space for ADIOS2 variables
     this->Schema = new senseiADIOS2::DataObjectCollectionSchema;
 
     // Open the engine now variables are declared
-    adios2_set_engine(this->Handles.io, this->EngineName.c_str());
+    if (adios2_set_engine(this->Handles.io, this->EngineName.c_str()))
+      {
+      SENSEI_ERROR("adios2_set_engine failed")
+      return -1;
+      }
     }
 
   // On subsequent ts we need to clear the existing variables so we don't try to
@@ -211,7 +228,7 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
   adios2_error clearErr = adios2_remove_all_variables(this->Handles.io);
   if (clearErr != 0)
     {
-    SENSEI_ERROR("ADIOS2 error on adios2_remove_all_variables call, error code enum: " << clearErr )
+    SENSEI_ERROR("adios2_remove_all_variables failed " << clearErr )
     return -1;
     }
 
@@ -274,18 +291,16 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   int ierr = 0;
   if (!this->Handles.engine)
     {
-    if (this->EngineName == "SST")
-      adios2_set_parameters(this->Handles.io, "RendezvousReaderCount=1 , RegistrationMethod=File");
-
     // If the user set additional parameters, add them now to ADIOS2
-    for (unsigned int j = 0; j < this->ADIOSParameters.size(); j++)
+    for (unsigned int j = 0; j < this->Parameters.size(); j++)
       {
-        adios2_set_parameter(this->Handles.io,
-                             this->ADIOSParameters[j].first.c_str(),
-                             this->ADIOSParameters[j].second.c_str());
+      adios2_set_parameter(this->Handles.io,
+                           this->Parameters[j].first.c_str(),
+                           this->Parameters[j].second.c_str());
       }
 
-    this->Handles.engine = adios2_open(this->Handles.io, this->FileName.c_str(), adios2_mode_write);
+    this->Handles.engine = adios2_open(this->Handles.io,
+        this->FileName.c_str(), adios2_mode_write);
 
     if (!this->Handles.engine)
       {
@@ -295,7 +310,8 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     }
 
   adios2_step_status status;
-  adios2_error err = adios2_begin_step(this->Handles.engine, adios2_step_mode_append, -1, &status);
+  adios2_error err = adios2_begin_step(this->Handles.engine,
+    adios2_step_mode_append, -1, &status);
 
   if (err != 0)
     {
@@ -320,16 +336,16 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     {
     SENSEI_ERROR("ADIOS2 error on adios2_end_step call, error code enum: " << endErr )
     return -1;
-  }
+    }
 
   return ierr;
 }
 
 //----------------------------------------------------------------------------
-// Add parameter to adios in string key value pairs
-void ADIOS2AnalysisAdaptor::AddAdios2Parameter(std::string key, std::string value)
+void ADIOS2AnalysisAdaptor::AddParameter(const std::string &key,
+  const std::string &value)
 {
-    ADIOSParameters.emplace_back(key, value);
+  this->Parameters.emplace_back(key, value);
 }
 
 }
