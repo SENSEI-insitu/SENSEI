@@ -352,11 +352,28 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
   // check amr specific
   if (this->MeshType == VTK_OVERLAPPING_AMR)
     {
-    if (this->RefRatio.size() != unsigned(this->NumLevels))
+    if (this->Flags.BlockDecompSet())
       {
-      SENSEI_ERROR("Metadata inconsistency. RefRatio has " << this->RefRatio.size()
-        << " elements but should have " << this->NumLevels)
-      err = true;
+      if (this->RefRatio.size() != unsigned(this->NumLevels))
+        {
+        SENSEI_ERROR("Metadata inconsistency. RefRatio has " << this->RefRatio.size()
+          << " elements but should have " << this->NumLevels)
+        err = true;
+        }
+
+      if (this->BlocksPerLevel.size() != unsigned(this->NumLevels))
+        {
+        SENSEI_ERROR("Metadata inconsistency. BlocksPerLevel has " << this->BlocksPerLevel.size()
+          << " elements but should have " << this->NumLevels)
+        err = true;
+        }
+
+      if (this->BlockLevel.size() != validSize)
+        {
+        SENSEI_ERROR("Metadata inconsistency. BlockLevel has " << this->BlockLevel.size()
+          << " elements but should have " << validSize)
+        err = true;
+        }
       }
     }
 
