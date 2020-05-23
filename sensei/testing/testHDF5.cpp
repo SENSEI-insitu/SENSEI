@@ -1,5 +1,3 @@
-#include "ADIOS1AnalysisAdaptor.h"
-#include "ADIOS1DataAdaptor.h"
 #include "HDF5AnalysisAdaptor.h"
 #include "HDF5DataAdaptor.h"
 #include "VTKDataAdaptor.h"
@@ -26,9 +24,7 @@
 
 #include <stdlib.h>
 
-using A1DataAdaptorPtr = vtkSmartPointer<sensei::ADIOS1DataAdaptor>;
 using H5DataAdaptorPtr = vtkSmartPointer<sensei::HDF5DataAdaptor>;
-using A1AnalysisAdaptorPtr = vtkSmartPointer<sensei::ADIOS1AnalysisAdaptor>;
 using H5AnalysisAdaptorPtr = vtkSmartPointer<sensei::HDF5AnalysisAdaptor>;
 
 void get_data_arrays(unsigned long size, vtkDataSetAttributes* dsa);
@@ -36,34 +32,23 @@ void get_data_arrays(unsigned long size, vtkDataSetAttributes* dsa);
 class AAWrap
 {
 public:
-  AAWrap(A1AnalysisAdaptorPtr& adios1) { _adios1 = adios1; }
   AAWrap(H5AnalysisAdaptorPtr& h5) { _h5 = h5; }
 
   H5AnalysisAdaptorPtr _h5 = nullptr;
-  A1AnalysisAdaptorPtr _adios1 = nullptr;
 
   sensei::AnalysisAdaptor* GetAA()
   {
     if (_h5 != NULL)
       return _h5;
-    return _adios1;
+    return NULL;
   }
 };
 class TimedAdaptorWrap
 {
 public:
-  TimedAdaptorWrap(A1DataAdaptorPtr& adios1) { _adios1 = adios1; }
   TimedAdaptorWrap(H5DataAdaptorPtr& h5) { _h5 = h5; }
 
   H5DataAdaptorPtr _h5 = nullptr;
-  A1DataAdaptorPtr _adios1 = nullptr;
-  /*
-  TimedAdaptorWrap(sensei::HDF5DataAdaptor* h5) {_h5 = h5;}
-  TimedAdaptorWrap(sensei::ADIOS1DataAdaptor* adios1) {_adios1 = adios1;}
-
-  sensei::HDF5DataAdaptor* _h5 = NULL;  // temporary so can compile
-  sensei::ADIOS1DataAdaptor* _adios1 = NULL;
-  */
 
   ~TimedAdaptorWrap() {}
 
@@ -71,21 +56,21 @@ public:
   {
     if (_h5 != NULL)
       return _h5;
-    return _adios1;
+    return NULL;
   }
 
   int Close()
   {
     if (_h5 != NULL)
       return _h5->CloseStream();
-    return _adios1->CloseStream();
+    return 0;
   }
 
   bool Advance()
   {
     if (_h5 != NULL)
       return _h5->AdvanceStream();
-    return _adios1->AdvanceStream();
+    return 0;
   }
 };
 
@@ -594,21 +579,8 @@ AAWrap* GetWriteAdaptor(const std::string& file_name,
     }
   else
     {
-      if (rank == 0)
-        std::cout << " ======>>>> [ADIOS] Analysis  Adaptor <<<<<======"
-	          << " with config file:"<<file_name
-                  << std::endl;
-
-      // initialize the analysis adaptor
-      // sensei::ADIOS1AnalysisAdaptor* aw =
-      // sensei::ADIOS1AnalysisAdaptor::New();
-      A1AnalysisAdaptorPtr aw = A1AnalysisAdaptorPtr::New();
-
-      aw->SetFileName(file_name);
-      aw->SetMethod(method);
-
-      AAWrap* result = new AAWrap(aw);
-      return result;
+      std::cout << " ==> Only support .h5 files <== "<<std::endl;
+      return NULL;
     }
 }
 
@@ -647,18 +619,7 @@ TimedAdaptorWrap* GetReadAdaptor(const std::string& file_name,
     }
   else
     {
-      if (rank == 0)
-        std::cout << " ADIOS DATA   Adaptor " << std::endl;
-
-      // initialize the analysis adaptor
-      // sensei::ADIOS1DataAdaptor* da = sensei::ADIOS1DataAdaptor::New();
-      A1DataAdaptorPtr da = A1DataAdaptorPtr::New();
-      da->SetCommunicator(comm);
-      da->SetFileName(file_name);
-      da->SetReadMethod(method);
-      da->OpenStream();
-      TimedAdaptorWrap* result = new TimedAdaptorWrap(da);
-      return result;
+      std::cout << " ==> Only support .h5 files <== "<<std::endl;      
     }
 
   return NULL;

@@ -493,7 +493,7 @@ void PerStepStreamHandler::GetCurrAvailStep()
   int counter = -1;
   if(m_Client->m_Rank == 0)
     {
-      ifstream curr(m_FileName);
+      std::ifstream curr(m_FileName);
       std::string line;
       if(curr.is_open())
         {
