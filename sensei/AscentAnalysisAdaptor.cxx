@@ -827,7 +827,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   }
 
   // Add the ghost cell arrays to the mesh.
-  if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+  if ((metadata->NumGhostCells || VTKUtils::AMR(metadata)) &&
     dataAdaptor->AddGhostCellsArray(obj, meshName))
   {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
