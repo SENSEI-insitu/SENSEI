@@ -17,7 +17,7 @@ cmake \
   -DCMAKE_INSTALL_PREFIX=${SENSEI_DIR} \
    ../
 
-make install
+make -j 1 install
 
 cd ..
 
