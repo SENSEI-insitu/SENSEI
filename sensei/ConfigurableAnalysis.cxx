@@ -36,6 +36,9 @@
 #ifdef ENABLE_ADIOS1
 #include "ADIOS1AnalysisAdaptor.h"
 #endif
+#ifdef ENABLE_ADIOS2
+#include "ADIOS2AnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_HDF5
 #include "HDF5AnalysisAdaptor.h"
 #endif
@@ -91,6 +94,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
   int AddAdios1(pugi::xml_node node);
+  int AddAdios2(pugi::xml_node node);
   int AddHDF5(pugi::xml_node node);
   int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
@@ -406,6 +410,68 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
   SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
     << filename.value() << "\" method " << method.value()
     << " max_buffer_size=" << maxBufSize)
+
+  return 0;
+#endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
+{
+#ifndef ENABLE_ADIOS2
+  (void)node;
+  SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
+  return -1;
+#else
+  auto adiosAdaptor = vtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    adiosAdaptor->SetCommunicator(this->Comm);
+
+  if (XMLUtils::RequireAttribute(node, "engine") ||
+    XMLUtils::RequireAttribute(node, "filename"))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS2AnalysisAdaptor");
+    return -1;
+    }
+
+  std::string filename = node.attribute("filename").value();
+  adiosAdaptor->SetFileName(filename);
+
+  std::string engine = node.attribute("engine").value();
+  adiosAdaptor->SetEngineName(engine);
+
+  // buffer size is given in the units of number of time steps,
+  // 0 means buffer all steps
+  std::string bufferSize = node.attribute("buffer_size").as_string("");
+  if (!bufferSize.empty())
+    adiosAdaptor->AddParameter("QueueLimit", bufferSize);
+
+  // valid modes are Block or Discard
+  std::string bufferMode = node.attribute("buffer_mode").as_string("");
+  if (!bufferMode.empty())
+    adiosAdaptor->AddParameter("QueueFullPolicy", bufferMode);
+
+  // turn on/off debug output
+  adiosAdaptor->SetDebugMode(node.attribute("debug_mode").as_int(0));
+
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS 2.")
+    return -1;
+    }
+  adiosAdaptor->SetDataRequirements(req);
+
+  this->TimeInitialization(adiosAdaptor);
+  this->Analyses.push_back(adiosAdaptor.GetPointer());
+
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
+    << filename << "\" engine=" << engine
+    << (!bufferMode.empty() ? "buffer_mode=" : "")
+    << (!bufferMode.empty() ? bufferMode.c_str() : "")
+    << (!bufferSize.empty() ? "buffer_size=" : "")
+    << (!bufferSize.empty() ? bufferSize.c_str() : ""))
 
   return 0;
 #endif
@@ -1150,6 +1216,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
@@ -1176,6 +1243,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 
     std::string type = node.attribute("type").value();
     if (!(((type == "adios1") && !this->Internals->AddAdios1(node))
+      || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))))
       {
       SENSEI_ERROR("Failed to add \"" << type << "\" transport")

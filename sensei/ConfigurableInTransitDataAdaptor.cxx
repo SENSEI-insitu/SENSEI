@@ -5,6 +5,9 @@
 #ifdef ENABLE_ADIOS1
 #include "ADIOS1DataAdaptor.h"
 #endif
+#ifdef ENABLE_ADIOS2
+#include "ADIOS2DataAdaptor.h"
+#endif
 #ifdef ENABLE_HDF5
 #include "HDF5DataAdaptor.h"
 #endif
@@ -99,7 +102,6 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     return -1;
 #else
     adaptor = ADIOS2DataAdaptor::New();
-    return -1;
 #endif
     }
   else if (type == "hdf5")

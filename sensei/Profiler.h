@@ -156,44 +156,6 @@ private:
   const char *Eventname;
 };
 
-#if defined(SENSEI_ENABLE_PROFILER)
-#define SENSEI_PROFILE_PIPELINE(_n, _alg, _meth, _port, _code)  \
-{                                 \
-  TimeEvent<_n> event(_alg->GetClassName(),           \
-     _meth, _port);                       \
-  _code                             \
-}
-
-#define SENSEI_PROFILE_METHOD(_n, _alg, _meth, _code)       \
-{                                 \
-  TimeEvent<_n>                         \
-    event(_alg->GetClassName(), "::" _meth);          \
-  _code                             \
-}
-
-#define SENSEI_PROFILE_THREAD_POOL(_n, _alg, _nt, _nr, _code)   \
-{                                 \
-  TimeEvent<_n>                         \
-    event(_alg->GetClassName(), _nt, _nr);          \
-  _code                             \
-}
-#else
-#define SENSEI_PROFILE_PIPELINE(_n, _alg, _meth, _port, _code)  \
-{                                 \
-  _code                             \
-}
-
-#define SENSEI_PROFILE_METHOD(_n, _alg, _meth, _code)       \
-{                                 \
-  _code                             \
-}
-
-#define SENSEI_PROFILE_THREAD_POOL(_n, _alg, _nt, _nr, _code)   \
-{                                 \
-  _code                             \
-}
-#endif
-
 }
 
 #endif

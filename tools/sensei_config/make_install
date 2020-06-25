@@ -13,13 +13,11 @@ mkdir tmp_build_dir
 cd tmp_build_dir
 
 cmake \
-  -DCMAKE_CXX_COMPILER=`which g++` \
-  -DCMAKE_C_COMPILER=`which gcc` \
   -DSENSEI_DIR=${SENSEI_DIR}/lib/cmake \
   -DCMAKE_INSTALL_PREFIX=${SENSEI_DIR} \
    ../
 
-make install
+make -j 1 install
 
 cd ..
 

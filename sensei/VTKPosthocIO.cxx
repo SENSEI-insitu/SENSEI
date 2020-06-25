@@ -248,6 +248,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
   // see what the simulation is providing
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
+  flags.SetBlockSize();
 
   MeshMetadataMap mdMap;
   if (mdMap.Initialize(dataAdaptor, flags))
@@ -298,7 +299,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (mmd->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
+    if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+      dataAdaptor->AddGhostCellsArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
       return false;
@@ -367,6 +369,10 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
         return false;
         }
 
+      // skip writing blocks that have no data
+      if (ds->GetNumberOfCells() < 1)
+        continue;
+
       long blockId = it->GetCurrentFlatIndex() - bidShift;
       if (blockId < 0)
         {
@@ -381,7 +387,10 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 
       vtkDataArray *ga = ds->GetCellData()->GetArray("vtkGhostType");
       if (ga)
+        {
         ga->SetName(this->GetGhostArrayName().c_str());
+        ds->UpdateCellGhostArrayCache();
+        }
 
       if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)
         {
@@ -487,14 +496,19 @@ int VTKPosthocIO::Finalize()
 
       for (long i = 0; i < nSteps; ++i)
         {
-        for (long j = 0; j < mmd[i]->NumBlocks; ++j)
+        for (long j = 0, k = 0; j < mmd[i]->NumBlocks; ++j)
           {
-          std::string fileName =
-            getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
+          if (mmd[i]->BlockNumCells[j] > 0)
+            {
+            std::string fileName =
+              getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
 
-          pvdFile << "<DataSet timestep=\"" << times[i]
-            << "\" group=\"\" part=\"" << j << "\" file=\"" << fileName
-            << "\"/>" << endl;
+            pvdFile << "<DataSet timestep=\"" << times[i]
+              << "\" group=\"\" part=\"" << k << "\" file=\"" << fileName
+              << "\"/>" << endl;
+
+            ++k;
+            }
           }
         }
 
@@ -510,12 +524,15 @@ int VTKPosthocIO::Finalize()
       // the series
       int staticMesh = 1;
       int nBlocks = mmd[0]->NumBlocks;
-      for (long i = 1; i < nSteps; ++i)
+      for (long i = 0; staticMesh && (i < nSteps); ++i)
         {
         if (nBlocks != mmd[i]->NumBlocks)
-          {
           staticMesh = 0;
-          break;
+
+        for (long j = 0; j < mmd[i]->NumBlocks; ++j)
+          {
+          if (mmd[i]->BlockNumCells[j] < 1)
+            staticMesh = 0;
           }
         }
 
@@ -557,6 +574,14 @@ int VTKPosthocIO::Finalize()
           if (mmd[i]->NumBlocks < 1)
             continue;
 
+          long numActiveBlocks = 0;
+          for (long j = 0; j < mmd[i]->NumBlocks; ++j)
+            if (mmd[i]->BlockNumCells[j] > 0)
+                ++numActiveBlocks;
+
+          if (numActiveBlocks < 1)
+            continue;
+
           std::ostringstream oss;
           oss << this->OutputDir << "/" << meshName << "_"
             <<  std::setw(5) << std::setfill('0') << i << ".visit";
@@ -570,15 +595,18 @@ int VTKPosthocIO::Finalize()
             return -1;
             }
 
-          visitFile << "!NBLOCKS " << mmd[i]->NumBlocks << std::endl;
+          visitFile << "!NBLOCKS " << numActiveBlocks << std::endl;
           visitFile << "!TIME " << times[i] << std::endl;
 
           for (long j = 0; j < mmd[i]->NumBlocks; ++j)
             {
-            std::string fileName =
-              getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
+            if (mmd[i]->BlockNumCells[j] > 0)
+              {
+              std::string fileName =
+                getBlockFileName("./", meshName, mmd[i]->BlockIds[j], i, blockExt);
 
-            visitFile << fileName << std::endl;
+              visitFile << fileName << std::endl;
+              }
             }
 
           visitFile.close();

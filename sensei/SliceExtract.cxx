@@ -20,6 +20,9 @@
 #include <vtkCompositeDataSet.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkMultiBlockDataSet.h>
+#include <vtkOverlappingAMR.h>
+#include <vtkUniformGridAMRDataIterator.h>
+
 
 using vtkDataObjectAlgorithmPtr = vtkSmartPointer<vtkDataObjectAlgorithm>;
 using vtkCellDataToPointDataPtr = vtkSmartPointer<vtkCellDataToPointData>;
@@ -262,7 +265,8 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // add the ghost cell arrays to the mesh
-  if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
+  if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+    dataAdaptor->AddGhostCellsArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
     return false;
@@ -454,6 +458,10 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
     {
     cdpd = vtkCellDataToPointDataPtr::New();
     cdpd->SetPassCellData(1);
+    /* in newer VTK one can select specific arrays to convert
+     * it is important not to convert vtkGhostType.
+    cdpd->SetProcessAllArrays(0);
+    cdpd->AddCellDataArray(arrayName.c_str());*/
     contour->SetInputConnection(cdpd->GetOutputPort());
     }
 
@@ -468,12 +476,31 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
   vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
   mbds->SetNumberOfBlocks(nBlocks);
 
+  // VTK's iterators for AMR datasets behave differently than for multiblock
+  // datasets.  we are going to have to handle AMR data as a special case for
+  // now.
+  vtkUniformGridAMRDataIterator *amrIt = dynamic_cast<vtkUniformGridAMRDataIterator*>(it);
+  vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(input);
+
   // process data
   it->SetSkipEmptyNodes(1);
   for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
     {
     // get the current block
-    unsigned int bid = it->GetCurrentFlatIndex() - 1;
+    long bid = 0;
+    if (amrIt)
+      {
+      // special case for AMR
+      int level = amrIt->GetCurrentLevel();
+      int index = amrIt->GetCurrentIndex();
+      bid = amrMesh->GetAMRBlockSourceIndex(level, index);
+      }
+    else
+      {
+      // other composite data
+      bid = it->GetCurrentFlatIndex() - 1;
+      }
+
     vtkDataObject *dobjIn = it->GetCurrentDataObject();
 
     // run the pipeline on the block

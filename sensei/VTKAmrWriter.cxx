@@ -191,7 +191,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if (metadata->NumGhostCells &&
+    if ((metadata->NumGhostCells || VTKUtils::AMR(metadata)) &
       dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")

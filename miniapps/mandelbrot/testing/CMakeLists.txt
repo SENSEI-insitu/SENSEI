@@ -9,7 +9,7 @@ if (BUILD_TESTING)
      mandelbrot -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_histogram.xml)
 
-  if (ENABLE_VTK_IO)
+  if (ENABLE_VTK_IO AND ENABLE_VTK_MPI)
     senseiAddTest(testMandelbrotVTKWriter
       COMMAND mandelbrot -i 2 -l 2
         -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml)

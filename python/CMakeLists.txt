@@ -8,6 +8,15 @@ if (ENABLE_PYTHON)
 
   PYTHON_ADD_MODULE(_senseiPython ${CMAKE_CURRENT_BINARY_DIR}/senseiPython.cxx)
 
+  # include the directory containing _senseiPython in the rpath
+  # this enables one not to have to set (DY)LD_LIBRARY_PATH
+  # prior to importing sensseiPython
+  if (APPLE)
+    set_target_properties(_senseiPython PROPERTIES INSTALL_RPATH "@loader_path/./")
+  elseif(UNIX)
+    set_target_properties(_senseiPython PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
+  endif()
+
   target_link_libraries(_senseiPython PUBLIC sensei sPython)
 
   add_custom_command(TARGET _senseiPython POST_BUILD

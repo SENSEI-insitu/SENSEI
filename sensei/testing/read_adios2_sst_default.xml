@@ -1,0 +1,3 @@
+<sensei>
+  <transport type="adios2" filename="test.bp" debug_mode="1" engine="sst"/>
+</sensei>

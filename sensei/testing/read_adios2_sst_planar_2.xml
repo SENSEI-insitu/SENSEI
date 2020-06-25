@@ -1,0 +1,5 @@
+<sensei>
+  <transport type="adios2" filename="test.bp" debug_mode="1" engine="sst">
+    <partitioner type="planar" plane_size="2"/>
+  </transport>
+</sensei>

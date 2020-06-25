@@ -74,6 +74,7 @@ if (NOT SENSEI_LIBRARIES)
 
   string(GENEX_STRIP "${sensei_deps}" sensei_deps)
   string(REGEX REPLACE "([^;]+);" "\\1:" sensei_deps "${sensei_deps}")
+  string(REPLACE " " ":" sensei_deps "${sensei_deps}")
   set(SENSEI_LIBRARIES ${sensei_deps} CACHE STRING "SENSEI link dependencies")
 
   string(REGEX REPLACE "([^;]+);" "\\1:" sensei_incs "${sensei_incs}")

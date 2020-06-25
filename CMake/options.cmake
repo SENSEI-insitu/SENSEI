@@ -9,11 +9,15 @@ cmake_dependent_option(ENABLE_CATALYST
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_CATALYST_PYTHON
-  "Enable analysis methods that use Catalyst Python scripts" OFF
+  "Enable analysis methods that use Catalyst Python scripts" ON
   "ENABLE_CATALYST" OFF)
 
 cmake_dependent_option(ENABLE_ADIOS1
   "Enable analysis methods that use ADIOS 1" OFF
+  "ENABLE_SENSEI" OFF)
+
+cmake_dependent_option(ENABLE_ADIOS2
+  "Enable analysis methods that use ADIOS 2" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_HDF5
@@ -49,7 +53,7 @@ cmake_dependent_option(ENABLE_VTK_MPI
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_RENDERING
-  "Enable use of VTK's rendering libraries" ON
+  "Enable use of VTK's rendering libraries" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_ACCELERATORS
@@ -69,19 +73,19 @@ cmake_dependent_option(ENABLE_VTKM_RENDERING
   "ENABLE_VTKM" OFF)
 
 option(ENABLE_OPTS "A version of the getopt function" ON)
-
 option(ENABLE_PROFILER "Enable the internal profiler" OFF)
 option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
-option(ENABLE_CONDUITTEST "Enable Conduit miniapp" OFF)
-option(ENABLE_KRIPKE "Enable Kripke miniapp" OFF)
-option(ENABLE_MANDELBROT "Enable Mandelbrot miniapp" ON)
-option(ENABLE_VORTEX "Enable Vortex miniapp" ON)
+option(ENABLE_MANDELBROT "Enable Mandelbrot AMR miniapp" ON)
+option(ENABLE_VORTEX "Enable Vortex miniapp (experimental)" OFF)
+option(ENABLE_CONDUITTEST "Enable Conduit miniapp (experimental)" OFF)
+option(ENABLE_KRIPKE "Enable Kripke miniapp (experimental)" OFF)
 
 message(STATUS "ENABLE_SENSEI=${ENABLE_SENSEI}")
 message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
 message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_ADIOS1=${ENABLE_ADIOS1}")
+message(STATUS "ENABLE_ADIOS2=${ENABLE_ADIOS2}")
 message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_ASCENT=${ENABLE_ASCENT}")
@@ -95,8 +99,11 @@ message(STATUS "ENABLE_VTK_FILTERS=${ENABLE_VTK_FILTERS}")
 message(STATUS "ENABLE_VTKM=${ENABLE_VTKM}")
 message(STATUS "ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")
 message(STATUS "ENABLE_PROFILER=${ENABLE_PROFILER}")
-message(STATUS "ENABLE_DIY=${ENABLE_DIY}")
 message(STATUS "ENABLE_OPTS=${ENABLE_OPTS}")
 message(STATUS "ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")
 message(STATUS "ENABLE_CONDUITTEST=${ENABLE_CONDUITTEST}")
 message(STATUS "ENABLE_KRIPKE=${ENABLE_KRIPKE}")
+
+if (ENABLE_ADIOS1 AND ENABLE_ADIOS2)
+  message(FATAL_ERROR "ADIOS1 and ADIOS2 are mutually exclusive build options")
+endif()

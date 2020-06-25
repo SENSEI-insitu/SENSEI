@@ -5,10 +5,6 @@ set(sensei_vtk_components_modern)
 set(sensei_vtk_components_legacy vtkCommonDataModel)
 set(sensei_vtk_components_modern CommonDataModel)
 
-# note: this may be a bug. VTKUtils::WriteDomainDecomp requires
-# `vtkUnstructuredGridWriter`. Not sure if that requirement is reasonable. It
-# adds a required dependency to `VTK::IOLegacy` which may not be a good idea in
-# the long run.
 list(APPEND sensei_vtk_components_legacy vtkIOLegacy)
 list(APPEND sensei_vtk_components_modern IOLegacy)
 
