@@ -1,3 +1,4 @@
+#include "senseiConfig.h"
 #include "VTKUtils.h"
 #include "MPIUtils.h"
 #include "MeshMetadata.h"
@@ -1183,6 +1184,14 @@ void HexCell(long cid, unsigned char *pCta, vtkIdType *pClocs, vtkIdType *pCids)
 int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   const std::string fileName)
 {
+#if !defined(ENABLE_VTK_IO)
+    (void)comm;
+    (void)md;
+    (void)fileName;
+    SENSEI_ERROR("VTK XML I/O capabilites are required by WriteDomainDecomp"
+      " but are not present in this build")
+    return -1;
+#else
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
@@ -1291,6 +1300,7 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   ug->Delete();
 
   return 0;
+#endif
 }
 
 }
