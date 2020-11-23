@@ -481,7 +481,7 @@ int VTKPosthocIO::Finalize()
     if (this->Mode == VTKPosthocIO::MODE_PARAVIEW)
       {
       std::string pvdFileName = this->OutputDir + "/" + meshName + ".pvd";
-      ofstream pvdFile(pvdFileName);
+      std::ofstream pvdFile(pvdFileName);
 
       if (!pvdFile)
         {
@@ -540,7 +540,7 @@ int VTKPosthocIO::Finalize()
         {
         // write a single .visit file for the time series
         std::string visitFileName = this->OutputDir + "/" + meshName + ".visit";
-        ofstream visitFile(visitFileName);
+        std::ofstream visitFile(visitFileName);
 
         if (!visitFile)
           {
@@ -588,7 +588,7 @@ int VTKPosthocIO::Finalize()
 
           std::string visitFileName = oss.str();
 
-          ofstream visitFile(visitFileName);
+          std::ofstream visitFile(visitFileName);
           if (!visitFile)
             {
             SENSEI_ERROR("Failed to open \"" << visitFileName << "\" for writing")

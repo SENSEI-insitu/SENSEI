@@ -144,4 +144,8 @@ if (BUILD_TESTING)
       histogram.xml read_adios2_sst_block.xml 10 1
     FEATURES  ${ENABLE_PYTHON} ${ENABLE_ADIOS2})
 
+  senseiAddTest(testMeshMetadata
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/testMeshMetadata.py
+    FEATURES ${ENABLE_PYTHON})
+
 endif()
