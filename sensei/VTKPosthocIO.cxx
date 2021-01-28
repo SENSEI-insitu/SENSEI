@@ -11,7 +11,6 @@
 #include <vtkMultiBlockDataSet.h>
 #include <vtkUniformGridAMR.h>
 #include <vtkDataArray.h>
-#include <vtkDataArrayTemplate.h>
 #include <vtkDataObject.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkImageData.h>

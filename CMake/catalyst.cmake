@@ -1,10 +1,12 @@
 if (ENABLE_CATALYST)
   set(sensei_pv_components_legacy vtkPVCatalyst vtkPVServerManagerRendering)
-  set(sensei_pv_components_modern Catalyst ServerManagerRendering)
+  set(sensei_pv_components_5_7 Catalyst ServerManagerRendering)
+  set(sensei_pv_components_5_8 Catalyst RemotingViews)
 
   if(ENABLE_CATALYST_PYTHON)
     list(APPEND sensei_pv_components_legacy vtkPVPythonCatalyst)
-    list(APPEND sensei_pv_components_modern PythonCatalyst)
+    list(APPEND sensei_pv_components_5_7 PythonCatalyst)
+    list(APPEND sensei_pv_components_5_8 PythonCatalyst)
   endif()
 
   find_package(ParaView CONFIG QUIET)
@@ -16,14 +18,17 @@ if (ENABLE_CATALYST)
   endif()
   if (ParaView_VERSION VERSION_LESS "5.7.0")
     set (SENSEI_PV_COMPONENTS ${sensei_pv_components_legacy} ${SENSEI_VTK_COMPONENTS})
+  elseif (ParaView_VERSION VERSION_LESS "5.8.0")
+    set (SENSEI_PV_COMPONENTS ${sensei_pv_components_5_7})
   else()
-    set (SENSEI_PV_COMPONENTS ${sensei_pv_components_modern})
+    set (SENSEI_PV_COMPONENTS ${sensei_pv_components_5_8})
   endif()
   find_package(ParaView CONFIG COMPONENTS ${SENSEI_PV_COMPONENTS})
 
   # avoid leaking these internal variables
   unset(sensei_pv_components_legacy)
-  unset(sensei_pv_components_modern)
+  unset(sensei_pv_components_5_7)
+  unset(sensei_pv_components_5_8)
 
   if(NOT ParaView_FOUND)
     message(FATAL_ERROR "Catalyst analysis components require Catalyst build "
