@@ -59,7 +59,9 @@
 #include <vtkAOSDataArrayTemplate.h>
 #include <vtkSOADataArrayTemplate.h>
 #endif
+#if defined(ENABLE_VTK_IO)
 #include <vtkXMLUnstructuredGridWriter.h>
+#endif
 #include <vtkPoints.h>
 #include <vtkDoubleArray.h>
 #include <vtkIdTypeArray.h>
