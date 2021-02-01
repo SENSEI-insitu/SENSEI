@@ -304,7 +304,7 @@ int VTKAmrWriter::Finalize()
     if (this->Mode == VTKAmrWriter::MODE_PARAVIEW)
       {
       std::string pvdFileName = this->OutputDir + "/" + meshName + ".pvd";
-      ofstream pvdFile(pvdFileName);
+      std::ofstream pvdFile(pvdFileName);
 
       if (!pvdFile)
         {
@@ -333,7 +333,7 @@ int VTKAmrWriter::Finalize()
     else if (this->Mode == VTKAmrWriter::MODE_VISIT)
       {
       std::string visitFileName = this->OutputDir + "/" + meshName + ".visit";
-      ofstream visitFile(visitFileName);
+      std::ofstream visitFile(visitFileName);
 
       if (!visitFile)
         {

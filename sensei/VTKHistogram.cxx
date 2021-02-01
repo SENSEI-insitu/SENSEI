@@ -21,7 +21,6 @@
 #include <vtkObjectFactory.h>
 #else
 #include <vtkDataArrayDispatcher.h>
-#include <vtkDataArrayTemplate.h>
 #endif
 
 namespace sensei
