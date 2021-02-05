@@ -6,7 +6,9 @@
 
 #include <mpi.h>
 
+#include <conduit.hpp>
 #include <conduit_blueprint.hpp>
+#include <conduit_relay.hpp> 
 
 #include <vtkObjectFactory.h>
 #include <vtkCellArray.h>
@@ -27,6 +29,8 @@
 #include <vtkSOADataArrayTemplate.h>
 #include <vtkDataArrayTemplate.h>
 #include <vtkUnsignedCharArray.h>
+
+#define DEBUG_TRACE 0   //  for debug work, wes 8/2021
 
 namespace
 {
@@ -255,7 +259,7 @@ int PassFields(int bid, vtkDataSet *ds, conduit::Node &node)
 */
 
 // **************************************************************************
-int PassFields(vtkDataSet* ds, conduit::Node& node,
+int PassFields(vtkDataArray *da, conduit::Node& node,
   const std::string &arrayName, int arrayCen)
 {
   std::stringstream ss;
@@ -305,8 +309,6 @@ int PassFields(vtkDataSet* ds, conduit::Node& node,
 
 
   // tell ascent the centering
-  vtkDataSetAttributes *atts = ds->GetAttributes(arrayCen);
-  vtkDataArray *da = atts->GetArray(arrayName.c_str());
   std::string cenType;
   if (arrayCen == vtkDataObject::POINT)
   {
@@ -412,7 +414,8 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
 
     node["topologies/mesh/elements/origin/i0"] = origin[0] + (extents[0] * spacing[0]);
     node["topologies/mesh/elements/origin/j0"] = origin[1] + (extents[2] * spacing[1]);
-    if(dims[2] != 0 && dims[2] != 1)
+// wes    if(dims[2] != 0 && dims[2] != 1)
+    if(dims[2] != 0)
       node["topologies/mesh/elements/origin/k0"] = origin[2] + (extents[4] * spacing[2]);
   }
   else if(rectilinear != nullptr)
@@ -436,6 +439,8 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
   }
   else if(unstructured != nullptr)
   {
+    // fixme: this code makes a deep copy, look for ways
+    // to do a more shallow copy
     if(!unstructured->IsHomogeneous())
     {
       SENSEI_ERROR("Unstructured cells must be homogenous");
@@ -445,7 +450,12 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
     node["topologies/mesh/coordset"] = "coords";
 
     vtkCellArray* cellarray = unstructured->GetCells();
-    vtkIdType *ptr = cellarray->GetPointer();
+
+    vtkIdTypeArray *idarray = vtkIdTypeArray::New();
+    cellarray->ExportLegacyFormat(idarray);
+
+    // vtkIdType *ptr = cellarray->GetPointer();
+    vtkIdType *ptr = idarray->GetPointer(0);
 
     std::string shape;
     GetShape(shape, ptr[0]);
@@ -468,6 +478,7 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
       }
     }
     node["topologies/mesh/elements/connectivity"].set(data);
+    idarray->Delete();
   }
   else
   {
@@ -651,13 +662,33 @@ void NodeIter(const conduit::Node& node, std::set<std::string>& fields)
 
 // **************************************************************************
 int PassData(vtkDataSet* ds, conduit::Node& node,
-  const std::string &arrayName, int arrayCen, sensei::DataAdaptor *dataAdaptor)
+  sensei::DataAdaptor *dataAdaptor)
 {
     // FIXME -- do error checking on all these and report any errors
+    // FIXME -- instead of passing data adaptor pass time and time step
+
     PassState(ds, node, dataAdaptor);
+
     PassCoordsets(ds, node);
     PassTopology(ds, node);
-    PassFields(ds, node, arrayName, arrayCen);
+
+    int arrayCens[] = {vtkDataObject::POINT, vtkDataObject::CELL};
+    for (int j = 0; j < 2; ++j)
+    {
+        int arrayCen = arrayCens[j];
+
+        vtkDataSetAttributes *atts = ds->GetAttributes(arrayCen);
+        int numArrays = atts->GetNumberOfArrays();
+        for (int i = 0; i < numArrays; ++i)
+        {
+          vtkDataArray *da = atts->GetArray(i);
+
+          const char *arrayName = da->GetName();
+
+          PassFields(da, node, arrayName, arrayCen);
+        }
+    }
+
     PassGhostsZones(ds, node);
     return 0;
 }
@@ -740,7 +771,7 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
 
   if (::LoadConfig(json_file_path, this->actionsNode))
   {
-    SENSEI_ERROR("Failed to load actionss from \""
+    SENSEI_ERROR("Failed to load actions from \""
       << json_file_path << "\"")
     return -1;
   }
@@ -756,12 +787,187 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
   return 0;
 }
 
+
+// wes 8/2021
+bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
+{
+#if DEBUG_TRACE
+  std::cout << "AscentAnalysisAdaptor::Execute_new() - begin " << std::endl;
+#endif
+
+  conduit::Node localRoot;
+
+  MeshMetadataFlags flags;
+  flags.SetBlockDecomp();
+  flags.SetBlockSize();
+  flags.SetBlockBounds();
+  flags.SetBlockExtents();
+  flags.SetBlockArrayRange();
+
+  MeshMetadataMap mdm;
+  if (mdm.Initialize(dataAdaptor, flags))
+  {
+     SENSEI_ERROR("Failed to get metadata")
+     return false;
+  }
+
+  // if no dataAdaptor requirements are given, push all the data
+  // fill in the requirements with every thing
+  if (this->Requirements.Empty())
+  {
+     if (this->Requirements.Initialize(dataAdaptor, false))
+     {
+       SENSEI_ERROR("Failed to initialze dataAdaptor description")
+       return false;
+     }
+     SENSEI_WARNING("No subset specified. Writing all available data")
+  }
+
+  // collect the specified data objects and metadata
+  std::vector<vtkCompositeDataSet*> objects;
+  std::vector<MeshMetadataPtr> metadata;
+
+  MeshRequirementsIterator mit =
+      this->Requirements.GetMeshRequirementsIterator();
+
+  while (mit)
+  {
+    // get metadata
+    MeshMetadataPtr md;
+
+    if (mdm.GetMeshMetadata(mit.MeshName(), md))
+    {
+      SENSEI_ERROR("Failed to get mesh metadata for mesh \""
+              << mit.MeshName() << "\"")
+      return false;
+    }
+
+#if DEBUG_TRACE
+    std::cout << " Fetching mesh named: [" << mit.MeshName() << "] " << std::endl;
+#endif
+
+    // get the mesh
+    vtkCompositeDataSet *dobj = nullptr;
+
+    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+    {
+      SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+      return false;
+    }
+
+    // add the ghost cell arrays to the mesh
+    if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+            dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+    {
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+      return false;
+    }
+
+    // add the ghost node arrays to the mesh
+    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    {
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
+      return false;
+    }
+
+    // add the required arrays
+    ArrayRequirementsIterator ait =
+        this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
+
+    while (ait)
+    {
+      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+                  ait.Association(), ait.Array()))
+      {
+        SENSEI_ERROR("Failed to add "
+                 << VTKUtils::GetAttributesName(ait.Association())
+                 << " data array \"" << ait.Array() << "\" to mesh \""
+                 << mit.MeshName() << "\"")
+        return false;
+      }
+
+#if DEBUG_TRACE
+      std::cout << " Fetching array named [" << ait.Array() << "] with centering [" << VTKUtils::GetAttributesName(ait.Association()) << "] " << std::endl;
+#endif
+
+      ++ait;
+    } // while (ait))
+
+    // generate a global view of the metadata. everything we do from here
+    // on out depends on having the global view.
+    md->GlobalizeView(this->GetCommunicator());
+
+    // add to the collection
+    objects.push_back(dobj);
+    metadata.push_back(md);
+
+    ++mit;
+
+  } // while(mit)
+
+  // at this point, we pulled/fetched all data from the simulation requested
+  // by the config file. this collection is located in:
+  // objects: vector of vtkCompositeDataSet
+  // metadata: vector of MeshMetaDataPtr
+
+  // now, iterate over the collection of data objects and convert them
+  // to conduit meshes
+  for (unsigned int i=0; i < objects.size(); i++)
+  {
+    // process each of the objects[i]
+    // see this URL for info about the processing motif:
+    // https://www.paraview.org/Wiki/VTK/Tutorials/Composite_Datasets
+
+    vtkCompositeDataSet* input = objects[i];
+    vtkCompositeDataIterator* iter = input->NewIterator();
+
+    int nds=0;
+    for ( iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), nds++)
+    {
+      vtkDataSet* inputDS = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject());
+//#if DEBUG_TRACE
+#if 0
+      std::cout << "Processing cds# " << i << " and working on the " << nds << "'th dataset " << std::endl;
+#endif
+      
+      ::PassData(inputDS, localRoot, dataAdaptor);
+    }
+
+    iter->Delete();
+  }
+
+  // invoke ascent's execute method
+  this->_ascent.publish(localRoot);
+  this->_ascent.execute(this->actionsNode);
+
+  localRoot.reset();
+
+  unsigned int n_objects = objects.size();
+  for (unsigned int i = 0; i < n_objects; ++i)
+      objects[i]->Delete();
+
+   return true;
+
+}
+
+
 //------------------------------------------------------------------------------
+
+// wes aug 2021
 bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+{
+    // return AscentAnalysisAdaptor::Execute_original(dataAdaptor);
+    return AscentAnalysisAdaptor::Execute_new(dataAdaptor);
+}
+
+// wes aug 2021
+bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 {
   // FIXME -- data requirements needs to be determined from ascent
   // configs.
   // get the mesh name
+  std::cout << "AscentAnalysisAdaptor::Execute_original() - begin " << std::endl;
+
   if (this->Requirements.Empty())
     {
     SENSEI_ERROR("Data requirements have not been provided")
@@ -868,13 +1074,28 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
           conduit::Node &temp_node = root[domain];
 
           // FIXME -- check retuirn for error
-          ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+          ::PassData(ds, temp_node, dataAdaptor);
         }
         else
         {
           conduit::Node &temp_node = root;
+
+	  // tmp, check for validity
+	  std::cout << "printing out contents of the conduit node/tree " << std::endl;
+
+	  temp_node.print();
+
+	  // following example from here: https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#uniform
+	  conduit::Node verify_info;
+	  if (!conduit::blueprint::mesh::verify(temp_node, verify_info))
+	  {
+	     std::cout << "Verify failed! " << std::endl;
+	     verify_info.print();
+	  }
+
+
           // FIXME -- check retuirn for error
-          ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+          ::PassData(ds, temp_node, dataAdaptor);
         }
       }
       itr->GoToNextItem();
@@ -885,7 +1106,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     conduit::Node &temp_node = root;
 
     // FIXME -- check retuirn for error
-    ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+    ::PassData(ds, temp_node, dataAdaptor);
   }
   else
   {
@@ -906,8 +1127,43 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   DebugSaveAscentData( root, this->optionsNode );
 #endif
 
+#if 1
+  // wes 4/20/2021
+  // invoke blueprint method to verify that we have created something valid
+  // 
+  conduit::Node verify_info;
+  if (!conduit::blueprint::mesh::verify(root, verify_info))
+  {
+     std::cout << "Mesh verify failed!" << std::endl;
+//     std::cout << verify_info.to_yaml() << std::endl;
+  }
+  else
+  {
+     std::cout << "Mesh verify success!" << std::endl;
+     std::cout << root.to_yaml() << std::endl;
+//     std::cout << veri
+  }
+
+  std::cout << "Contents of this->actionsNode(): " << std::endl;
+  std::cout << this->actionsNode.to_yaml() << std::endl;
+//  std::cout << ascent::about() << std::endl;
+
+  // temp wes 4/20/2021: write a file and send to Matt because
+  // it causes a crash in vtk-m, something they thought was fixed
+  conduit::relay::io::save(root, "sensei-ascent-demo.json");
+
+#endif
+
+#if 0
+  // wes 7/1/2021
+  std::cout << ascent::about() << std::endl;
+#endif
+
+
   this->_ascent.publish(root);
   this->_ascent.execute(this->actionsNode);
+
+
   root.reset();
 
   return( true );
