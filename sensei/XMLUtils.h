@@ -11,7 +11,6 @@
 
 namespace sensei
 {
-
 namespace XMLUtils
 {
 
@@ -103,8 +102,10 @@ int ParseNumeric(const pugi::xml_node &node, std::array<num_t,n> &numData)
   return 0;
 }
 
-}
+// process a sequence of "name = value" pairs in a node's text.
+int ParseNameValuePairs(const pugi::xml_node &node,
+  std::vector<std::string> &names, std::vector<std::string> &values);
 
 }
-
+}
 #endif

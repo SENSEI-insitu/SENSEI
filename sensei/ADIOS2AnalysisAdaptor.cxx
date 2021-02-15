@@ -5,6 +5,7 @@
 #include "MeshMetadataMap.h"
 #include "VTKUtils.h"
 #include "MPIUtils.h"
+#include "XMLUtils.h"
 #include "Profiler.h"
 #include "Error.h"
 
@@ -33,6 +34,7 @@
 #include <mpi.h>
 #include <vector>
 #include <regex>
+#include <pugixml.hpp>
 
 using senseiADIOS2::adios2_strerror;
 
@@ -192,6 +194,72 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     objects[i]->Delete();
 
   return true;
+}
+
+//----------------------------------------------------------------------------
+int ADIOS2AnalysisAdaptor::Initialize(pugi::xml_node &node)
+{
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Initialize");
+
+  if (XMLUtils::RequireAttribute(node, "engine") ||
+    XMLUtils::RequireAttribute(node, "filename"))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS2AnalysisAdaptor");
+    return -1;
+    }
+
+  std::string filename = node.attribute("filename").value();
+  this->SetFileName(filename);
+
+  std::string engine = node.attribute("engine").value();
+  this->SetEngineName(engine);
+
+  // buffer size is given in the units of number of time steps,
+  // 0 means buffer all steps
+  std::string bufferSize = node.attribute("buffer_size").as_string("");
+  if (!bufferSize.empty())
+    this->AddParameter("QueueLimit", bufferSize);
+
+  // valid modes are Block or Discard
+  std::string bufferMode = node.attribute("buffer_mode").as_string("");
+  if (!bufferMode.empty())
+    this->AddParameter("QueueFullPolicy", bufferMode);
+
+  // turn on/off debug output
+  this->SetDebugMode(node.attribute("debug_mode").as_int(0));
+
+  // enable file series for file based engines
+  this->SetStepsPerFile(node.attribute("steps_per_file").as_int(0));
+
+  // pass a group of engine parameters
+  pugi::xml_node params = node.child("engine_parameters");
+  if (params)
+    {
+    std::vector<std::string> name;
+    std::vector<std::string> value;
+    XMLUtils::ParseNameValuePairs(params, name, value);
+    size_t n = name.size();
+    for (size_t i = 0; i < n; ++i)
+        this->AddParameter(name[i], value[i]);
+    }
+
+  // set the data requirements
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize ADIOS 2.")
+    return -1;
+    }
+  this->SetDataRequirements(req);
+
+  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
+    << filename << "\" engine=" << engine
+    << (!bufferMode.empty() ? "buffer_mode=" : "")
+    << (!bufferMode.empty() ? bufferMode.c_str() : "")
+    << (!bufferSize.empty() ? "buffer_size=" : "")
+    << (!bufferSize.empty() ? bufferSize.c_str() : ""))
+
+  return 0;
 }
 
 //----------------------------------------------------------------------------

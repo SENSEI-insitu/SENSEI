@@ -20,6 +20,8 @@ class DataObjectCollectionSchema;
 class vtkDataObject;
 class vtkCompositeDataSet;
 
+namespace pugi { class xml_node; }
+
 namespace sensei
 {
 /// The write side of the ADIOS 2 transport
@@ -28,6 +30,9 @@ class ADIOS2AnalysisAdaptor : public AnalysisAdaptor
 public:
   static ADIOS2AnalysisAdaptor* New();
   senseiTypeMacro(ADIOS2AnalysisAdaptor, AnalysisAdaptor);
+
+  /// initialize from an XML representation
+  int Initialize(pugi::xml_node &parent);
 
   /// Add name value pairs to be passed to ADIOS
   void AddParameter(const std::string &key, const std::string &value);

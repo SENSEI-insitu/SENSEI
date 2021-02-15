@@ -98,6 +98,17 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 
   this->SetDebugMode(node.attribute("debug_mode").as_int(0));
 
+  pugi::xml_node params = node.child("engine_parameters");
+  if (params)
+    {
+    std::vector<std::string> name;
+    std::vector<std::string> value;
+    XMLUtils::ParseNameValuePairs(params, name, value);
+    size_t n = name.size();
+    for (size_t i = 0; i < n; ++i)
+        this->AddParameter(name[i], value[i]);
+    }
+
   return 0;
 }
 
