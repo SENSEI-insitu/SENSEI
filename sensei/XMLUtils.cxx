@@ -98,6 +98,48 @@ int Parse(MPI_Comm comm, const std::string &filename, pugi::xml_document &doc)
   return 0;
 }
 
+//----------------------------------------------------------------------------
+int ParseNameValuePairs(const pugi::xml_node &node,
+  std::vector<std::string> &names, std::vector<std::string> &values)
+{
+  std::string strData = node.text().as_string();
+
+  std::size_t curr = strData.find_first_not_of(" ,\t\n", 0);
+  std::size_t next = std::string::npos;
+
+  while (curr != std::string::npos)
+    {
+    // find next delimiter, not including white space
+    next = strData.find_first_of(",\n\t", curr + 1);
+    std::string tmp = strData.substr(curr, next - curr);
+
+    // skip a string full of white space
+    std::size_t n0 = tmp.find_first_not_of(" ");
+    if (n0 == std::string::npos)
+      continue;
+
+    char name[128];
+    char value[128];
+
+    name[127] = '\0';
+    value[127] = '\0';
+
+    if (sscanf(tmp.c_str(), "%127s = %127s", name, value) == 2)
+      {
+      names.push_back(name);
+      values.push_back(value);
+      }
+    else
+      {
+      SENSEI_WARNING("Failed to parse \"name = value\" in \""
+        << tmp << "\"")
+      }
+
+    curr = strData.find_first_not_of(" ,\t\n", next);
+    }
+
+  return 0;
 }
 
+}
 }
