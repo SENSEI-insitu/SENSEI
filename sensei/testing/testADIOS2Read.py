@@ -33,12 +33,13 @@ def check_array(array):
     return -1
   return 0
 
-def read_data(fileName, method):
+def read_data(engine, fileName, verbose):
   # initialize the data adaptor
-  status_message('initializing ADIOS2DataAdaptor file=%s method=%s'%(fileName,method))
+  status_message('initializing ADIOS2DataAdaptor file=%s engine=%s'%(fileName,engine))
   da = ADIOS2DataAdaptor.New()
-  da.SetReadEngine(method)
+  da.SetReadEngine(engine)
   da.SetFileName(fileName)
+  da.SetDebugMode(1)
   da.SetPartitioner(BlockPartitioner.New())
   da.OpenStream()
   # process all time steps
@@ -52,25 +53,29 @@ def read_data(fileName, method):
 
     # get the mesh info
     nMeshes = da.GetNumberOfMeshes()
-    status_message('receveied %d meshes'%(nMeshes))
+    if verbose:
+      status_message('    receveied %d meshes'%(nMeshes))
     i = 0
     while i < nMeshes:
       md = da.GetMeshMetadata(i)
       meshName = md.MeshName
-      status_message('received mesh %s'%(meshName))
+      if verbose:
+        status_message('    received mesh %s'%(meshName))
 
       # report on data partitioning
       smd = da.GetSenderMeshMetadata(i)
-      status_message('BlockIds=%s'%(str(md.BlockIds)))
-      status_message('SenderBlockOwner=%s'%(str(smd.BlockOwner)))
-      status_message('ReceiverBlockOwner=%s'%(str(md.BlockOwner)))
+      if verbose:
+        status_message('    BlockIds=%s'%(str(md.BlockIds)))
+        status_message('    SenderBlockOwner=%s'%(str(smd.BlockOwner)))
+        status_message('    ReceiverBlockOwner=%s'%(str(md.BlockOwner)))
 
       # get a VTK dataset with all the arrays
       ds = da.GetMesh(meshName, False)
 
       # request each array
       n_arrays = md.NumArrays
-      status_message('%d arrays %s'%(n_arrays, str(md.ArrayName)))
+      if verbose:
+        status_message('    %d arrays %s'%(n_arrays, str(md.ArrayName)))
       j = 0
       while j < n_arrays:
         array_name = md.ArrayName[j]
@@ -92,9 +97,10 @@ def read_data(fileName, method):
 
         n_arrays = md.NumArrays
 
-        status_message('checking %d data arrays ' \
-          'in block %d of mesh "%s" type %s'%(n_arrays, idx-1, md.MeshName, \
-          bds.GetClassName()), rank)
+        if verbose:
+          status_message('    checking %d data arrays ' \
+            'in block %d of mesh "%s" type %s'%(n_arrays, idx-1, md.MeshName, \
+            bds.GetClassName()), rank)
 
         j = 0
         while j < n_arrays:
@@ -107,7 +113,8 @@ def read_data(fileName, method):
             error_message('Test failed on array %d "%s"'%(j, array.GetName()))
             retval = -1
 
-          #status_message('checking %s ... OK'%(md.ArrayName[j]))
+          if verbose:
+            status_message('checking %s ... OK'%(md.ArrayName[j]))
 
           j += 1
         it.GoToNextItem()
@@ -124,11 +131,11 @@ def read_data(fileName, method):
 
 if __name__ == '__main__':
   # process command line
-  fileName = sys.argv[1]
-  method = sys.argv[2]
+  engine = sys.argv[1]
+  fileName = sys.argv[2]
 
   # write data
-  ierr = read_data(fileName, method)
+  ierr = read_data(engine, fileName, 0)
   if ierr:
     error_message('read failed')
 

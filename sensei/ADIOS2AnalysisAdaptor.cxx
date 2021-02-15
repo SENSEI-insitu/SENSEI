@@ -32,6 +32,9 @@
 
 #include <mpi.h>
 #include <vector>
+#include <regex>
+
+using senseiADIOS2::adios2_strerror;
 
 namespace sensei
 {
@@ -40,8 +43,9 @@ namespace sensei
 senseiNewMacro(ADIOS2AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
-ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() : Schema(nullptr),
-    FileName("sensei.bp"), DebugMode(0)
+ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() :
+    Schema(nullptr), FileName("sensei.bp"), DebugMode(0),
+    StepsPerFile(0), StepIndex(0), FileIndex(0)
 {
   this->Handles.io = nullptr;
   this->Handles.engine = nullptr;
@@ -172,10 +176,14 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     ++mit;
     }
 
+  // set everything up the first time trhough
+  if (!this->Schema)
+    this->InitializeADIOS2();
+
   unsigned long timeStep = dataAdaptor->GetDataTimeStep();
   double time = dataAdaptor->GetDataTime();
 
-  if (this->InitializeADIOS2(metadata) ||
+  if (this->DefineVariables(metadata) ||
     this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
 
@@ -187,48 +195,76 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2AnalysisAdaptor::InitializeADIOS2(
-  const std::vector<MeshMetadataPtr> &metadata)
+int ADIOS2AnalysisAdaptor::InitializeADIOS2()
 {
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::IntializeADIOS2");
 
-  if (!this->Schema)
+  if (this->StepsPerFile > 0)
     {
-    // initialize adios2
-    this->Adios = adios2_init(this->GetCommunicator(),
-      adios2_debug_mode(this->DebugMode));
-
-    if (this->Adios == nullptr)
+    // look for for a decimal format specifier in the file name.
+    // if it's not present, the same file will be over written
+    // and data will be lost
+    std::regex decFmtSpec("%[0-9]*[diuoxX]", std::regex_constants::basic);
+    if (!std::regex_search(this->FileName.c_str(), decFmtSpec))
       {
-      SENSEI_ERROR("adios2_init failed")
-      return -1;
-      }
-
-    // Open the io handle
-    this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
-    if (this->Handles.io == nullptr)
-      {
-      SENSEI_ERROR("adios2_declare_io failed")
-      return -1;
-      }
-
-    // create space for ADIOS2 variables
-    this->Schema = new senseiADIOS2::DataObjectCollectionSchema;
-
-    // Open the engine now variables are declared
-    if (adios2_set_engine(this->Handles.io, this->EngineName.c_str()))
-      {
-      SENSEI_ERROR("adios2_set_engine failed")
+      SENSEI_ERROR("Use of StepsPerFile requires a "
+          "printf integer format specifier to prevent "
+          "repeatedly overwriting the same file. Hint: "
+          "try something like \"sensei_%04d.bp\"");
       return -1;
       }
     }
 
+  // initialize adios2
+  this->Adios = adios2_init(this->GetCommunicator(),
+    adios2_debug_mode(this->DebugMode));
+
+  if (this->Adios == nullptr)
+    {
+    SENSEI_ERROR("adios2_init failed")
+    return -1;
+    }
+
+  // Open the io handle
+  this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
+  if (this->Handles.io == nullptr)
+    {
+    SENSEI_ERROR("adios2_declare_io failed")
+    return -1;
+    }
+
+  // create space for ADIOS2 variables
+  this->Schema = new senseiADIOS2::DataObjectCollectionSchema;
+
+  // Open the engine
+  if (adios2_set_engine(this->Handles.io, this->EngineName.c_str()))
+    {
+    SENSEI_ERROR("adios2_set_engine failed")
+    return -1;
+    }
+
+  // If the user set additional parameters, add them now to ADIOS2
+  for (unsigned int j = 0; j < this->Parameters.size(); j++)
+    {
+    adios2_set_parameter(this->Handles.io,
+                         this->Parameters[j].first.c_str(),
+                         this->Parameters[j].second.c_str());
+    }
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+int ADIOS2AnalysisAdaptor::DefineVariables(
+  const std::vector<MeshMetadataPtr> &metadata)
+{
   // On subsequent ts we need to clear the existing variables so we don't try to
   // redefine existing variables
-  adios2_error clearErr = adios2_remove_all_variables(this->Handles.io);
-  if (clearErr != 0)
+  adios2_error aerr = adios2_error_none;
+
+  if ((aerr = adios2_remove_all_variables(this->Handles.io)))
     {
-    SENSEI_ERROR("adios2_remove_all_variables failed " << clearErr )
+    SENSEI_ERROR("adios2_remove_all_variables failed. " << adios2_strerror(aerr))
     return -1;
     }
 
@@ -246,39 +282,88 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2(
 //----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::FinalizeADIOS2()
 {
-  adios2_error err = adios2_finalize(this->Adios);
-  if (err != 0)
+  int ierr = 0;
+  if (this->Schema)
     {
-    SENSEI_ERROR("ADIOS2 error on adios2_finalize call, error code enum: " << err )
-    return -1;
+    // handle the case where new file in file series is needed
+    if (this->UpdateStream())
+      return -1;
+
+    adios2_error aerr = adios2_error_none;
+
+    // mark the stream as completed by sending INT_MAX in the timestep
+    // this is used for series of BP4 files and not needed for SST or
+    // stream based processing from a single file.
+    if ((aerr = adios2_remove_all_variables(this->Handles.io)))
+      {
+      SENSEI_ERROR("adios2_remove_all_variables failed. "
+        << adios2_strerror(aerr))
+      return -1;
+      }
+
+    if (!adios2_define_variable(this->Handles.io, "time_step",
+      adios2_type_uint64_t, 0, NULL, NULL, NULL, adios2_constant_dims_true))
+      {
+      SENSEI_ERROR("adios2_define_variable time_step failed")
+      return -1;
+      }
+
+    adios2_step_status status;
+    if ((aerr = adios2_begin_step(this->Handles.engine,
+      adios2_step_mode_append, -1, &status)))
+      {
+      SENSEI_ERROR("adios2_begin_step failed. " << adios2_strerror(aerr))
+      return -1;
+      }
+
+    uint64_t time_step = std::numeric_limits<uint64_t>::max();
+    if ((aerr = adios2_put_by_name(this->Handles.engine, "time_step",
+      &time_step, adios2_mode_sync)))
+      {
+      SENSEI_ERROR("adios_put_by_name time_step failed. "
+        << adios2_strerror(aerr))
+      return -1;
+      }
+
+    if ((aerr = adios2_perform_puts(this->Handles.engine)))
+      {
+      SENSEI_ERROR("adios2_perform_puts failed. " << adios2_strerror(aerr))
+      return -1;
+      }
+
+    if ((aerr = adios2_end_step(this->Handles.engine)))
+      {
+      SENSEI_ERROR("adios2_end_step failed. " << adios2_strerror(aerr))
+      return -1;
+      }
+
+    if ((aerr = adios2_close(this->Handles.engine)))
+      {
+      SENSEI_ERROR("adios2_close failed. " << adios2_strerror(aerr))
+      --ierr;
+      }
+
+    this->Handles.io = nullptr;
+    this->Handles.engine = nullptr;
+
+    if ((aerr = adios2_finalize(this->Adios)))
+      {
+      SENSEI_ERROR("adios2_finalize failed. " << adios2_strerror(aerr))
+      --ierr;
+      }
+
+    delete this->Schema;
+    this->Schema = nullptr;
     }
-  return 0;
+
+  return ierr;
 }
 
 //----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::Finalize()
 {
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Finalize");
-
-  if (this->Schema)
-    {
-    adios2_error err = adios2_close(this->Handles.engine);
-    if (err != 0)
-      {
-      SENSEI_ERROR("ADIOS2 error on adios2_close call, error code enum: " << err )
-      return -1;
-      }
-
-    this->FinalizeADIOS2();
-    }
-
-
-  delete this->Schema;
-  this->Schema = nullptr;
-  this->Handles.io = nullptr;
-  this->Handles.engine = nullptr;
-
-  return 0;
+  return this->FinalizeADIOS2();
 }
 
 //----------------------------------------------------------------------------
@@ -289,37 +374,18 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::WriteTimestep");
 
   int ierr = 0;
-  if (!this->Handles.engine)
-    {
-    // If the user set additional parameters, add them now to ADIOS2
-    for (unsigned int j = 0; j < this->Parameters.size(); j++)
-      {
-      adios2_set_parameter(this->Handles.io,
-                           this->Parameters[j].first.c_str(),
-                           this->Parameters[j].second.c_str());
-      }
+  adios2_error aerr = adios2_error_none;
 
-    this->Handles.engine = adios2_open(this->Handles.io,
-        this->FileName.c_str(), adios2_mode_write);
-
-    if (!this->Handles.engine)
-      {
-      SENSEI_ERROR("Failed to open \"" << this->FileName << "\" for writing")
-      return -1;
-      }
-    }
+  if (this->UpdateStream())
+    return -1;
 
   adios2_step_status status;
-  adios2_error err = adios2_begin_step(this->Handles.engine,
-    adios2_step_mode_append, -1, &status);
-
-  if (err != 0)
+  if ((aerr = adios2_begin_step(this->Handles.engine,
+    adios2_step_mode_append, -1, &status)))
     {
-    SENSEI_ERROR("ADIOS2 advance time step error, error code\"" << status
-      << "\" see adios2_c_types.h for the adios2_step_status enum for details.")
+    SENSEI_ERROR("adios2_begin_step failed. " << adios2_strerror(aerr))
     return -1;
     }
-
 
   if (this->Schema->Write(this->GetCommunicator(),
     this->Handles, timeStep, time, metadata, objects))
@@ -329,14 +395,19 @@ int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
     ierr = -1;
     }
 
-  adios2_perform_puts(this->Handles.engine);
-
-  adios2_error endErr = adios2_end_step(this->Handles.engine);
-  if (endErr != 0)
+  if ((aerr = adios2_perform_puts(this->Handles.engine)))
     {
-    SENSEI_ERROR("ADIOS2 error on adios2_end_step call, error code enum: " << endErr )
+    SENSEI_ERROR("adios2_perform_puts failed. " << adios2_strerror(aerr))
     return -1;
     }
+
+  if ((aerr = adios2_end_step(this->Handles.engine)))
+    {
+    SENSEI_ERROR("adios2_end_step failed. " << adios2_strerror(aerr))
+    return -1;
+    }
+
+  ++this->StepIndex;
 
   return ierr;
 }
@@ -346,6 +417,52 @@ void ADIOS2AnalysisAdaptor::AddParameter(const std::string &key,
   const std::string &value)
 {
   this->Parameters.emplace_back(key, value);
+}
+
+//----------------------------------------------------------------------------
+int ADIOS2AnalysisAdaptor::UpdateStream()
+{
+  adios2_error aerr = adios2_error_none;
+
+  // close the existing file
+  if ((this->StepsPerFile > 0) && this->Handles.engine
+    && (this->StepIndex % this->StepsPerFile == 0))
+    {
+    if ((aerr = adios2_close(this->Handles.engine)))
+      {
+      SENSEI_ERROR("adios2_close failed. " << adios2_strerror(aerr))
+      return -1;
+      }
+
+    this->Handles.engine = nullptr;
+    }
+
+  // open a new file/stream
+  if (!this->Handles.engine)
+    {
+    // format the file name
+    char buffer[1024];
+    buffer[1023] = '\0';
+    if (this->StepsPerFile > 0)
+      {
+      snprintf(buffer, 1023, this->FileName.c_str(), this->FileIndex);
+      ++this->FileIndex;
+      }
+    else
+      {
+      strncpy(buffer, this->FileName.c_str(), 1023);
+      }
+
+    // open
+    if (!(this->Handles.engine = adios2_open(this->Handles.io,
+        buffer, adios2_mode_write)))
+      {
+      SENSEI_ERROR("Failed to open \"" << buffer << "\" for writing")
+      return -1;
+      }
+    }
+
+  return 0;
 }
 
 }

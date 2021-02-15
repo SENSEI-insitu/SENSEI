@@ -94,11 +94,13 @@ def get_polydata(nx):
   get_data_arrays(nx, pd.GetCellData())
   return pd
 
-def write_data(file_name, engine, n_its):
+def write_data(engine, file_name, steps_per_file, n_its):
   # initialize the analysis adaptor
   aw = ADIOS2AnalysisAdaptor.New()
-  aw.SetFileName(file_name)
   aw.SetEngineName(engine)
+  aw.SetFileName(file_name)
+  aw.SetStepsPerFile(steps_per_file)
+  aw.SetDebugMode(1)
 
   # create the datasets
   # the first mesh is an image
@@ -147,11 +149,12 @@ def write_data(file_name, engine, n_its):
 
 if __name__ == '__main__':
   # process command line
-  file_name = sys.argv[1]
-  engine = sys.argv[2]
-  n_its = int(sys.argv[3])
+  engine = sys.argv[1]
+  file_name = sys.argv[2]
+  steps_per_file = int(sys.argv[3])
+  n_its = int(sys.argv[4])
   # write data
-  ierr = write_data(file_name, engine, n_its)
+  ierr = write_data(engine, file_name, steps_per_file, n_its)
   if ierr:
     error_message('write failed')
   # return the error code

@@ -19,20 +19,23 @@ public:
   static ADIOS2DataAdaptor* New();
   senseiTypeMacro(ADIOS2DataAdaptor, sensei::InTransitDataAdaptor);
 
-  // set the file name used to connect. this will be the same
-  // name given to the write side analysis adaptor
-  int SetFileName(const std::string &fileName);
+  /// @brief Set the filename.
+  /// Default value is "sensei.bp" which is suitable for use with streams or
+  /// transport engines such as SST. When reading file series from disk using
+  /// engines such as BP4 one should include a integer printf format specifier,
+  /// for example "sensei_%04d.bp".
+  void SetFileName(const std::string &fileName);
 
   // set te adios engine to use. this will be the same engine
   // given to the write side analysis adaptor
-  int SetReadEngine(const std::string &readEngine);
+  void SetReadEngine(const std::string &readEngine);
 
   // enable/disable adios internal debug messages
-  int SetDebugMode(int mode);
+  void SetDebugMode(int mode);
 
   // add name value pairs to pass into ADIOS after the
   // engine has been created
-  int AddParameter(const std::string &name, const std::string &value);
+  void AddParameter(const std::string &name, const std::string &value);
 
   /// SENSEI InTransitDataAdaptor control API
   int Initialize(pugi::xml_node &parent) override;

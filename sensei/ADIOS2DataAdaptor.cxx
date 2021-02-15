@@ -45,29 +45,28 @@ ADIOS2DataAdaptor::~ADIOS2DataAdaptor()
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2DataAdaptor::SetFileName(const std::string &fileName)
+void ADIOS2DataAdaptor::SetFileName(const std::string &fileName)
 {
-  this->Internals->Stream.FileName = fileName;
-  return 0;
+  this->Internals->Stream.SetFileName(fileName);
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2DataAdaptor::SetReadEngine(const std::string &engine)
+void ADIOS2DataAdaptor::SetReadEngine(const std::string &engine)
 {
-  return this->Internals->Stream.SetReadEngine(engine);
+  this->Internals->Stream.SetReadEngine(engine);
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2DataAdaptor::SetDebugMode(int mode)
+void ADIOS2DataAdaptor::SetDebugMode(int mode)
 {
-  return this->Internals->Stream.SetDebugMode(mode);
+  this->Internals->Stream.SetDebugMode(mode);
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2DataAdaptor::AddParameter(const std::string &name,
+void ADIOS2DataAdaptor::AddParameter(const std::string &name,
   const std::string &value)
 {
-  return this->Internals->Stream.AddParameter(name, value);
+  this->Internals->Stream.AddParameter(name, value);
 }
 
 //----------------------------------------------------------------------------
@@ -91,15 +90,11 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
     }
 
   this->SetFileName(node.attribute("filename").value());
-
-  if (this->SetReadEngine(node.attribute("engine").value()))
-    return -1;
+  this->SetReadEngine(node.attribute("engine").value());
 
   // optional attributes
-  if (node.attribute("timeout") &&
-    this->AddParameter("OpenTimeoutSecs",
-      node.attribute("timeout").value()))
-    return -1;
+  if (node.attribute("timeout"))
+    this->AddParameter("OpenTimeoutSecs", node.attribute("timeout").value());
 
   this->SetDebugMode(node.attribute("debug_mode").as_int(0));
 
@@ -110,6 +105,7 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
 int ADIOS2DataAdaptor::Finalize()
 {
   TimeEvent<128> mark("ADIOS2DataAdaptor::Finalize");
+  this->Internals->Stream.Finalize();
   return 0;
 }
 
@@ -118,13 +114,19 @@ int ADIOS2DataAdaptor::OpenStream()
 {
   TimeEvent<128> mark("ADIOS2DataAdaptor::OpenStream");
 
-  if (this->Internals->Stream.Open(this->GetCommunicator()))
-    {
-    SENSEI_ERROR("Failed to open stream")
+  // initialize adios
+  if (this->Internals->Stream.Initialize(this->GetCommunicator()))
     return -1;
-    }
 
-  // initialize the time step
+  // open the stream or file
+  if (this->Internals->Stream.Open())
+    return -1;
+
+  // start the first timestep
+  if (this->Internals->Stream.BeginStep())
+    return -1;
+
+  // pull metadata from the first the time step
   if (this->UpdateTimeStep())
     return -1;
 
@@ -143,6 +145,7 @@ int ADIOS2DataAdaptor::CloseStream()
   TimeEvent<128> mark("ADIOS2DataAdaptor::CloseStream");
 
   this->Internals->Stream.Close();
+  this->Internals->Stream.Finalize();
 
   return 0;
 }
@@ -177,8 +180,13 @@ int ADIOS2DataAdaptor::UpdateTimeStep()
     return -1;
     }
 
-  this->SetDataTimeStep(timeStep);
+  if (timeStep == std::numeric_limits<int64_t>::max())
+    {
+    SENSEI_STATUS("End of stream detected")
+    return 1;
+    }
 
+  this->SetDataTimeStep(timeStep);
   this->SetDataTime(time);
 
   // read metadata
@@ -186,14 +194,6 @@ int ADIOS2DataAdaptor::UpdateTimeStep()
     this->Internals->Stream))
     {
     SENSEI_ERROR("Failed to read metadata")
-    return -1;
-    }
-
-  // set up the name-object map
-  unsigned int nMeshes = 0;
-  if (this->Internals->Schema.GetNumberOfObjects(nMeshes))
-    {
-    SENSEI_ERROR("Failed to get the number of meshes")
     return -1;
     }
 

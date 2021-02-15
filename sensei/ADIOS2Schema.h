@@ -18,6 +18,7 @@ class vtkDataObject;
 
 namespace senseiADIOS2
 {
+const char *adios2_strerror(adios2_error err);
 
 struct AdiosHandle
 {
@@ -105,24 +106,49 @@ private:
 struct InputStream
 {
   InputStream() : Handles(), Adios(nullptr),
-    ReadEngine(""), FileName(""), DebugMode(0) {}
+    ReadEngine(""), FileName(""), FileSeries(0),
+    StepsPerFile(0), FileIndex(0), StepIndex(0),
+    DebugMode(0) {}
 
   // pass engine parameters to ADIOS2 in key value pairs
-  int AddParameter(const std::string &key, const std::string &value);
+  void AddParameter(const std::string &key, const std::string &value);
 
   // set the ADIOS engine to use. Must be the same as on
   // the write side.
-  int SetReadEngine(const std::string &engine);
+  void SetReadEngine(const std::string &engine)
+  { this->ReadEngine = engine; }
 
   // set debug mode 0 off, 1 on
-  int SetDebugMode(int mode);
+  void SetDebugMode(int mode)
+  { this->DebugMode = mode; }
 
-  int Open(MPI_Comm comm, std::string readEngine,
-    const std::string &fileName, int debugMode);
+  /// @brief Set the filename.
+  /// Default value is "sensei.bp" which is suitable for use with streams or
+  /// transport engines such as SST. When writing files to disk using the BP4
+  /// engine one could SetStepsPerFile to prevent all steps being accumulated in
+  /// a single file. In this case one should also use a printf like format
+  /// specifier compatible with an int type in the file name. For example
+  /// "sensei_%04d.bp".
+  void SetFileName(const std::string &fileName);
 
-  int Open(MPI_Comm Comm);
+  /// @brief Set the number of time steps to store in each file.  The default
+  /// value is 0 which results in all the steps landing in a single file. If set
+  /// to non-zero then multiple files per run are created each with this number
+  /// of steps. An ordinal file index is incorporated in the file name. See
+  /// notes in SetFileName for details on specifying the format specifier.
+  void SetStepsPerFile(int stepsPerFile)
+  { this->StepsPerFile = stepsPerFile; }
+
+  int Initialize(MPI_Comm Comm);
+  int Finalize();
+
+  int Open();
+
+  int BeginStep();
 
   int AdvanceTimeStep();
+
+  int EndOfStream();
 
   int Close();
 
@@ -132,6 +158,10 @@ struct InputStream
   adios2_adios *Adios;
   std::string ReadEngine;
   std::string FileName;
+  int FileSeries;
+  int StepsPerFile;
+  int FileIndex;
+  int StepIndex;
   std::vector<std::pair<std::string,std::string>> Parameters;
   int DebugMode;
 };
