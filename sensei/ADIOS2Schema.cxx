@@ -53,9 +53,30 @@
 #include <string>
 #include <functional>
 #include <sstream>
+#include <regex>
 
 namespace senseiADIOS2
 {
+
+const char *adios2_strerror(adios2_error err)
+{
+  if (err == adios2_error_none)
+    return "adios2_error_none";
+
+  if (err == adios2_error_invalid_argument)
+    return "adios2_error_invalid_argument";
+
+  if (err == adios2_error_system_error)
+    return "adios2_error_system_error";
+
+  if (err == adios2_error_runtime_error)
+    return "adios2_error_runtime_error";
+
+  if (err == adios2_error_exception)
+    return "adios2_error_exception";
+
+  return "unknown error";
+}
 
 // --------------------------------------------------------------------------
 adios2_type adiosIdType()
@@ -408,12 +429,277 @@ bool streamIsFileBased(std::string engine)
 template <typename val_t>
 int adiosInq(InputStream &iStream, const std::string &path, val_t &val)
 {
-  if (adios2_get_by_name(iStream.Handles.engine,
-    path.c_str(), &val, adios2_mode_sync))
+  adios2_error aerr = adios2_error_none;
+  if ((aerr = adios2_get_by_name(iStream.Handles.engine,
+    path.c_str(), &val, adios2_mode_sync)))
     {
-    SENSEI_ERROR("adios2_get_by_name \"" << path << "\" failed")
+    SENSEI_ERROR("adios2_get_by_name \"" << path << "\" failed. "
+        << adios2_strerror(aerr))
     return -1;
     }
+  return 0;
+}
+
+
+
+//----------------------------------------------------------------------------
+void InputStream::SetFileName(const std::string &fileName)
+{
+  this->FileName = fileName;
+  this->FileSeries = 0;
+
+  // look for for a decimal format specifier in the file name.
+  // this is used to detect file series.
+  std::regex decFmtSpec("%[0-9]*[diuoxX]", std::regex_constants::basic);
+  if (std::regex_search(this->FileName.c_str(), decFmtSpec))
+    {
+    this->FileSeries = 1;
+    }
+}
+
+//----------------------------------------------------------------------------
+void InputStream::AddParameter(const std::string &key, const std::string &value)
+{
+  this->Parameters.emplace_back(key, value);
+}
+
+// --------------------------------------------------------------------------
+int InputStream::Initialize(MPI_Comm comm)
+{
+  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Initialize");
+
+  // initialize adios2
+  this->Adios = adios2_init(comm, adios2_debug_mode(this->DebugMode));
+  if (this->Adios == nullptr)
+    {
+    SENSEI_ERROR("adios2_init failed")
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::EndOfStream()
+{
+  adios2_error aerr = adios2_error_none;
+
+  // check for end of stream signal.
+  uint64_t time_step = 0;
+  if ((aerr = adios2_get_by_name(this->Handles.engine,
+    "time_step", &time_step, adios2_mode_sync)))
+    {
+    SENSEI_ERROR("adios2_get_by_name time_step failed."
+        << adios2_strerror(aerr))
+    return -1;
+    }
+
+  if (time_step == std::numeric_limits<uint64_t>::max())
+    {
+    SENSEI_STATUS("End of stream detected")
+    return 1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::Open()
+{
+  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Open");
+
+  adios2_error aerr;
+
+  // format the file name
+  char buffer[1024];
+  buffer[1023] = '\0';
+  if (this->FileSeries)
+    {
+    snprintf(buffer, 1023, this->FileName.c_str(), this->FileIndex);
+    ++this->FileIndex;
+    }
+  else
+    {
+    strncpy(buffer, this->FileName.c_str(), 1023);
+    }
+
+  // clear existing state
+  if (this->Handles.io)
+    {
+    adios2_bool result = adios2_false;
+    if ((aerr = adios2_remove_io(&result, this->Adios, "SENSEI")))
+      {
+      SENSEI_ERROR("adios2_remove_io failed. " << adios2_strerror(aerr))
+      return -1;
+      }
+    }
+
+  // open the state object
+  if (!(this->Handles.io = adios2_declare_io(this->Adios, "SENSEI")))
+    {
+    SENSEI_ERROR("adios2_declare_io failed")
+    return -1;
+    }
+
+  // pass additional engine control parameters
+  unsigned int nParms = this->Parameters.size();
+  for (unsigned int j = 0; j < nParms; ++j)
+    {
+    std::pair<std::string,std::string> &parm = this->Parameters[j];
+
+    if ((aerr = adios2_set_parameter(this->Handles.io,
+      parm.first.c_str(), parm.second.c_str())))
+      {
+      SENSEI_ERROR("adios2_set_paramter " << parm.first
+        << " = " << parm.second << " failed. " << adios2_strerror(aerr))
+      return -1;
+      }
+    }
+
+  // set the engine
+  if ((aerr = adios2_set_engine(this->Handles.io, this->ReadEngine.c_str())))
+    {
+    SENSEI_ERROR("adios2_set_engine \"" << this->ReadEngine
+      << "\" failed. " << adios2_strerror(aerr))
+    return -1;
+    }
+
+  // open the file
+  if (!(this->Handles.engine = adios2_open(this->Handles.io,
+    buffer, adios2_mode_read)))
+    {
+    SENSEI_ERROR("adios2_open \"" << this->FileName
+      << "\" for reading failed")
+    return -1;
+    }
+
+  // determine the number of steps available
+  if (this->FileSeries)
+    {
+    size_t nSteps = 0;
+    if ((aerr = adios2_steps(&nSteps, this->Handles.engine)))
+      {
+      SENSEI_ERROR("Failed to determin the number of steps in \""
+        << buffer  << "\"")
+      return -1;
+      }
+    this->StepsPerFile = nSteps;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::BeginStep()
+{
+  // begin step
+  adios2_step_status status = adios2_step_status_ok;
+
+  adios2_error err = adios2_begin_step(this->Handles.engine,
+    adios2_step_mode_read, -1, &status);
+
+  // in practice this happens when we actually should continue. BP4
+  // engine only? TODO -- document the specifics here.
+  if (err != 0)
+    {
+    SENSEI_WARNING("adios2_begin_step for read failed. status=" << status)
+    }
+
+  if (err != 0 && status == adios2_step_status::adios2_step_status_other_error)
+    {
+    SENSEI_ERROR("adios2_begin_step failed and reports error status")
+    return -1;
+    }
+
+  // Check if the status says we are at the end or no step is ready, if so, just leave
+  if (status == adios2_step_status::adios2_step_status_end_of_stream ||
+      status == adios2_step_status::adios2_step_status_not_ready)
+    {
+    return -1;
+    }
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::AdvanceTimeStep()
+{
+  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::AdvanceTimeStep");
+
+  // end the previous time step
+  adios2_error endErr = adios2_end_step(this->Handles.engine);
+    if (endErr != 0)
+    {
+    SENSEI_ERROR("adios2_end_step failed")
+    return -1;
+    }
+
+  // check for multiple time steps per file, and if it is time to
+  // open the next file
+  ++this->StepIndex;
+  if (this->FileSeries && ((this->StepIndex % this->StepsPerFile) == 0))
+    {
+    if (this->Close())
+      return -1;
+
+    if (this->Open())
+      return -1;
+    }
+
+  // begin the next time step
+  if (this->BeginStep())
+    return -1;
+
+  // check for more data to come
+  if (this->EndOfStream())
+    return 1;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::Close()
+{
+  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Close");
+
+  if (this->Handles.engine)
+    {
+    adios2_error err = adios2_close(this->Handles.engine);
+    if (err != 0)
+      {
+      SENSEI_ERROR("adios2_close failed. " << err)
+      return -1;
+      }
+    }
+
+  this->Handles.engine = nullptr;
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int InputStream::Finalize()
+{
+  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Finalize");
+
+  this->Close();
+
+  if (this->Adios)
+    {
+    adios2_error err = adios2_finalize(this->Adios);
+    if (err != 0)
+      {
+      SENSEI_ERROR("adios2_finalize failed. " << err)
+      return -1;
+      }
+    }
+
+  this->Adios = nullptr;
+  this->Handles.engine = nullptr;
+  this->Handles.io = nullptr;
+  this->ReadEngine = "";
+  this->DebugMode = 0;
+
   return 0;
 }
 
@@ -608,195 +894,6 @@ int VersionSchema::Read(InputStream &iStream)
 
   return 0;
 }
-
-
-// --------------------------------------------------------------------------
-int InputStream::SetReadEngine(const std::string &engine)
-{
-  sensei::TimeEvent<128> mark(
-    "senseiADIOS2::InputStream::SetReadMethod");
-
-  this->ReadEngine = engine;
-
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int InputStream::SetDebugMode(int mode)
-{
-  this->DebugMode = mode;
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int InputStream::Open(MPI_Comm comm)
-{
-  return this->Open(comm, this->ReadEngine, this->FileName, this->DebugMode);
-}
-
-//----------------------------------------------------------------------------
-int InputStream::AddParameter(const std::string &key, const std::string &value)
-{
-  this->Parameters.emplace_back(key, value);
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int InputStream::Open(MPI_Comm comm, std::string engine,
-  const std::string &fileName, int debugMode)
-{
-  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Open");
-
-  this->ReadEngine = engine;
-  this->FileName = fileName;
-
-  this->Close();
-
-  // initialize adios2
-  this->Adios = adios2_init(comm, adios2_debug_mode(debugMode));
-  if (this->Adios == nullptr)
-    {
-    SENSEI_ERROR("adios2_init failed")
-    return -1;
-    }
-
-  // Open the io handle
-  this->Handles.io = adios2_declare_io(this->Adios, "SENSEI");
-  if (this->Handles.io == nullptr)
-    {
-    SENSEI_ERROR("adios2_declare_io failed")
-    return -1;
-    }
-
-  // If the user set additional parameters, add them now to ADIOS2
-  unsigned int nParms = this->Parameters.size();
-  for (unsigned int j = 0; j < nParms; ++j)
-    {
-    std::pair<std::string,std::string> &parm = this->Parameters[j];
-
-    if (adios2_set_parameter(this->Handles.io,
-      parm.first.c_str(), parm.second.c_str()))
-      {
-      SENSEI_ERROR("adios2_set_paramter " << parm.first
-        << " = " << parm.second << " failed")
-      return -1;
-      }
-    }
-
-  // Open the engine now variables are declared
-  if (adios2_set_engine(this->Handles.io, this->ReadEngine.c_str()))
-    {
-    SENSEI_ERROR("adios2_set_engine \"" << engine << "\" failed")
-    return -1;
-    }
-
-  // open the file
-  this->Handles.engine = adios2_open(this->Handles.io,
-    this->FileName.c_str(), adios2_mode_read);
-
-  if (!this->Handles.engine)
-    {
-    SENSEI_ERROR("adios2_open \"" << this->FileName
-      << "\" for reading failed")
-    return -1;
-    }
-
-  // begin step
-  adios2_step_status status;
-
-  adios2_error err = adios2_begin_step(this->Handles.engine,
-    adios2_step_mode_read, -1, &status);
-
-  if (err != 0)
-    {
-    SENSEI_ERROR("adios2_begin_step for read failed. status=" << status)
-    return -1;
-    }
-
-  if (status == adios2_step_status::adios2_step_status_other_error)
-    {
-    SENSEI_ERROR("adios2_begin_step reports error status")
-    this->Close();
-    return -1;
-    }
-
-  // Check if the status says we are at the end or no step is ready, if so, just leave
-  if (status == adios2_step_status::adios2_step_status_end_of_stream ||
-    status == adios2_step_status::adios2_step_status_not_ready)
-    {
-    this->Close();
-    return -1;
-    }
-
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int InputStream::AdvanceTimeStep()
-{
-  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::AdvanceTimeStep");
-
-  adios2_error endErr = adios2_end_step(this->Handles.engine);
-    if (endErr != 0)
-    {
-    SENSEI_ERROR("adios2_end_step failed")
-    return -1;
-    }
-
-  adios2_step_status status;
-
-  adios2_error err = adios2_begin_step(this->Handles.engine,
-    adios2_step_mode_read, -1, &status);
-
-  if (err != 0 && status == adios2_step_status::adios2_step_status_other_error)
-    {
-    SENSEI_ERROR("adios2_begin_step failed and reports error status")
-    this->Close();
-    return -1;
-    }
-
-  // Check if the status says we are at the end or no step is ready, if so, just leave
-  if (status == adios2_step_status::adios2_step_status_end_of_stream ||
-      status == adios2_step_status::adios2_step_status_not_ready)
-    {
-    this->Close();
-    return -1;
-    }
-
-  return 0;
-}
-
-// --------------------------------------------------------------------------
-int InputStream::Close()
-{
-  sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Close");
-
-  if (this->Handles.engine)
-    {
-    adios2_error err = adios2_close(this->Handles.engine);
-    if (err != 0)
-      {
-      SENSEI_ERROR("adios2_close failed. " << err)
-      return -1;
-      }
-
-    err = adios2_finalize(this->Adios);
-    if (err != 0)
-      {
-      SENSEI_ERROR("adios2_finalize failed. " << err)
-      return -1;
-      }
-
-    this->Adios = nullptr;
-    this->Handles.engine = nullptr;
-    this->Handles.io = nullptr;
-    this->ReadEngine = "";
-    this->DebugMode = 0;
-    }
-
-  return 0;
-}
-
 
 
 struct ArraySchema
@@ -1793,6 +1890,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
           SENSEI_ERROR("Failed to get block " << j)
           return -1;
           }
+
         // build locations
         vtkIdTypeArray *cell_locs = vtkIdTypeArray::New();
         cell_locs->SetNumberOfTuples(num_cells_local);
