@@ -11,6 +11,10 @@
 #ifdef ENABLE_HDF5
 #include "HDF5DataAdaptor.h"
 #endif
+#ifdef ENABLE_LIBIS
+#include "libISDataAdaptor.h"
+#endif
+
 
 #include <pugixml.hpp>
 #include <string>

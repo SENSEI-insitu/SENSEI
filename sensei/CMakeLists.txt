@@ -57,6 +57,12 @@ if (ENABLE_ADIOS2)
     list(APPEND senseiCore_libs sHDF5)
   endif()
 
+  if (ENABLE_LIBIS)
+    list(APPEND senseiCore_sources libISSchema.cxx libISAnalysisAdaptor.cxx
+      libISDataAdaptor.cxx)
+    list(APPEND senseiCore_libs sLIBIS)
+  endif()
+
   if (ENABLE_VTK_ACCELERATORS)
     list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()

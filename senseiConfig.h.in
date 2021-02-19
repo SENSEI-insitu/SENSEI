@@ -14,6 +14,7 @@
 #cmakedefine ENABLE_ADIOS1
 #cmakedefine ENABLE_ADIOS2
 #cmakedefine ENABLE_HDF5
+#cmakedefine ENABLE_LIBIS
 #cmakedefine ENABLE_CONDUIT
 #cmakedefine ENABLE_ASCENT
 #cmakedefine ENABLE_VTK_GENERIC_ARRAYS

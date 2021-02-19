@@ -12,6 +12,10 @@ if(ENABLE_HDF5)
   list(APPEND endPointLibs sHDF5)
 endif()
 
+if(ENABLE_LIBIS)
+  list(APPEND endPointLibs sLIBIS)
+endif()
+
 add_executable(SENSEIEndPoint SENSEIEndPoint.cpp)
 target_link_libraries(SENSEIEndPoint PRIVATE ${endPointLibs})
 install(TARGETS SENSEIEndPoint RUNTIME DESTINATION bin)

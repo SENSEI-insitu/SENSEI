@@ -8,6 +8,10 @@
 #include "HDF5DataAdaptor.h"
 #endif
 
+#ifdef ENABLE_LIBIS
+#include "libISDataAdaptor.h"
+#endif
+
 #include "XMLUtils.h"
 #include "Error.h"
 
@@ -78,8 +82,14 @@ int Initialize(MPI_Comm comm, const pugi::xml_node &root, InTransitDataAdaptor *
     }
   else if (type == "libis")
     {
-    // Create LibIS InTransitDataAdaptor
+#ifndef ENABLE_LIBIS
+    SENSEI_ERROR("LIBIS transport requested but is disabled in this build")
+    return -1;
+#else
+    dataAdaptor = libISDataAdaptor::New();
+#endif
     }
+
   else
     {
     SENSEI_ERROR("Failed to add \"" << type << "\" data adaptor")
