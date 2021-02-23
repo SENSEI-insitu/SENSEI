@@ -39,7 +39,7 @@ for part_m in ${parts_m[*]}
 do
   for part_n in ${parts_n[*]}
   do
-    echo -n "Testing ${transport} M=${nproc_m} N=${nproc_n} part_M=${part_m} part_N=${part_n} ... "
+    echo "Testing ${transport} M=${nproc_m} N=${nproc_n} part_M=${part_m} part_N=${part_n} ... "
     cmd="${src_dir}/testPartitioners.sh ${python} ${mpiexec} ${npflag} ${nproc_m} ${nblocks_x} ${nblocks_y} ${nproc_n} \"${src_dir}\" write_${transport}.xml catalyst_render_partition.xml read_${transport}_${part_n}.xml ${n_its} ${sync_mode}"
     if [[ -z "${VERBOSE}" ]]
     then

@@ -26,10 +26,14 @@ nblocks=`echo ${nblock_x}*${nblock_y} | bc`
 
 trap 'eval echo $BASH_COMMAND' DEBUG
 
+# ADIOS1
 # safe guard against left over files from a previous crashed run
 # if these are present the test may deadlock or crash
 file=test.bp
 rm -rf $file ${file}_writer_info.txt ${file}.sst
+
+# ADIOS2 file series mode
+rm -rf test_*.bp
 
 export PROFILER_ENABLE=2 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
 
