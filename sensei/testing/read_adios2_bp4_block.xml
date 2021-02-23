@@ -1,5 +1,22 @@
 <sensei>
-  <transport type="adios2" filename="test.bp" debug_mode="1" engine="bp4">
+  <!-- configure the ADIOS2 read side -->
+  <transport type="adios2" filename="test_%05d.bp" debug_mode="1" engine="bp4">
+
+    <!-- select a load balancing strategy -->
     <partitioner type="block"/>
+
+    <!-- ADIOS2 engine parameters -->
+    <engine_parameters>
+      OpenTimeoutSecs = 1000
+      Threads = 1
+      Profile = Off
+      NumAggregators = 0
+      InitialBufferSize = 1Mb
+      BufferGrowthFactor = 2
+      MaxBufferSize = 1024Mb
+      StatsLevel = 0
+      Profile = Off
+    </engine_parameters>
+
   </transport>
 </sensei>

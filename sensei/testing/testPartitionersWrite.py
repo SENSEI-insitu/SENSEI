@@ -31,6 +31,7 @@ def MakeBlock(t, x0,y0, dx,dy, nx, ny, nbx, nby, bi, bj):
     blk.SetOrigin(xx, yy, -1.0e-2)
     blk.SetSpacing(dx, dy, 2.0e-2)
     blk.SetDimensions(npx, npy, npz)
+    # add an array
     dat = vtk.vtkFloatArray()
     dat.SetName('f_xyt')
     dat.SetNumberOfTuples(npx*npy*npz)
@@ -44,6 +45,24 @@ def MakeBlock(t, x0,y0, dx,dy, nx, ny, nbx, nby, bi, bj):
                 py = yy + dy*j
                 q = k*npx*npy + j*npx + i
                 dat.SetValue(q, np.cos(t+px)*np.cos(t+py))
+                i += 1
+            j += 1
+        k += 1
+    blk.GetPointData().AddArray(dat)
+    # add another array
+    dat = vtk.vtkFloatArray()
+    dat.SetName('sin_x_sin_y')
+    dat.SetNumberOfTuples(npx*npy*npz)
+    k = 0
+    while k < npz:
+        j = 0
+        while j < npy:
+            i = 0
+            while i < npx:
+                px = xx + dx*i
+                py = yy + dy*j
+                q = k*npx*npy + j*npx + i
+                dat.SetValue(q, np.sin(t+px)*np.sin(t+py))
                 i += 1
             j += 1
         k += 1
