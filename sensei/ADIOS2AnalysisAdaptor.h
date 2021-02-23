@@ -103,6 +103,11 @@ protected:
   // shuts down ADIOS2
   int FinalizeADIOS2();
 
+  // fetch meshes and metadata objects from the simulation
+  int FetchFromProducer(sensei::DataAdaptor *da,
+    std::vector<vtkCompositeDataSet*> &objects,
+    std::vector<MeshMetadataPtr> &metadata);
+
   senseiADIOS2::DataObjectCollectionSchema *Schema;
   sensei::DataRequirements Requirements;
   std::string EngineName;

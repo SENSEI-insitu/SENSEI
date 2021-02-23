@@ -500,4 +500,92 @@ int MeshMetadata::CopyBlockInfo(const MeshMetadataPtr &other, int i)
   return 0;
 }
 
+// --------------------------------------------------------------------------
+int MeshMetadata::ClearArrayInfo()
+{
+  this->NumArrays = 0;
+  this->ArrayName.clear();
+  this->ArrayCentering.clear();
+  this->ArrayComponents.clear();
+  this->ArrayType.clear();
+  this->ArrayRange.clear();
+  this->BlockArrayRange.clear();
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int MeshMetadata::CopyArrayInfo(const sensei::MeshMetadataPtr &other,
+  const std::string &arrayName)
+{
+  // find the id of this array
+  int aid = -1;
+  for (int i = 0; i < other->NumArrays; ++i)
+    {
+    if (other->ArrayName[i] == arrayName)
+      {
+      aid = i;
+      break;
+      }
+    }
+
+  if (aid == -1)
+    {
+    SENSEI_ERROR("Failed to copy array \"" << arrayName
+      << "\" it was not found in the source object")
+    return -1;
+    }
+
+  // do a bounds check on the required members
+  if (((int)other->ArrayCentering.size() < aid)
+    || ((int)other->ArrayComponents.size() < aid)
+    || ((int)other->ArrayType.size() < aid))
+    {
+    SENSEI_ERROR("Failed to copy metadata for array " << aid
+      << ", invalid metadata")
+    return -1;
+    }
+
+  // copy the required metadata
+  this->ArrayName.push_back(other->ArrayName[aid]);
+  this->ArrayCentering.push_back(other->ArrayCentering[aid]);
+  this->ArrayComponents.push_back(other->ArrayComponents[aid]);
+  this->ArrayType.push_back(other->ArrayType[aid]);
+
+  // array ranges are optional, copy if present
+  // per-block array ranges are ordered rirst by block then by array.
+  // loop over blocks copy the ith entry from each block.
+  int nBlocks = other->BlockArrayRange.size();
+  if (nBlocks)
+    {
+    // copy global array range
+    if ((int)other->ArrayRange.size() < aid)
+      {
+      SENSEI_ERROR("Invlaid ArrayRange metadata for array \""
+        << arrayName << "\"")
+      return -1;
+      }
+    this->ArrayRange.push_back(other->ArrayRange[aid]);
+
+    // resize the first time through
+    if ((int)this->BlockArrayRange.size() != nBlocks)
+      this->BlockArrayRange.resize(nBlocks);
+
+    for (int i = 0; i < nBlocks; ++i)
+      {
+      if ((int)other->BlockArrayRange[i].size() < aid)
+        {
+        SENSEI_ERROR("Invalid BlockARrayRange for array \""
+          << arrayName << "\" at block " << i)
+        return -1;
+        }
+
+      this->BlockArrayRange[i].push_back(other->BlockArrayRange[i][aid]);
+      }
+    }
+
+  ++this->NumArrays;
+
+  return 0;
+}
+
 }

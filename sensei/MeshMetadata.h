@@ -134,6 +134,13 @@ struct MeshMetadata
   // appends block level information of block bid from other.
   int CopyBlockInfo(const sensei::MeshMetadataPtr &other, int bid);
 
+  // removes all array metadata from the instance
+  int ClearArrayInfo();
+
+  // appends metadata for the named array to the instance
+  int CopyArrayInfo(const sensei::MeshMetadataPtr &other,
+    const std::string &arrayName);
+
   // metadata: the following metadata fields are available.  fields marked
   // "all" are required for all mesh types.  other fields may be required for
   // specific mesh types as indicated and/or be optional. optional fields are

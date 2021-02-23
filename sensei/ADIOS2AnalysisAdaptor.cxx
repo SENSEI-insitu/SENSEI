@@ -74,11 +74,14 @@ int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
   return 0;
 }
 
-//----------------------------------------------------------------------------
-bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
-{
-  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
 
+
+//-----------------------------------------------------------------------------
+int ADIOS2AnalysisAdaptor::FetchFromProducer(
+  sensei::DataAdaptor *dataAdaptor,
+  std::vector<vtkCompositeDataSet*> &objects,
+  std::vector<MeshMetadataPtr> &metadata)
+{
   // figure out what the simulation can provide. include the full
   // suite of metadata for the end-point partitioners
   MeshMetadataFlags flags;
@@ -94,6 +97,91 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     SENSEI_ERROR("Failed to get metadata")
     return false;
     }
+
+  // loop over the required meshes and arrays subsetting
+  // in the process. only the required meshes and arrays
+  // need be buffered and presented to the consumer
+  MeshRequirementsIterator mit =
+    this->Requirements.GetMeshRequirementsIterator();
+
+  while (mit)
+    {
+    // get metadata
+    MeshMetadataPtr mdIn;
+    if (mdm.GetMeshMetadata(mit.MeshName(), mdIn))
+      {
+      SENSEI_ERROR("Failed to get mesh metadata for mesh \""
+        << mit.MeshName() << "\"")
+      return false;
+      }
+
+    // copy the metadata and prepare for subsetting by array
+    MeshMetadataPtr mdOut = mdIn->NewCopy();
+    mdOut->ClearArrayInfo();
+
+    // get the mesh
+    vtkCompositeDataSet *dobj = nullptr;
+    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+      {
+      SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+      return false;
+      }
+
+    // add the ghost cell arrays to the mesh
+    if ((mdIn->NumGhostCells || VTKUtils::AMR(mdIn)) &&
+        dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+      return false;
+      }
+
+    // add the ghost node arrays to the mesh
+    if (mdIn->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+      {
+      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
+      return false;
+      }
+
+    // add the required arrays
+    ArrayRequirementsIterator ait =
+      this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
+
+    while (ait)
+      {
+      // add the array and its metadata
+      const std::string arrayName = ait.Array();
+      if (mdOut->CopyArrayInfo(mdIn, arrayName)
+        || dataAdaptor->AddArray(dobj, mit.MeshName(),
+         ait.Association(), arrayName))
+        {
+        SENSEI_ERROR("Failed to add "
+          << VTKUtils::GetAttributesName(ait.Association())
+          << " data array \"" << arrayName << "\" to mesh \""
+          << mit.MeshName() << "\"")
+        return false;
+        }
+
+      ++ait;
+      }
+
+    // generate a global view of the metadata. everything we do from here
+    // on out depends on having the global view.
+    mdOut->GlobalizeView(this->GetCommunicator());
+
+    // add to the collection
+    objects.push_back(dobj);
+    metadata.push_back(mdOut);
+
+    ++mit;
+    }
+
+  return 0;
+}
+
+//----------------------------------------------------------------------------
+bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+{
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
 
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing
@@ -111,71 +199,10 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   std::vector<vtkCompositeDataSet*> objects;
   std::vector<MeshMetadataPtr> metadata;
 
-  MeshRequirementsIterator mit =
-    this->Requirements.GetMeshRequirementsIterator();
-
-  while (mit)
+  if (this->FetchFromProducer(dataAdaptor, objects, metadata))
     {
-    // get metadata
-    MeshMetadataPtr md;
-    if (mdm.GetMeshMetadata(mit.MeshName(), md))
-      {
-      SENSEI_ERROR("Failed to get mesh metadata for mesh \""
-        << mit.MeshName() << "\"")
-      return false;
-      }
-
-    // get the mesh
-    vtkCompositeDataSet *dobj = nullptr;
-    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
-      {
-      SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
-      return false;
-      }
-
-    // add the ghost cell arrays to the mesh
-    if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
-        dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
-      {
-      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
-      return false;
-      }
-
-    // add the ghost node arrays to the mesh
-    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
-      {
-      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
-      return false;
-      }
-
-    // add the required arrays
-    ArrayRequirementsIterator ait =
-      this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
-
-    while (ait)
-      {
-      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
-         ait.Association(), ait.Array()))
-        {
-        SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
-          << " data array \"" << ait.Array() << "\" to mesh \""
-          << mit.MeshName() << "\"")
-        return false;
-        }
-
-      ++ait;
-      }
-
-    // generate a global view of the metadata. everything we do from here
-    // on out depends on having the global view.
-    md->GlobalizeView(this->GetCommunicator());
-
-    // add to the collection
-    objects.push_back(dobj);
-    metadata.push_back(md);
-
-    ++mit;
+    SENSEI_ERROR("Failed to fetch data from the producer")
+    return false;
     }
 
   // set everything up the first time trhough
