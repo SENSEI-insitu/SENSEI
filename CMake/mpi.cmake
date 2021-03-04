@@ -20,7 +20,7 @@ else()
 endif()
 
 if (NOT MPI_C_FOUND)
-  message(FETAL_ERROR "Failed to locate MPI C libraries and headers")
+  message(FATAL_ERROR "Failed to locate MPI C libraries and headers")
 endif()
 
 # MPI to use extern "C" when including headers
