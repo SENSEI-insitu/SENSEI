@@ -23,7 +23,9 @@ code up analysis adaptors in a Python script."
 %}
 
 %init %{
+#if PY_VERSION_HEX < 0x03070000
 PyEval_InitThreads();
+#endif
 import_array();
 %}
 

@@ -428,50 +428,14 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   if (this->Comm != MPI_COMM_NULL)
     adiosAdaptor->SetCommunicator(this->Comm);
 
-  if (XMLUtils::RequireAttribute(node, "engine") ||
-    XMLUtils::RequireAttribute(node, "filename"))
+  if (adiosAdaptor->Initialize(node))
     {
-    SENSEI_ERROR("Failed to initialize ADIOS2AnalysisAdaptor");
+    SENSEI_ERROR("Failed to configure the ADIOS2 adaptor from XML")
     return -1;
     }
-
-  std::string filename = node.attribute("filename").value();
-  adiosAdaptor->SetFileName(filename);
-
-  std::string engine = node.attribute("engine").value();
-  adiosAdaptor->SetEngineName(engine);
-
-  // buffer size is given in the units of number of time steps,
-  // 0 means buffer all steps
-  std::string bufferSize = node.attribute("buffer_size").as_string("");
-  if (!bufferSize.empty())
-    adiosAdaptor->AddParameter("QueueLimit", bufferSize);
-
-  // valid modes are Block or Discard
-  std::string bufferMode = node.attribute("buffer_mode").as_string("");
-  if (!bufferMode.empty())
-    adiosAdaptor->AddParameter("QueueFullPolicy", bufferMode);
-
-  // turn on/off debug output
-  adiosAdaptor->SetDebugMode(node.attribute("debug_mode").as_int(0));
-
-  DataRequirements req;
-  if (req.Initialize(node))
-    {
-    SENSEI_ERROR("Failed to initialize ADIOS 2.")
-    return -1;
-    }
-  adiosAdaptor->SetDataRequirements(req);
 
   this->TimeInitialization(adiosAdaptor);
   this->Analyses.push_back(adiosAdaptor.GetPointer());
-
-  SENSEI_STATUS("Configured ADIOSAnalysisAdaptor filename=\""
-    << filename << "\" engine=" << engine
-    << (!bufferMode.empty() ? "buffer_mode=" : "")
-    << (!bufferMode.empty() ? bufferMode.c_str() : "")
-    << (!bufferSize.empty() ? "buffer_size=" : "")
-    << (!bufferSize.empty() ? bufferSize.c_str() : ""))
 
   return 0;
 #endif

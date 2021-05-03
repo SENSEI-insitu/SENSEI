@@ -1,3 +1,3 @@
 <sensei>
-  <transport type="adios2" filename="test.bp" debug_mode="1" engine="bp4"/>
+  <transport type="adios2" filename="test_%05d.bp" debug_mode="1" engine="bp4"/>
 </sensei>
