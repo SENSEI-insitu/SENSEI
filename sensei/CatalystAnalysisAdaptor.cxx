@@ -70,9 +70,13 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
   const std::string &fileName)
 {
 #ifdef ENABLE_CATALYST_PYTHON
+#if PARAVIEW_VERSION_MAJOR > 5 || (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 9)
+  this->AddPipeline(vtkCPPythonPipeline::CreateAndInitializePipeline(fileName.c_str()));
+#else
   vtkNew<vtkCPPythonScriptPipeline> pythonPipeline;
   pythonPipeline->Initialize(fileName.c_str());
   this->AddPipeline(pythonPipeline.GetPointer());
+#endif
 #else
   (void)fileName;
   SENSEI_ERROR("Failed to add Python script pipeline. "
