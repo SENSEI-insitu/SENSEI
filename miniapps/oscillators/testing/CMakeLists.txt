@@ -49,6 +49,23 @@ if (BUILD_TESTING)
        oscillator -t 1 -b ${TEST_NP} -g 1
         -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+
+    # add test for Catalyst 2.0 script usage
+    if (ParaView_VERSION VERSION_GREATER_EQUAL "5.9.0")
+      configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst2.xml.in
+        ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst2.xml @ONLY)
+
+      senseiAddTest(testOscillatorCatalyst2
+        COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+          -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst2.xml
+          ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+
+      senseiAddTest(testOscillatorCatalyst2Par
+        COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
+          oscillator -t 1 -b ${TEST_NP} -g 1
+          -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst2.xml
+          ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
+    endif()
   endif()
 
   if (ENABLE_LIBSIM)
