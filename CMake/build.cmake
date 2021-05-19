@@ -13,9 +13,11 @@ if(NOT CMAKE_BUILD_TYPE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+set(CMAKE_CXX_STANDARD 11)
+
 if (NOT MSVC)
   if (NOT CMAKE_CXX_FLAGS)
-  set(tmp "-fPIC -std=c++11 -Wall -Wextra")
+  set(tmp "-fPIC -Wall -Wextra")
   if (BUILD_STATIC_EXECS)
     set(tmp "${tmp} -static -static-libgcc -static-libstdc++ -pthread -Wl,-Bstatic")
   endif()
