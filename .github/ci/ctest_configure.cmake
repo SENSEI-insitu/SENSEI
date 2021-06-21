@@ -21,8 +21,8 @@ ctest_configure(
 ctest_read_custom_files("${CTEST_BINARY_DIRECTORY}")
 
 # We can now submit because we've configured. This is a cmb-superbuild-ism.
-#ctest_submit(PARTS Update)
-#ctest_submit(PARTS Configure)
+ctest_submit(PARTS Update)
+ctest_submit(PARTS Configure)
 
 if (configure_result)
   message(FATAL_ERROR

@@ -39,7 +39,7 @@ ctest_test(APPEND
   RETURN_VALUE test_result
   ${test_exclude_labels}
   REPEAT UNTIL_FAIL:3)
-#ctest_submit(PARTS Test)
+ctest_submit(PARTS Test)
 
 if (test_result)
   message(FATAL_ERROR
