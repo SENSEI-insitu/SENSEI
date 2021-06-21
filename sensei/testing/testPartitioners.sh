@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-if [[ $# < 13 ]]
+if [[ $# -lt 13 ]]
 then
-  echo "testPartitioners.sh [mpiexec] [npflag] [writer nproc] [blocks x] [blocks y] [reader nproc] [src dir] [writer analysis xml] [reader analysis xml] [reader transport xml] [nits] [sync]"
+  echo "testPartitioners.sh [mpiexec] [npflag] [writer nproc] [blocks x] [blocks y] [reader nproc] [src dir] [writer analysis xml] [reader analysis xml] [reader transport xml] [nits] [sync] -- <optional MPI args>"
   exit 1
 fi
 
@@ -21,6 +21,10 @@ nits=${12}
 sync_mode=${13}
 delay=1
 maxDelay=30
+shift 13
+if [ "$1" == "--" ]; then
+  shift
+fi
 
 nblocks=`echo ${nblock_x}*${nblock_y} | bc`
 
@@ -37,7 +41,7 @@ rm -rf test_*.bp
 
 export PROFILER_ENABLE=2 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
 
-${mpiexec} ${npflag} ${nproc_write} ${python} ${srcdir}/testPartitionersWrite.py \
+${mpiexec} ${@} ${npflag} ${nproc_write} ${python} ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
   -6.2832 6.2832 -6.2832 6.2832 0 6.2832 &
 writePid=$!
@@ -72,7 +76,7 @@ fi
 
 export PROFILER_ENABLE=2 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderMemProf.csv
 
-${mpiexec} ${npflag} ${nproc_read} ${python} ${srcdir}/testPartitionersRead.py \
+${mpiexec} ${@} ${npflag} ${nproc_read} ${python} ${srcdir}/testPartitionersRead.py \
   "${srcdir}/${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"
 
 test_stat=$?

@@ -14,7 +14,10 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/opts"
   DESTINATION include)
 
 
-if(NOT SENSEI_USE_EXTERNAL_pugixml)
+if(SENSEI_USE_EXTERNAL_pugixml)
+  find_package(pugixml REQUIRED COMPONENTS pugixml)
+else ()
   add_subdirectory(pugixml)
 endif()
+
 #add_subdirectory(ImageTester)

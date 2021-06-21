@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [[ $# < 8 ]]
+if [[ $# -lt 8 ]]
 then
   echo "test_adios.sh [mpiexec] [npflag] [nproc] [py exec] [src dir] [file] [write method] [read method] [nits]"
   exit 1
@@ -20,6 +20,10 @@ readMethod=$8
 nits=$9
 delay=1
 maxDelay=30
+shift 8
+if [ "$1" == "--" ]; then
+  shift
+fi
 
 trap 'eval echo $BASH_COMMAND' DEBUG
 

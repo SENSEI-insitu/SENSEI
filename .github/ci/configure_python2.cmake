@@ -1,0 +1,7 @@
+set(ENABLE_PYTHON ON CACHE BOOL "")
+set(SENSEI_PYTHON_VERSION 2 CACHE STRING "")
+
+# ParaView no longer supports python 2
+if (ENABLE_CATALYST)
+  set(ENABLE_CATALYST_PYTHON OFF CACHE BOOL "")
+endif ()
