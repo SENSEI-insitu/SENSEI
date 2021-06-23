@@ -5,48 +5,52 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_histogram.xml)
 
   senseiAddTest(testMandelbrotHistogramPar
-    COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-     mandelbrot -i 2 -l 2
+    PARALLEL ${TEST_NP}
+    COMMAND mandelbrot -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_histogram.xml)
 
-  if (ENABLE_VTK_IO AND ENABLE_VTK_MPI)
-    senseiAddTest(testMandelbrotVTKWriter
-      COMMAND mandelbrot -i 2 -l 2
-        -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml)
+  senseiAddTest(testMandelbrotVTKWriter
+    COMMAND mandelbrot -i 2 -l 2
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml
+    FEATURES VTK_IO VTK_MPI)
 
-    senseiAddTest(testMandelbrotVTKWriterPar
-      COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-        mandelbrot -i 2 -l 2
-        -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml)
-  endif()
+  senseiAddTest(testMandelbrotVTKWriterPar
+    PARALLEL ${TEST_NP}
+    COMMAND mandelbrot -i 2 -l 2
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml
+    FEATURES VTK_IO VTK_MPI)
 
   if (ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml.in
       ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml @ONLY)
-
-    senseiAddTest(testMandelbrotCatalyst
-      COMMAND
-        mandelbrot -i 2 -l 2
-        -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml)
-
-    senseiAddTest(testMandelbrotCatalystPar
-      COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-        mandelbrot -i 2 -l 2
-        -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml)
   endif()
+
+  senseiAddTest(testMandelbrotCatalyst
+    COMMAND
+      mandelbrot -i 2 -l 2
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml
+    FEATURES CATALYST)
+
+  senseiAddTest(testMandelbrotCatalystPar
+    PARALLEL ${TEST_NP}
+    COMMAND mandelbrot -i 2 -l 2
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml
+      FEATURES CATALYST)
 
   if (ENABLE_LIBSIM)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml.in
       ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml @ONLY)
-
-    senseiAddTest(testMandelbrotLibsim
-      COMMAND mandelbrot -i 2 -l 2
-        -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml)
-
-    senseiAddTest(testMandelbrotLibsimPar
-      COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-        mandelbrot -i 2 -l 2
-        -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml)
   endif()
+
+  senseiAddTest(testMandelbrotLibsim
+    COMMAND mandelbrot -i 2 -l 2
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml
+    FEATURES LIBSIM)
+
+  senseiAddTest(testMandelbrotLibsimPar
+    PARALLEL ${TEST_NP}
+    COMMAND mandelbrot -i 2 -l 2
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml
+    FEATURES LIBSIM)
 
 endif()

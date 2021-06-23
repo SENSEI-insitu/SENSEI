@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-if [[ $# < 8 ]]
+if [[ $# -lt 9 ]]
 then
-  echo "test_adios.sh [mpiexec] [npflag] [nproc] [py exec] [src dir] [file] [write method] [read method] [nits]"
+  echo "Num Args Detected... $#"
+  echo "test_adios.sh [mpiexec] [npflag] [nproc] [py exec] [src dir] [file] [write method] [read method] [nits] -- <optional MPI args>"
   exit 1
 fi
 
@@ -21,6 +22,11 @@ nits=$9
 delay=1
 maxDelay=30
 
+shift 9
+if [ "$1" == "--" ]; then
+  shift
+fi
+
 stepsPerFile=0
 if [[ "${writeMethod}" == "BP4" ]]
 then
@@ -34,7 +40,7 @@ rm -rf ${file}
 echo "testing ${writeMethod} -> ${readMethod}"
 echo "M=${nproc_write} x N=${nproc_read}"
 
-${mpiexec} ${npflag} ${nproc_write} ${pyexec} ${srcdir}/testADIOS2Write.py ${writeMethod} ${file} ${stepsPerFile} ${nits} &
+${mpiexec} ${@} ${npflag} ${nproc_write} ${pyexec} ${srcdir}/testADIOS2Write.py ${file} ${writeMethod} ${nits} &
 writePid=$!
 
 if [[ "${readMethod}" == "BP4" ]]
@@ -44,5 +50,5 @@ then
   wait ${writePid}
 fi
 
-${mpiexec} ${npflag} ${nproc_read} ${pyexec} ${srcdir}/testADIOS2Read.py ${readMethod} ${file}
+${mpiexec} ${@} ${npflag} ${nproc_read} ${pyexec} ${srcdir}/testADIOS2Read.py ${file} ${readMethod}
 exit 0

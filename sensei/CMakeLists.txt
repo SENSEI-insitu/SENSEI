@@ -12,10 +12,6 @@ if (ENABLE_SENSEI)
     PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
     VTKHistogram.cxx VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
 
-  if(SENSEI_USE_EXTERNAL_pugixml)
-    find_package(pugixml REQUIRED COMPONENTS pugixml)
-  endif()
-
   set(senseiCore_libs pugixml thread sDIY sVTK sMPI)
 
   if (ENABLE_CONDUIT)

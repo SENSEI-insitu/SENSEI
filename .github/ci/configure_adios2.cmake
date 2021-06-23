@@ -1,0 +1,2 @@
+set(ENABLE_ADIOS2 ON CACHE BOOL "")
+

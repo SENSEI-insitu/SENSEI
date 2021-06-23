@@ -1,0 +1,21 @@
+packages:
+  all:
+    target: [haswell]
+    providers:
+      mpi: [openmpi]
+  sensei:
+    version: [develop]
+    variants: +shared +ascent +vtkio +hdf5 +catalyst +adios2 +python
+  conduit:
+    variants: ~hdf5_compat
+  paraview:
+    variants: +osmesa ~qt
+  vtk:
+    variants: +osmesa ~qt
+# Spack bugs
+  binutils:
+    variants: +gas +ld +gold +plugins
+  llvm:
+    version: [11.0.1]
+  doxygen:
+    version: [1.8.20]
