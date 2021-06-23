@@ -1,0 +1,7 @@
+NAME
+  SVTK::metaio
+LIBRARY_NAME
+  svtkmetaio
+PRIVATE_DEPENDS
+  SVTK::zlib
+THIRD_PARTY

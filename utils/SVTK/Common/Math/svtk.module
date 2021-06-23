@@ -1,0 +1,16 @@
+NAME
+  SVTK::CommonMath
+LIBRARY_NAME
+  svtkCommonMath
+DESCRIPTION
+  Linear algebra types
+KIT
+  SVTK::Common
+GROUPS
+  StandAlone
+DEPENDS
+  SVTK::CommonCore
+TEST_DEPENDS
+  SVTK::CommonSystem
+  SVTK::CommonTransforms
+  SVTK::TestingCore

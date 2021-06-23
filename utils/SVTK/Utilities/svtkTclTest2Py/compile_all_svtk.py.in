@@ -1,0 +1,4 @@
+import compileall
+compileall.compile_dir('@SVTK_BINARY_DIR@/Utilities/svtkTclTest2Py')
+file = open('@SVTK_BINARY_DIR@/Utilities/svtkTclTest2Py/svtk_compile_complete', 'w')
+file.write('Done')

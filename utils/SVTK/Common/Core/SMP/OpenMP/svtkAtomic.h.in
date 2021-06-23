@@ -1,0 +1,293 @@
+/*=========================================================================
+
+  Program:   Visualization Toolkit
+  Module:    svtkAtomic.h
+
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+  All rights reserved.
+  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
+
+=========================================================================*/
+// .NAME svtkAtomic -
+// .SECTION Description
+
+#ifndef svtkAtomic_h
+#define svtkAtomic_h
+
+#include "svtkCommonCoreModule.h" // For export macro
+#include "svtkAtomicTypeConcepts.h"
+#include "svtkSystemIncludes.h"
+
+#include <cstddef>
+
+
+#ifndef __SVTK_WRAP__
+namespace detail
+{
+
+template <size_t size> class AtomicOps;
+
+template <> class SVTKCOMMONCORE_EXPORT AtomicOps<8>
+{
+public:
+  typedef svtkTypeInt64 atomic_type;
+
+  static svtkTypeInt64 AddAndFetch(svtkTypeInt64 *ref, svtkTypeInt64 val);
+  static svtkTypeInt64 SubAndFetch(svtkTypeInt64 *ref, svtkTypeInt64 val);
+  static svtkTypeInt64 PreIncrement(svtkTypeInt64 *ref);
+  static svtkTypeInt64 PreDecrement(svtkTypeInt64 *ref);
+  static svtkTypeInt64 PostIncrement(svtkTypeInt64 *ref);
+  static svtkTypeInt64 PostDecrement(svtkTypeInt64 *ref);
+  static svtkTypeInt64 Load(const svtkTypeInt64 *ref);
+  static void Store(svtkTypeInt64 *ref, svtkTypeInt64 val);
+};
+
+template <> class SVTKCOMMONCORE_EXPORT AtomicOps<4>
+{
+public:
+  typedef svtkTypeInt32 atomic_type;
+
+  static svtkTypeInt32 AddAndFetch(svtkTypeInt32 *ref, svtkTypeInt32 val);
+  static svtkTypeInt32 SubAndFetch(svtkTypeInt32 *ref, svtkTypeInt32 val);
+  static svtkTypeInt32 PreIncrement(svtkTypeInt32 *ref);
+  static svtkTypeInt32 PreDecrement(svtkTypeInt32 *ref);
+  static svtkTypeInt32 PostIncrement(svtkTypeInt32 *ref);
+  static svtkTypeInt32 PostDecrement(svtkTypeInt32 *ref);
+  static svtkTypeInt32 Load(const svtkTypeInt32 *ref);
+  static void Store(svtkTypeInt32 *ref, svtkTypeInt32 val);
+};
+
+} // detail
+#endif // __SVTK_WRAP__
+
+
+template <typename T> class svtkAtomic : private svtk::atomic::detail::IntegralType<T>
+{
+private:
+  typedef detail::AtomicOps<sizeof(T)> Impl;
+
+public:
+  svtkAtomic() : Atomic(0)
+  {
+  }
+
+  svtkAtomic(T val) : Atomic(static_cast<typename Impl::atomic_type>(val))
+  {
+  }
+
+  svtkAtomic(const svtkAtomic<T> &atomic)
+    : Atomic(static_cast<typename Impl::atomic_type>(atomic.load()))
+  {
+  }
+
+  T operator++()
+  {
+    return static_cast<T>(Impl::PreIncrement(&this->Atomic));
+  }
+
+  T operator++(int)
+  {
+    return static_cast<T>(Impl::PostIncrement(&this->Atomic));
+  }
+
+  T operator--()
+  {
+    return static_cast<T>(Impl::PreDecrement(&this->Atomic));
+  }
+
+  T operator--(int)
+  {
+    return static_cast<T>(Impl::PostDecrement(&this->Atomic));
+  }
+
+  T operator+=(T val)
+  {
+    return static_cast<T>(Impl::AddAndFetch(&this->Atomic,
+      static_cast<typename Impl::atomic_type>(val)));
+  }
+
+  T operator-=(T val)
+  {
+    return static_cast<T>(Impl::SubAndFetch(&this->Atomic,
+      static_cast<typename Impl::atomic_type>(val)));
+  }
+
+  operator T() const
+  {
+    return static_cast<T>(Impl::Load(&this->Atomic));
+  }
+
+  T operator=(T val)
+  {
+    Impl::Store(&this->Atomic, static_cast<typename Impl::atomic_type>(val));
+    return val;
+  }
+
+  svtkAtomic<T>& operator=(const svtkAtomic<T> &atomic)
+  {
+    this->store(atomic.load());
+    return *this;
+  }
+
+  T load() const
+  {
+    return static_cast<T>(Impl::Load(&this->Atomic));
+  }
+
+  void store(T val)
+  {
+    Impl::Store(&this->Atomic, static_cast<typename Impl::atomic_type>(val));
+  }
+
+private:
+  typename Impl::atomic_type Atomic;
+};
+
+
+template <typename T> class svtkAtomic<T*>
+{
+private:
+  typedef detail::AtomicOps<sizeof(T*)> Impl;
+
+public:
+  svtkAtomic() : Atomic(0)
+  {
+  }
+
+  svtkAtomic(T* val)
+    : Atomic(reinterpret_cast<typename Impl::atomic_type>(val))
+  {
+  }
+
+  svtkAtomic(const svtkAtomic<T*> &atomic)
+    : Atomic(reinterpret_cast<typename Impl::atomic_type>(atomic.load()))
+  {
+  }
+
+  T* operator++()
+  {
+    return reinterpret_cast<T*>(Impl::AddAndFetch(&this->Atomic, sizeof(T)));
+  }
+
+  T* operator++(int)
+  {
+    T* val = reinterpret_cast<T*>(Impl::AddAndFetch(&this->Atomic, sizeof(T)));
+    return --val;
+  }
+
+  T* operator--()
+  {
+    return reinterpret_cast<T*>(Impl::SubAndFetch(&this->Atomic, sizeof(T)));
+  }
+
+  T* operator--(int)
+  {
+    T* val = reinterpret_cast<T*>(Impl::AddAndFetch(&this->Atomic, sizeof(T)));
+    return ++val;
+  }
+
+  T* operator+=(std::ptrdiff_t val)
+  {
+    return reinterpret_cast<T*>(Impl::AddAndFetch(&this->Atomic,
+                                                  val * sizeof(T)));
+  }
+
+  T* operator-=(std::ptrdiff_t val)
+  {
+    return reinterpret_cast<T*>(Impl::SubAndFetch(&this->Atomic,
+                                                  val * sizeof(T)));
+  }
+
+  operator T*() const
+  {
+    return reinterpret_cast<T*>(Impl::Load(&this->Atomic));
+  }
+
+  T* operator=(T* val)
+  {
+    Impl::Store(&this->Atomic,
+                reinterpret_cast<typename Impl::atomic_type>(val));
+    return val;
+  }
+
+  svtkAtomic<T*>& operator=(const svtkAtomic<T*> &atomic)
+  {
+    this->store(atomic.load());
+    return *this;
+  }
+
+  T* load() const
+  {
+    return reinterpret_cast<T*>(Impl::Load(&this->Atomic));
+  }
+
+  void store(T* val)
+  {
+    Impl::Store(&this->Atomic,
+                reinterpret_cast<typename Impl::atomic_type>(val));
+  }
+
+private:
+  typename Impl::atomic_type Atomic;
+};
+
+
+template <> class svtkAtomic<void*>
+{
+private:
+  typedef detail::AtomicOps<sizeof(void*)> Impl;
+
+public:
+  svtkAtomic() : Atomic(0)
+  {
+  }
+
+  svtkAtomic(void* val)
+    : Atomic(reinterpret_cast<Impl::atomic_type>(val))
+  {
+  }
+
+  svtkAtomic(const svtkAtomic<void*> &atomic)
+    : Atomic(reinterpret_cast<Impl::atomic_type>(atomic.load()))
+  {
+  }
+
+  operator void*() const
+  {
+    return reinterpret_cast<void*>(Impl::Load(&this->Atomic));
+  }
+
+  void* operator=(void* val)
+  {
+    Impl::Store(&this->Atomic,
+                reinterpret_cast<Impl::atomic_type>(val));
+    return val;
+  }
+
+  svtkAtomic<void*>& operator=(const svtkAtomic<void*> &atomic)
+  {
+    this->store(atomic.load());
+    return *this;
+  }
+
+  void* load() const
+  {
+    return reinterpret_cast<void*>(Impl::Load(&this->Atomic));
+  }
+
+  void store(void* val)
+  {
+    Impl::Store(&this->Atomic,
+                reinterpret_cast<Impl::atomic_type>(val));
+  }
+
+private:
+  Impl::atomic_type Atomic;
+};
+
+#endif
+// SVTK-HeaderTest-Exclude: svtkAtomic.h

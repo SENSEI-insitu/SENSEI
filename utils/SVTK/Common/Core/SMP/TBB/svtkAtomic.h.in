@@ -1,0 +1,247 @@
+ /*=========================================================================
+
+  Program:   Visualization Toolkit
+  Module:    svtkAtomic.h
+
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+  All rights reserved.
+  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
+
+=========================================================================*/
+// .NAME svtkAtomic -
+// .SECTION Description
+
+#ifndef svtkAtomic_h
+#define svtkAtomic_h
+
+#include "svtkAtomicTypeConcepts.h"
+
+#ifdef _MSC_VER
+#  pragma push_macro("__TBB_NO_IMPLICIT_LINKAGE")
+#  define __TBB_NO_IMPLICIT_LINKAGE 1
+#endif
+
+#include <tbb/atomic.h>
+
+#ifdef _MSC_VER
+#  pragma pop_macro("__TBB_NO_IMPLICIT_LINKAGE")
+#endif
+
+#include <cstddef>
+
+
+template <typename T> class svtkAtomic : private svtk::atomic::detail::IntegralType<T>
+{
+public:
+  svtkAtomic()
+  {
+    this->Atomic = 0;
+  }
+
+  svtkAtomic(T val)
+  {
+    this->Atomic = val;
+  }
+
+  svtkAtomic(const svtkAtomic<T> &atomic)
+  {
+    this->Atomic = atomic.Atomic;
+  }
+
+  T operator++()
+  {
+    return ++this->Atomic;
+  }
+
+  T operator++(int)
+  {
+    return this->Atomic++;
+  }
+
+  T operator--()
+  {
+    return --this->Atomic;
+  }
+
+  T operator--(int)
+  {
+    return this->Atomic--;
+  }
+
+  T operator+=(T val)
+  {
+    return this->Atomic += val;
+  }
+
+  T operator-=(T val)
+  {
+    return this->Atomic -= val;
+  }
+
+  operator T() const
+  {
+    return this->Atomic;
+  }
+
+  T operator=(T val)
+  {
+    this->Atomic = val;
+    return val;
+  }
+
+  svtkAtomic<T>& operator=(const svtkAtomic<T> &atomic)
+  {
+    this->Atomic = atomic.Atomic;
+    return *this;
+  }
+
+  T load() const
+  {
+    return this->Atomic;
+  }
+
+  void store(T val)
+  {
+    this->Atomic = val;
+  }
+
+private:
+  tbb::atomic<T> Atomic;
+};
+
+
+template <typename T> class svtkAtomic<T*>
+{
+public:
+  svtkAtomic()
+  {
+    this->Atomic = 0;
+  }
+
+  svtkAtomic(T* val)
+  {
+    this->Atomic = val;
+  }
+
+  svtkAtomic(const svtkAtomic<T*> &atomic)
+  {
+    this->Atomic = atomic.Atomic;
+  }
+
+  T* operator++()
+  {
+    return ++this->Atomic;
+  }
+
+  T* operator++(int)
+  {
+    return this->Atomic++;
+  }
+
+  T* operator--()
+  {
+    return --this->Atomic;
+  }
+
+  T* operator--(int)
+  {
+    return this->Atomic--;
+  }
+
+  T* operator+=(std::ptrdiff_t val)
+  {
+    return this->Atomic += val;
+  }
+
+  T* operator-=(std::ptrdiff_t val)
+  {
+    return this->Atomic -= val;
+  }
+
+  operator T*() const
+  {
+    return this->Atomic;
+  }
+
+  T* operator=(T* val)
+  {
+    this->Atomic = val;
+    return val;
+  }
+
+  svtkAtomic<T*>& operator=(const svtkAtomic<T*> &atomic)
+  {
+    this->Atomic = atomic.Atomic;
+    return *this;
+  }
+
+  T* load() const
+  {
+    return this->Atomic;
+  }
+
+  void store(T* val)
+  {
+    this->Atomic = val;
+  }
+
+private:
+  tbb::atomic<T*> Atomic;
+};
+
+
+template <> class svtkAtomic<void*>
+{
+public:
+  svtkAtomic()
+  {
+    this->Atomic = 0;
+  }
+
+  svtkAtomic(void* val)
+  {
+    this->Atomic = val;
+  }
+
+  svtkAtomic(const svtkAtomic<void*> &atomic)
+  {
+    this->Atomic = atomic.Atomic;
+  }
+
+  operator void*() const
+  {
+    return this->Atomic;
+  }
+
+  void* operator=(void* val)
+  {
+    this->Atomic = val;
+    return val;
+  }
+
+  svtkAtomic<void*>& operator=(const svtkAtomic<void*> &atomic)
+  {
+    this->Atomic = atomic.Atomic;
+    return *this;
+  }
+
+  void* load() const
+  {
+    return this->Atomic;
+  }
+
+  void store(void* val)
+  {
+    this->Atomic = val;
+  }
+
+private:
+  tbb::atomic<void*> Atomic;
+};
+
+#endif
+// SVTK-HeaderTest-Exclude: svtkAtomic.h

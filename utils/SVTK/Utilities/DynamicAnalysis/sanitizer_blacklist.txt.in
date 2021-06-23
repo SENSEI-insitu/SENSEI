@@ -1,0 +1,2 @@
+# Blacklist third party libraries from invoking sanitizer errors
+src:@SVTK_SOURCE_DIR@/ThirdParty/*

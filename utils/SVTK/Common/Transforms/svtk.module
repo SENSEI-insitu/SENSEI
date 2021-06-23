@@ -1,0 +1,20 @@
+NAME
+  SVTK::CommonTransforms
+LIBRARY_NAME
+  svtkCommonTransforms
+DESCRIPTION
+  Linear algebra transformations
+KIT
+  SVTK::Common
+GROUPS
+  StandAlone
+DEPENDS
+  SVTK::CommonCore
+  SVTK::CommonMath
+PRIVATE_DEPENDS
+  SVTK::svtksys
+TEST_DEPENDS
+  SVTK::InteractionImage
+  SVTK::RenderingOpenGL2
+  SVTK::TestingCore
+  SVTK::TestingRendering

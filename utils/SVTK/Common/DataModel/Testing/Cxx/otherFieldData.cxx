@@ -1,0 +1,92 @@
+/*=========================================================================
+
+  Program:   Visualization Toolkit
+  Module:    otherFieldData.cxx
+
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+  All rights reserved.
+  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
+
+=========================================================================*/
+
+#include "svtkDebugLeaks.h"
+#include "svtkFieldData.h"
+#include "svtkFloatArray.h"
+#include "svtkIdList.h"
+
+int otherFieldData(int, char*[])
+{
+  int i;
+  svtkFieldData* fd = svtkFieldData::New();
+
+  svtkFloatArray* fa;
+
+  char name[128];
+  for (i = 0; i < 5; i++)
+  {
+    snprintf(name, sizeof(name), "Array%d", i);
+    fa = svtkFloatArray::New();
+    fa->SetName(name);
+    // the tuples must be set before being read to avoid a UMR
+    // this must have been a UMR in the past that was suppressed
+    fa->Allocate(20);
+    fa->SetTuple1(0, 0.0);
+    fa->SetTuple1(2, 0.0);
+    fd->AddArray(fa);
+    fa->Delete();
+  }
+
+  // Coverage
+  svtkFieldData::Iterator it(fd);
+  svtkFieldData::Iterator it2(it);
+  (void)it;
+  (void)it2;
+
+  fd->Allocate(20);
+  fd->CopyFieldOff("Array0");
+  fd->CopyFieldOff("Array1");
+
+  svtkFieldData* fd2 = fd->NewInstance();
+  fd2->CopyStructure(fd);
+  fd2->ShallowCopy(fd);
+  fd2->DeepCopy(fd);
+
+  svtkIdList* ptIds = svtkIdList::New();
+  ptIds->InsertNextId(0);
+  ptIds->InsertNextId(2);
+
+  fd->GetField(ptIds, fd2);
+  ptIds->Delete();
+
+  int arrayComp;
+  int a = fd->GetArrayContainingComponent(1, arrayComp);
+  if (a != 1)
+  {
+    return 1;
+  }
+
+  /* Obsolete API.
+  double tuple[10];
+  // initialize tuple before using it to set something
+  for (i = 0; i < 10; i++)
+    {
+    tuple[i] = i;
+    }
+  fd->GetTuple(2);
+  fd->SetTuple(2, tuple);
+  fd->InsertTuple(2, tuple);
+  fd->InsertNextTuple(tuple);
+  fd->SetComponent(0,0, 1.0);
+  fd->InsertComponent(0,0, 1.0);
+  */
+  fd2->Reset();
+
+  fd->Delete();
+  fd2->Delete();
+
+  return 0;
+}

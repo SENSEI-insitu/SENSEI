@@ -1,0 +1,26 @@
+NAME
+  SVTK::UtilitiesBenchmarks
+LIBRARY_NAME
+  svtkUtilitiesBenchmarks
+DEPENDS
+  SVTK::CommonComputationalGeometry
+  SVTK::CommonCore
+  SVTK::CommonDataModel
+  SVTK::CommonSystem
+  SVTK::CommonTransforms
+  SVTK::DomainsChemistry
+  SVTK::FiltersCore
+  SVTK::FiltersSources
+  SVTK::ImagingCore
+  SVTK::RenderingContextOpenGL2
+  SVTK::RenderingCore
+  SVTK::RenderingOpenGL2
+  SVTK::RenderingVolume
+  SVTK::RenderingVolumeOpenGL2
+  SVTK::svtksys
+PRIVATE_DEPENDS
+  SVTK::ChartsCore
+  SVTK::IOCore
+  SVTK::RenderingContext2D
+  SVTK::ViewsContext2D
+EXCLUDE_WRAP

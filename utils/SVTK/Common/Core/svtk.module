@@ -1,0 +1,23 @@
+NAME
+  SVTK::CommonCore
+LIBRARY_NAME
+  svtkCommonCore
+DESCRIPTION
+  The base SVTK library
+KIT
+  SVTK::Common
+GROUPS
+  StandAlone
+DEPENDS
+  SVTK::kwiml
+  SVTK::svtksys
+PRIVATE_DEPENDS
+  SVTK::utf8
+OPTIONAL_DEPENDS
+  SVTK::loguru
+TEST_DEPENDS
+  SVTK::CommonDataModel
+  SVTK::CommonSystem
+  SVTK::CommonTransforms
+  SVTK::TestingCore
+  SVTK::svtksys
