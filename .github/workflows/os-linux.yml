@@ -13,7 +13,7 @@ jobs:
       LAUNCHER: .github/ci/docker/spack/launcher.sh
       CMAKE_CONFIGURATION: linux_ecp
     container:
-      image: ryankrattiger/sensei-ci:latest
+      image: senseiinsitu/sensei-ci:2021.07.08
       options: --user=root
 
     steps:
