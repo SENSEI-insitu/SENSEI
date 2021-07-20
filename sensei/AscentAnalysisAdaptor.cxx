@@ -109,7 +109,7 @@ int PassGhostsZones(vtkDataSet* ds, conduit::Node& node)
   if( ds->HasAnyGhostCells() || ds->HasAnyGhostPoints() )
   {
     // If so, add the data for Acsent.
-    node["fields/ascent_ghosts/association"] = "element";
+    node["fields/ascent_ghosts/association"] = "element"; 
     node["fields/ascent_ghosts/topology"] = "mesh";
     node["fields/ascent_ghosts/type"] = "scalar";
 
@@ -323,7 +323,7 @@ int PassFields(vtkDataSet* ds, conduit::Node& node,
     SENSEI_ERROR("Invlaid centering " << arrayCen)
     return -1;
   }
-  node[assocPath] = cenType;
+  node[assocPath] = cenType; 
 
   // FIXME -- zero coopy transfer the data
   int components = da->GetNumberOfComponents();
@@ -768,7 +768,7 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
 }
 
 // wes experiment area
-bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 {
    std::cout << "AscentAnalysisAdaptor::Execute() - begin " << std::endl;
  
@@ -866,7 +866,7 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 }
 
 //------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
+bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
   // FIXME -- data requirements needs to be determined from ascent
   // configs.
