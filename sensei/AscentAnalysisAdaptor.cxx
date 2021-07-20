@@ -6,7 +6,9 @@
 
 #include <mpi.h>
 
+#include <conduit.hpp>
 #include <conduit_blueprint.hpp>
+#include <conduit_relay.hpp> // for file i/o, wes 4/20/2021
 
 #include <vtkObjectFactory.h>
 #include <vtkCellArray.h>
@@ -412,7 +414,8 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
 
     node["topologies/mesh/elements/origin/i0"] = origin[0] + (extents[0] * spacing[0]);
     node["topologies/mesh/elements/origin/j0"] = origin[1] + (extents[2] * spacing[1]);
-    if(dims[2] != 0 && dims[2] != 1)
+// wes    if(dims[2] != 0 && dims[2] != 1)
+    if(dims[2] != 0)
       node["topologies/mesh/elements/origin/k0"] = origin[2] + (extents[4] * spacing[2]);
   }
   else if(rectilinear != nullptr)
@@ -436,6 +439,8 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
   }
   else if(unstructured != nullptr)
   {
+    // fixme: this code makes a deep copy, look for ways
+    // to do a more shallow copy
     if(!unstructured->IsHomogeneous())
     {
       SENSEI_ERROR("Unstructured cells must be homogenous");
@@ -445,7 +450,12 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
     node["topologies/mesh/coordset"] = "coords";
 
     vtkCellArray* cellarray = unstructured->GetCells();
-    vtkIdType *ptr = cellarray->GetPointer();
+
+    vtkIdTypeArray *idarray = vtkIdTypeArray::New();
+    cellarray->ExportLegacyFormat(idarray);
+
+    // vtkIdType *ptr = cellarray->GetPointer();
+    vtkIdType *ptr = idarray->GetPointer(0);
 
     std::string shape;
     GetShape(shape, ptr[0]);
@@ -468,6 +478,7 @@ int PassTopology(vtkDataSet* ds, conduit::Node& node)
       }
     }
     node["topologies/mesh/elements/connectivity"].set(data);
+    idarray->Delete();
   }
   else
   {
@@ -756,8 +767,106 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
   return 0;
 }
 
-//------------------------------------------------------------------------------
+// wes experiment area
 bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+{
+   std::cout << "AscentAnalysisAdaptor::Execute() - begin " << std::endl;
+ 
+   conduit::Node localRoot;
+
+   // use design pattern from ADIOS2AnalysisAdaptor::Execute()
+   MeshMetadataFlags flags;
+   MeshMetadataMap mdm;
+   if (mdm.Initialize(dataAdaptor, flags))
+   {
+      SENSEI_ERROR("Failed to get metadata")
+      return false;
+   }
+
+   // if no dataAdaptor requirements are given, push all the data
+   // fill in the requirements with every thing
+   if (this->Requirements.Empty())
+   {
+      if (this->Requirements.Initialize(dataAdaptor, false))
+      {
+         SENSEI_ERROR("Failed to initialze dataAdaptor description")
+         return false;
+      }
+      SENSEI_WARNING("No subset specified. Writing all available data")
+   }
+
+   // collect the specified data objects and metadata
+   std::vector<vtkCompositeDataSet*> objects;
+   std::vector<MeshMetadataPtr> metadata;
+
+   MeshRequirementsIterator mit =
+      this->Requirements.GetMeshRequirementsIterator();
+
+   int ii = 0;
+   while (mit)
+   {
+      // get metadata
+      MeshMetadataPtr md;
+      if (mdm.GetMeshMetadata(mit.MeshName(), md))
+      {
+         SENSEI_ERROR("Failed to get mesh metadata for mesh \""
+         << mit.MeshName() << "\"")
+         return false;
+      }
+      std::cout << "Found mesh #[" << ii << "] named <" << mit.MeshName() << "> " << std::endl;
+
+      // get the mesh
+      vtkCompositeDataSet *dobj = nullptr;
+      if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+      {
+         SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+         return false;
+      }
+
+      // add ghost cell arrays to the mesh code goes here.
+
+      // add ghost node arrays to the mesh code goes here.
+    
+      // add the required arrays
+      ArrayRequirementsIterator ait =
+        this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
+
+      while (ait) // iterate over requested arrays
+      {
+         if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+           ait.Association(), ait.Array()))
+         {
+            SENSEI_ERROR("Failed to add "
+            << VTKUtils::GetAttributesName(ait.Association())
+            << " data array \"" << ait.Array() << "\" to mesh \""
+            << mit.MeshName() << "\"")
+            return false;
+         }
+         else
+            std::cout << "added array " << ait.Array() << " to the mesh " << std::endl;
+
+         ++ait;
+      }
+
+      // build the conduit tree, add to a root node
+
+      ++mit;
+      ii++;
+   } // while (mit)
+
+   // invoke ascent's execute method
+   // 7/20/2021 wes, need to populate localRoot with something before
+   // these calls will do something other than complain
+   this->_ascent.publish(localRoot);
+   this->_ascent.execute(this->actionsNode);
+   localRoot.reset();
+
+
+   return ( true );
+}
+
+//------------------------------------------------------------------------------
+bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 {
   // FIXME -- data requirements needs to be determined from ascent
   // configs.
@@ -873,6 +982,21 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         else
         {
           conduit::Node &temp_node = root;
+
+	  // tmp, check for validity
+	  std::cout << "printing out contents of the conduit node/tree " << std::endl;
+
+	  temp_node.print();
+
+	  // following example from here: https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#uniform
+	  conduit::Node verify_info;
+	  if (!conduit::blueprint::mesh::verify(temp_node, verify_info))
+	  {
+	     std::cout << "Verify failed! " << std::endl;
+	     verify_info.print();
+	  }
+
+
           // FIXME -- check retuirn for error
           ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
         }
@@ -906,8 +1030,43 @@ bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   DebugSaveAscentData( root, this->optionsNode );
 #endif
 
+#if 1
+  // wes 4/20/2021
+  // invoke blueprint method to verify that we have created something valid
+  // 
+  conduit::Node verify_info;
+  if (!conduit::blueprint::mesh::verify(root, verify_info))
+  {
+     std::cout << "Mesh verify failed!" << std::endl;
+//     std::cout << verify_info.to_yaml() << std::endl;
+  }
+  else
+  {
+     std::cout << "Mesh verify success!" << std::endl;
+     std::cout << root.to_yaml() << std::endl;
+//     std::cout << veri
+  }
+
+  std::cout << "Contents of this->actionsNode(): " << std::endl;
+  std::cout << this->actionsNode.to_yaml() << std::endl;
+//  std::cout << ascent::about() << std::endl;
+
+  // temp wes 4/20/2021: write a file and send to Matt because
+  // it causes a crash in vtk-m, something they thought was fixed
+  conduit::relay::io::save(root, "sensei-ascent-demo.json");
+
+#endif
+
+#if 0
+  // wes 7/1/2021
+  std::cout << ascent::about() << std::endl;
+#endif
+
+
   this->_ascent.publish(root);
   this->_ascent.execute(this->actionsNode);
+
+
   root.reset();
 
   return( true );

@@ -29,6 +29,8 @@ public:
     const std::string &options_file_path);
 
   bool Execute(DataAdaptor* data) override;
+//  bool Execute_original(DataAdaptor* data) override; // wes, dev
+  bool Execute_original(DataAdaptor* data) ; // wes, dev
 
   int Finalize() override;
 
