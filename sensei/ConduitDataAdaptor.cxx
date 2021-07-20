@@ -36,7 +36,9 @@
 
 #include "ConduitDataAdaptor.h"
 #include "Error.h"
-#include "Timer.h"
+// compile error Timer.h not found 4/17/2021, wes removed it
+// Timer.h shows up under clang (11.0.X), and vtk-m
+// #include "Timer.h"
 
 namespace sensei 
 {
