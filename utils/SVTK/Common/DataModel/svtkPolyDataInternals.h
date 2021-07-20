@@ -57,6 +57,7 @@
 #ifndef svtkPolyDataInternals_h
 #define svtkPolyDataInternals_h
 
+#if !defined(SWIG)
 #ifndef __SVTK_WRAP__ // Don't wrap this class.
 
 #include "svtkCommonDataModelModule.h" // For export macro
@@ -284,6 +285,7 @@ private:
 } // end namespace svtkPolyData_detail
 
 #endif // __SVTK_WRAP__
+#endif
 #endif // svtkPolyDataInternals.h
 
 // SVTK-HeaderTest-Exclude: svtkPolyDataInternals.h

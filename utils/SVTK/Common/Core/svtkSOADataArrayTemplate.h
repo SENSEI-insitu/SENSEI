@@ -254,6 +254,7 @@ svtkArrayDownCast_TemplateFastCastMacro(svtkSOADataArrayTemplate);
 
 #endif // header guard
 
+#if !defined(SWIG)
 // This portion must be OUTSIDE the include blockers. This is used to tell
 // libraries other than svtkCommonCore that instantiations of
 // svtkSOADataArrayTemplate can be found externally. This prevents each library
@@ -306,5 +307,5 @@ svtkInstantiateTemplateMacro(extern template class SVTKCOMMONCORE_EXPORT svtkSOA
 #pragma warning(pop)
 
 #endif
-
+#endif
 // SVTK-HeaderTest-Exclude: svtkSOADataArrayTemplate.h

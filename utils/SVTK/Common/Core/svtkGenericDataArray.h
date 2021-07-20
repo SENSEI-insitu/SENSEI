@@ -78,9 +78,9 @@
 template <class DerivedT, class ValueTypeT>
 class svtkGenericDataArray : public svtkDataArray
 {
+public:
   typedef svtkGenericDataArray<DerivedT, ValueTypeT> SelfType;
 
-public:
   typedef ValueTypeT ValueType;
   svtkTemplateTypeMacro(SelfType, svtkDataArray);
 
@@ -513,12 +513,14 @@ class svtkScaledSOADataArrayTemplate;
 
 namespace svtkDataArrayPrivate
 {
+#if !defined(SWIG)
 template <typename A, typename R, typename T>
 bool DoComputeScalarRange(A*, R*, T);
 template <typename A, typename R>
 bool DoComputeVectorRange(A*, R[2], AllValues);
 template <typename A, typename R>
 bool DoComputeVectorRange(A*, R[2], FiniteValues);
+#endif
 } // namespace svtkDataArrayPrivate
 
 #define SVTK_DECLARE_VALUERANGE_ARRAYTYPE(ArrayType, ValueType)                                     \
@@ -548,11 +550,13 @@ bool DoComputeVectorRange(A*, R[2], FiniteValues);
 
 namespace svtkDataArrayPrivate
 {
+#if !defined(SWIG)
 SVTK_DECLARE_VALUERANGE_VALUETYPE(long)
 SVTK_DECLARE_VALUERANGE_VALUETYPE(unsigned long)
 SVTK_DECLARE_VALUERANGE_VALUETYPE(long long)
 SVTK_DECLARE_VALUERANGE_VALUETYPE(unsigned long long)
 SVTK_DECLARE_VALUERANGE_ARRAYTYPE(svtkDataArray, double)
+#endif
 } // namespace svtkDataArrayPrivate
 
 #undef SVTK_DECLARE_VALUERANGE_ARRAYTYPE

@@ -104,9 +104,11 @@ public:
    * Standard svtkDataSet interface.
    */
   svtkIdType GetNumberOfCells() override;
-  using svtkDataSet::GetCell;
+
   svtkCell* GetCell(svtkIdType cellId) override;
   void GetCell(svtkIdType cellId, svtkGenericCell* cell) override;
+  svtkCell* GetCell(int i, int j, int k) override;
+
   int GetCellType(svtkIdType cellId) override;
   void GetCellBounds(svtkIdType cellId, double bounds[6]) override;
   void GetCellNeighbors(svtkIdType cellId, svtkIdList* ptIds, svtkIdList* cellIds) override;
@@ -369,9 +371,12 @@ public:
    */
   void GetPointCells(svtkIdType ptId, svtkIdType& ncells, svtkIdType*& cells)
     SVTK_SIZEHINT(cells, ncells);
+
+#if !defined(SWIG)
 #ifndef SVTK_LEGACY_REMOVE
   SVTK_LEGACY(void GetPointCells(svtkIdType ptId, unsigned short& ncells, svtkIdType*& cells))
   SVTK_SIZEHINT(cells, ncells);
+#endif
 #endif
   //@}
 
@@ -542,14 +547,14 @@ public:
   /**
    * Get the piece and the number of pieces. Similar to extent in 3D.
    */
-  virtual int GetPiece();
-  virtual int GetNumberOfPieces();
+  int GetPiece();
+  int GetNumberOfPieces();
   //@}
 
   /**
    * Get the ghost level.
    */
-  virtual int GetGhostLevel();
+  int GetGhostLevel();
 
   /**
    * Return the actual size of the data in kibibytes (1024 bytes). This number
@@ -624,7 +629,7 @@ public:
    * track the changes on the mesh separately from the data arrays
    * (eg. static mesh over time with transient data).
    */
-  virtual svtkMTimeType GetMeshMTime();
+  svtkMTimeType GetMeshMTime();
 
   /**
    * Get MTime which also considers its cell array MTime.

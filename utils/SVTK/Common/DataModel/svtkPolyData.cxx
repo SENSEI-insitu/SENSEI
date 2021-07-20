@@ -94,6 +94,13 @@ unsigned char svtkPolyData::GetCell(svtkIdType cellId, svtkIdType const*& cell)
 }
 
 //----------------------------------------------------------------------------
+svtkCell* svtkPolyData::GetCell(int svtkNotUsed(i), int svtkNotUsed(j), int svtkNotUsed(k))
+{
+  svtkErrorMacro("ijk indices are only valid with structured data!");
+  return nullptr;
+}
+
+//----------------------------------------------------------------------------
 svtkPolyData::svtkPolyData()
 {
   this->Information->Set(svtkDataObject::DATA_EXTENT_TYPE(), SVTK_PIECES_EXTENT);

@@ -303,6 +303,7 @@ private:
   friend class svtkGenericDataArray<svtkAOSDataArrayTemplate<ValueTypeT>, ValueTypeT>;
 };
 
+#if !defined(SWIG)
 // Declare svtkArrayDownCast implementations for AoS containers:
 svtkArrayDownCast_TemplateFastCastMacro(svtkAOSDataArrayTemplate);
 
@@ -327,8 +328,11 @@ svtkArrayDownCast_TemplateFastCastMacro(svtkAOSDataArrayTemplate);
   void SetArray(SVTK_ZEROCOPY T* array, svtkIdType size, int save);                                  \
   void SetArray(SVTK_ZEROCOPY T* array, svtkIdType size, int save, int deleteMethod)
 
+#endif
+
 #endif // header guard
 
+#if !defined(SWIG)
 // This portion must be OUTSIDE the include blockers. This is used to tell
 // libraries other than svtkCommonCore that instantiations of
 // svtkAOSDataArrayTemplate can be found externally. This prevents each library
@@ -381,5 +385,5 @@ svtkInstantiateTemplateMacro(extern template class SVTKCOMMONCORE_EXPORT svtkAOS
 #pragma warning(pop)
 
 #endif
-
+#endif
 // SVTK-HeaderTest-Exclude: svtkAOSDataArrayTemplate.h

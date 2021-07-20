@@ -156,9 +156,11 @@ public:
   void Reset();
   void CopyStructure(svtkDataSet* ds) override;
   svtkIdType GetNumberOfCells() override;
-  using svtkDataSet::GetCell;
+
   svtkCell* GetCell(svtkIdType cellId) override;
   void GetCell(svtkIdType cellId, svtkGenericCell* cell) override;
+  svtkCell* GetCell(int i, int j, int k) override;
+
   void GetCellBounds(svtkIdType cellId, double bounds[6]) override;
   void GetCellPoints(svtkIdType cellId, svtkIdList* ptIds) override;
   void GetPointCells(svtkIdType ptId, svtkIdList* cellIds) override;
@@ -206,9 +208,12 @@ public:
    */
   void GetPointCells(svtkIdType ptId, svtkIdType& ncells, svtkIdType*& cells)
     SVTK_SIZEHINT(cells, ncells);
+
+#if !defined(SWIG)
 #ifndef SVTK_LEGACY_REMOVE
   SVTK_LEGACY(void GetPointCells(svtkIdType ptId, unsigned short& ncells, svtkIdType*& cells))
   SVTK_SIZEHINT(cells, ncells);
+#endif
 #endif
   //@}
 

@@ -363,6 +363,7 @@ public:
    */
   SVTK_NEWINSTANCE svtkCellArrayIterator* NewIterator();
 
+#if !defined(SWIG)
 #ifndef __SVTK_WRAP__ // The wrappers have issues with some of these templates
   /**
    * Set the internal data arrays to the supplied offsets and connectivity
@@ -383,6 +384,7 @@ public:
     svtkAOSDataArrayTemplate<long long>* offsets, svtkAOSDataArrayTemplate<long long>* connectivity);
   /**@}*/
 #endif // __SVTK_WRAP__
+#endif
 
   /**
    * Sets the internal arrays to the supplied offsets and connectivity arrays.
@@ -753,6 +755,7 @@ public:
   // The following code is used to support
 
   // The wrappers get understandably confused by some of the template code below
+#if !defined(SWIG)
 #ifndef __SVTK_WRAP__
 
   // Holds connectivity and offset arrays of the given ArrayType.
@@ -968,6 +971,7 @@ public:
   /** @} */
 
 #endif // __SVTK_WRAP__
+#endif
 
   //=================== Begin Legacy Methods ===================================
   // These should be deprecated at some point as they are confusing or very slow
@@ -1263,6 +1267,7 @@ svtkCellArray::VisitState<ArrayT>::GetCellRange(svtkIdType cellId)
     this->GetConnectivity(), this->GetBeginOffset(cellId), this->GetEndOffset(cellId));
 }
 
+#if !defined(SWIG)
 namespace svtkCellArray_detail
 {
 
@@ -1408,6 +1413,7 @@ struct ResetImpl
 };
 
 } // end namespace svtkCellArray_detail
+#endif
 
 //----------------------------------------------------------------------------
 inline void svtkCellArray::InitTraversal()

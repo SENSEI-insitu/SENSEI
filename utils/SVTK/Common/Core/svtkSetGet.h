@@ -39,9 +39,11 @@
 #error SVTK requires MSVC++ 14.0 aka Visual Studio 2015 or newer
 #endif
 
+#if !defined(SWIG)
 #if !defined(__clang__) && defined(__GNUC__) &&                                                    \
   (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 8))
 #error SVTK requires GCC 4.8 or newer
+#endif
 #endif
 
 // Convert a macro representing a value to a string.
@@ -80,6 +82,12 @@
 // clang-format on
 
 /* Various compiler-specific performance hints. */
+#if defined(SWIG)
+#define SVTK_ALWAYS_INLINE inline
+#define SVTK_ALWAYS_OPTIMIZE_START
+#define SVTK_ALWAYS_OPTIMIZE_END
+#else
+
 #if defined(SVTK_COMPILER_GCC) //------------------------------------------------
 
 #define SVTK_ALWAYS_INLINE __attribute__((always_inline)) inline
@@ -115,6 +123,7 @@
 #define SVTK_ALWAYS_OPTIMIZE_START
 #define SVTK_ALWAYS_OPTIMIZE_END
 
+#endif
 #endif
 
 //
@@ -996,7 +1005,7 @@ public:
 #define SVTK_LEGACY__0(method, line) SVTK_LEGACY__1(method, line)
 #define SVTK_LEGACY__1(method, line) class svtkLegacyMethodRemoved##line
 
-#elif defined(SVTK_LEGACY_SILENT) || defined(SVTK_WRAPPING_CXX)
+#elif defined(SVTK_LEGACY_SILENT) || defined(SVTK_WRAPPING_CXX) || defined(SWIG)
 // Provide legacy methods with no warnings.
 #define SVTK_LEGACY(method) method
 #else

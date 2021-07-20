@@ -19,3 +19,4 @@ add_subdirectory(pugixml)
 
 include(SVTKconfig.cmake)
 add_subdirectory(SVTK)
+add_subdirectory(pysvtk)

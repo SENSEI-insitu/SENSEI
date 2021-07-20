@@ -1029,6 +1029,14 @@ void svtkUnstructuredGrid::GetCell(svtkIdType cellId, svtkGenericCell* cell)
 }
 
 //----------------------------------------------------------------------------
+svtkCell* svtkUnstructuredGrid::GetCell(int svtkNotUsed(i),
+  int svtkNotUsed(j), int svtkNotUsed(k))
+{
+  svtkErrorMacro("ijk indices are only valid with structured data!");
+  return nullptr;
+}
+
+//----------------------------------------------------------------------------
 // Support GetCellBounds()
 namespace
 { // anonymous

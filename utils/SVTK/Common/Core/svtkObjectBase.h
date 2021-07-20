@@ -230,7 +230,9 @@ protected:
   virtual void ReportReferences(svtkGarbageCollector*);
 
 private:
+#if !defined(SWIG)
   friend SVTKCOMMONCORE_EXPORT ostream& operator<<(ostream& os, svtkObjectBase& o);
+#endif
   friend class svtkGarbageCollectorToObjectBaseFriendship;
   friend class svtkWeakPointerBaseToObjectBaseFriendship;
 

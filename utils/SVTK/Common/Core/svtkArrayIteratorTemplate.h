@@ -116,6 +116,7 @@ private:
   svtkAbstractArray* Array;
 };
 
+#if !defined(SWIG)
 #ifdef SVTK_USE_EXTERN_TEMPLATE
 #ifndef svtkArrayIteratorTemplateInstantiate_cxx
 #ifdef _MSC_VER
@@ -133,6 +134,7 @@ extern template class SVTKCOMMONCORE_EXPORT svtkArrayIteratorTemplate<svtkVarian
 #endif
 #endif
 #endif // SVTK_USE_EXTERN_TEMPLATE
+#endif
 
 #endif
 
