@@ -1877,7 +1877,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
         adios2_error ca_getErr = adios2_get(handles.engine,
           ca_vinfo, cell_array->GetVoidPointer(0), adios2_mode_sync);
 
-        if (!ca_getErr)
+        if (ca_getErr != 0)
           {
           SENSEI_ERROR("adios2_get cell_array block " << j <<  " failed")
           return -1;
