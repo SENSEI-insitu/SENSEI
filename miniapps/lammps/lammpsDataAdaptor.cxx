@@ -9,6 +9,41 @@
 #include <vtkMultiBlockDataSet.h>
 #include <vtkCellArray.h>
 
+static
+std::array<int,2> getArrayRange(unsigned long nSize, int *x) {
+  int xmin = std::numeric_limits<int>::max(); 
+  int xmax = std::numeric_limits<int>::lowest();
+  for(int i=0; i<nSize; ++i) {
+    xmin = std::min(xmin, x[i]);
+    xmax = std::max(xmax, x[i]);
+  }
+
+  return {xmin, xmax};
+}
+
+static
+std::array<double,2> getArrayRange(unsigned long nSize,double *x) {
+  double xmin = std::numeric_limits<double>::max(); 
+  double xmax = std::numeric_limits<double>::lowest();
+  for(int i=0; i<nSize; ++i) {
+    xmin = std::min(xmin, x[i]);
+    xmax = std::max(xmax, x[i]);
+  }
+
+  return {xmin, xmax};
+}
+
+static 
+void getBounds(const sdiy::DiscreteBounds &db, double *ext) 
+{
+  ext[0] = db.min[0];
+  ext[1] = db.max[0];
+  ext[2] = db.min[1];
+  ext[3] = db.max[1];
+  ext[4] = db.min[2];
+  ext[5] = db.max[2];
+}
+
 namespace senseiLammps
 {
 
@@ -19,7 +54,10 @@ struct lammpsDataAdaptor::DInternals
   vtkSmartPointer<vtkIntArray> AtomTypes;
   vtkSmartPointer<vtkIntArray> AtomIDs;
   vtkSmartPointer<vtkCellArray> vertices;
-  double xsublo, ysublo, zsublo, xsubhi, ysubhi, zsubhi;
+  sdiy::DiscreteBounds DomainBounds;
+  sdiy::DiscreteBounds BlockBounds;
+  sdiy::DiscreteBounds typeRange;
+  sdiy::DiscreteBounds idRange;
   int nlocal, nghost;
   double **x;
   int *type;
@@ -144,33 +182,42 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
   internals.nlocal = nlocal;
   internals.nghost = nghost;
 
+  std::array<double,2> x_range = getArrayRange(nlocal, x[0]);
+	std::array<double,2> y_range = getArrayRange(nlocal, x[1]);
+	std::array<double,2> z_range = getArrayRange(nlocal, x[2]);
+
   // bounding box
-  internals.xsublo = xsublo;
-  internals.ysublo = ysublo;
-  internals.zsublo = zsublo;
-  internals.xsubhi = xsubhi;
-  internals.ysubhi = ysubhi;
-  internals.zsubhi = zsubhi;
+  this->SetDomainBounds(xsublo, xsubhi, ysublo, ysubhi, zsublo, zsubhi);
+  this->SetBlockBounds(
+      x_range[0], x_range[1],
+      y_range[0], y_range[1],
+      z_range[0], z_range[1]);
+
+  /// XXX Set type and id range
+  this->Internals->typeRange.min[0] = std::numeric_limits<int>::max();
+  this->Internals->typeRange.max[0] = std::numeric_limits<int>::min();
+  this->Internals->idRange.min[0] = std::numeric_limits<int>::max();
+  this->Internals->idRange.max[0] = std::numeric_limits<int>::min();
 
   // timestep
   this->SetDataTimeStep(ntimestep);
 
 }
 
-//-----------------------------------------------------------------------------
-void lammpsDataAdaptor::GetBounds ( double &xsublo, double &xsubhi, 
-                                   double &ysublo, double &ysubhi, 
-                                   double &zsublo, double &zsubhi)
-{
-  DInternals& internals = (*this->Internals);
+void lammpsDataAdaptor::SetBlockBounds(double *x, int nelem) {
+  this-Internals->  
+}
 
-  xsublo = internals.xsublo;
-  ysublo = internals.ysublo;
-  zsublo = internals.zsublo;
-  xsubhi = internals.xsubhi;
-  ysubhi = internals.ysubhi;
-  zsubhi = internals.zsubhi;
-}      
+void lammpsDataAdaptor::SetDomainBounds(double xmin, double xmax,
+    double ymin, double ymax, double zmin, double zmax) {
+  this->Internals->DomainBounds.min[0] = xmin;
+  this->Internals->DomainBounds.min[1] = ymin;
+  this->Internals->DomainBounds.min[2] = zmin;
+
+  this->Internals->DomainBounds.max[0] = xmax;
+  this->Internals->DomainBounds.max[1] = ymax;
+  this->Internals->DomainBounds.max[2] = zmax;
+}
 
 void lammpsDataAdaptor::GetN ( int &nlocal, int &nghost )
 {
@@ -346,33 +393,52 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
   MPI_Comm_size(comm, &nRanks);
 
 
+  int nBlocks = 1; // One block per rank
   metadata->MeshName = "atoms";
   metadata->MeshType = VTK_MULTIBLOCK_DATA_SET;
   metadata->BlockType = VTK_POLY_DATA;
   metadata->CoordinateType = VTK_DOUBLE;
   metadata->NumBlocks = nRanks;
-  metadata->NumBlocksLocal = {1};
+  metadata->NumBlocksLocal = {nBlocks};
   metadata->NumGhostCells = this->Internals->nghost;
   metadata->NumArrays = 2;
   metadata->ArrayName = {"type", "id"};
   metadata->ArrayCentering = {vtkDataObject::POINT, vtkDataObject::POINT};
   metadata->ArrayComponents = {1, 1};
   metadata->ArrayType = {VTK_INT, VTK_INT};
-  metadata->StaticMesh = 1;
+  metadata->StaticMesh = 0;
 
   if (metadata->Flags.BlockExtentsSet())
     {
     SENSEI_WARNING("lammps data adaptor. Flags.BlockExtentsSet()")
+    // There should be no extent for a PolyData, but ADIOS2 needs this
+    std::array<int,6> ext = { 0, 0, 0, 0, 0, 0};
+    metadata->Extent = std::move(ext);
+
+    metadata->BlockExtents.reserve(nBlocks);
+    metadata->BlockExtents.emplace_back(std::move(ext));
     }
 
   if (metadata->Flags.BlockBoundsSet())
     {
     SENSEI_WARNING("lammps data adaptor. Flags.BlockBoundsSet()")
+    std::array<double, 6> bounds;
+    getBounds(this->Internals->DomainBounds, bounds.data());
+    metadata->Bounds = std::move(bounds);
+    
+    metadata->BlockBounds.reserve(nBlocks);
+    
+    getBounds(this->Internals->BlockBounds, bounds.data());
+    metadata->BlockBounds.emplace_back(std::move(bounds));
     }
 
   if (metadata->Flags.BlockSizeSet())
     {
+    int nCells = nlocal;
     SENSEI_WARNING("lammps data adaptor. Flags.BlockSizeSet()")
+    metadata->BlockNumCells.push_back(nCells);
+    metadata->BlockNumPoints.push_back(nCells);
+    metadata->BlockCellArraySize.push_back(2 * nCells); // XXX- VTK_POINTS
     }
 
   if (metadata->Flags.BlockDecompSet())
@@ -384,7 +450,16 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
   if (metadata->Flags.BlockArrayRangeSet())
     {
     SENSEI_WARNING("lammps data adaptor. Flags.BlockArrayRangeSet()")
-    }
+    
+    std::array<int,2> typeBlockRange = getArrayRange(nvals, this->Internals->type);
+    std::array<int,2> idBlockRange = getArrayRange(nvals, this->Internals->id);
+    metadata->BlockArrayRange.push_back({typeBlockRange, idBlockRange});
+
+		std::array<int,2> typeRange = { this->Internals->typeRange.min[0], this->Internals->typeRange.max[0] };
+    std::array<int,2> idRange = { this->Internals->idRange.min[0], this->Internals->idRange.max[0] };
+    metadata->ArrayRange.push_back(typeRange); 
+    metadata->ArrayRange.push_back(idRange); 
+}
 
   return 0;
 }
@@ -402,15 +477,10 @@ int lammpsDataAdaptor::ReleaseData()
   internals.AtomIDs = NULL;
   internals.nlocal = 0;
   internals.nghost = 0;
-  internals.xsublo = 0;
-  internals.ysublo = 0;
-  internals.zsublo = 0;
-  internals.xsubhi = 0;
-  internals.ysubhi = 0;
-  internals.zsubhi = 0;
 
   return 0;
 }
 
 } //senseiLammps
+
 

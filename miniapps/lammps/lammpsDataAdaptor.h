@@ -38,6 +38,9 @@ public:
 
   void GetIDs ( vtkIntArray *&ids );
 
+  void lammpsDataAdaptor::SetDomainBounds(double xmin, double xmax,
+    double ymin, double ymax, double zmin, double zmax);
+
 // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
@@ -76,3 +79,6 @@ private:
 };
 
 }
+
+
+
