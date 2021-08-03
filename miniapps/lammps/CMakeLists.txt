@@ -6,6 +6,8 @@ endif()
 
 include_directories(${LAMMPS_DIR}/src)
 
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DLAMMPS_LIB_MPI")
+
 set(sources lammpsDriver.cxx)
 
 set(libs 

@@ -136,8 +136,7 @@ int main(int argc, char **argv)
     std::cout << "###### SENSEI instrumentation: initialize bridge ######" << std::endl;
   lammpsBridge::Initialize(sim_comm, sensei_xml );
 
-  LAMMPS *lammps;
-  lammps_open(lammps_args.size(), lammps_args.data(), sim_comm, (void**)&lammps);
+  LAMMPS *lammps = (LAMMPS *)lammps_open(lammps_args.size(), lammps_args.data(), sim_comm, NULL);
   globalInfo.lmp = lammps;
 
   // run the input script thru LAMMPS one line at a time until end-of-file
