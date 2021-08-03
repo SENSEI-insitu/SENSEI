@@ -38,7 +38,10 @@ public:
 
   void GetIDs ( vtkIntArray *&ids );
 
-  void lammpsDataAdaptor::SetDomainBounds(double xmin, double xmax,
+  void SetDomainBounds(double xmin, double xmax,
+    double ymin, double ymax, double zmin, double zmax);
+
+  void SetBlockBounds(double xmin, double xmax,
     double ymin, double ymax, double zmin, double zmax);
 
 // SENSEI API

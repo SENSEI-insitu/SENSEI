@@ -8,12 +8,13 @@
 #include <vtkIntArray.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkCellArray.h>
+#include <sdiy/master.hpp>
 
 static
 std::array<int,2> getArrayRange(unsigned long nSize, int *x) {
   int xmin = std::numeric_limits<int>::max(); 
   int xmax = std::numeric_limits<int>::lowest();
-  for(int i=0; i<nSize; ++i) {
+  for(unsigned int i=0; i<nSize; ++i) {
     xmin = std::min(xmin, x[i]);
     xmax = std::max(xmax, x[i]);
   }
@@ -25,7 +26,7 @@ static
 std::array<double,2> getArrayRange(unsigned long nSize,double *x) {
   double xmin = std::numeric_limits<double>::max(); 
   double xmax = std::numeric_limits<double>::lowest();
-  for(int i=0; i<nSize; ++i) {
+  for(unsigned int i=0; i<nSize; ++i) {
     xmin = std::min(xmin, x[i]);
     xmax = std::max(xmax, x[i]);
   }
@@ -183,15 +184,15 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
   internals.nghost = nghost;
 
   std::array<double,2> x_range = getArrayRange(nlocal, x[0]);
-	std::array<double,2> y_range = getArrayRange(nlocal, x[1]);
-	std::array<double,2> z_range = getArrayRange(nlocal, x[2]);
+  std::array<double,2> y_range = getArrayRange(nlocal, x[1]);
+  std::array<double,2> z_range = getArrayRange(nlocal, x[2]);
 
   // bounding box
   this->SetDomainBounds(xsublo, xsubhi, ysublo, ysubhi, zsublo, zsubhi);
   this->SetBlockBounds(
-      x_range[0], x_range[1],
-      y_range[0], y_range[1],
-      z_range[0], z_range[1]);
+    x_range[0], x_range[1],
+    y_range[0], y_range[1],
+    z_range[0], z_range[1]);
 
   /// XXX Set type and id range
   this->Internals->typeRange.min[0] = std::numeric_limits<int>::max();
@@ -204,12 +205,21 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
 
 }
 
-void lammpsDataAdaptor::SetBlockBounds(double *x, int nelem) {
-  this-Internals->  
+void lammpsDataAdaptor::SetBlockBounds(double xmin, double xmax,
+    double ymin, double ymax, double zmin, double zmax)
+{
+  this->Internals->BlockBounds.min[0] = xmin;
+  this->Internals->BlockBounds.min[1] = ymin;
+  this->Internals->BlockBounds.min[2] = zmin;
+
+  this->Internals->BlockBounds.max[0] = xmax;
+  this->Internals->BlockBounds.max[1] = ymax;
+  this->Internals->BlockBounds.max[2] = zmax;
 }
 
 void lammpsDataAdaptor::SetDomainBounds(double xmin, double xmax,
-    double ymin, double ymax, double zmin, double zmax) {
+    double ymin, double ymax, double zmin, double zmax) 
+{
   this->Internals->DomainBounds.min[0] = xmin;
   this->Internals->DomainBounds.min[1] = ymin;
   this->Internals->DomainBounds.min[2] = zmin;
@@ -434,7 +444,8 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
 
   if (metadata->Flags.BlockSizeSet())
     {
-    int nCells = nlocal;
+    DInternals& internals = (*this->Internals);
+    int nCells = internals.nlocal;
     SENSEI_WARNING("lammps data adaptor. Flags.BlockSizeSet()")
     metadata->BlockNumCells.push_back(nCells);
     metadata->BlockNumPoints.push_back(nCells);
@@ -450,15 +461,18 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
   if (metadata->Flags.BlockArrayRangeSet())
     {
     SENSEI_WARNING("lammps data adaptor. Flags.BlockArrayRangeSet()")
-    
+ 
+    unsigned long nvals;   
     std::array<int,2> typeBlockRange = getArrayRange(nvals, this->Internals->type);
     std::array<int,2> idBlockRange = getArrayRange(nvals, this->Internals->id);
-    metadata->BlockArrayRange.push_back({typeBlockRange, idBlockRange});
+    // fixme
+    //metadata->BlockArrayRange.push_back({typeBlockRange, idBlockRange});
 
-		std::array<int,2> typeRange = { this->Internals->typeRange.min[0], this->Internals->typeRange.max[0] };
+    std::array<int,2> typeRange = { this->Internals->typeRange.min[0], this->Internals->typeRange.max[0] };
     std::array<int,2> idRange = { this->Internals->idRange.min[0], this->Internals->idRange.max[0] };
-    metadata->ArrayRange.push_back(typeRange); 
-    metadata->ArrayRange.push_back(idRange); 
+    // fixme
+    //metadata->ArrayRange.push_back(typeRange); 
+    //metadata->ArrayRange.push_back(idRange); 
 }
 
   return 0;
