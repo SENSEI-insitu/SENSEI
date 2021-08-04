@@ -373,6 +373,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
         continue;
 
       long blockId = it->GetCurrentFlatIndex() - bidShift;
+
       if (blockId < 0)
         {
         // this should never happen
@@ -414,9 +415,12 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
       }
     it->Delete();
 
-    // this is default initialized to 0 by definition of std::map. & we count
-    // empty steps
-    this->FileId[meshName] += 1;
+    // we count empty steps
+    NameMap<long>::iterator fidIt = this->FileId.find(meshName);
+    if (fidIt == this->FileId.end())
+        this->FileId[meshName] = 0;
+    else
+        fidIt->second += 1;
 
     // rank 0 keeps track of time info for meta file
     int rank = 0;
