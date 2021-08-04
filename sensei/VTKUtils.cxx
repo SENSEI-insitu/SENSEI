@@ -634,19 +634,25 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
     blockCells.emplace_back(nCells);
 
     long cellArraySize = 0;
-
     if (vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds))
-      cellArraySize = ug->GetCells()->GetSize();
+      {
+      cellArraySize = ug->GetCells()->GetConnectivityArray()->GetNumberOfTuples();
+      }
     else if (vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds))
-      cellArraySize = pd->GetVerts()->GetSize() + pd->GetLines()->GetSize()
-        + pd->GetPolys()->GetSize() + pd->GetStrips()->GetSize();
+      {
+      cellArraySize =
+        pd->GetVerts()->GetConnectivityArray()->GetNumberOfTuples() +
+        pd->GetLines()->GetConnectivityArray()->GetNumberOfTuples() +
+        pd->GetPolys()->GetConnectivityArray()->GetNumberOfTuples() +
+        pd->GetStrips()->GetConnectivityArray()->GetNumberOfTuples();
+      }
 
     blockCellArraySize.emplace_back(cellArraySize);
     }
 
   if (flags.BlockExtentsSet())
     {
-    std::array<int,6> ext;
+    std::array<int,6> ext = {1, 0, 1, 0, 1, 0};
     if (vtkImageData *im = dynamic_cast<vtkImageData*>(ds))
       {
       im->GetExtent(ext.data());
@@ -666,7 +672,11 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
 
   if (flags.BlockBoundsSet())
     {
-    std::array<double,6> bounds;
+    std::array<double,6> bounds = {
+        std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest()};
+
     ds->GetBounds(bounds.data());
     blockBounds.emplace_back(std::move(bounds));
     }
@@ -701,7 +711,7 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
 
   metadata->MeshType = amrds ? VTK_OVERLAPPING_AMR : VTK_MULTIBLOCK_DATA_SET;
 
-  // get array metadata
+  // get global metadata
   vtkCompositeDataIterator *cdit = cd->NewIterator();
   if (!cdit->IsDoneWithTraversal())
     {
@@ -709,6 +719,7 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
 
     metadata->BlockType = bobj->GetDataObjectType();
 
+    // get array metadata
     if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(bobj))
       VTKUtils::GetArrayMetadata(ds, metadata);
 
