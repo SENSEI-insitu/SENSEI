@@ -164,7 +164,8 @@ struct MeshMetadata
   int CoordinateType;                // type enum of point data (unstructured, optional)
   long NumPoints;                    // total number of points in all blocks (all, optional)
   long NumCells;                     // total number of cells in all blocks (all, optional)
-  long CellArraySize;                // total cell array size in all blocks (all, optional)
+  long CellArraySize;                // total cell array size in all blocks (unstructured, optional)
+  int CellArrayType;                 // element type of the cell array (unstructured, optional)
   int NumArrays;                     // number of arrays (all)
   int NumGhostCells;                 // number of ghost cell layers (all)
   int NumGhostNodes;                 // number of ghost node layers (all)
@@ -207,13 +208,12 @@ protected:
   MeshMetadata() : GlobalView(false), MeshName(),
     MeshType(VTK_MULTIBLOCK_DATA_SET), BlockType(VTK_DATA_SET), NumBlocks(0),
     NumBlocksLocal(), Extent(), Bounds(), CoordinateType(VTK_DOUBLE),
-    NumPoints(0), NumCells(0), CellArraySize(0), NumArrays(0),
-    NumGhostCells(0), NumGhostNodes(0), NumLevels(0), StaticMesh(0),
-    ArrayName(), ArrayCentering(), ArrayType(), ArrayRange(),BlockOwner(),
-    BlockIds(), BlockNumPoints(), BlockNumCells(), BlockCellArraySize(),
-    BlockExtents(), BlockBounds(), BlockArrayRange(), RefRatio(),
-    BlocksPerLevel(), BlockLevel(), PeriodicBoundary(),
-    Flags()
+    NumPoints(0), NumCells(0), CellArraySize(0), CellArrayType(VTK_TYPE_INT64),
+    NumArrays(0), NumGhostCells(0), NumGhostNodes(0), NumLevels(0),
+    StaticMesh(0), ArrayName(), ArrayCentering(), ArrayType(),
+    ArrayRange(),BlockOwner(), BlockIds(), BlockNumPoints(), BlockNumCells(),
+    BlockCellArraySize(), BlockExtents(), BlockBounds(), BlockArrayRange(),
+    RefRatio(), BlocksPerLevel(), BlockLevel(), PeriodicBoundary(), Flags()
     {}
 };
 

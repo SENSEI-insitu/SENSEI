@@ -82,6 +82,7 @@ int MeshMetadata::ToStream(sensei::BinaryStream &str) const
   str.Pack(this->NumPoints);
   str.Pack(this->NumCells);
   str.Pack(this->CellArraySize);
+  str.Pack(this->CellArrayType);
   str.Pack(this->NumArrays);
   str.Pack(this->NumGhostCells);
   str.Pack(this->NumGhostNodes);
@@ -124,6 +125,7 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
   str.Unpack(this->NumPoints);
   str.Unpack(this->NumCells);
   str.Unpack(this->CellArraySize);
+  str.Unpack(this->CellArrayType);
   str.Unpack(this->NumArrays);
   str.Unpack(this->NumGhostCells);
   str.Unpack(this->NumGhostNodes);
@@ -165,6 +167,7 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "NumPoints = " << this->NumPoints << std::endl;
   str << "NumCells = " << this->NumCells << std::endl;
   str << "CellArraySize = " << this->CellArraySize << std::endl;
+  str << "CellArrayType = " << this->CellArrayType << std::endl;
   str << "NumArrays = " << this->NumArrays << std::endl;
   str << "NumGhostCells = " << this->NumGhostCells << std::endl;
   str << "NumGhostNodes = " << this->NumGhostNodes << std::endl;
