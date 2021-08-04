@@ -50,6 +50,58 @@ def get_image(i0,i1,j0,j1,k0,k1):
   get_data_arrays(ncells, im.GetCellData())
   return im
 
+def points_to_unstructured(x,y,z):
+  nx = len(x)
+  # points
+  xyz = np.zeros(3*nx, dtype=np.float32)
+  xyz[::3] = x[:]
+  xyz[1::3] = y[:]
+  xyz[2::3] = z[:]
+  vxyz = vtknp.numpy_to_vtk(xyz, deep=1)
+  vxyz.SetNumberOfComponents(3)
+  vxyz.SetNumberOfTuples(nx)
+  pts = vtk.vtkPoints()
+  pts.SetData(vxyz)
+  # cells
+  ct = np.empty(nx, dtype=np.int8)
+  ct[:] = vtk.VTK_VERTEX
+
+  cc = np.empty(nx,dtype=np.int64)
+  cc[:] = np.arange(0,nx,dtype=np.int64)
+
+  co = np.empty(nx+1,dtype=np.int64)
+  co[:] = np.arange(0,nx+1,dtype=np.int64)
+
+  ca = vtk.vtkCellArray()
+  ca.SetData(vtknp.numpy_to_vtk(co, deep=1, array_type=vtk.VTK_ID_TYPE),
+             vtknp.numpy_to_vtk(cc, deep=1, array_type=vtk.VTK_ID_TYPE))
+  # package it all up in a poly data set
+  ug = vtk.vtkUnstructuredGrid()
+  ug.SetPoints(pts)
+  ug.SetCells(vtknp.numpy_to_vtk(ct, deep=1, array_type=vtk.VTK_UNSIGNED_CHAR), ca)
+  # add some scalar data
+  get_data_arrays(nx, ug.GetPointData())
+  get_data_arrays(nx, ug.GetCellData())
+
+
+  return ug
+
+def get_unstructured(nx):
+  seed(2)
+  x = np.empty(nx)
+  y = np.empty(nx)
+  z = np.empty(nx)
+  i = 0
+  while i < nx:
+    x[i] = random()
+    y[i] = random()
+    z[i] = random()
+    i += 1
+  ug = points_to_unstructured(x,y,z)
+  get_data_arrays(nx, ug.GetPointData())
+  get_data_arrays(nx, ug.GetCellData())
+  return ug
+
 def points_to_polydata(x,y,z):
   nx = len(x)
   # points
@@ -63,16 +115,19 @@ def points_to_polydata(x,y,z):
   pts = vtk.vtkPoints()
   pts.SetData(vxyz)
   # cells
-  cids = np.empty(2*nx, dtype=np.int32)
-  cids[::2] = 1
-  cids[1::2] = np.arange(0,nx,dtype=np.int32)
-  cells = vtk.vtkCellArray()
-  cells.SetCells(nx, vtknp.numpy_to_vtk(cids, \
-      deep=1, array_type=vtk.VTK_ID_TYPE))
+  cc = np.empty(nx,dtype=np.int64)
+  cc[:] = np.arange(0,nx,dtype=np.int64)
+
+  co = np.empty(nx+1,dtype=np.int64)
+  co[:] = np.arange(0,nx+1,dtype=np.int64)
+
+  ca = vtk.vtkCellArray()
+  ca.SetData(vtknp.numpy_to_vtk(co, deep=1, array_type=vtk.VTK_ID_TYPE),
+             vtknp.numpy_to_vtk(cc, deep=1, array_type=vtk.VTK_ID_TYPE))
   # package it all up in a poly data set
   pd = vtk.vtkPolyData()
   pd.SetPoints(pts)
-  pd.SetVerts(cells)
+  pd.SetVerts(ca)
   # add some scalar data
   get_data_arrays(nx, pd.GetPointData())
   get_data_arrays(nx, pd.GetCellData())
@@ -107,12 +162,16 @@ def write_data(engine, file_name, steps_per_file, n_its):
   im = vtk.vtkMultiBlockDataSet()
   im.SetNumberOfBlocks(n_ranks)
   im.SetBlock(rank, get_image(rank,rank,0,16,0,1))
-  # the second mesh is unstructured
+  # the second mesh is polydata
+  pd = vtk.vtkMultiBlockDataSet()
+  pd.SetNumberOfBlocks(n_ranks)
+  pd.SetBlock(rank, get_polydata(16))
+  # the third mesh is unstructured
   ug = vtk.vtkMultiBlockDataSet()
   ug.SetNumberOfBlocks(n_ranks)
-  ug.SetBlock(rank, get_polydata(16))
+  ug.SetBlock(rank, get_unstructured(16))
   # associate a name with each mesh
-  meshes = {'image':im, 'unstructured':ug}
+  meshes = {'image':im, 'polydata':pd, 'unstructured':ug}
 
   # loop over time steps
   i = 0

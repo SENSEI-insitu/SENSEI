@@ -15,9 +15,21 @@ class vtkCompositeDataSet;
 #include <vtkSOADataArrayTemplate.h>
 
 #include <vtkSmartPointer.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkCellArray.h>
+
 #include <functional>
 #include <vector>
 #include <mpi.h>
+
+#define vtkCellTemplateMacro(code)                                                                 \
+  vtkTemplateMacroCase(VTK_LONG_LONG, long long, code);                                            \
+  vtkTemplateMacroCase(VTK_UNSIGNED_LONG_LONG, unsigned long long, code);                          \
+  vtkTemplateMacroCase(VTK_ID_TYPE, vtkIdType, code);                                              \
+  vtkTemplateMacroCase(VTK_LONG, long, code);                                                      \
+  vtkTemplateMacroCase(VTK_UNSIGNED_LONG, unsigned long, code);                                    \
+  vtkTemplateMacroCase(VTK_INT, int, code);                                                        \
+  vtkTemplateMacroCase(VTK_UNSIGNED_INT, unsigned int, code);
 
 using vtkCompositeDataSetPtr = vtkSmartPointer<vtkCompositeDataSet>;
 
@@ -59,7 +71,7 @@ VTK_TT *GetPointer(vtkDataArray *da)
   return nullptr;
 }
 
-/// given a VTK POD data type enum returns the size
+/// given a VTK type enum returns the sizeof that type
 unsigned int Size(int vtkt);
 
 /// given a VTK data object enum returns true if it a legacy object
@@ -167,6 +179,91 @@ inline bool LogicallyCartesian(const MeshMetadataPtr &md)
 // rank 0 writes a dataset for visualizing the domain decomp
 int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   const std::string fileName);
+
+/** Packs data from a cell array into another cell array keeping track of
+ * where to insert into the output array. Use it to serialze verys, lines, polys
+ * strips form a polytdata into a single cell array for transport
+ */
+template <typename VTK_TT, typename ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>>
+void PackCells(ARRAY_TT *coIn, ARRAY_TT *ccIn, ARRAY_TT *coOut, ARRAY_TT *ccOut,
+  size_t &coId, size_t &ccId)
+{
+  // copy offsets
+  size_t nOffs = coIn->GetNumberOfTuples();
+  const VTK_TT *pSrc = coIn->GetPointer(0);
+  VTK_TT *pDest = coOut->GetPointer(0);
+
+  for (size_t i = 0; i < nOffs; ++i)
+      pDest[coId + i] = pSrc[i];
+
+  // update cell id
+  coId += nOffs;
+
+  // copy connectivity
+  size_t nConn = ccIn->GetNumberOfTuples();
+  pSrc = ccIn->GetPointer(0);
+  pDest = ccOut->GetPointer(0);
+
+  for (size_t i = 0; i < nConn; ++i)
+    pDest[ccId + i] = pSrc[i];
+
+  // update conn id
+  ccId += nConn;
+}
+
+/// deserializes a buffer made by VTKUtils::PackCells.
+template <typename VTK_TT,  typename ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>>
+void UnpackCells(size_t nc, ARRAY_TT *coIn, ARRAY_TT *ccIn,
+  vtkCellArray *caOut, size_t &coId, size_t &ccId)
+{
+  // offsets
+  size_t nCo = nc + 1;
+
+  VTK_TT *pCoIn = coIn->GetPointer(0);
+
+  ARRAY_TT *coOut = ARRAY_TT::New();
+
+  coOut->SetNumberOfTuples(nCo);
+  VTK_TT *pCoOut = coOut->GetPointer(0);
+
+  for (size_t i = 0; i < nCo; ++i)
+    pCoOut[i] = pCoIn[coId + i];
+
+  std::cerr << "co = ";
+  for (size_t i = 0; i < nCo; ++i)
+      std::cerr << pCoOut[i] << ", ";
+  std::cerr << std::endl;
+
+  coId += nCo;
+
+  // connectivity
+  size_t nCc = nc ? pCoOut[nCo - 1] : 0;
+
+  ARRAY_TT *ccOut = ARRAY_TT::New();
+  if (nCc)
+    {
+    VTK_TT *pCcIn = ccIn->GetPointer(0);
+
+    ccOut->SetNumberOfTuples(nCc);
+    VTK_TT *pCcOut = ccOut->GetPointer(0);
+
+    for (size_t i = 0; i < nCc; ++i)
+      pCcOut[i] = pCcIn[ccId + i];
+
+    std::cerr << "cc = ";
+    for (size_t i = 0; i < nCc; ++i)
+        std::cerr << pCcOut[i] << ", ";
+    std::cerr << std::endl;
+
+    ccId += nCc;
+    }
+
+  // package as cells
+  caOut->SetData(coOut, ccOut);
+
+  coOut->Delete();
+  ccOut->Delete();
+}
 
 }
 }
