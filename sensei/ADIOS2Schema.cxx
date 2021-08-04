@@ -148,22 +148,6 @@ adios2_type adiosType(vtkDataArray* da)
     {
     return adiosIdType();
     }
-  /*else if (dynamic_cast<vtkTypeInt32Array*>(da))
-    {
-    return adios2_type_int32_t;
-    }
-  else if (dynamic_cast<vtkTypeUnsignedInt32Array*>(da))
-    {
-    return adios2_type_uint32_t;
-    }
-  else if (dynamic_cast<vtkTypeInt64Array*>(da))
-    {
-    return adios2_type_int64_t;
-    }
-  else if (dynamic_cast<vtkTypeUnsignedInt64Array*>(da))
-    {
-    return adios2_type_uint64_t;
-    }*/
   else
     {
     SENSEI_ERROR("the adios2 type for data array \"" << da->GetClassName()
@@ -215,12 +199,6 @@ adios2_type adiosType(int vtkt)
     case VTK_ID_TYPE:
       return adiosIdType();
       break;
-    /*case VTK_TYPE_INT32:
-      return adios2_type_int32_t;
-      break;
-    case VTK_TYPE_INT64:
-      return adios2_type_int64_t;
-      break;*/
     default:
       {
       SENSEI_ERROR("the adios2 type for vtk type enumeration " << vtkt
@@ -2358,127 +2336,6 @@ int PolydataCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
 
   return 0;
 }
-
-/*
-template <typename VTK_TT>
-void UnpackCells(int64_t ct[4], vtkDataArray *co, vtkDataArray *cc,
-  vtkCellArray *verts, vtkCellArray *lines, vtkCellArray *polys, vtkCellArray *strips)
-{
-  using ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>;
-
-  size_t coId = 0;
-  size_t ccId = 0;
-
-  VTK_TT *pCo = dynamic_cast<ARRAY_TT*>(co)->GetPointer(0);
-  VTK_TT *pCc = dynamic_cast<ARRAY_TT*>(cc)->GetPointer(0);
-
-  // verts
-  size_t nCo = ct[0];
-
-  ARRAY_TT *vertCo = ARRAY_TT::New();
-  vertCo->SetNumberOfTuples(nCo);
-  VTK_TT *pVertCo = vertCo->GetPointer(0);
-
-  for (size_t i = 0; i < nCo; ++i)
-      pVertCo[i] = pCo[i];
-
-  size_t nCc = nCo ? pVertCo[nCo - 1] : 0;
-
-  ARRAY_TT *vertCc = ARRAY_TT::New();
-  vertCc->SetNumberOfTuples(nCc);
-  VTK_TT *pVertCc = vertCc->GetPointer(0);
-
-  for (size_t i = 0; i < nCc; ++i)
-      pVertCc[i] = pCc[i];
-
-  verts->SetData(vertCo, vertCc);
-
-  vertCo->Delete();
-  vertCc->Delete();
-
-  coId += nCo;
-  ccId += nCc;
-
-  // lines
-  nCo = ct[1];
-
-  ARRAY_TT *lineCo = ARRAY_TT::New();
-  lineCo->SetNumberOfTuples(nCo);
-  VTK_TT *pLineCo = lineCo->GetPointer(0);
-
-  for (size_t i = 0; i < nCo; ++i)
-      pLineCo[i] = pCo[i + coId];
-
-  nCc = nCo ? pLineCo[nCo - 1] : 0;
-
-  ARRAY_TT *lineCc = ARRAY_TT::New();
-  lineCc->SetNumberOfTuples(nCc);
-  VTK_TT *pLineCc = lineCc->GetPointer(0);
-
-  for (size_t i = 0; i < nCc; ++i)
-      pLineCc[i] = pCc[i + ccId];
-
-  lines->SetData(lineCo, lineCc);
-
-  lineCo->Delete();
-  lineCc->Delete();
-
-  coId += nCo;
-  ccId += nCc;
-
-  // polys
-  nCo = ct[2];
-
-  ARRAY_TT *polyCo = ARRAY_TT::New();
-  polyCo->SetNumberOfTuples(nCo);
-  VTK_TT *pPolyCo = polyCo->GetPointer(0);
-
-  for (size_t i = 0; i < nCo; ++i)
-      pPolyCo[i] = pCo[i];
-
-  nCc = nCo ? pPolyCo[nCo - 1] : 0;
-
-  ARRAY_TT *polyCc = ARRAY_TT::New();
-  polyCc->SetNumberOfTuples(nCc);
-  VTK_TT *pPolyCc = polyCc->GetPointer(0);
-
-  for (size_t i = 0; i < nCc; ++i)
-      pPolyCc[i] = pCc[i];
-
-  polys->SetData(polyCo, polyCc);
-
-  polyCo->Delete();
-  polyCc->Delete();
-
-  coId += nCo;
-  ccId += nCc;
-
-  // strips
-  nCo = ct[3];
-
-  ARRAY_TT *stripCo = ARRAY_TT::New();
-  stripCo->SetNumberOfTuples(nCo);
-  VTK_TT *pStripCo = stripCo->GetPointer(0);
-
-  for (size_t i = 0; i < nCo; ++i)
-      pStripCo[i] = pCo[i];
-
-  nCc = nCo ? pStripCo[nCo - 1] : 0;
-
-  ARRAY_TT *stripCc = ARRAY_TT::New();
-  stripCc->SetNumberOfTuples(nCc);
-  VTK_TT *pStripCc = stripCc->GetPointer(0);
-
-  for (size_t i = 0; i < nCc; ++i)
-      pStripCc[i] = pCc[i];
-
-  strips->SetData(stripCo, stripCc);
-
-  stripCo->Delete();
-  stripCc->Delete();
-}
-*/
-
 
 // --------------------------------------------------------------------------
 int PolydataCellSchema::Read(MPI_Comm comm, AdiosHandle handles,
