@@ -1697,7 +1697,7 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, AdiosHandle handles,
 {
   if (sensei::VTKUtils::Unstructured(md))
     {
-    sensei::Profiler::StartEvent("senseiADIOS2::UnstructuredCellSchema");
+    sensei::Profiler::StartEvent("senseiADIOS2::UnstructuredCellSchema::Write");
     long long numBytes = 0ll;
 
     int rank = 0;

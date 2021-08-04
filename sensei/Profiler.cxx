@@ -395,7 +395,7 @@ int Profiler::Finalize()
     std::ostringstream oss;
 
     if (rank == 0)
-      oss << "# rank, thread, Name, start Time, end Time, delta, Depth" << std::endl;
+      oss << "# rank, thread, Name, start Time, end Time, delta, bytes, Depth" << std::endl;
 
     Profiler::ToStream(oss);
 
