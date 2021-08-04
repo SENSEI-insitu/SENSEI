@@ -119,12 +119,15 @@ vtkUnstructuredGrid *newUnstructuredBlock(const double *origin,
     int ncy = ny - 1;
     int ncz = nz - 1;
     vtkIdType ncells = ncx*ncy*ncz;
+
     vtkIdTypeArray *nlist = vtkIdTypeArray::New();
-    nlist->SetNumberOfValues(ncells * 9);
+    nlist->SetNumberOfValues(ncells * 8);
+
     vtkUnsignedCharArray *cellTypes = vtkUnsignedCharArray::New();
     cellTypes->SetNumberOfValues(ncells);
+
     vtkIdTypeArray *cellLocations = vtkIdTypeArray::New();
-    cellLocations->SetNumberOfValues(ncells);
+    cellLocations->SetNumberOfValues(ncells + 1);
 
     vtkIdType *nl = nlist->GetPointer(0);
     unsigned char *ct = cellTypes->GetPointer(0);
@@ -136,25 +139,31 @@ vtkUnstructuredGrid *newUnstructuredBlock(const double *origin,
     for(int i = 0; i < ncx; ++i)
       {
       *ct++ = VTK_HEXAHEDRON;
-      *cl++ = offset;
-      offset += 9;
 
-      nl[0] = 8;
-      nl[1] = (k) * nxny + j*nx + i;
-      nl[2] = (k+1) * nxny + j*nx + i;
-      nl[3] = (k+1) * nxny + j*nx + i + 1;
-      nl[4] = (k) * nxny + j*nx + i + 1;
-      nl[5] = (k) * nxny + (j+1)*nx + i;
-      nl[6] = (k+1) * nxny + (j+1)*nx + i;
-      nl[7] = (k+1) * nxny + (j+1)*nx + i + 1;
-      nl[8] = (k) * nxny + (j+1)*nx + i + 1;
-      nl += 9;
+      *cl++ = offset;
+      offset += 8;
+
+      nl[0] = (k) * nxny + j*nx + i;
+      nl[1] = (k+1) * nxny + j*nx + i;
+      nl[2] = (k+1) * nxny + j*nx + i + 1;
+      nl[3] = (k) * nxny + j*nx + i + 1;
+      nl[4] = (k) * nxny + (j+1)*nx + i;
+      nl[5] = (k+1) * nxny + (j+1)*nx + i;
+      nl[6] = (k+1) * nxny + (j+1)*nx + i + 1;
+      nl[7] = (k) * nxny + (j+1)*nx + i + 1;
+
+      nl += 8;
       }
 
+    // new vtk layout, always 1 extra value
+    *cl = offset;
+
     vtkCellArray *cells = vtkCellArray::New();
-    cells->SetCells(ncells, nlist);
+    cells->SetData(cellLocations, nlist);
+
+    ug->SetCells(cellTypes, cells);
+
     nlist->Delete();
-    ug->SetCells(cellTypes, cellLocations, cells);
     cellTypes->Delete();
     cellLocations->Delete();
     cells->Delete();
@@ -335,17 +344,21 @@ struct DataAdaptor::InternalsType
   InternalsType() : NumBlocks(0), Origin{},
     Spacing{1,1,1}, Shape{}, NumGhostCells(0) {}
 
-  long NumBlocks;                                   // total number of blocks on all ranks
+
+  using BlockExtentMap = std::map<long, sdiy::DiscreteBounds>;
+  using BlockDataMap = std::map<long, float*>;
+
+  long NumBlocks;                                    // total number of blocks on all ranks
   sdiy::DiscreteBounds DomainExtent;                 // global index space
-  std::map<long, sdiy::DiscreteBounds> BlockExtents; // local block extents, indexed by global block id
-  std::map<long, float*> BlockData;                 // local data array, indexed by block id
+  BlockExtentMap BlockExtents;                       // local block extents, indexed by global block id
+  BlockDataMap BlockData;                            // local data array, indexed by block id
   std::map<long, const std::vector<Particle>*> ParticleData;
 
-  double Origin[3];                                 // lower left corner of simulation domain
-  double Spacing[3];                                // mesh spacing
+  double Origin[3];                                  // lower left corner of simulation domain
+  double Spacing[3];                                 // mesh spacing
 
   int Shape[3];
-  int NumGhostCells;                                // number of ghost cells
+  int NumGhostCells;                                 // number of ghost cells
 };
 
 //-----------------------------------------------------------------------------
@@ -658,6 +671,8 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
   metadata->ArrayType = {VTK_FLOAT};
   metadata->StaticMesh = 1;
 
+  using ExtentIterator = InternalsType::BlockExtentMap::iterator;
+
   if ((id == 0) && metadata->Flags.BlockExtentsSet())
     {
     std::array<int,6> ext;
@@ -666,8 +681,9 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
     metadata->BlockExtents.reserve(nBlocks);
 
-    auto it = this->Internals->BlockExtents.begin();
-    auto end = this->Internals->BlockExtents.end();
+
+    ExtentIterator it = this->Internals->BlockExtents.begin();
+    ExtentIterator end = this->Internals->BlockExtents.end();
     for (; it != end; ++it)
       {
       getBlockExtent(it->second, ext.data());
@@ -685,8 +701,8 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
     metadata->BlockBounds.reserve(nBlocks);
 
-    auto it = this->Internals->BlockExtents.begin();
-    auto end = this->Internals->BlockExtents.end();
+    ExtentIterator it = this->Internals->BlockExtents.begin();
+    ExtentIterator end = this->Internals->BlockExtents.end();
     for (; it != end; ++it)
       {
       getBlockBounds(it->second, this->Internals->Origin,
@@ -697,8 +713,8 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
   if (metadata->Flags.BlockSizeSet())
     {
-    auto it = this->Internals->BlockExtents.begin();
-    auto end = this->Internals->BlockExtents.end();
+    ExtentIterator it = this->Internals->BlockExtents.begin();
+    ExtentIterator end = this->Internals->BlockExtents.end();
     for (; it != end; ++it)
       {
       long nCells = getBlockNumCells(it->second);
@@ -708,7 +724,7 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
       metadata->BlockNumPoints.push_back(nPts);
 
       if (id == 1) // unctructured only
-        metadata->BlockCellArraySize.push_back(9*nCells);
+        metadata->BlockCellArraySize.push_back(8*nCells);
       }
     }
 
@@ -732,9 +748,11 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
     for (; it != end; ++it)
       {
       unsigned long nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
+
       float *pdata = it->second;
       float bmin = std::numeric_limits<float>::max();
       float bmax = std::numeric_limits<float>::lowest();
+
       for (unsigned long i = 0; i < nCells; ++i)
         {
         bmin = std::min(bmin, pdata[i]);
