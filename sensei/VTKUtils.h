@@ -194,7 +194,7 @@ void PackCells(ARRAY_TT *coIn, ARRAY_TT *ccIn, ARRAY_TT *coOut, ARRAY_TT *ccOut,
   VTK_TT *pDest = coOut->GetPointer(0);
 
   for (size_t i = 0; i < nOffs; ++i)
-      pDest[coId + i] = pSrc[i];
+    pDest[coId + i] = pSrc[i];
 
   // update cell id
   coId += nOffs;
@@ -229,11 +229,6 @@ void UnpackCells(size_t nc, ARRAY_TT *coIn, ARRAY_TT *ccIn,
   for (size_t i = 0; i < nCo; ++i)
     pCoOut[i] = pCoIn[coId + i];
 
-  std::cerr << "co = ";
-  for (size_t i = 0; i < nCo; ++i)
-      std::cerr << pCoOut[i] << ", ";
-  std::cerr << std::endl;
-
   coId += nCo;
 
   // connectivity
@@ -249,11 +244,6 @@ void UnpackCells(size_t nc, ARRAY_TT *coIn, ARRAY_TT *ccIn,
 
     for (size_t i = 0; i < nCc; ++i)
       pCcOut[i] = pCcIn[ccId + i];
-
-    std::cerr << "cc = ";
-    for (size_t i = 0; i < nCc; ++i)
-        std::cerr << pCcOut[i] << ", ";
-    std::cerr << std::endl;
 
     ccId += nCc;
     }
