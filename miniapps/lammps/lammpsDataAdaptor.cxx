@@ -50,7 +50,7 @@ namespace senseiLammps
 
 struct lammpsDataAdaptor::DInternals
 {
-  vtkSmartPointer<vtkMultiBlockDataSet> mesh;
+  //vtkSmartPointer<vtkMultiBlockDataSet> mesh;
   vtkSmartPointer<vtkDoubleArray> AtomPositions;
   vtkSmartPointer<vtkIntArray> AtomTypes;
   vtkSmartPointer<vtkIntArray> AtomIDs;
@@ -287,6 +287,8 @@ int lammpsDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 int lammpsDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh)
 {
+  mesh = nullptr;
+
   if (meshName != "atoms") 
     {  
     SENSEI_ERROR("No mesh \"" << meshName << "\"")
@@ -295,32 +297,29 @@ int lammpsDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 
   DInternals& internals = (*this->Internals);
 
-  if (!internals.mesh)
+  vtkMultiBlockDataSet *mb = vtkMultiBlockDataSet::New();
+  vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
+
+  if(!structureOnly)
     {
-    vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
-
-    if(!structureOnly)
-      {
-      vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
-      pts->SetData(internals.AtomPositions);
-      pd->SetPoints(pts);
-      }
-
-    pd->SetVerts( internals.vertices );
-
-    int rank, size; 
-    MPI_Comm comm;
-  	
-    comm = GetCommunicator();
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size); 
-
-    internals.mesh = vtkSmartPointer<vtkMultiBlockDataSet>::New();
-    internals.mesh->SetNumberOfBlocks(size);
-    internals.mesh->SetBlock(rank, pd);
+    vtkSmartPointer<vtkPoints> pts = vtkSmartPointer<vtkPoints>::New();
+    pts->SetData(internals.AtomPositions);
+    pd->SetPoints(pts);
     }
 
-  mesh = internals.mesh;
+  pd->SetVerts( internals.vertices );
+
+  int rank, size; 
+  MPI_Comm comm;
+  	
+  comm = GetCommunicator();
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &size); 
+
+  mb->SetNumberOfBlocks(size);
+  mb->SetBlock(rank, pd);
+
+  mesh = mb;
 
   return 0;
 }
@@ -329,6 +328,7 @@ int lammpsDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
+
   if (meshName != "atoms")
     {
     SENSEI_ERROR("No mesh \"" << meshName << "\"")
@@ -343,8 +343,8 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
 
   if (arrayName == "type")
     {  	
-    DInternals& internals = (*this->Internals);
-    vtkMultiBlockDataSet* md = vtkMultiBlockDataSet::SafeDownCast(mesh);
+    //DInternals& internals = (*this->Internals);
+    vtkMultiBlockDataSet* md = dynamic_cast<vtkMultiBlockDataSet*>(mesh);
     vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
   
     int rank;
@@ -354,7 +354,7 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
     MPI_Comm_rank(comm, &rank);
 
     pd = vtkPolyData::SafeDownCast(md->GetBlock(rank));
-    pd->GetPointData()->AddArray(internals.AtomTypes);
+    pd->GetPointData()->AddArray(this->Internals->AtomTypes);
     }
 
   if (arrayName == "id")
@@ -483,14 +483,14 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
 //-----------------------------------------------------------------------------
 int lammpsDataAdaptor::ReleaseData()
 {
-  DInternals& internals = (*this->Internals);
+  //DInternals& internals = (*this->Internals);
 
-  internals.mesh = NULL;
-  internals.AtomPositions = NULL;
-  internals.AtomTypes = NULL;
-  internals.AtomIDs = NULL;
-  internals.nlocal = 0;
-  internals.nghost = 0;
+  //internals.mesh = NULL;
+  //internals.AtomPositions = NULL;
+  //internals.AtomTypes = NULL;
+  //internals.AtomIDs = NULL;
+  //internals.nlocal = 0;
+  //internals.nghost = 0;
 
   return 0;
 }
