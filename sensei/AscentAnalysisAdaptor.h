@@ -31,6 +31,7 @@ public:
   bool Execute(DataAdaptor* data) override;
 //  bool Execute_original(DataAdaptor* data) override; // wes, dev
   bool Execute_original(DataAdaptor* data) ; // wes, dev
+  bool Execute_new(DataAdaptor* data) ; // wes, dev
 
   int Finalize() override;
 

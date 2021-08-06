@@ -109,7 +109,7 @@ int PassGhostsZones(vtkDataSet* ds, conduit::Node& node)
   if( ds->HasAnyGhostCells() || ds->HasAnyGhostPoints() )
   {
     // If so, add the data for Acsent.
-    node["fields/ascent_ghosts/association"] = "element"; 
+    node["fields/ascent_ghosts/association"] = "element";
     node["fields/ascent_ghosts/topology"] = "mesh";
     node["fields/ascent_ghosts/type"] = "scalar";
 
@@ -256,6 +256,12 @@ int PassFields(int bid, vtkDataSet *ds, conduit::Node &node)
 }
 */
 
+int PassFields_new(vtkDataSetAttribs )
+{
+    // loop over arrays, put stuff for each array into ascent
+
+}
+
 // **************************************************************************
 int PassFields(vtkDataSet* ds, conduit::Node& node,
   const std::string &arrayName, int arrayCen)
@@ -323,7 +329,7 @@ int PassFields(vtkDataSet* ds, conduit::Node& node,
     SENSEI_ERROR("Invlaid centering " << arrayCen)
     return -1;
   }
-  node[assocPath] = cenType; 
+  node[assocPath] = cenType;
 
   // FIXME -- zero coopy transfer the data
   int components = da->GetNumberOfComponents();
@@ -751,7 +757,7 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
 
   if (::LoadConfig(json_file_path, this->actionsNode))
   {
-    SENSEI_ERROR("Failed to load actionss from \""
+    SENSEI_ERROR("Failed to load actions from \""
       << json_file_path << "\"")
     return -1;
   }
@@ -767,10 +773,326 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
   return 0;
 }
 
-// wes experiment area
-bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
+static void localVTKDataSetToConduitNode(DataAdaptor *dataAdaptor,
+                                         vtkCompositeDataSet *dobj, 
+                                         std::string arrayName,
+                                         int arrayCen,
+                                         conduit::Node localRoot)
 {
-   std::cout << "AscentAnalysisAdaptor::Execute() - begin " << std::endl;
+  // take as input a VTK data set, and from it add data to
+  // a conduit Node.
+  int domainNum = 0;
+  if (vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  {
+     size_t numBlocks = 0;
+     vtkCompositeDataIterator *itr = cds->NewIterator();
+
+     // FIXME - use metadata to get the number of blocks
+     vtkCompositeDataIterator *iter = cds->NewIterator();
+     iter->SkipEmptyNodesOn();
+
+     for(iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+        ++numBlocks;
+
+     itr->SkipEmptyNodesOn();
+     itr->InitTraversal();
+
+     while(!itr->IsDoneWithTraversal())
+     {
+        if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(cds->GetDataSet(itr)))
+        {
+           char domain[20] = "";
+           if( numBlocks > 1 )
+           {
+              snprintf( domain, sizeof(domain), "domain_%.6d", domainNum );
+              ++domainNum;
+              conduit::Node &temp_node = localRoot[domain];
+
+              // FIXME -- check retuirn for error
+              // need a loop to get the different arrays out of the data block
+              // call GetCelLData, if not null, means cell-centered data
+              // call GetPointData, if not null, means point-centered data
+              // use VTK methods to obtain array name, etc.
+              // see sensei/VTKUtils.cxx, line ~550
+              // a data block may a collection of cell arrays, and a collection of point arrays
+
+              ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+           }
+           else // numBlocks ! > 1
+           {
+              conduit::Node &temp_node = localRoot;
+
+              // tmp, check for validity
+              std::cout << "printing out contents of the conduit node/tree " << std::endl;
+ 
+              temp_node.print();
+
+	  // following example from here: https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#uniform
+              conduit::Node verify_info;
+              if (!conduit::blueprint::mesh::verify(temp_node, verify_info))
+              {
+                 std::cout << "Verify failed! " << std::endl;
+                 verify_info.print();
+              }
+
+              // FIXME -- check retuirn for error
+              ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+            } // else numBlocks ! > 1 block
+         } // if ds = dynamic_cast<vtkDataSet*>
+
+         itr->GoToNextItem();
+      } // while(!itr->IsDoneWithTraversal())
+
+   } // vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(dobj)
+   else if (vtkDataSet *ds = vtkDataSet::SafeDownCast(dobj))
+   {
+      conduit::Node &temp_node = localRoot;
+
+      // FIXME -- check retuirn for error
+      ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+   }
+   else
+   {
+      SENSEI_ERROR("Data object " << dobj->GetClassName()
+          << " is not supported.");
+      //return( -1 );
+      return;
+   }
+
+#ifdef DEBUG_SAVE_DATA
+   std::cout << "----------------------------" << std::endl;
+   std::cout << "i: " << i << " size: " << size << std::endl;
+   std::cout << "ACTIONS" << std::endl;
+   this->actionsNode.print();
+   std::cout << "NODE" << std::endl;
+   localRoot.print();
+   std::cout << "----------------------------" << std::endl;
+
+   DebugSaveAscentData( localRoot, this->optionsNode );
+#endif
+
+#if 1
+  // wes 4/20/2021
+  // invoke blueprint method to verify that we have created something valid
+  // 
+  conduit::Node verify_info;
+  if (!conduit::blueprint::mesh::verify(localRoot, verify_info))
+  {
+     std::cout << "Mesh verify failed!" << std::endl;
+//     std::cout << verify_info.to_yaml() << std::endl;
+  }
+  else
+  {
+     std::cout << "Mesh verify success!" << std::endl;
+     std::cout << localRoot.to_yaml() << std::endl;
+//     std::cout << veri
+  }
+
+#if 0 // these lines need fixing
+  std::cout << "Contents of this->actionsNode(): " << std::endl;
+  std::cout << this->actionsNode.to_yaml() << std::endl;
+#endif
+//  std::cout << ascent::about() << std::endl;
+
+  // temp wes 4/20/2021: write a file and send to Matt because
+  // it causes a crash in vtk-m, something they thought was fixed
+  conduit::relay::io::save(localRoot, "sensei-ascent-demo.json");
+
+#endif
+
+}
+
+
+// wes 8/2021
+#define DEBUG_TRACE 1
+
+static void
+localVTKtoAscent(
+   DataAdaptor *dataAdaptor,
+   std::vector<vtkCompositeDataSet*> objects,
+   std::vector<MeshMetadataPtr> metadata,
+   conduit::Node root)
+{
+#if DEBUG_TRACE
+    std::cout << "localVTKtoAscent(): size of objects vector is [" << objects.size() << "], size of metadata vector is [" << metadata.size() << "] " << std::endl;
+#endif
+
+    // issues 8/5/2021
+    // 1. the number of things inside each object[i] is not the same as
+    //    the number of arrays that were added. how do i get to those arrays?
+    // 2. how to obtain the array names and centering?
+    // need to chat with Burlen
+
+    for (int i=0; i < objects.size(); i++)
+    {
+        // process each of the objects[i]
+        // see this URL for info about the processing motif:
+        // https://www.paraview.org/Wiki/VTK/Tutorials/Composite_Datasets
+
+        vtkCompositeDataSet* input = objects[i];
+        vtkCompositeDataIterator* iter = input->NewIterator();
+
+        int nds=0;
+        for ( iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), nds++)
+        {
+            vtkDataSet* inputDS = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject());
+#if DEBUG_TRACE
+            std::cout << "Processing cds# " << i << " and working on the " << nds << "'th dataset " << std::endl;
+#endif
+            // now, invoke our method to 
+       //      ::PassData(ds, root, arrayName, arrayCen, dataAdaptor);
+
+        }
+
+        iter->Delete();
+
+    }
+}
+
+
+// wes experiment area
+bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
+{
+#if DEBUG_TRACE
+   std::cout << "AscentAnalysisAdaptor::Execute_new() - begin " << std::endl;
+#endif
+
+   conduit::Node localRoot;
+
+  MeshMetadataFlags flags;
+  flags.SetBlockDecomp();
+  flags.SetBlockSize();
+  flags.SetBlockBounds();
+  flags.SetBlockExtents();
+  flags.SetBlockArrayRange();
+
+   MeshMetadataMap mdm;
+   if (mdm.Initialize(dataAdaptor, flags))
+   {
+       SENSEI_ERROR("Failed to get metadata")
+       return false;
+   }
+
+   // if no dataAdaptor requirements are given, push all the data
+   // fill in the requirements with every thing
+   if (this->Requirements.Empty())
+   {
+       if (this->Requirements.Initialize(dataAdaptor, false))
+       {
+           SENSEI_ERROR("Failed to initialze dataAdaptor description")
+           return false;
+       }
+       SENSEI_WARNING("No subset specified. Writing all available data")
+   }
+
+   // collect the specified data objects and metadata
+   std::vector<vtkCompositeDataSet*> objects;
+   std::vector<MeshMetadataPtr> metadata;
+
+   MeshRequirementsIterator mit =
+     this->Requirements.GetMeshRequirementsIterator();
+
+   while (mit)
+   {
+      // get metadata
+      MeshMetadataPtr md;
+      if (mdm.GetMeshMetadata(mit.MeshName(), md))
+      {
+          SENSEI_ERROR("Failed to get mesh metadata for mesh \""
+                  << mit.MeshName() << "\"")
+          return false;
+      }
+
+#if DEBUG_TRACE
+      std::cout << " Fetching mesh named: " << mit.MeshName() << std::endl;
+#endif
+
+      // get the mesh
+      vtkCompositeDataSet *dobj = nullptr;
+
+      if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+      {
+          SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
+          return false;
+      }
+
+      // add the ghost cell arrays to the mesh
+      if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+          dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+      {
+          SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
+          return false;
+      }
+
+      // add the ghost node arrays to the mesh
+      if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+      {
+          SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
+          return false;
+      }
+
+      // add the required arrays
+      ArrayRequirementsIterator ait =
+        this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
+
+      while (ait)
+      {
+         if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+            ait.Association(), ait.Array()))
+         {
+             SENSEI_ERROR("Failed to add "
+                     << VTKUtils::GetAttributesName(ait.Association())
+                     << " data array \"" << ait.Array() << "\" to mesh \""
+                     << mit.MeshName() << "\"")
+             return false;
+         }
+
+#if DEBUG_TRACE
+std::cout << " Fetching array " << ait.Array() << " with centering " << VTKUtils::GetAttributesName(ait.Association()) << std::endl;
+#endif
+
+         ++ait;
+      } // while (ait))
+
+      // generate a global view of the metadata. everything we do from here
+      // on out depends on having the global view.
+      md->GlobalizeView(this->GetCommunicator());
+
+      // add to the collection
+      objects.push_back(dobj);
+      metadata.push_back(md);
+
+      ++mit;
+
+   } // while(mit)
+
+   // at this point, we pulled/fetched all data from the simulation requested
+   // by the config file. this collection is located in:
+   // objects: vector of vtkCompositeDataSet
+   // metadata: vector of MeshMetaDataPtr
+
+   localVTKtoAscent(dataAdaptor, objects, metadata, localRoot);
+
+   // invoke ascent's execute method
+   this->_ascent.publish(localRoot);
+   this->_ascent.execute(this->actionsNode);
+
+   localRoot.reset();
+
+   unsigned int n_objects = objects.size();
+   for (unsigned int i = 0; i < n_objects; ++i)
+       objects[i]->Delete();
+
+   return true;
+
+}
+
+
+#if 0 
+// wes experiment area
+bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
+{
+   std::cout << "AscentAnalysisAdaptor::Execute_new() - begin " << std::endl;
  
    conduit::Node localRoot;
 
@@ -806,17 +1128,21 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
    while (mit)
    {
       // get metadata
-      MeshMetadataPtr md;
-      if (mdm.GetMeshMetadata(mit.MeshName(), md))
+      MeshMetadataPtr mdp;
+
+      if (mdm.GetMeshMetadata(mit.MeshName(), mdp))
       {
          SENSEI_ERROR("Failed to get mesh metadata for mesh \""
-         << mit.MeshName() << "\"")
+            << mit.MeshName() << "\"")
          return false;
       }
       std::cout << "Found mesh #[" << ii << "] named <" << mit.MeshName() << "> " << std::endl;
 
+      const std::string &meshName = mit.MeshName();
+
       // get the mesh
       vtkCompositeDataSet *dobj = nullptr;
+
       if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
          SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
@@ -824,16 +1150,28 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
       }
 
       // add ghost cell arrays to the mesh code goes here.
+      if ((mdp->NumGhostCells || VTKUtils::AMR(mdp)) &&
+         dataAdaptor->AddGhostCellsArray(dobj, meshName))
+      {
+         SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
+         return( false );
+      }
 
       // add ghost node arrays to the mesh code goes here.
-    
+      if (mdp->NumGhostNodes &&
+         dataAdaptor->AddGhostNodesArray(dobj, meshName))
+      {
+         SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");
+         return( false );
+      }
+
       // add the required arrays
       ArrayRequirementsIterator ait =
         this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
 
       while (ait) // iterate over requested arrays
       {
-         if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+         if (dataAdaptor->AddArray(dobj, mit.MeshName(), // fetch data
            ait.Association(), ait.Array()))
          {
             SENSEI_ERROR("Failed to add "
@@ -848,15 +1186,16 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
          ++ait;
       }
 
-      // build the conduit tree, add to a root node
-
       ++mit;
       ii++;
    } // while (mit)
 
+   // open question: do we create a single flat conduit node or a tree hierarchy
+   // make call to create a conduit Node from a vtk data object
+    
+   localVTKDataSetToConduitNode(dataAdaptor, dobj, localRoot);
+
    // invoke ascent's execute method
-   // 7/20/2021 wes, need to populate localRoot with something before
-   // these calls will do something other than complain
    this->_ascent.publish(localRoot);
    this->_ascent.execute(this->actionsNode);
    localRoot.reset();
@@ -864,13 +1203,25 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 
    return ( true );
 }
+#endif 
 
 //------------------------------------------------------------------------------
+
+// wes aug 2021
 bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+{
+    //return AscentAnalysisAdaptor::Execute_original(dataAdaptor);
+    return AscentAnalysisAdaptor::Execute_new(dataAdaptor);
+}
+
+// wes aug 2021
+bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 {
   // FIXME -- data requirements needs to be determined from ascent
   // configs.
   // get the mesh name
+  std::cout << "AscentAnalysisAdaptor::Execute_original() - begin " << std::endl;
+
   if (this->Requirements.Empty())
     {
     SENSEI_ERROR("Data requirements have not been provided")

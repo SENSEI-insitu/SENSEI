@@ -1,3 +1,13 @@
+#
+# direct test of the AscentAnalysisAdaptor
+# basic idea: build some vtk data objects, and then directly invoke
+# the Initialize(), Execute(), and Finalize() AscentAnalysisAdaptor methods.
+#
+# expects 2 command line arguments, in this order
+# 1.  name of the sensei xml file that contains the ascent config info
+# 2.  an integer number of time steps to iterate over
+#
+
 from mpi4py import *
 #from sensei import VTKDataAdaptor,ADIOS2DataAdaptor,ADIOS2AnalysisAdaptor
 from sensei import VTKDataAdaptor,ConfigurableAnalysis
@@ -45,11 +55,15 @@ def get_image(i0,i1,j0,j1,k0,k1):
   nx = i1 - i0 + 1
   ny = j1 - j0 + 1
   nz = k1 - k0 + 1
+  print(" nx/ny/nz = {}, {}, {}".format(nx,ny,nz))
   #nx = i1 - i0 
   #ny = j1 - j0
   #nz = k1 - k0
   npts = (nx + 1)*(ny + 1)*(nz + 1)
+  # wes npts = nx*ny*nz
   ncells = nx*ny*nz
+  print(" npts={}, ncells={}".format(npts, ncells))
+
   get_data_arrays(npts, im.GetPointData())
   get_data_arrays(ncells, im.GetCellData())
   return im
@@ -108,6 +122,7 @@ def write_data(config_filename, n_its):
 
   #aw.SetFileName(file_name)
   #aw.SetEngineName(engine)
+  print("Setting number of blocks to be n_ranks, which is {}".format(n_ranks))
 
   # create the datasets
   # the first mesh is an image
