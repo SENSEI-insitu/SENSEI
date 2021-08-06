@@ -256,14 +256,8 @@ int PassFields(int bid, vtkDataSet *ds, conduit::Node &node)
 }
 */
 
-int PassFields_new(vtkDataSetAttribs )
-{
-    // loop over arrays, put stuff for each array into ascent
-
-}
-
 // **************************************************************************
-int PassFields(vtkDataSet* ds, conduit::Node& node,
+int PassFields(vtkDataArray *da, conduit::Node& node,
   const std::string &arrayName, int arrayCen)
 {
   std::stringstream ss;
@@ -313,8 +307,6 @@ int PassFields(vtkDataSet* ds, conduit::Node& node,
 
 
   // tell ascent the centering
-  vtkDataSetAttributes *atts = ds->GetAttributes(arrayCen);
-  vtkDataArray *da = atts->GetArray(arrayName.c_str());
   std::string cenType;
   if (arrayCen == vtkDataObject::POINT)
   {
@@ -668,13 +660,33 @@ void NodeIter(const conduit::Node& node, std::set<std::string>& fields)
 
 // **************************************************************************
 int PassData(vtkDataSet* ds, conduit::Node& node,
-  const std::string &arrayName, int arrayCen, sensei::DataAdaptor *dataAdaptor)
+  sensei::DataAdaptor *dataAdaptor)
 {
     // FIXME -- do error checking on all these and report any errors
+    // FIXME -- instead of passing data adaptor pass time and time step
+
     PassState(ds, node, dataAdaptor);
+
     PassCoordsets(ds, node);
     PassTopology(ds, node);
-    PassFields(ds, node, arrayName, arrayCen);
+
+    int arrayCens[] = {vtkDataObject::POINT, vtkDataObject::CELL};
+    for (int j = 0; j < 2; ++j)
+    {
+        int arrayCen = arrayCens[j];
+
+        vtkDataSetAttributes *atts = ds->GetAttributes(arrayCen);
+        int numArrays = atts->GetNumberOfArrays();
+        for (int i = 0; i < numArrays; ++i)
+        {
+          vtkDataArray *da = atts->GetArray(i);
+
+          const char *arrayName = da->GetName();
+
+          PassFields(da, node, arrayName, arrayCen);
+        }
+    }
+
     PassGhostsZones(ds, node);
     return 0;
 }
@@ -816,7 +828,7 @@ static void localVTKDataSetToConduitNode(DataAdaptor *dataAdaptor,
               // see sensei/VTKUtils.cxx, line ~550
               // a data block may a collection of cell arrays, and a collection of point arrays
 
-              ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+              ::PassData(ds, temp_node, dataAdaptor);
            }
            else // numBlocks ! > 1
            {
@@ -836,7 +848,7 @@ static void localVTKDataSetToConduitNode(DataAdaptor *dataAdaptor,
               }
 
               // FIXME -- check retuirn for error
-              ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+              ::PassData(ds, temp_node, dataAdaptor);
             } // else numBlocks ! > 1 block
          } // if ds = dynamic_cast<vtkDataSet*>
 
@@ -849,7 +861,7 @@ static void localVTKDataSetToConduitNode(DataAdaptor *dataAdaptor,
       conduit::Node &temp_node = localRoot;
 
       // FIXME -- check retuirn for error
-      ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+      ::PassData(ds, temp_node, dataAdaptor);
    }
    else
    {
@@ -1328,7 +1340,7 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
           conduit::Node &temp_node = root[domain];
 
           // FIXME -- check retuirn for error
-          ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+          ::PassData(ds, temp_node, dataAdaptor);
         }
         else
         {
@@ -1349,7 +1361,7 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 
 
           // FIXME -- check retuirn for error
-          ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+          ::PassData(ds, temp_node, dataAdaptor);
         }
       }
       itr->GoToNextItem();
@@ -1360,7 +1372,7 @@ bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
     conduit::Node &temp_node = root;
 
     // FIXME -- check retuirn for error
-    ::PassData(ds, temp_node, arrayName, arrayCen, dataAdaptor);
+    ::PassData(ds, temp_node, dataAdaptor);
   }
   else
   {
