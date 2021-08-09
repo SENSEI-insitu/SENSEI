@@ -1,4 +1,14 @@
 /* ----------------------------------------------------------------------
+   This file contains code from Will Usher ( https://www.willusher.io ) 
+   used originally in this publication:
+   Usher, Will, Silvio Rizzi, Ingo Wald, Jefferson Amstutz, Joseph Insley, 
+   Venkatram Vishwanath, Nicola Ferrier, Michael E. Papka, and Valerio Pascucci. 
+   "libIS: a lightweight library for flexible in transit visualization." 
+   In Proceedings of the Workshop on In Situ Infrastructures for Enabling 
+   Extreme-Scale Analysis and Visualization, pp. 33-38. 2018.
+
+   This code also borrowed from an example file in the LAMMPS source code.   
+
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    www.cs.sandia.gov/~sjplimp/lammps.html
    Steve Plimpton, sjplimp@sandia.gov, Sandia National Laboratories
@@ -30,7 +40,8 @@
 
 using namespace LAMMPS_NS;
 
-struct Info {
+struct Info 
+{
   int me;
   LAMMPS *lmp;
 } globalInfo;
@@ -63,15 +74,7 @@ void insituCallback(void *ptr, bigint ntimestep, int nlocal,
   lammpsBridge::SetData(ntimestep, nlocal, id, *nghost, type, all_pos, 
                         xsublo, xsubhi, ysublo, ysubhi, zsublo, zsubhi);
 
-  if (0 == globalInfo.me)
-    std::cout << "###### SENSEI instrumentation: bridge analyze() ######" << std::endl;    
   lammpsBridge::Analyze();
-
-  if (0 == globalInfo.me)
-    std::cout << "###### SENSEI instrumentation: after bridge analyze() ######" << std::endl;    
- 
-
-
 }
 
 const static std::string USAGE =
@@ -82,9 +85,7 @@ const static std::string USAGE =
 "  -n <int>            Specify the number of steps to simulate for. Default is 10000\n"
 "  -lmp <lammps args>  Pass the list of arguments <args> to LAMMPS as if they were\n"
 "                      command line args to LAMMPS. This must be the last argument, all\n"
-"                      following arguments will be passed to lammps.\n"
-"  -log                Generate full time and memory usage log.\n"
-"  -shortlog           Generate a summary time and memory usage log.";
+"                      following arguments will be passed to lammps.\n";
 
 int main(int argc, char **argv) 
 {
@@ -99,8 +100,6 @@ int main(int argc, char **argv)
 	
   // Additional args the user may be passing to lammps
   std::vector<char*> lammps_args(1, argv[0]);
-  bool log = false;
-  bool shortlog = false;
   std::string sensei_xml;
   size_t sim_steps = 10000;
   for (size_t i = 2; i < args.size(); ++i) 
@@ -114,10 +113,6 @@ int main(int argc, char **argv)
       std::cout << USAGE << "\n";
       return 0;
       } 
-    else if (args[i] == "-log" ) 
-      log = true;
-    else if (args[i] == "-shortlog" ) 
-      shortlog = true;
     else if (args[i] == "-lmp") 
       {
       ++i;
@@ -132,8 +127,6 @@ int main(int argc, char **argv)
   MPI_Comm_rank(sim_comm, &globalInfo.me);
 
   // Initialize SENSEI bridge 
-  if (0 == globalInfo.me) 
-    std::cout << "###### SENSEI instrumentation: initialize bridge ######" << std::endl;
   lammpsBridge::Initialize(sim_comm, sensei_xml );
 
   LAMMPS *lammps = (LAMMPS *)lammps_open(lammps_args.size(), lammps_args.data(), sim_comm, NULL);
@@ -206,8 +199,6 @@ int main(int argc, char **argv)
   lammps_close(lammps);
 
   // Finalize SENSEI bridge 
-  if (0 == globalInfo.me) 
-    std::cout << "###### SENSEI instrumentation: finalize bridge ######" << std::endl;
   lammpsBridge::Finalize();
 
   // close down MPI

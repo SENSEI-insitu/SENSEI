@@ -13,9 +13,6 @@ public:
   static lammpsDataAdaptor* New();
   senseiTypeMacro(lammpsDataAdaptor, sensei::DataAdaptor);
 
-  /// @brief Initialize the data adaptor.
-  ///
-  /// This initializes the data adaptor. This must be called once per simulation run.
   void Initialize();
 
   void AddLAMMPSData( long ntimestep, int nlocal, int *id, 
@@ -44,26 +41,16 @@ public:
   void SetBlockBounds(double xmin, double xmax,
     double ymin, double ymax, double zmin, double zmax);
 
-// SENSEI API
+  // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
   int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md) override;
-
-  //int GetMeshName(unsigned int id, std::string &meshName) override;
 
   int GetMesh(const std::string &meshName, bool structureOnly,
     vtkDataObject *&mesh) override;
 
   int AddArray(vtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
-
-  //int GetNumberOfArrays(const std::string &meshName, int association,
-  //  unsigned int &numberOfArrays) override;
-
-  //int GetArrayName(const std::string &meshName, int association,
-  //  unsigned int index, std::string &arrayName) override;
-
-  //int GetMeshHasGhostCells(const std::string &meshName, int &nLayers) override;
 
   int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
 

@@ -10,26 +10,33 @@
 #include <vtkCellArray.h>
 #include <sdiy/master.hpp>
 
+// fixme - unused
+/***
 static
-std::array<int,2> getArrayRange(unsigned long nSize, int *x) {
+std::array<int,2> getArrayRange(unsigned long nSize, int *x) 
+{
   int xmin = std::numeric_limits<int>::max(); 
   int xmax = std::numeric_limits<int>::lowest();
-  for(unsigned int i=0; i<nSize; ++i) {
+  for(unsigned int i=0; i<nSize; ++i) 
+    {
     xmin = std::min(xmin, x[i]);
     xmax = std::max(xmax, x[i]);
-  }
+    }
 
   return {xmin, xmax};
 }
+***/
 
 static
-std::array<double,2> getArrayRange(unsigned long nSize,double *x) {
+std::array<double,2> getArrayRange(unsigned long nSize,double *x) 
+{
   double xmin = std::numeric_limits<double>::max(); 
   double xmax = std::numeric_limits<double>::lowest();
-  for(unsigned int i=0; i<nSize; ++i) {
+  for(unsigned int i=0; i<nSize; ++i) 
+    {
     xmin = std::min(xmin, x[i]);
     xmax = std::max(xmax, x[i]);
-  }
+    }
 
   return {xmin, xmax};
 }
@@ -50,7 +57,6 @@ namespace senseiLammps
 
 struct lammpsDataAdaptor::DInternals
 {
-  //vtkSmartPointer<vtkMultiBlockDataSet> mesh;
   vtkSmartPointer<vtkDoubleArray> AtomPositions;
   vtkSmartPointer<vtkIntArray> AtomTypes;
   vtkSmartPointer<vtkIntArray> AtomIDs;
@@ -118,6 +124,7 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
   // atom coordinates
   if (internals.AtomPositions)
     {
+    // fixme - ghost arrays
     //long nvals = nlocal + nghost;
     long nvals = nlocal;
 
@@ -135,6 +142,7 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
   // atom types
   if (internals.AtomTypes)
     {
+    // fixme - ghost arrays
     //long nvals = nlocal + nghost;
     long nvals = nlocal;
 
@@ -152,6 +160,7 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
   // atom IDs
   if (internals.AtomIDs)
     {
+    // fixme - ghost arryas
     //long nvals = nlocal + nghost;
     long nvals = nlocal;
 
@@ -171,6 +180,7 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
     {
     vtkIdType pid[1] = {0};
 
+    // fixme - ghost arrays
     //for( int i=0; i < nlocal+nghost; i++) {
     for( int i=0; i < nlocal; i++) 
       {
@@ -194,7 +204,7 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
     y_range[0], y_range[1],
     z_range[0], z_range[1]);
 
-  /// XXX Set type and id range
+  // Set type and id range
   this->Internals->typeRange.min[0] = std::numeric_limits<int>::max();
   this->Internals->typeRange.max[0] = std::numeric_limits<int>::min();
   this->Internals->idRange.min[0] = std::numeric_limits<int>::max();
@@ -202,7 +212,6 @@ void lammpsDataAdaptor::AddLAMMPSData( long ntimestep, int nlocal, int *id,
 
   // timestep
   this->SetDataTimeStep(ntimestep);
-
 }
 
 void lammpsDataAdaptor::SetBlockBounds(double xmin, double xmax,
@@ -343,7 +352,6 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
 
   if (arrayName == "type")
     {  	
-    //DInternals& internals = (*this->Internals);
     vtkMultiBlockDataSet* md = dynamic_cast<vtkMultiBlockDataSet*>(mesh);
     vtkSmartPointer<vtkPolyData> pd = vtkSmartPointer<vtkPolyData>::New();
   
@@ -376,6 +384,7 @@ int lammpsDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
   return 0;  
 }
 
+// fixme
 // not implemented
 //----------------------------------------------------------------------------
 int lammpsDataAdaptor::AddGhostCellsArray(vtkDataObject *mesh, const std::string &meshName)
@@ -403,14 +412,13 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
   MPI_Comm_size(comm, &nRanks);
 
 
-  int nBlocks = 1; // One block per rank
   metadata->MeshName = "atoms";
   metadata->MeshType = VTK_MULTIBLOCK_DATA_SET;
   metadata->BlockType = VTK_POLY_DATA;
   metadata->CoordinateType = VTK_DOUBLE;
   metadata->NumBlocks = nRanks;
-  metadata->NumBlocksLocal = {nBlocks};
-  metadata->NumGhostCells = this->Internals->nghost;
+  metadata->NumBlocksLocal = {1};     // One block per rank
+  metadata->NumGhostCells = 0;
   metadata->NumArrays = 2;
   metadata->ArrayName = {"type", "id"};
   metadata->ArrayCentering = {vtkDataObject::POINT, vtkDataObject::POINT};
@@ -420,23 +428,25 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
 
   if (metadata->Flags.BlockExtentsSet())
     {
-    SENSEI_WARNING("lammps data adaptor. Flags.BlockExtentsSet()")
+    //SENSEI_WARNING("lammps data adaptor. Flags.BlockExtentsSet()")
+    
+    // fixme
     // There should be no extent for a PolyData, but ADIOS2 needs this
     std::array<int,6> ext = { 0, 0, 0, 0, 0, 0};
     metadata->Extent = std::move(ext);
 
-    metadata->BlockExtents.reserve(nBlocks);
+    metadata->BlockExtents.reserve(1);	// One block per rank
     metadata->BlockExtents.emplace_back(std::move(ext));
     }
 
   if (metadata->Flags.BlockBoundsSet())
     {
-    SENSEI_WARNING("lammps data adaptor. Flags.BlockBoundsSet()")
+    //SENSEI_WARNING("lammps data adaptor. Flags.BlockBoundsSet()")
     std::array<double, 6> bounds;
     getBounds(this->Internals->DomainBounds, bounds.data());
     metadata->Bounds = std::move(bounds);
     
-    metadata->BlockBounds.reserve(nBlocks);
+    metadata->BlockBounds.reserve(1);  // One block per rank
     
     getBounds(this->Internals->BlockBounds, bounds.data());
     metadata->BlockBounds.emplace_back(std::move(bounds));
@@ -449,7 +459,7 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
     SENSEI_WARNING("lammps data adaptor. Flags.BlockSizeSet()")
     metadata->BlockNumCells.push_back(nCells);
     metadata->BlockNumPoints.push_back(nCells);
-    metadata->BlockCellArraySize.push_back(2 * nCells); // XXX- VTK_POINTS
+    metadata->BlockCellArraySize.push_back(2 * nCells); // fixme - VTK_POINTS
     }
 
   if (metadata->Flags.BlockDecompSet())
@@ -460,64 +470,23 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
 
   if (metadata->Flags.BlockArrayRangeSet())
     {
-    SENSEI_WARNING("lammps data adaptor. Flags.BlockArrayRangeSet()")
+    //SENSEI_WARNING("lammps data adaptor. Flags.BlockArrayRangeSet()")
  
-    //unsigned long nvals;   
-    //std::array<int,2> typeBlockRange = getArrayRange(nvals, this->Internals->type);
-    //std::array<int,2> idBlockRange = getArrayRange(nvals, this->Internals->id);
-    // fixme
-    //metadata->BlockArrayRange.push_back({typeBlockRange, idBlockRange});
+    // fixme - forced values
+    double bmin = (double) std::numeric_limits<int>::lowest();
+    double bmax = (double) std::numeric_limits<int>::max();
 
-    //std::array<int,2> typeRange = { this->Internals->typeRange.min[0], this->Internals->typeRange.max[0] };
-    //std::array<int,2> idRange = { this->Internals->idRange.min[0], this->Internals->idRange.max[0] };
-    // fixme
-    //metadata->ArrayRange.push_back(typeRange); 
-    //metadata->ArrayRange.push_back(idRange);
-    
-    //float gmin = std::numeric_limits<float>::lowest();
-    //float gmax = std::numeric_limits<float>::max();
-    
-
-    //std::vector<std::array<double,2>> blkRange{{bmin,bmax}};
-    
-    //metadata->BlockArrayRange.push_back(blkRange);
-    //metadata->BlockArrayRange.push_back(blkRange);
-    //metadata->ArrayRange.push_back({gmin, gmax});
-    //metadata->ArrayRange.push_back({gmin, gmax});
-
-
-    float bmin = std::numeric_limits<float>::lowest();
-    float bmax = std::numeric_limits<float>::max();
-
-    std::vector<std::array<double,2>> typeBlockRange{{bmin,bmax}};
-    std::vector<std::array<double,2>> idBlockRange ={{bmin,bmax}};
-
-    metadata->BlockArrayRange.push_back(typeBlockRange);
-    metadata->BlockArrayRange.push_back(idBlockRange);
-
+    std::vector<std::array<double,2>> typeBlockRange ={{bmin,bmax} , {bmin,bmax}};
+    metadata->BlockArrayRange.push_back({typeBlockRange});
     metadata->ArrayRange.push_back({bmin,bmax}); 
- 
-
-
     }
 
   return 0;
 }
 
-
-
 //-----------------------------------------------------------------------------
 int lammpsDataAdaptor::ReleaseData()
 {
-  //DInternals& internals = (*this->Internals);
-
-  //internals.mesh = NULL;
-  //internals.AtomPositions = NULL;
-  //internals.AtomTypes = NULL;
-  //internals.AtomIDs = NULL;
-  //internals.nlocal = 0;
-  //internals.nghost = 0;
-
   return 0;
 }
 
