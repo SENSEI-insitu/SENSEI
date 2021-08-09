@@ -462,18 +462,44 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
     {
     SENSEI_WARNING("lammps data adaptor. Flags.BlockArrayRangeSet()")
  
-    unsigned long nvals;   
-    std::array<int,2> typeBlockRange = getArrayRange(nvals, this->Internals->type);
-    std::array<int,2> idBlockRange = getArrayRange(nvals, this->Internals->id);
+    //unsigned long nvals;   
+    //std::array<int,2> typeBlockRange = getArrayRange(nvals, this->Internals->type);
+    //std::array<int,2> idBlockRange = getArrayRange(nvals, this->Internals->id);
     // fixme
     //metadata->BlockArrayRange.push_back({typeBlockRange, idBlockRange});
 
-    std::array<int,2> typeRange = { this->Internals->typeRange.min[0], this->Internals->typeRange.max[0] };
-    std::array<int,2> idRange = { this->Internals->idRange.min[0], this->Internals->idRange.max[0] };
+    //std::array<int,2> typeRange = { this->Internals->typeRange.min[0], this->Internals->typeRange.max[0] };
+    //std::array<int,2> idRange = { this->Internals->idRange.min[0], this->Internals->idRange.max[0] };
     // fixme
     //metadata->ArrayRange.push_back(typeRange); 
-    //metadata->ArrayRange.push_back(idRange); 
-}
+    //metadata->ArrayRange.push_back(idRange);
+    
+    //float gmin = std::numeric_limits<float>::lowest();
+    //float gmax = std::numeric_limits<float>::max();
+    
+
+    //std::vector<std::array<double,2>> blkRange{{bmin,bmax}};
+    
+    //metadata->BlockArrayRange.push_back(blkRange);
+    //metadata->BlockArrayRange.push_back(blkRange);
+    //metadata->ArrayRange.push_back({gmin, gmax});
+    //metadata->ArrayRange.push_back({gmin, gmax});
+
+
+    float bmin = std::numeric_limits<float>::lowest();
+    float bmax = std::numeric_limits<float>::max();
+
+    std::vector<std::array<double,2>> typeBlockRange{{bmin,bmax}};
+    std::vector<std::array<double,2>> idBlockRange ={{bmin,bmax}};
+
+    metadata->BlockArrayRange.push_back(typeBlockRange);
+    metadata->BlockArrayRange.push_back(idBlockRange);
+
+    metadata->ArrayRange.push_back({bmin,bmax}); 
+ 
+
+
+    }
 
   return 0;
 }

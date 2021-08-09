@@ -1,0 +1,23 @@
+<sensei>
+
+  <!-- configure ADIOS2 write -->
+  <analysis type="adios2" filename="test_%05d.bp" engine="BP4"
+    debug_mode="1" enabled="1" steps_per_file="1" >
+
+    <!-- ADIOS2 engine parameters -->
+    <engine_parameters>
+      NumAggregators = 0
+      InitialBufferSize = 1Mb
+      BufferGrowthFactor = 2
+      MaxBufferSize = 1024Mb
+      StatsLevel = 0
+      Profile = Off
+    </engine_parameters>
+
+    <!-- subset by mesh and array -->
+    <mesh name="mesh">
+      <cell_arrays>data</cell_arrays>
+    </mesh>
+
+  </analysis>
+</sensei>

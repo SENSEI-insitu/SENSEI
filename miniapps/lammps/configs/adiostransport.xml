@@ -1,0 +1,17 @@
+<sensei>
+  <transport type="adios2" filename="test_%05d.bp" debug_mode="1" engine="bp4">
+    <engine_parameters>
+        NumAggregators = 0
+        InitialBufferSize = 1Mb
+        BufferGrowthFactor = 2
+        MaxBufferSize = 1024Mb
+        StatsLevel = 0
+        Profile = Off
+      </engine_parameters>
+
+      <!-- subset by mesh and array -->
+      <mesh name="atoms">
+        <point_arrays> type,id </point_arrays>
+      </mesh>
+    </transport>
+</sensei>
