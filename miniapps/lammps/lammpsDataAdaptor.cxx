@@ -456,7 +456,7 @@ int lammpsDataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr 
     {
     DInternals& internals = (*this->Internals);
     int nCells = internals.nlocal;
-    SENSEI_WARNING("lammps data adaptor. Flags.BlockSizeSet()")
+    //SENSEI_WARNING("lammps data adaptor. Flags.BlockSizeSet()")
     metadata->BlockNumCells.push_back(nCells);
     metadata->BlockNumPoints.push_back(nCells);
     metadata->BlockCellArraySize.push_back(2 * nCells); // fixme - VTK_POINTS
