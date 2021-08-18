@@ -8,6 +8,9 @@
 #include <ascent.hpp>
 #include <string>
 
+// 2/5/2021 wes. created an ascent-2021 branch for doign code dev work
+// to modernize the AscentAnalysisAdaptor
+
 
 namespace sensei
 {
@@ -26,6 +29,9 @@ public:
     const std::string &options_file_path);
 
   bool Execute(DataAdaptor* data) override;
+//  bool Execute_original(DataAdaptor* data) override; // wes, dev
+  bool Execute_original(DataAdaptor* data) ; // wes, dev
+  bool Execute_new(DataAdaptor* data) ; // wes, dev
 
   int Finalize() override;
 
