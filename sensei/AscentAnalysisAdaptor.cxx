@@ -30,7 +30,7 @@
 #include <vtkDataArrayTemplate.h>
 #include <vtkUnsignedCharArray.h>
 
-#define DEBUG_TRACE 1   //  for debug work, wes 8/2021
+#define DEBUG_TRACE 0   //  for debug work, wes 8/2021
 
 namespace
 {
