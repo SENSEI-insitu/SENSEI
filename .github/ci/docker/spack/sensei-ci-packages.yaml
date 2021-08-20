@@ -17,5 +17,6 @@ packages:
     variants: +gas +ld +gold +plugins
   llvm:
     version: [11.0.1]
+    variants: +llvm_dylib ~lldb ~polly ~clang ~flang ~libcxx ~compiler-rt ~internal_unwind
   doxygen:
     version: [1.8.20]
