@@ -30,12 +30,6 @@ if (ENABLE_CATALYST)
   unset(sensei_pv_components_5_7)
   unset(sensei_pv_components_5_8)
 
-  if(NOT ParaView_FOUND)
-    message(FATAL_ERROR "Catalyst analysis components require Catalyst build "
-      "(or install directory). Please set ParaView_DIR to point to directory "
-      "containing `ParaViewConfig.cmake` or `paraview-config.cmake`.")
-  endif()
-
   add_library(sVTK INTERFACE)
   if (ParaView_VERSION VERSION_LESS "5.7.0")
     target_link_libraries(sVTK INTERFACE ${VTK_LIBRARIES})
