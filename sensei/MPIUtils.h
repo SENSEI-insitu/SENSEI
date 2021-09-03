@@ -2,6 +2,7 @@
 #define MPIUtils_h
 
 #include <algorithm>
+#include <limits>
 
 namespace sensei
 {
