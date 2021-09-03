@@ -40,7 +40,7 @@
 // Timer.h shows up under clang (11.0.X), and vtk-m
 // #include "Timer.h"
 
-namespace sensei 
+namespace sensei
 {
 
 //-----------------------------------------------------------------------------
@@ -91,10 +91,8 @@ template<typename T> void Blueprint_MultiCompArray_To_VTKDataArray( const condui
     darray->SetNumberOfComponents( 3 );
   else
     darray->SetNumberOfComponents( ncomps );
- 
   // set number of tuples
   darray->SetNumberOfTuples( ntuples );
-        
   if( n.number_of_children() > 0 )
   {
     // handle multi-component case
@@ -129,12 +127,9 @@ template<typename T> void Blueprint_MultiCompArray_To_VTKDataArray( const condui
 vtkDataArray * ConduitArrayToVTKDataArray( const conduit::Node &n )
 {
   vtkDataArray *retval = NULL;
-  
   int nchildren = n.number_of_children();
   int ntuples = 0;
   int ncomps  = 1;
-
-
   conduit::DataType vals_dtype;
 
   if( nchildren > 0 ) // n is a mcarray w/ children that hold the vals
@@ -144,7 +139,6 @@ vtkDataArray * ConduitArrayToVTKDataArray( const conduit::Node &n )
     {
       SENSEI_ERROR( "Node is not a mcarray " << v_info.to_json() );
     }
-        
     // in this case, each child is a component of the array
     ncomps = nchildren;
     // This assumes all children have the same leaf type
@@ -154,10 +148,8 @@ vtkDataArray * ConduitArrayToVTKDataArray( const conduit::Node &n )
   {
     vals_dtype = n.dtype();
   }
-    
   // get the number of tuples
   ntuples = (int) vals_dtype.number_of_elements();
-    
   if( vals_dtype.is_unsigned_char() )
   {
     retval = vtkUnsignedCharArray::New();
@@ -234,7 +226,6 @@ vtkCellArray * HomogeneousShapeTopologyToVTKCellArray( const conduit::Node &n_to
         n_topo["elements/connectivity"].to_int_array(n_tmp);
         topo_conn = n_tmp.as_int_array();
       }
-            
       ida->SetComponent((csize+1)*i, 0, csize);
       for (int j=0; j < csize ;++j)
       {
@@ -278,7 +269,6 @@ vtkPoints * ExplicitCoordsToVTKPoints( const conduit::Node &coords )
   if( vals.has_child("y") )
   {
     have_y = true;
-        
     if( !vals["y"].dtype().is_double() )
     {
       vals["y"].to_double_array( vals_double["y"] );
@@ -308,9 +298,8 @@ vtkPoints * ExplicitCoordsToVTKPoints( const conduit::Node &coords )
   points->SetDataTypeToDouble();
   points->SetNumberOfPoints(npts);
 
-  //TODO: we could describe the VTK data array via 
-  // and push the conversion directly into its memory. 
-
+  //TODO: we could describe the VTK data array via
+  // and push the conversion directly into its memory.
   for(vtkIdType i = 0; i < npts ;++i)
   {
     double x = x_vals[i];
@@ -321,8 +310,6 @@ vtkPoints * ExplicitCoordsToVTKPoints( const conduit::Node &coords )
 
   return( points );
 }
-
-
 //-----------------------------------------------------------------------------
 vtkDataSet* StructuredMesh( const conduit::Node* node )
 {
@@ -361,7 +348,6 @@ vtkDataSet* UnstructuredMesh( const conduit::Node* node )
   vtkCellArray *ca = HomogeneousShapeTopologyToVTKCellArray( topo, points->GetNumberOfPoints() );
   ugrid->SetCells( ElementShapeNameToVTKCellType(topo["elements/shape"].as_string()), ca );
   ca->Delete();
-    
   return( ugrid );
 }
 
@@ -426,10 +412,9 @@ vtkDataSet* UniformMesh( const conduit::Node* node )
   rectgrid->SetDimensions( dims );
 
   double spacing[3];
-  spacing[0] = coords["spacing"].has_child("dx") ? coords["spacing/dx"].to_double(): 0; 
-  spacing[1] = coords["spacing"].has_child("dy") ? coords["spacing/dy"].to_double(): 0; 
-  spacing[2] = coords["spacing"].has_child("dz") ? coords["spacing/dz"].to_double(): 0; 
-
+  spacing[0] = coords["spacing"].has_child("dx") ? coords["spacing/dx"].to_double(): 0;
+  spacing[1] = coords["spacing"].has_child("dy") ? coords["spacing/dy"].to_double(): 0;
+  spacing[2] = coords["spacing"].has_child("dz") ? coords["spacing/dz"].to_double(): 0;
   double origin[3];
   origin[0]  = coords["origin"].has_child("x") ? coords["origin/x"].to_double() : 0;
   origin[1]  = coords["origin"].has_child("y") ? coords["origin/y"].to_double() : 0;
@@ -493,12 +478,10 @@ int ConduitDataAdaptor::GetNumberOfArrays( const std::string &meshName, int asso
     SENSEI_ERROR( "GetNumberOfArrays: Mesh " << meshName << " Cannot Be Found" );
     return( 1 );
   }
- 
   // TODO look at removing the copy and just get the value from search->second.
   std::vector<std::string> vec = search->second;
 
   numberOfArrays = vec.size();
- 
   return( 0 );
 }
 ********* */
@@ -548,10 +531,9 @@ void ConduitDataAdaptor::UpdateFields()
         //const conduit::Node& field = field_itr.next();
         field_itr.next();
         std::string field_name = field_itr.name();
-                
         //TODO: There is no formal protocol for naming meshes within the node
-        //This is a placeholder until there is a path in a node that 
-        //distinguishes what mesh the data belongs to. 
+        //This is a placeholder until there is a path in a node that
+        //distinguishes what mesh the data belongs to.
         //For now, the meshName will be hardcoded as "mesh".
         //std::string meshName = field["mesh"].as_string();
         //std::string meshName = field["topology"].as_string();
@@ -564,7 +546,6 @@ void ConduitDataAdaptor::UpdateFields()
           std::vector<std::string> vec = searchMesh->second;
           std::vector<std::string>::iterator itr;
           itr = find( vec.begin(), vec.end(), field_name );
-     
           if( itr == vec.end() )
           {
              // TODO insert the new field_name into searchMesh->second.
@@ -600,7 +581,6 @@ void ConduitDataAdaptor::UpdateFields()
         std::vector<std::string> vec = searchMesh->second;
         std::vector<std::string>::iterator itr;
         itr = find( vec.begin(), vec.end(), field_name );
-     
         if( itr == vec.end() )
         {
            vec.push_back( field_name );
@@ -620,7 +600,7 @@ void ConduitDataAdaptor::UpdateFields()
 
 //-----------------------------------------------------------------------------
 int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOnly*/, vtkDataObject *&mesh )
-{   
+{
   auto search = this->FieldNames.find( meshName );
   if( search == this->FieldNames.end() )
   {
@@ -641,30 +621,24 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
   {
     int local_blocks[size] = {};
     local_blocks[rank] = this->Node->number_of_children();
-    MPI_Allreduce( &local_blocks, &global_blocks, size, MPI_INT, MPI_SUM, this->GetCommunicator() ); 
-
+    MPI_Allreduce( &local_blocks, &global_blocks, size, MPI_INT, MPI_SUM, this->GetCommunicator() );
     this->GlobalBlockDistribution = (int *)malloc( (sizeof(int) * size) );
     memcpy( this->GlobalBlockDistribution, global_blocks, (sizeof(int) * size) );
-        
     for(int i = 0; i < size ;++i)
     {
       total_blocks += global_blocks[i];
       if( i < rank )
         start += global_blocks[i];
     }
-
-
     mb_mesh->SetNumberOfBlocks( total_blocks );
     int domain = 0;
     conduit::NodeConstIterator domain_itr = this->Node->children();
-       
     while( domain_itr.has_next() )
     {
       int block = domain + start;
       const conduit::Node &d_node = domain_itr.next();
       const conduit::Node &coords = d_node["coordsets"][0];
       const conduit::Node &topo   = d_node["topologies"][0];
-            
       if( coords["type"].as_string() == "uniform" )
       {
         mb_mesh->SetBlock( block, UniformMesh(&d_node) );
@@ -672,12 +646,12 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
       else if( coords["type"].as_string() == "rectilinear" )
       {
         mb_mesh->SetBlock( block, RectilinearMesh(&d_node) );
-      }   
+      }
       else if( coords["type"].as_string() == "explicit" )
       {
         if( topo["type"].as_string() == "structured" )
         {
-          mb_mesh->SetBlock( block, StructuredMesh(&d_node) ); 
+          mb_mesh->SetBlock( block, StructuredMesh(&d_node) );
         }
         else
         {
@@ -692,10 +666,8 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
     int local_blocks[size] = {};
     local_blocks[rank] = 1;
     MPI_Allreduce( &local_blocks, &global_blocks, size, MPI_INT, MPI_SUM, this->GetCommunicator() );
-        
     this->GlobalBlockDistribution = (int*)malloc( (sizeof(int) * size) );
     memcpy( this->GlobalBlockDistribution, global_blocks, (sizeof(int) * size) );
-   
     for(int i = 0; i < size ;++i)
     {
       total_blocks += global_blocks[i];
@@ -715,12 +687,12 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
     else if( coords["type"].as_string() == "rectilinear" )
     {
       mb_mesh->SetBlock( block, RectilinearMesh(this->Node) );
-    }   
+    }
     else if( coords["type"].as_string() == "explicit" )
     {
       if( topo["type"].as_string() == "structured" )
       {
-        mb_mesh->SetBlock( block, StructuredMesh(this->Node) ); 
+        mb_mesh->SetBlock( block, StructuredMesh(this->Node) );
       }
       else
       {
@@ -731,24 +703,20 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
   mesh = mb_mesh;
   return( 0 );
 }
-
-
 //-----------------------------------------------------------------------------
 int ConduitDataAdaptor::GetNumberOfMeshes( unsigned int &numberOfMeshes )
 {
-  //Once multiple meshes are present in the same node; you can use 
-  //this->FieldNames.size(). The size of the map corresponds to how many 
-  //different meshes. 
+  //Once multiple meshes are present in the same node; you can use
+  //this->FieldNames.size(). The size of the map corresponds to how many
+  //different meshes.
   numberOfMeshes = 1;
   return( 0 );
 }
-
-
 //-----------------------------------------------------------------------------
 int ConduitDataAdaptor::GetMeshMetadata(unsigned int /*id*/, sensei::MeshMetadataPtr &metadata)
 {
-  //this->FieldNames can be used to find the mesh name, once that becomes 
-  //supported in the conduit node. 
+  //this->FieldNames can be used to find the mesh name, once that becomes
+  //supported in the conduit node.
   metadata->MeshName = "mesh";
   return( 0 );
 }
@@ -780,7 +748,6 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
 
   int rank, start = 0;
   MPI_Comm_rank( this->GetCommunicator(), &rank );
-  
   for(int i = 0; i < rank ;++i)
     start += this->GlobalBlockDistribution[i];
 
@@ -801,10 +768,8 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       const conduit::Node& fields = d_node["fields"];
       const conduit::Node& field  = fields[arrayname];
       const conduit::Node& values = field["values"];
-            
       vtkSmartPointer<vtkDataArray> array = ConduitArrayToVTKDataArray( values );
       array->SetName( arrayname.c_str() );
-       
       vtkDataObject *block = mb->GetBlock( start + domain );
 
       std::stringstream ss;
@@ -828,14 +793,14 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
           vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::POINT );
           attr->AddArray( array );
         }
-      }  
+      }
       else if( field_association == "element" )
       {
         if( nchildren > 0 )
         {
           vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
           attr->AddArray( array );
-        } 
+        }
         else
         {
           vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
@@ -849,7 +814,7 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       }
       ++domain;
     }
-  }  
+  }
   else
   {
     const conduit::Node& fields  = (*this->Node)["fields"];
@@ -889,7 +854,7 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       {
         vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
         attr->AddArray( array );
-      } 
+      }
       else
       {
         vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
@@ -901,7 +866,7 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       SENSEI_ERROR( "ERROR: association of type " << field_association << " incompatible" );
       return( -1 );
     }
-  } 
+  }
   return( 0 );
 }
 
