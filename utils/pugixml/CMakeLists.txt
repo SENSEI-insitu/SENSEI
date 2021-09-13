@@ -4,6 +4,8 @@ target_include_directories(pugixml
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
   $<INSTALL_INTERFACE:include/pugixml>)
 
+set_property(TARGET pugixml PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
     DESTINATION include/pugixml FILES_MATCHING PATTERN "*.hpp")
 
