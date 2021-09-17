@@ -47,6 +47,9 @@
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #endif
+#ifdef ENABLE_CATALYST2
+#include "Catalyst2AnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
 #endif
@@ -98,6 +101,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddHDF5(pugi::xml_node node);
   int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
+  int AddCatalyst2(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
   int AddPosthocIO(pugi::xml_node node);
@@ -118,6 +122,9 @@ public:
 #endif
 #ifdef ENABLE_CATALYST
   vtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
+#endif
+#ifdef ENABLE_CATALYST2
+  vtkSmartPointer<Catalyst2AnalysisAdaptor> Catalyst2Adaptor;
 #endif
 
   // the communicator that is used to initialize new analyses.
@@ -657,6 +664,45 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 }
 
 // --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
+{
+#ifndef ENABLE_CATALYST2
+  (void)node;
+  SENSEI_ERROR("Catalyst2 was requested but is disabled in this build")
+  return -1;
+#else
+  // a single adaptor used with multiple pipelines
+  if (!this->Catalyst2Adaptor)
+    {
+    this->Catalyst2Adaptor = vtkSmartPointer<Catalyst2AnalysisAdaptor>::New();
+
+    if (this->Comm != MPI_COMM_NULL)
+      this->Catalyst2Adaptor->SetCommunicator(this->Comm);
+
+    this->TimeInitialization(this->Catalyst2Adaptor);
+    this->Analyses.push_back(this->Catalyst2Adaptor);
+    }
+
+  if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
+    {
+#ifndef ENABLE_CATALYST_PYTHON
+    SENSEI_ERROR("Catalyst Python was requested but is disabled in this build")
+#else
+    if (node.attribute("filename"))
+      {
+      std::string fileName = node.attribute("filename").value();
+      this->Catalyst2Adaptor->AddPythonScriptPipeline(fileName);
+      }
+#endif
+    }
+  SENSEI_STATUS("Configured Catalyst2AnalysisAdaptor "
+    << node.attribute("pipeline").value() << " "
+    << (node.attribute("filename") ? node.attribute("filename").value() : ""))
+#endif
+  return 0;
+}
+
+// --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 {
 #ifndef ENABLE_LIBSIM
@@ -1183,6 +1229,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
+      || ((type == "catalyst2") && !this->Internals->AddCatalyst2(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))

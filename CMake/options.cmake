@@ -12,6 +12,10 @@ cmake_dependent_option(ENABLE_CATALYST
   "Enable analysis methods that use Catalyst" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(ENABLE_CATALYST2
+  "Enable analysis methods that use Catalyst2" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_CATALYST_PYTHON
   "Enable analysis methods that use Catalyst Python scripts" ON
   "ENABLE_CATALYST" OFF)

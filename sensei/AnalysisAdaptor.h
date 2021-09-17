@@ -52,7 +52,7 @@ public:
 
 protected:
   AnalysisAdaptor();
-  ~AnalysisAdaptor();
+  virtual ~AnalysisAdaptor();
 
   AnalysisAdaptor(const AnalysisAdaptor&) = delete;
   void operator=(const AnalysisAdaptor&) = delete;

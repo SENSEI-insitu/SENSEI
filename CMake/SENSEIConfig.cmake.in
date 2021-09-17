@@ -56,6 +56,7 @@ endif()
 include(thread)
 include(sMPI)
 include(sVTK)
+include(sCatalyst2)
 include(pugixml)
 include(sDIY)
 

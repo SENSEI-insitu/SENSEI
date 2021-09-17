@@ -11,7 +11,7 @@
 namespace sensei
 {
 
-class ConduitDataAdaptor : public sensei::DataAdaptor
+class ConduitDataAdaptor: public sensei::DataAdaptor
 {
 public:
   static ConduitDataAdaptor* New();
@@ -37,7 +37,7 @@ public:
 
 protected:
   ConduitDataAdaptor();
-  ~ConduitDataAdaptor();
+  virtual ~ConduitDataAdaptor();
 
   typedef std::map<std::string, std::vector<std::string>> Fields;
   Fields FieldNames;

@@ -37,7 +37,7 @@ public:
 
 protected:
   ConfigurableAnalysis();
-  ~ConfigurableAnalysis();
+  virtual ~ConfigurableAnalysis();
 
   ConfigurableAnalysis(const ConfigurableAnalysis&) = delete;
   void operator=(const ConfigurableAnalysis&) = delete;
