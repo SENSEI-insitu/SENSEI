@@ -31,7 +31,12 @@ if (SENSEI_ENABLE_SENSEI)
       CatalystParticle.cxx CatalystSlice.cxx CatalystUtilities.cxx)
   endif()
 
-  if (SENSEI_ENABLE_VTKM)
+  if(ENABLE_CATALYST2)
+    list(APPEND senseiCore_sources Catalyst2AnalysisAdaptor.cxx Catalyst2DataAdaptor.cxx)
+    list(APPEND senseiCore_libs sCatalyst2)
+  endif()
+
+  if (SENSEI_ENABLE_VTKM)  
     list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx
       VTKmCDFAnalysis.cxx CDFReducer.cxx CinemaHelper.cxx)
     list(APPEND senseiCore_libs sVTKm)

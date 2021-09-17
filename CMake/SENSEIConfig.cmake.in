@@ -69,6 +69,10 @@ elseif (SENSEI_ENABLE_VTK_CORE)
   find_dependency(VTK)
 endif()
 
+if (ENABLE_CATALYST2)
+  include(sCatalyst2)
+endif()
+
 if (SENSEI_ENABLE_VTK_CORE)
   include(sVTK)
 endif ()

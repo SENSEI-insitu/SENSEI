@@ -67,7 +67,7 @@ public:
 
 protected:
   CatalystAnalysisAdaptor();
-  ~CatalystAnalysisAdaptor();
+  virtual ~CatalystAnalysisAdaptor();
 
   void Initialize();
 
