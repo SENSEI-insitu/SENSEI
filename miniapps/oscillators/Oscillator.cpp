@@ -51,7 +51,7 @@ std::vector<Oscillator> read_oscillators(std::string fn)
 
         if (type == Oscillator::damped)
             iss >> zeta;
-        res.emplace_back(Oscillator { {x,y,z}, r, omega0, zeta, type });
+        res.emplace_back(Oscillator { x,y,z, r, omega0, zeta, type });
     }
     return res;
 }

@@ -1,4 +1,5 @@
 #include "Block.h"
+#include "BlockInternals.h"
 
 // --------------------------------------------------------------------------
 void Block::update_fields(float t)
@@ -8,7 +9,6 @@ void Block::update_fields(float t)
     int ni = shape[0];
     int nj = shape[1];
     int nk = shape[2];
-    int nij = ni*nj;
     int i0 = bounds.min[0];
     int j0 = bounds.min[1];
     int k0 = bounds.min[2];
@@ -19,31 +19,29 @@ void Block::update_fields(float t)
     float y0 = origin[1] + dy;
     float z0 = origin[2] + dz;
     float *pdata = grid.data();
-    for (int k = 0; k < nk; ++k)
-    {
-        float z = z0 + dz*(k0 + k);
-        float *pdk = pdata + k*nij;
-        for (int j = 0; j < nj; ++j)
-        {
-            float y = y0 + dy*(j0 + j);
-            float *pd = pdk + j*ni;
-            for (int i = 0; i < ni; ++i)
-            {
-                float x = x0 + dx*(i0 + i);
-                pd[i] = 0.f;
-                for (auto& o : oscillators)
-                    pd[i] += o.evaluate({x,y,z}, t);
-            }
-        }
-    }
 
+    // TODO -- run time GPU/CPU load balancing.
+#if defined(OSCILLATOR_CUDA)
+    int deviceId = 0;
+#else
+    int deviceId = -1;
+#endif
+    BlockInternals::UpdateFields(deviceId, t, oscillators.get(),
+        nOscillators, ni,nj,nk, i0,j0,k0, x0,y0,z0, dx,dy,dz,
+        pdata);
+}
+
+// --------------------------------------------------------------------------
+void Block::update_particles(float t)
+{
     // update the velocity field on the particle mesh
+    const Oscillator *pOsc = oscillators.get();
     for (auto& particle : particles)
     {
         particle.velocity = { 0, 0, 0 };
-        for (auto& o : oscillators)
+        for (unsigned long q = 0; q < nOscillators; ++q)
         {
-            particle.velocity += o.evaluateGradient(particle.position, t);
+            particle.velocity += pOsc[q].evaluateGradient(particle.position, t);
         }
         // scale the gradient to get "units" right for velocity
         particle.velocity *= velocity_scale;

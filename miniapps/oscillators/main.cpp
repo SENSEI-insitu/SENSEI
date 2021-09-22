@@ -15,6 +15,7 @@
 #include "Particles.h"
 #include "Block.h"
 
+#include "MemoryUtils.h"
 #include "senseiConfig.h"
 #include "MPIManager.h"
 #ifdef ENABLE_SENSEI
@@ -141,26 +142,63 @@ int main(int argc, char** argv)
 
     sensei::Profiler::StartEvent("oscillators::initialize");
 
-    std::vector<Oscillator> oscillators;
+    std::shared_ptr<Oscillator> oscillators;
+    unsigned long nOscillators = 0;
     if (world.rank() == 0)
     {
-        oscillators = read_oscillators(infn);
-        sdiy::MemoryBuffer bb;
-        sdiy::save(bb, oscillators);
-        sdiy::mpi::broadcast(world, bb.buffer, 0);
+        // read the oscillators
+        std::vector<Oscillator> tmp = read_oscillators(infn);
+
+        // distribute
+        nOscillators = tmp.size();
+        MPI_Bcast(&nOscillators, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+
+        // allocate the buffer for the oscillator array
+        unsigned long nBytes = nOscillators*sizeof(Oscillator);
+#if defined(OSCILLATOR_CUDA)
+        Oscillator *pTmpOsc = nullptr;
+        cudaMallocManaged(&pTmpOsc, nBytes);
+        oscillators = std::shared_ptr<Oscillator>(pTmpOsc, cudaFree);
+#else
+        oscillators = std::shared_ptr<Oscillator>((Oscillator*)malloc(nBytes), free);
+#endif
+        memcpy(oscillators.get(), tmp.data(), nBytes);
+
+        // send the list of oscillators
+        MPI_Bcast(oscillators.get(), nBytes, MPI_BYTE, 0, MPI_COMM_WORLD);
     }
     else
     {
-        sdiy::MemoryBuffer bb;
-        sdiy::mpi::broadcast(world, bb.buffer, 0);
-        sdiy::load(bb, oscillators);
+        // recieve the number of oscillators
+        MPI_Bcast(&nOscillators, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+
+        // allocate the buffer for the oscillator array
+        unsigned long nBytes = nOscillators*sizeof(Oscillator);
+
+#if defined(OSCILLATOR_CUDA)
+        Oscillator *pTmpOsc = nullptr;
+        cudaMallocManaged(&pTmpOsc, nBytes);
+        oscillators = std::shared_ptr<Oscillator>(pTmpOsc, cudaFree);
+#else
+        oscillators = std::shared_ptr<Oscillator>((Oscillator*)malloc(nBytes), free);
+#endif
+
+        // recieve the list of oscillators
+        MPI_Bcast(oscillators.get(), nBytes, MPI_BYTE, 0, MPI_COMM_WORLD);
     }
 
+    // dump the list of oscillators
     if (verbose && (world.rank() == 0))
-        for (auto& o : oscillators)
-            std::cerr << world.rank() << " center = " << o.center
-              << " radius = " << o.radius << " omega0 = " << o.omega0
-              << " zeta = " << o.zeta << std::endl;
+    {
+        const Oscillator *pOsc = oscillators.get();
+        for (unsigned long q = 0; q < nOscillators; ++q)
+        {
+            std::cerr << world.rank() << " center = " << pOsc[q].center_x << ", "
+              << pOsc[q].center_y << ", " << pOsc[q].center_z
+              << " radius = " << pOsc[q].radius << " omega0 = " << pOsc[q].omega0
+              << " zeta = " << pOsc[q].zeta << std::endl;
+        }
+    }
 
     sdiy::Master master(world, threads, -1,
                        &Block::create,
@@ -210,7 +248,8 @@ int main(int argc, char** argv)
                        const sdiy::DiscreteBounds &domain, const Link& link)
                    {
                       Block *b = new Block(gid, bounds, domain, origin,
-                        spacing, ghostCells, oscillators, velocity_scale);
+                        spacing, ghostCells, oscillators, nOscillators,
+                        velocity_scale);
 
                       // generate particles
                       int start = particlesPerBlock * gid;
@@ -272,6 +311,13 @@ int main(int argc, char** argv)
                                 b->update_fields(t);
                               });
         sensei::Profiler::EndEvent("oscillators::update_fields");
+
+        sensei::Profiler::StartEvent("oscillators::update_particles");
+        master.foreach([=](Block* b, const Proxy&)
+                              {
+                                b->update_particles(t);
+                              });
+        sensei::Profiler::EndEvent("oscillators::update_particles");
 
         sensei::Profiler::StartEvent("oscillators::move_particles");
         master.foreach([=](Block* b, const Proxy& p)
