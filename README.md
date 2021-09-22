@@ -102,8 +102,8 @@ $ make install
 ### Build Options
 | Build Option | Default | Description                     |
 |--------------|---------|---------------------------------|
+| `ENABLE_CUDA` | OFF | Enables CUDA accelerated codes. Requires compute capability 7.5 and CUDA 11 or later. |
 | `ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
-| `ENABLE_VTK_GENERIC_ARRAYS` | OFF | Enables use of VTK's generic array feature.  |
 | `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
 | `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
 | `ENABLE_ASCENT` | OFF | Enables the Ascent analysis adaptor. |

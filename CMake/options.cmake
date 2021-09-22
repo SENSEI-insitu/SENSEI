@@ -1,5 +1,9 @@
 option(ENABLE_SENSEI "Enable Sensei infrastucture" ON)
 
+cmake_dependent_option(ENABLE_CUDA
+  "Enable analysis methods that use CUDA" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_PYTHON
   "Enable Python binding to Sensei infrastucture" OFF
   "ENABLE_SENSEI" OFF)
@@ -82,6 +86,7 @@ option(ENABLE_KRIPKE "Enable Kripke miniapp (experimental)" OFF)
 option(SENSEI_USE_EXTERNAL_pugixml "Use external pugixml library" OFF)
 
 message(STATUS "ENABLE_SENSEI=${ENABLE_SENSEI}")
+message(STATUS "ENABLE_CUDA=${ENABLE_CUDA}")
 message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
 message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")

@@ -8,6 +8,7 @@ include(CMakeDependentOption)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
 
 include(options)
+include(cuda)
 include(build)
 include(threads)
 include(mpi)
