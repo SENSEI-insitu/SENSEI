@@ -6,17 +6,17 @@ if (ENABLE_SENSEI)
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
     BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
     ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
-    Histogram.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
+    Histogram.cxx HistogramInternals.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
     IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx MemoryUtils.cxx
     MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx PlanarPartitioner.cxx
     PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
-    VTKHistogram.cxx VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
+    VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
 
   set(senseiCore_libs pugixml thread sDIY sVTK sMPI)
 
   set(senseiCore_cuda_sources)
   if (ENABLE_CUDA)
-    list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu)
+    list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu HistogramInternals.cxx)
   endif ()
 
   if (ENABLE_CONDUIT)

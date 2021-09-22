@@ -165,10 +165,8 @@ VTK_DERIVED(ConfigurableAnalysis)
   PyObject *GetHistogram()
   {
     // invoke the C++ method
-    double hmin = 0.0;
-    double hmax = 0.0;
-    std::vector<unsigned int> hist;
-    if (self->GetHistogram(hmin, hmax, hist))
+    sensei::Histogram::Data result;
+    if (self->GetHistogram(result))
       {
       PyErr_Format(PyExc_RuntimeError,
         "Failed to get the histogram");
@@ -177,9 +175,9 @@ VTK_DERIVED(ConfigurableAnalysis)
 
     // pass the result back in a tuple
     PyObject *retTup = PyTuple_New(3);
-    PyTuple_SetItem(retTup, 0, senseiPyObject::PyTT<double>::NewObject(hmin));
-    PyTuple_SetItem(retTup, 1, senseiPyObject::PyTT<double>::NewObject(hmax));
-    PyTuple_SetItem(retTup, 2, senseiPySequence::NewList<unsigned int>(hist));
+    PyTuple_SetItem(retTup, 0, senseiPyObject::PyTT<double>::NewObject(result.BinMin));
+    PyTuple_SetItem(retTup, 1, senseiPyObject::PyTT<double>::NewObject(result.BinMax));
+    PyTuple_SetItem(retTup, 2, senseiPySequence::NewList<unsigned int>(result.Histogram));
 
     return retTup;
   }
