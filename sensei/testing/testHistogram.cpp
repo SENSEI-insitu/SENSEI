@@ -135,19 +135,18 @@ int main(int argc, char **argv)
   analysisAdaptor->Execute(dataAdaptor);
   dataAdaptor->Delete();
 
-  double min = 0.0;
-  double max = 0.0;
-  std::vector<unsigned int> bins;
-  analysisAdaptor->GetHistogram(min, max, bins);
 
-  int testResult = validateHistogram(min, max, bins);
+  sensei::Histogram::Data result;
+  analysisAdaptor->GetHistogram(result);
+
+  int status = validateHistogram(result.BinMin, result.BinMax, result.Histogram);
 
   analysisAdaptor->Finalize();
   analysisAdaptor->Delete();
 
   MPI_Finalize();
 
-  return testResult;
+  return status;
 
 }
 

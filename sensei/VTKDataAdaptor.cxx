@@ -57,7 +57,8 @@ VTKDataAdaptor::~VTKDataAdaptor()
 void VTKDataAdaptor::SetDataObject(const std::string &meshName,
   vtkDataObject* dobj)
 {
-  this->Internals->MeshMap[meshName] = dobj;
+  this->Internals->MeshMap[meshName] =
+    VTKUtils::AsCompositeData(this->GetCommunicator(), dobj, false);
 }
 
 //----------------------------------------------------------------------------
