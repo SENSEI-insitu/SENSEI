@@ -79,7 +79,7 @@ int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 //-----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::FetchFromProducer(
   sensei::DataAdaptor *dataAdaptor,
-  std::vector<vtkCompositeDataSet*> &objects,
+  std::vector<vtkCompositeDataSetPtr> &objects,
   std::vector<MeshMetadataPtr> &metadata)
 {
   // figure out what the simulation can provide. include the full
@@ -120,7 +120,7 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
     mdOut->ClearArrayInfo();
 
     // get the mesh
-    vtkCompositeDataSet *dobj = nullptr;
+    vtkDataObject *dobj = nullptr;
     if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
@@ -166,10 +166,14 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 
     // generate a global view of the metadata. everything we do from here
     // on out depends on having the global view.
-    mdOut->GlobalizeView(this->GetCommunicator());
+    MPI_Comm comm = this->GetCommunicator();
+    mdOut->GlobalizeView(comm);
+
+    // ensure a composite data object
+    vtkCompositeDataSetPtr cds = sensei::VTKUtils::AsCompositeData(comm, dobj);
 
     // add to the collection
-    objects.push_back(dobj);
+    objects.push_back(cds);
     metadata.push_back(mdOut);
 
     ++mit;
@@ -209,7 +213,7 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     }
 
   // collect the specified data objects and metadata
-  std::vector<vtkCompositeDataSet*> objects;
+  std::vector<vtkCompositeDataSetPtr> objects;
   std::vector<MeshMetadataPtr> metadata;
 
   if (this->FetchFromProducer(dataAdaptor, objects, metadata))
@@ -218,7 +222,7 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     return false;
     }
 
-  // set everything up the first time trhough
+  // set everything up the first time through
   if (!this->Schema)
     this->InitializeADIOS2();
 
@@ -228,10 +232,6 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   if (this->DefineVariables(metadata) ||
     this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
-
-  unsigned int n_objects = objects.size();
-  for (unsigned int i = 0; i < n_objects; ++i)
-    objects[i]->Delete();
 
   return true;
 }
@@ -477,7 +477,7 @@ int ADIOS2AnalysisAdaptor::Finalize()
 //----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
-  const std::vector<vtkCompositeDataSet*> &objects)
+  const std::vector<vtkCompositeDataSetPtr> &objects)
 {
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::WriteTimestep");
 
