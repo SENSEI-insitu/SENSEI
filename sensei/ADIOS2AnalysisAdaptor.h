@@ -4,6 +4,7 @@
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
+#include "VTKUtils.h"
 
 #include <ADIOS2Schema.h>
 
@@ -98,14 +99,14 @@ protected:
   // writes the data collection
   int WriteTimestep(unsigned long timeStep, double time,
     const std::vector<MeshMetadataPtr> &metadata,
-    const std::vector<vtkCompositeDataSet*> &dobjects);
+    const std::vector<vtkCompositeDataSetPtr> &dobjects);
 
   // shuts down ADIOS2
   int FinalizeADIOS2();
 
   // fetch meshes and metadata objects from the simulation
   int FetchFromProducer(sensei::DataAdaptor *da,
-    std::vector<vtkCompositeDataSet*> &objects,
+    std::vector<vtkCompositeDataSetPtr> &objects,
     std::vector<MeshMetadataPtr> &metadata);
 
   senseiADIOS2::DataObjectCollectionSchema *Schema;

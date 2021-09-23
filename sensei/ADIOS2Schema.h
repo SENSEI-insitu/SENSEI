@@ -5,6 +5,8 @@ class vtkDataSet;
 class vtkDataObject;
 
 #include "MeshMetadata.h"
+#include "VTKUtils.h"
+
 #include <adios2_c.h>
 #include <adios2.h>
 #include <vtkDataObject.h>
@@ -66,7 +68,7 @@ public:
   // write the object collection
   int Write(MPI_Comm comm, AdiosHandle handles, unsigned long time_step, double time,
     const std::vector<sensei::MeshMetadataPtr> &metadata,
-    const std::vector<vtkCompositeDataSet*> &objects);
+    const std::vector<vtkCompositeDataSetPtr> &objects);
 
   // return true if the file is one of ours and the version the file was
   // written with is compatible with this revision of the schema

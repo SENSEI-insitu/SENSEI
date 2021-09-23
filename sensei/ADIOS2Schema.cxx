@@ -3840,7 +3840,7 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, AdiosHandle handl
 int DataObjectCollectionSchema::Write(MPI_Comm comm, AdiosHandle handles,
   unsigned long time_step, double time,
   const std::vector<sensei::MeshMetadataPtr> &metadata,
-  const std::vector<vtkCompositeDataSet*> &objects)
+  const std::vector<vtkCompositeDataSetPtr> &objects)
 {
   sensei::Profiler::StartEvent("senseiADIOS2::DataObjectCollectionSchema::Write");
 
@@ -3901,7 +3901,7 @@ int DataObjectCollectionSchema::Write(MPI_Comm comm, AdiosHandle handles,
 
     // write the object
     if (this->Internals->DataObject.Write(comm, handles, i,
-      metadata[i], objects[i]))
+      metadata[i], objects[i].Get()))
       {
       SENSEI_ERROR("Failed to write object " << i << " \""
         << metadata[i]->MeshName << "\"")
