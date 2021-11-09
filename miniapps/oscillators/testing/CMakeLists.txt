@@ -1,36 +1,36 @@
 if (BUILD_TESTING)
 
   senseiAddTest(testOscillatorHistogram
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorHistogramPar
     PARALLEL ${TEST_NP}
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorAutocorrelation
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorAutocorrelationPar
     PARALLEL ${TEST_NP}
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
   senseiAddTest(testOscillatorVTKWriter
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_vtkwriter.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES VTK_IO)
 
   senseiAddTest(testOscillatorVTKWriterPar
     PARALLEL ${TEST_NP}
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_vtkwriter.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES VTK_IO)
@@ -41,14 +41,14 @@ if (BUILD_TESTING)
   endif()
 
   senseiAddTest(testOscillatorCatalyst
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 
   senseiAddTest(testOscillatorCatalystPar
     PARALLEL ${TEST_NP}
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
@@ -59,14 +59,14 @@ if (BUILD_TESTING)
   endif()
 
   senseiAddTest(testOscillatorLibsim
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES LIBSIM)
 
   senseiAddTest(testOscillatorLibsimPar
     PARALLEL ${TEST_NP}
-    COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES LIBSIM)
@@ -77,14 +77,14 @@ if (BUILD_TESTING)
   endif()
 
   senseiAddTest(testOscillatorAscent
-    COMMAND oscillator -t 2 -b ${TEST_NP} -g 0
+    COMMAND $<TARGET_FILE:oscillator> -t 2 -b ${TEST_NP} -g 0
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/random_2d_64.osc
     FEATURES ASCENT)
 
   senseiAddTest(testOscillatorAscentPar
     PARALLEL ${TEST_NP}
-    COMMAND oscillator -t 2 -b ${TEST_NP} -g 0
+    COMMAND $<TARGET_FILE:oscillator> -t 2 -b ${TEST_NP} -g 0
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/random_2d_64.osc
     FEATURES ASCENT)
@@ -93,7 +93,7 @@ if (BUILD_TESTING)
   #if (ENABLE_CATALYST)
   #  add_test(NAME testCatalystSlice
   #    COMMAND ${CMAKE_COMMAND}
-  #     -DCATALYST_TEST_DRIVER:FILEPATH=$<TARGET_FILE:oscillator>
+  #     -DCATALYST_TEST_DRIVER:FILEPATH=$<TARGET_FILE:$<TARGET_FILE:oscillator>>
   #    -DIMAGE_TESTER:FILEPATH=$<TARGET_FILE:CompareImages>
   #    -DCATALYST_TEST_DIR:PATH=${CMAKE_BINARY_DIR}/Testing
   #    -DCATALYST_TEST_DATA=${CMAKE_CURRENT_SOURCE_DIR}

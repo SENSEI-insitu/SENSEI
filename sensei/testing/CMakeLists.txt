@@ -3,12 +3,12 @@ if (BUILD_TESTING)
   ##############################################################################
   senseiAddTest(testHistogramSerial
     SOURCES testHistogram.cpp LIBS sensei EXEC_NAME testHistogram
-    COMMAND $<TARGET_NAME:testHistogram>
+    COMMAND $<TARGET_FILE:testHistogram>
     LABELS HISTO)
 
   senseiAddTest(testHistogramParallel
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_NAME:testHistogram>
+    COMMAND $<TARGET_FILE:testHistogram>
     PROPERTIES
       LABELS HISTO)
 
@@ -16,12 +16,12 @@ if (BUILD_TESTING)
   senseiAddTest(testHDF5Write
     SOURCES testHDF5.cpp LIBS sensei EXEC_NAME testHDF5
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_NAME:testHDF5> w 4 n h5test
+    COMMAND $<TARGET_FILE:testHDF5> w 4 n h5test
     FEATURES HDF5)
 
   senseiAddTest(testHDF5Read
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_NAME:testHDF5> r h5test.n${TEST_NP}
+    COMMAND $<TARGET_FILE:testHDF5> r h5test.n${TEST_NP}
     FEATURES HDF5
     PROPERTIES
       DEPENDS testHDF5Write)
@@ -29,14 +29,14 @@ if (BUILD_TESTING)
   ##############################################################################
   senseiAddTest(testHDF5WriteStreaming
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_NAME:testHDF5> w 4 s h5stream
+    COMMAND $<TARGET_FILE:testHDF5> w 4 s h5stream
     FEATURES HDF5
     PROPERTIES
       LABELS STREAMING)
 
   senseiAddTest(testHDF5ReadStreaming
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_NAME:testHDF5> r h5stream.n${TEST_NP} s
+    COMMAND $<TARGET_FILE:testHDF5> r h5stream.n${TEST_NP} s
     FEATURES HDF5
     PROPERTIES
       DEPENDS testHDF5WriteStreaming
@@ -45,7 +45,7 @@ if (BUILD_TESTING)
   ##############################################################################
   senseiAddTest(testProgrammableDataAdaptor
     PARALLEL 1
-    COMMAND $<TARGET_NAME:testProgrammableDataAdaptor>
+    COMMAND $<TARGET_FILE:testProgrammableDataAdaptor>
     SOURCES testProgrammableDataAdaptor.cpp
     LIBS sensei)
 
@@ -59,13 +59,13 @@ if (BUILD_TESTING)
   senseiAddTest(testPythonAnalysis
     SOURCES testPythonAnalysis.cpp LIBS sensei EXEC_NAME testPythonAnalysis
     COMMAND
-      $<TARGET_NAME:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+      $<TARGET_FILE:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
     FEATURES PYTHON VTK_IO)
 
   senseiAddTest(testPythonAnalysisParallel
     PARALLEL ${TEST_NP}
     COMMAND
-      $<TARGET_NAME:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+      $<TARGET_FILE:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
     FEATURES PYTHON VTK_IO)
 
   ##############################################################################
