@@ -84,6 +84,8 @@ public:
   int GetMesh(const std::string &meshName, bool structure_only,
     vtkDataObject *&mesh) override;
 
+  using sensei::DataAdaptor::GetMesh;
+
   /// @brief Adds the specified field array to the mesh.
   ///
   /// This method will add the requested array to the mesh, if available. If the

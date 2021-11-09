@@ -11,6 +11,8 @@ if (SENSEI_USE_EXTERNAL_pugixml)
 else ()
   add_library(pugixml STATIC src/pugixml.cpp)
 
+  set_property(TARGET pugixml PROPERTY POSITION_INDEPENDENT_CODE ON)
+
   target_include_directories(pugixml
     INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
     $<INSTALL_INTERFACE:include/pugixml>)

@@ -2,12 +2,17 @@
 #define VTKUtils_h
 
 #include "MeshMetadata.h"
+#include "Error.h"
 
 class vtkDataSet;
 class vtkDataObject;
 class vtkFieldData;
 class vtkDataSetAttributes;
 class vtkCompositeDataSet;
+
+#include <vtkDataArray.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkSOADataArrayTemplate.h>
 
 #include <vtkSmartPointer.h>
 #include <functional>
@@ -16,6 +21,10 @@ class vtkCompositeDataSet;
 
 using vtkCompositeDataSetPtr = vtkSmartPointer<vtkCompositeDataSet>;
 
+#define vtkTemplateMacroFP(call)                                                                   \
+  vtkTemplateMacroCase(VTK_DOUBLE, double, call);                                                  \
+  vtkTemplateMacroCase(VTK_FLOAT, float, call);                                                    \
+
 namespace sensei
 {
 
@@ -23,6 +32,32 @@ namespace sensei
 /// common access patterns or operations on VTK data structures
 namespace VTKUtils
 {
+/** given a vtkDataArray get a pointer to underlying data
+ * this handles access from VTK's AOS and SOA layouts. For
+ * SOA layout only single component arrays should be passed.
+ */
+template <typename VTK_TT>
+VTK_TT *GetPointer(vtkDataArray *da)
+{
+  using AOS_ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>;
+  using SOA_ARRAY_TT = vtkSOADataArrayTemplate<VTK_TT>;
+
+  AOS_ARRAY_TT *aosDa = nullptr;
+  SOA_ARRAY_TT *soaDa = nullptr;
+
+  if ((aosDa = dynamic_cast<AOS_ARRAY_TT*>(da)))
+    {
+    return aosDa->GetPointer(0);
+    }
+  else if ((soaDa = dynamic_cast<SOA_ARRAY_TT*>(da)))
+    {
+    return soaDa->GetPointer(0);
+    }
+
+  SENSEI_ERROR("Invalid vtkDataArray "
+     << (da ? da->GetClassName() : "nullptr"))
+  return nullptr;
+}
 
 /// given a VTK POD data type enum returns the size
 unsigned int Size(int vtkt);

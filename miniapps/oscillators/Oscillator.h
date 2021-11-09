@@ -11,11 +11,18 @@ struct Oscillator
 
     static constexpr float pi = 3.14159265358979323846;
 
-    float evaluate(const Vertex &v, float t) const
+#if defined(OSCILLATOR_CUDA)
+    __host__ __device__
+#endif
+    float evaluate(float vx, float vy, float vz, float t) const
     {
         t *= 2*pi;
 
-        float dist2 = (center - v).norm();
+        float dist_x = center_x - vx;
+        float dist_y = center_y - vy;
+        float dist_z = center_z - vz;
+        float dist2 = sqrt( dist_x*dist_x + dist_y*dist_y + dist_z*dist_z );
+
         float dist_damp = exp(-dist2/(2*radius*radius));
 
         if (type == damped)
@@ -47,10 +54,14 @@ struct Oscillator
         // therefore, df/dx = o * dg/dx
         // given g = e^u(t), so dg/dx = e^u * du/dx
         // therefore, df/dx = o * e^u * du/dx = f * du/dx
-        return evaluate(x, t) * ((center - x)/(radius * radius));
+        Vertex center({center_x, center_y, center_z});
+        return evaluate(x[0], x[1], x[1], t) * ((center - x)/(radius * radius));
     }
 
-    Vertex  center;
+    float   center_x;
+    float   center_y;
+    float   center_z;
+
     float   radius;
 
     float   omega0;

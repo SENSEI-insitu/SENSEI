@@ -1,5 +1,9 @@
 option(ENABLE_SENSEI "Enable Sensei infrastucture" ON)
 
+cmake_dependent_option(ENABLE_CUDA
+  "Enable analysis methods that use CUDA" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_PYTHON
   "Enable Python binding to Sensei infrastucture" OFF
   "ENABLE_SENSEI" OFF)
@@ -40,10 +44,6 @@ cmake_dependent_option(ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
   "ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_GENERIC_ARRAYS
-  "VTK build has Generic arrays" OFF
-  "ENABLE_SENSEI" OFF)
-
 cmake_dependent_option(ENABLE_VTK_IO
   "Enable use of vtk I/O" OFF
   "ENABLE_SENSEI" OFF)
@@ -82,6 +82,7 @@ option(ENABLE_KRIPKE "Enable Kripke miniapp (experimental)" OFF)
 option(SENSEI_USE_EXTERNAL_pugixml "Use external pugixml library" OFF)
 
 message(STATUS "ENABLE_SENSEI=${ENABLE_SENSEI}")
+message(STATUS "ENABLE_CUDA=${ENABLE_CUDA}")
 message(STATUS "ENABLE_PYTHON=${ENABLE_PYTHON}")
 message(STATUS "ENABLE_CATALYST=${ENABLE_CATALYST}")
 message(STATUS "ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
@@ -91,7 +92,6 @@ message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_ASCENT=${ENABLE_ASCENT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
-message(STATUS "ENABLE_VTK_GENERIC_ARRAYS=${ENABLE_VTK_GENERIC_ARRAYS}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
 message(STATUS "ENABLE_VTK_RENDERING=${ENABLE_VTK_RENDERING}")

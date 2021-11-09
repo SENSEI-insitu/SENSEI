@@ -118,19 +118,17 @@ int main(int argc, char **argv)
 
   pda->ReleaseData();
 
-  double min = 0.0;
-  double max = 0.0;
-  std::vector<unsigned int> hist;
-  ha->GetHistogram(min, max, hist);
+  sensei::Histogram::Data result;
+  ha->GetHistogram(result);
 
-  int result = -1;
-  if (hist == baselineHist)
-    result = 0;
+  int status = -1;
+  if (result.Histogram == baselineHist)
+    status = 0;
 
   pda->Delete();
   ha->Delete();
 
   MPI_Finalize();
 
-  return result;
+  return status;
 }
