@@ -1122,6 +1122,8 @@ int GetLocalGeometrySizes(MPI_Comm comm,
 }
 */
 
+#if defined(ENABLE_VTK_IO)
+
 // helper for creating hexahedron
 static
 void HexPoints(long cid, const std::array<double,6> &bds, double *pCoords)
@@ -1181,6 +1183,8 @@ void HexCell(long cid, unsigned char *pCta, vtkIdType *pClocs, vtkIdType *pCids)
     pCids[jj + 7] = ii + 6;
     pCids[jj + 8] = ii + 7;
 }
+
+#endif // defined(ENABLE_VTK_IO)
 
 // --------------------------------------------------------------------------
 int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
