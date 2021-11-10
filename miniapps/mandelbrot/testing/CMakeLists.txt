@@ -1,22 +1,22 @@
 if (BUILD_TESTING)
 
   senseiAddTest(testMandelbrotHistogram
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_histogram.xml)
 
   senseiAddTest(testMandelbrotHistogramPar
     PARALLEL ${TEST_NP}
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_histogram.xml)
 
   senseiAddTest(testMandelbrotVTKWriter
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml
     FEATURES VTK_IO VTK_MPI)
 
   senseiAddTest(testMandelbrotVTKWriterPar
     PARALLEL ${TEST_NP}
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml
     FEATURES VTK_IO VTK_MPI)
 
@@ -27,13 +27,13 @@ if (BUILD_TESTING)
 
   senseiAddTest(testMandelbrotCatalyst
     COMMAND
-      mandelbrot -i 2 -l 2
+      $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml
     FEATURES CATALYST)
 
   senseiAddTest(testMandelbrotCatalystPar
     PARALLEL ${TEST_NP}
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml
       FEATURES CATALYST)
 
@@ -43,13 +43,13 @@ if (BUILD_TESTING)
   endif()
 
   senseiAddTest(testMandelbrotLibsim
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml
     FEATURES LIBSIM)
 
   senseiAddTest(testMandelbrotLibsimPar
     PARALLEL ${TEST_NP}
-    COMMAND mandelbrot -i 2 -l 2
+    COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml
     FEATURES LIBSIM)
 
