@@ -7,12 +7,10 @@ set(SENSEI_VERSION_DEVEL "@SENSEI_VERSION_DEVEL@")
 include(CMakeFindDependencyMacro)
 
 if (NOT SENSEI_DIR)
-  if (@SENSEI_BUILD@)
-    set(SENSEI_DIR "@CMAKE_BINARY_DIR@")
-  else()
-    set(SENSEI_DIR "@CMAKE_INSTALL_PREFIX@")
-  endif()
-endif()
+  # Use relocatable lookup for SENSEI_DIR
+  set(SENSEI_DIR "${CMAKE_CURRENT_LIST_DIR}/../../")
+endif ()
+
 list(APPEND CMAKE_MODULE_PATH "${SENSEI_DIR}")
 
 set(SENSEI_LIB_TYPE STATIC)
@@ -42,12 +40,6 @@ set(ENABLE_VTK_IO @ENABLE_VTK_IO@)
 set(ENABLE_VTKM @ENABLE_VTKM@)
 set(ENABLE_VTKM_RENDERING @ENABLE_VTKM_RENDERING@)
 set(ENABLE_ASCENT @ENABLE_ASCENT@)
-
-if (NOT CMAKE_CXX_FLAGS)
-  set(CMAKE_CXX_FLAGS "@CMAKE_CXX_FLAGS@"
-    CACHE STRING "sensei build defaults"
-  FORCE)
-endif()
 
 if (ENABLE_CATALYST)
   if (NOT ParaView_DIR)
