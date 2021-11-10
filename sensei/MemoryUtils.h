@@ -1,5 +1,5 @@
 #ifndef MemoryUtils_h
-#define MemoryUitls_h
+#define MemoryUtils_h
 
 ///@file
 
