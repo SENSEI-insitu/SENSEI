@@ -30,7 +30,7 @@ if(ENABLE_CUDA)
 
     message(STATUS "Created CUDA target ${CUDA_TGT_TARGET}")
 
-    target_compile_features(${CUDA_TGT_TARGET} PUBLIC cxx_std_17)
+    target_compile_features(${CUDA_TGT_TARGET} PUBLIC cxx_std_11)
 
     set_target_properties(${CUDA_TGT_TARGET} PROPERTIES POSITION_INDEPENDENT_CODE ON)
     set_target_properties(${CUDA_TGT_TARGET} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
