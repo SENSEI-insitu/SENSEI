@@ -7,7 +7,7 @@ if (SENSEI_USE_EXTERNAL_pugixml)
 
   install(
     FILES "${CMAKE_BINARY_DIR}/lib/cmake/pugixml.cmake"
-    DESTINATION "lib/cmake")
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake")
 else ()
   add_library(pugixml STATIC src/pugixml.cpp)
 
@@ -21,9 +21,9 @@ else ()
       DESTINATION include/pugixml FILES_MATCHING PATTERN "*.hpp")
 
   install(TARGETS pugixml EXPORT pugixml
-      INCLUDES DESTINATION include/pugixml ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib)
+      INCLUDES DESTINATION include/pugixml ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-  install(EXPORT pugixml DESTINATION lib/cmake
+  install(EXPORT pugixml DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
       EXPORT_LINK_INTERFACE_LIBRARIES)
 endif ()

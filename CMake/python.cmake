@@ -15,7 +15,8 @@ if (ENABLE_PYTHON)
   target_include_directories(sPython INTERFACE ${PYTHON_INCLUDE_PATH} ${MPI4PY_INCLUDE_DIR})
   target_link_libraries(sPython INTERFACE ${PYTHON_LIBRARIES} sVTK)
   install(TARGETS sPython EXPORT sPython)
-  install(EXPORT sPython DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+  install(EXPORT sPython DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+    EXPORT_LINK_INTERFACE_LIBRARIES)
 
   function(depend_swig input output)
       set(input_file ${CMAKE_CURRENT_SOURCE_DIR}/${input})

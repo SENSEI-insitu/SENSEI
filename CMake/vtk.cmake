@@ -79,6 +79,7 @@ if (sensei_vtk_components_modern)
     endif()
 
     install(TARGETS sVTK EXPORT sVTK)
-    install(EXPORT sVTK DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+    install(EXPORT sVTK DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+      EXPORT_LINK_INTERFACE_LIBRARIES)
   endif()
 endif()
