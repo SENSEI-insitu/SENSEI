@@ -23,6 +23,8 @@ public:
   void SetNode(const conduit_cpp::Node& node);
   // add a new node
   void AddNode(const conduit_cpp::Node& node);
+  // Retrieve node
+  const conduit_cpp::Node& GetNode(unsigned int id) const;
 
   // DataAdaptor API
 
