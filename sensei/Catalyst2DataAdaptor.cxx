@@ -51,38 +51,41 @@ void Catalyst2DataAdaptor::AddNode(const conduit_cpp::Node& node)
 }
 
 //-----------------------------------------------------------------------------
+const conduit_cpp::Node& Catalyst2DataAdaptor::GetNode(unsigned int id) const
+{
+  return this->Nodes.at(id);
+}
+
+//-----------------------------------------------------------------------------
 int Catalyst2DataAdaptor::GetMesh(
   const std::string& meshName, bool /*structureOnly*/, vtkDataObject*& mesh)
 {
-  conduit_cpp::Node meshNode;
   for (auto n : this->Nodes)
   {
-    std::cout << " meshName " << meshName << std::endl;
-    if (n.has_path(meshName))
+    if (n.has_path("catalyst/channels/"+meshName))
     {
-      std::cout << "has it!" << std::endl;
-      meshNode = n;
-      break;
+      conduit_cpp::Node meshNode(n["catalyst/channels/"+meshName+"/data"]);
+      std::cout << "Has mesh: " << meshName << std::endl;
+      std::cout << meshNode.path()  << std::endl;
+      meshNode.print();
+      vtkNew<vtkConduitSource> conduitToVTK;
+      conduitToVTK->SetNode(conduit_cpp::c_node(&meshNode));
+      conduitToVTK->Update();
+      if (vtkDataObject* res = conduitToVTK->GetOutputDataObject(0))
+      {
+        mesh = res;
+        mesh->Register(this);
+        return 0;
+      }
+      else
+      {
+        SENSEI_ERROR("Error while creating the VTK mesh for " << meshName);
+        return 1;
+      }
     }
   }
-  if (meshNode.number_of_children() == 0)
-  {
-    SENSEI_ERROR("GetMesh: Mesh " << meshName << " Cannot Be Found");
-    return -1;
-  }
-
-  vtkNew<vtkConduitSource> conduitToVTK;
-  conduitToVTK->SetNode(conduit_cpp::c_node(&meshNode));
-  conduitToVTK->Update();
-  if (vtkDataObject* res = conduitToVTK->GetOutputDataObject(0))
-  {
-    mesh = res;
-  }
-  else
-  {
-    return 1;
-  }
-  return 0;
+  SENSEI_ERROR("GetMesh: Mesh " << meshName << " Cannot Be Found");
+  return -1;
 }
 //-----------------------------------------------------------------------------
 int Catalyst2DataAdaptor::GetNumberOfMeshes(unsigned int& numberOfMeshes)
@@ -93,7 +96,13 @@ int Catalyst2DataAdaptor::GetNumberOfMeshes(unsigned int& numberOfMeshes)
 //-----------------------------------------------------------------------------
 int Catalyst2DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr& metadata)
 {
-  metadata->MeshName = this->Nodes.at(id)["catalyst/channels"].path();
+
+  if (this->Nodes.at(id)["catalyst/channels/"].number_of_children() < 1)
+  {
+    SENSEI_ERROR("Node " << id << " is ill-formed or has no mesh assiciated.");
+    return -1;
+  }
+  metadata->MeshName = this->Nodes.at(id)["catalyst/channels/"].child(0).name();
   return 0;
 }
 

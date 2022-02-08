@@ -9,6 +9,9 @@
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
 
+#include <vtkDataObject.h> // TODO remove me
+#include <vtkDataObjectToConduit.h>
+
 namespace sensei
 {
 
@@ -40,7 +43,9 @@ void Catalyst2AnalysisAdaptor::AddPythonScriptPipeline(const std::string& fileNa
   if (error_code != catalyst_status_ok)
   {
     // you are in trouble young man
+    std::cerr << "catalyst initialize failed with code: " << error_code << std::endl;
   }
+
 #else
   (void)fileName;
   SENSEI_ERROR("Failed to add Python script pipeline. "
@@ -77,12 +82,37 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   // Conduit node to fill
   conduit_cpp::Node exec_params;
 
+  // Mesh to use
+  for(auto meta : metadata)
+  {
+    const char* meshName = meta->MeshName.c_str();
+    vtkDataObject* dobj = nullptr;
+    if (dataAdaptor->GetMesh(meshName, false, dobj))
+    {
+      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+      return -1;
+    }
+    if (dobj)
+    {
+      std::cout << dobj->GetClassName() << std::endl;
+      dobj->Print(std::cout);
+      vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
+    }
+    else
+    {
+      std::cout << "empty dobj" << std::endl;
+    }
+  }
+
   // Time description
   double time = dataAdaptor->GetDataTime();
   int timeStep = dataAdaptor->GetDataTimeStep();
   auto state = exec_params["catalyst/state"];
   state["timestep"].set(long(timeStep));
   state["time"].set(time);
+
+
+  catalyst_execute(conduit_cpp::c_node(&exec_params));
 
   return true;
 }
