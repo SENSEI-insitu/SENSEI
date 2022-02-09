@@ -65,9 +65,9 @@ int Catalyst2DataAdaptor::GetMesh(
     if (n.has_path("catalyst/channels/"+meshName))
     {
       conduit_cpp::Node meshNode(n["catalyst/channels/"+meshName+"/data"]);
-      std::cout << "Has mesh: " << meshName << std::endl;
-      std::cout << meshNode.path()  << std::endl;
-      meshNode.print();
+      // std::cout << "Has mesh: " << meshName << std::endl;
+      // std::cout << meshNode.path()  << std::endl;
+      // meshNode.print();
       vtkNew<vtkConduitSource> conduitToVTK;
       conduitToVTK->SetNode(conduit_cpp::c_node(&meshNode));
       conduitToVTK->Update();
