@@ -9,8 +9,11 @@
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
 
-#include <vtkDataObject.h> // TODO remove me
+#include <vtkDataObject.h>
 #include <vtkDataObjectToConduit.h>
+#include <vtkDataObjectTreeRange.h>
+#include <vtkPartitionedDataSet.h>
+#include <vtkRange.h>
 
 namespace sensei
 {
@@ -83,7 +86,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   conduit_cpp::Node exec_params;
 
   // Mesh to use
-  for(auto meta : metadata)
+  for (auto meta : metadata)
   {
     const char* meshName = meta->MeshName.c_str();
     vtkDataObject* dobj = nullptr;
@@ -94,9 +97,20 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     }
     if (dobj)
     {
-      std::cout << dobj->GetClassName() << std::endl;
-      dobj->Print(std::cout);
-      vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
+      if (auto* pds = vtkPartitionedDataSet::SafeDownCast(dobj))
+      {
+        for (auto node : vtk::Range(pds))
+        {
+          if (node->IsA("vtkDataObject"))
+            vtkDataObjectToConduit::FillConduitNode(node, exec_params);
+          else
+            std::cout << "ingore: " << node->GetClassName() << std::endl;
+        }
+      }
+      else
+      {
+        vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
+      }
     }
     else
     {
@@ -110,7 +124,6 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   auto state = exec_params["catalyst/state"];
   state["timestep"].set(long(timeStep));
   state["time"].set(time);
-
 
   catalyst_execute(conduit_cpp::c_node(&exec_params));
 
