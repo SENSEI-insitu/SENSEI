@@ -10,9 +10,9 @@ if (ENABLE_SENSEI)
     IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx MemoryUtils.cxx
     MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx PlanarPartitioner.cxx
     PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
-    VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
+    SVTKDataAdaptor.cxx SVTKUtils.cxx XMLUtils.cxx)
 
-  set(senseiCore_libs pugixml thread sDIY sVTK sMPI)
+  set(senseiCore_libs pugixml thread sDIY sSVTK sMPI)
 
   set(senseiCore_cuda_sources)
   if (ENABLE_CUDA)

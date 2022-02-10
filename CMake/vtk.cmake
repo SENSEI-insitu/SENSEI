@@ -2,12 +2,6 @@
 set(sensei_vtk_components_legacy)
 set(sensei_vtk_components_modern)
 
-set(sensei_vtk_components_legacy vtkCommonDataModel)
-set(sensei_vtk_components_modern CommonDataModel)
-
-list(APPEND sensei_vtk_components_legacy vtkIOLegacy)
-list(APPEND sensei_vtk_components_modern IOLegacy)
-
 if (ENABLE_VTK_MPI)
   list(APPEND sensei_vtk_components_legacy vtkParallelMPI)
   list(APPEND sensei_vtk_components_modern ParallelMPI)
@@ -47,42 +41,44 @@ if (ENABLE_PYTHON)
   list(APPEND sensei_vtk_components_modern Python WrappingPythonCore)
 endif()
 
-if (NOT ENABLE_CATALYST)
-  add_library(sVTK INTERFACE)
+if (sensei_vtk_components_modern)
+  if (NOT ENABLE_CATALYST)
+    add_library(sVTK INTERFACE)
 
-  find_package(VTK CONFIG QUIET)
-  if (NOT VTK_FOUND)
-    message(FATAL_ERROR "VTK is required for Sensei core even when not using "
-      "any infrastructures. Please set `VTK_DIR` to point to a directory "
-      "containing `VTKConfig.cmake` or `vtk-config.cmake`.")
+    find_package(VTK CONFIG QUIET)
+    if (NOT VTK_FOUND)
+      message(FATAL_ERROR "VTK is required for Sensei core even when not using "
+        "any infrastructures. Please set `VTK_DIR` to point to a directory "
+        "containing `VTKConfig.cmake` or `vtk-config.cmake`.")
+    endif()
+
+    if (VTK_VERSION VERSION_LESS "8.90.0")
+      set(SENSEI_VTK_COMPONENTS ${sensei_vtk_components_legacy})
+    else()
+      set(SENSEI_VTK_COMPONENTS ${sensei_vtk_components_modern})
+    endif()
+
+    # avoid leaking these internal variables
+    unset(sensei_vtk_components_legacy)
+    unset(sensei_vtk_components_modern)
+
+    find_package(VTK CONFIG QUIET COMPONENTS ${SENSEI_VTK_COMPONENTS})
+    if (NOT VTK_FOUND)
+      message(FATAL_ERROR "VTK (${SENSEI_VTK_COMPONENTS}) modules are required for "
+        "Sensei core even when not using any infrastructures. Please set "
+        "`VTK_DIR` to point to a directory containing `VTKConfig.cmake` or "
+        "`vtk-config.cmake`.")
+    endif()
+
+    if (VTK_VERSION VERSION_LESS "8.90.0")
+      target_link_libraries(sVTK INTERFACE ${VTK_LIBRARIES})
+      target_include_directories(sVTK SYSTEM INTERFACE ${VTK_INCLUDE_DIRS})
+      target_compile_definitions(sVTK INTERFACE ${VTK_DEFINITIONS})
+    else()
+      target_link_libraries(sVTK INTERFACE ${VTK_LIBRARIES})
+    endif()
+
+    install(TARGETS sVTK EXPORT sVTK)
+    install(EXPORT sVTK DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
   endif()
-
-  if (VTK_VERSION VERSION_LESS "8.90.0")
-    set(SENSEI_VTK_COMPONENTS ${sensei_vtk_components_legacy})
-  else()
-    set(SENSEI_VTK_COMPONENTS ${sensei_vtk_components_modern})
-  endif()
-
-  # avoid leaking these internal variables
-  unset(sensei_vtk_components_legacy)
-  unset(sensei_vtk_components_modern)
-
-  find_package(VTK CONFIG QUIET COMPONENTS ${SENSEI_VTK_COMPONENTS})
-  if (NOT VTK_FOUND)
-    message(FATAL_ERROR "VTK (${SENSEI_VTK_COMPONENTS}) modules are required for "
-      "Sensei core even when not using any infrastructures. Please set "
-      "`VTK_DIR` to point to a directory containing `VTKConfig.cmake` or "
-      "`vtk-config.cmake`.")
-  endif()
-
-  if (VTK_VERSION VERSION_LESS "8.90.0")
-    target_link_libraries(sVTK INTERFACE ${VTK_LIBRARIES})
-    target_include_directories(sVTK SYSTEM INTERFACE ${VTK_INCLUDE_DIRS})
-    target_compile_definitions(sVTK INTERFACE ${VTK_DEFINITIONS})
-  else()
-    target_link_libraries(sVTK INTERFACE ${VTK_LIBRARIES})
-  endif()
-
-  install(TARGETS sVTK EXPORT sVTK)
-  install(EXPORT sVTK DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
 endif()

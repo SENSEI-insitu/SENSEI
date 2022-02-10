@@ -1,0 +1,8 @@
+# Mangled VTK
+set(SVTK_LIBRARIES SVTK::CommonDataModel)
+
+add_library(sSVTK INTERFACE)
+target_link_libraries(sSVTK INTERFACE ${SVTK_LIBRARIES})
+
+install(TARGETS sSVTK EXPORT sSVTK)
+install(EXPORT sSVTK DESTINATION lib/cmake EXPORT_LINK_INTERFACE_LIBRARIES)
