@@ -1,44 +1,44 @@
 #include "HDF5Schema.h"
 #include "Profiler.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 
-#include <vtkCellArray.h>
-#include <vtkCellData.h>
-#include <vtkCellTypes.h>
-#include <vtkCharArray.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkHierarchicalBoxDataSet.h>
-#include <vtkHyperTreeGrid.h>
-#include <vtkIdTypeArray.h>
-#include <vtkImageData.h>
-#include <vtkInformation.h>
-#include <vtkIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkLongLongArray.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkMultiPieceDataSet.h>
-#include <vtkNonOverlappingAMR.h>
-#include <vtkObjectFactory.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkPointData.h>
-#include <vtkPoints.h>
-#include <vtkPolyData.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkSmartPointer.h>
-#include <vtkStructuredGrid.h>
-#include <vtkStructuredPoints.h>
-#include <vtkTable.h>
-#include <vtkUniformGrid.h>
-#include <vtkUniformGridAMR.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkUnsignedLongLongArray.h>
-#include <vtkUnstructuredGrid.h>
+#include <svtkCellArray.h>
+#include <svtkCellData.h>
+#include <svtkCellTypes.h>
+#include <svtkCharArray.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkHierarchicalBoxDataSet.h>
+#include <svtkHyperTreeGrid.h>
+#include <svtkIdTypeArray.h>
+#include <svtkImageData.h>
+#include <svtkInformation.h>
+#include <svtkIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkLongLongArray.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkMultiPieceDataSet.h>
+#include <svtkNonOverlappingAMR.h>
+#include <svtkObjectFactory.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkPointData.h>
+#include <svtkPoints.h>
+#include <svtkPolyData.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkSmartPointer.h>
+#include <svtkStructuredGrid.h>
+#include <svtkStructuredPoints.h>
+#include <svtkTable.h>
+#include <svtkUniformGrid.h>
+#include <svtkUniformGridAMR.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkUnsignedLongLongArray.h>
+#include <svtkUnstructuredGrid.h>
 
 #include <map>
 #include <set>
@@ -58,8 +58,8 @@ static const std::string ATTRNAME_NUM_TIMESTEP = "num_timestep";
 static const std::string ATTRNAME_NUM_MESH = "num_meshs";
 static const std::string TAG_MESH = "mesh_";
 static const std::string TAG_ARRAY = "array_";
-static const std::string TAG_VTK_GHOST =
-  "vtkGhostType"; // reserved  to indicate ghost array for cell/points
+static const std::string TAG_SVTK_GHOST =
+  "svtkGhostType"; // reserved  to indicate ghost array for cell/points
 
 static bool gCheckSenseiCall(int code)
 {
@@ -96,69 +96,69 @@ static void gGetArrayNameStr(std::string &out,
 
 hid_t gHDF5_IDType()
 {
-  if(sizeof(vtkIdType) == sizeof(int64_t))
+  if(sizeof(svtkIdType) == sizeof(int64_t))
     {
       return H5T_NATIVE_LONG; // 64 bits
     }
-  else if(sizeof(vtkIdType) == sizeof(int32_t))
+  else if(sizeof(svtkIdType) == sizeof(int32_t))
     {
       return H5T_NATIVE_INT; // 32 bits
     }
   else
     {
-      SENSEI_ERROR("No conversion from vtkIdType to HDF5 NativeDATATYPES");
+      SENSEI_ERROR("No conversion from svtkIdType to HDF5 NativeDATATYPES");
       MPI_Abort(MPI_COMM_WORLD, -1);
     }
   return -1;
 }
 
-hid_t gGetHDF5Type(vtkDataArray *da)
+hid_t gGetHDF5Type(svtkDataArray *da)
 {
-  if(dynamic_cast<vtkFloatArray *>(da))
+  if(dynamic_cast<svtkFloatArray *>(da))
     {
       return H5T_NATIVE_FLOAT;
     }
-  else if(dynamic_cast<vtkDoubleArray *>(da))
+  else if(dynamic_cast<svtkDoubleArray *>(da))
     {
       return H5T_NATIVE_DOUBLE;
     }
-  else if(dynamic_cast<vtkCharArray *>(da))
+  else if(dynamic_cast<svtkCharArray *>(da))
     {
       return H5T_NATIVE_CHAR;
     }
-  else if(dynamic_cast<vtkIntArray *>(da))
+  else if(dynamic_cast<svtkIntArray *>(da))
     {
       return H5T_NATIVE_INT;
     }
-  else if(dynamic_cast<vtkLongArray *>(da))
+  else if(dynamic_cast<svtkLongArray *>(da))
     {
       if(sizeof(long) == 4)
         return H5T_NATIVE_INT; // 32 bits
       return H5T_NATIVE_LONG;  // 64 bits
     }
-  else if(dynamic_cast<vtkLongLongArray *>(da))
+  else if(dynamic_cast<svtkLongLongArray *>(da))
     {
       return H5T_NATIVE_LONG; // 64 bits
     }
-  else if(dynamic_cast<vtkUnsignedCharArray *>(da))
+  else if(dynamic_cast<svtkUnsignedCharArray *>(da))
     {
       return H5T_NATIVE_UCHAR;
     }
-  else if(dynamic_cast<vtkUnsignedIntArray *>(da))
+  else if(dynamic_cast<svtkUnsignedIntArray *>(da))
     {
       return H5T_NATIVE_UINT;
     }
-  else if(dynamic_cast<vtkUnsignedLongArray *>(da))
+  else if(dynamic_cast<svtkUnsignedLongArray *>(da))
     {
       if(sizeof(unsigned long) == 4)
         return H5T_NATIVE_UINT; // 32 bits
       return H5T_NATIVE_ULONG;  // 64 bits
     }
-  else if(dynamic_cast<vtkUnsignedLongLongArray *>(da))
+  else if(dynamic_cast<svtkUnsignedLongLongArray *>(da))
     {
       return H5T_NATIVE_ULONG; // 64 bits
     }
-  else if(dynamic_cast<vtkIdTypeArray *>(da))
+  else if(dynamic_cast<svtkIdTypeArray *>(da))
     {
       return gHDF5_IDType();
     }
@@ -171,51 +171,51 @@ hid_t gGetHDF5Type(vtkDataArray *da)
   return -1;
 }
 
-hid_t gVTKToH5Type(int vtkt)
+hid_t gSVTKToH5Type(int svtkt)
 {
-  switch(vtkt)
+  switch(svtkt)
     {
-    case VTK_FLOAT:
+    case SVTK_FLOAT:
       return H5T_NATIVE_FLOAT;
       break;
-    case VTK_DOUBLE:
+    case SVTK_DOUBLE:
       return H5T_NATIVE_DOUBLE;
       break;
-    case VTK_CHAR:
+    case SVTK_CHAR:
       return H5T_NATIVE_CHAR;
       break;
-    case VTK_UNSIGNED_CHAR:
+    case SVTK_UNSIGNED_CHAR:
       return H5T_NATIVE_UCHAR;
       break;
-    case VTK_INT:
+    case SVTK_INT:
       return H5T_NATIVE_INT;
       break;
-    case VTK_UNSIGNED_INT:
+    case SVTK_UNSIGNED_INT:
       return H5T_NATIVE_UINT;
       break;
-    case VTK_LONG:
+    case SVTK_LONG:
       if(sizeof(long) == 4)
         return H5T_NATIVE_INT; // 32 bits
       return H5T_NATIVE_LONG;  // 64 bits
       break;
-    case VTK_UNSIGNED_LONG:
+    case SVTK_UNSIGNED_LONG:
       if(sizeof(long) == 4)
         return H5T_NATIVE_UINT; // 32 bits
       return H5T_NATIVE_ULONG;  // 64 bits
       break;
-    case VTK_LONG_LONG:
+    case SVTK_LONG_LONG:
       return H5T_NATIVE_LONG;
       break;
-    case VTK_UNSIGNED_LONG_LONG:
+    case SVTK_UNSIGNED_LONG_LONG:
       return H5T_NATIVE_ULONG; // 64 bits
       break;
-    case VTK_ID_TYPE:
+    case SVTK_ID_TYPE:
       return gHDF5_IDType();
       break;
     default:
     {
-      SENSEI_ERROR("the HDF5 type for vtk type enumeration "
-                   << vtkt << " is currently not implemented");
+      SENSEI_ERROR("the HDF5 type for svtk type enumeration "
+                   << svtkt << " is currently not implemented");
       MPI_Abort(MPI_COMM_WORLD, -1);
     }
     }
@@ -819,14 +819,14 @@ bool ReadStream::ReadMetadata(unsigned int &nMesh)
 
       // add internally generated arrays
       md->ArrayName.push_back("SenderBlockOwner");
-      md->ArrayCentering.push_back(vtkDataObject::CELL);
+      md->ArrayCentering.push_back(svtkDataObject::CELL);
       md->ArrayComponents.push_back(1);
-      md->ArrayType.push_back(VTK_INT);
+      md->ArrayType.push_back(SVTK_INT);
 
       md->ArrayName.push_back("ReceiverBlockOwner");
-      md->ArrayCentering.push_back(vtkDataObject::CELL);
+      md->ArrayCentering.push_back(svtkDataObject::CELL);
       md->ArrayComponents.push_back(1);
-      md->ArrayType.push_back(VTK_INT);
+      md->ArrayType.push_back(SVTK_INT);
 
       md->NumArrays += 2;
 
@@ -855,7 +855,7 @@ bool ReadStream::ReadReceiverMeshMetaData(unsigned int i, sensei::MeshMetadataPt
 
 
 bool ReadStream::ReadMesh(std::string name,
-                          vtkDataObject *&dobj,
+                          svtkDataObject *&dobj,
                           bool structure_only)
 {
   // sensei::MeshMetadataPtr meshMetaPtr;
@@ -866,7 +866,7 @@ bool ReadStream::ReadMesh(std::string name,
   if(m_AllMeshInfo.GetMeshId(name, meshId) < 0)
     return false;
 
-  vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet *>(dobj);
+  svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet *>(dobj);
 
   MeshFlow m(cd, meshId);
   if(!m.ReadFrom(this, structure_only))
@@ -883,18 +883,18 @@ bool ReadStream::ReadMesh(std::string name,
 bool ReadStream::ReadInArray(const std::string &meshName,
                              int association,
                              const std::string &array_name,
-                             vtkDataObject *dobj)
+                             svtkDataObject *dobj)
 {
   unsigned int meshId;
   if(m_AllMeshInfo.GetMeshId(meshName, meshId) < 0)
     return false;
 
-  MeshFlow m(dynamic_cast<vtkCompositeDataSet *>(dobj), meshId);
+  MeshFlow m(dynamic_cast<svtkCompositeDataSet *>(dobj), meshId);
 
   if(!m.ReadArray(this, array_name, association))
     {
       SENSEI_ERROR("Failed to read "
-                   << sensei::VTKUtils::GetAttributesName(association)
+                   << sensei::SVTKUtils::GetAttributesName(association)
                    << " data array \"" << array_name << "\" from object \""
                    << meshName << "\"");
       return false;
@@ -905,7 +905,7 @@ bool ReadStream::ReadInArray(const std::string &meshName,
 //
 //
 //
-MeshFlow::MeshFlow(vtkCompositeDataSet *cd, unsigned int meshID)
+MeshFlow::MeshFlow(svtkCompositeDataSet *cd, unsigned int meshID)
   : m_VtkPtr(cd)
   , m_MeshID(meshID)
 {
@@ -919,8 +919,8 @@ bool MeshFlow::ValidateMetaData(const sensei::MeshMetadataPtr &md)
   for(unsigned int i = 0; i < num_arrays; ++i)
     {
       int array_cen = md->ArrayCentering[i];
-      if((array_cen != vtkDataObject::POINT) &&
-          (array_cen != vtkDataObject::CELL))
+      if((array_cen != svtkDataObject::POINT) &&
+          (array_cen != svtkDataObject::CELL))
         {
           SENSEI_ERROR("Invalid array centering at array " << i);
           return false;
@@ -948,7 +948,7 @@ bool MeshFlow::ReadBlockOwnerArray(ReadStream *reader,
       return false;
     }
 
-  vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+  svtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
   it->SetSkipEmptyNodes(0);
   it->InitTraversal();
 
@@ -958,22 +958,22 @@ bool MeshFlow::ReadBlockOwnerArray(ReadStream *reader,
   for(unsigned int j = 0; j < num_blocks; ++j)
     {
       // get the block size
-      unsigned long long num_elem_local = (association== vtkDataObject::POINT ?
+      unsigned long long num_elem_local = (association== svtkDataObject::POINT ?
                                            md->BlockNumPoints[j] : md->BlockNumCells[j]);
 
       // define the variable for a local block
-      vtkDataSet *ds = dynamic_cast<vtkDataSet *>(it->GetCurrentDataObject());
+      svtkDataSet *ds = dynamic_cast<svtkDataSet *>(it->GetCurrentDataObject());
       if(ds)
         {
           // create arrays filled with sender and receiver ranks
-          vtkDataArray *bo = vtkIntArray::New();
+          svtkDataArray *bo = svtkIntArray::New();
           bo->SetNumberOfTuples(num_elem_local);
           bo->SetName(array_name.c_str());
           bo->FillComponent(0, md->BlockOwner[j]);
 
-          vtkDataSetAttributes *dsa = association == vtkDataObject::POINT ?
-                                      dynamic_cast<vtkDataSetAttributes *>(ds->GetPointData()) :
-                                      dynamic_cast<vtkDataSetAttributes *>(ds->GetCellData());
+          svtkDataSetAttributes *dsa = association == svtkDataObject::POINT ?
+                                      dynamic_cast<svtkDataSetAttributes *>(ds->GetPointData()) :
+                                      dynamic_cast<svtkDataSetAttributes *>(ds->GetCellData());
 
           dsa->AddArray(bo);
           bo->Delete();
@@ -1001,7 +1001,7 @@ bool MeshFlow::ReadArray(ReadStream *reader,
   //unsigned int num_blocks = md->NumBlocks;
   unsigned int num_arrays = md->NumArrays;
 
-  if (array_name == TAG_VTK_GHOST) {
+  if (array_name == TAG_SVTK_GHOST) {
     ArrayFlow arrayFlow(m_MeshID, association, md);
     Load(&arrayFlow, md, reader);
     return true;
@@ -1025,7 +1025,7 @@ void MeshFlow::Load(ArrayFlow *arrayFlowPtr, const sensei::MeshMetadataPtr &md,
                     ReadStream *reader) {
   unsigned int num_blocks = md->NumBlocks;
 
-  vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+  svtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
   it->SetSkipEmptyNodes(0);
   it->InitTraversal();
 
@@ -1045,7 +1045,7 @@ bool MeshFlow::Initialize(const sensei::MeshMetadataPtr &md, ReadStream *input)
 {
   //
   m_VtkPtr = nullptr;
-  vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
+  svtkMultiBlockDataSet *mbds = svtkMultiBlockDataSet::New();
   int num_blocks = md->NumBlocks;
   mbds->SetNumberOfBlocks(num_blocks);
 
@@ -1057,7 +1057,7 @@ bool MeshFlow::Initialize(const sensei::MeshMetadataPtr &md, ReadStream *input)
     {
       if(rank == md->BlockOwner[i])
         {
-          vtkDataObject *ds = sensei::VTKUtils::NewDataObject(md->BlockType);
+          svtkDataObject *ds = sensei::SVTKUtils::NewDataObject(md->BlockType);
           mbds->SetBlock(md->BlockIds[i], ds);
           ds->Delete();
         }
@@ -1086,7 +1086,7 @@ bool MeshFlow::ReadFrom(ReadStream *input, bool structure_only)
     return true;
 
   {
-    vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+    svtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1111,7 +1111,7 @@ bool MeshFlow::WriteTo(WriteStream *output, const sensei::MeshMetadataPtr &md)
 {
   unsigned int num_blocks = md->NumBlocks;
   {
-    vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+    svtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1138,12 +1138,12 @@ bool MeshFlow::WriteTo(WriteStream *output, const sensei::MeshMetadataPtr &md)
 
   {
     if (md->NumGhostCells) {
-      ArrayFlow arrayFlow(m_MeshID, vtkDataObject::CELL, md);
+      ArrayFlow arrayFlow(m_MeshID, svtkDataObject::CELL, md);
       Unload(&arrayFlow, md, output);
     }
 
     if (md->NumGhostNodes) {
-      ArrayFlow arrayFlow(m_MeshID, vtkDataObject::POINT, md);
+      ArrayFlow arrayFlow(m_MeshID, svtkDataObject::POINT, md);
       Unload(&arrayFlow, md, output);
     }
   }
@@ -1157,7 +1157,7 @@ void MeshFlow::Unload(ArrayFlow *arrayFlowPtr,
 {
   unsigned int num_blocks = md->NumBlocks;
 
-  vtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
+  svtkCompositeDataIterator *it = m_VtkPtr->NewIterator();
   it->SetSkipEmptyNodes(0);
   it->InitTraversal();
 
@@ -1179,28 +1179,28 @@ void MeshFlow::Unload(ArrayFlow *arrayFlowPtr,
 WorkerCollection::WorkerCollection(const sensei::MeshMetadataPtr &md,
                                    unsigned int meshID)
 {
-  if(sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md) ||
-      sensei::VTKUtils::Polydata(md))
+  if(sensei::SVTKUtils::Unstructured(md) || sensei::SVTKUtils::Structured(md) ||
+      sensei::SVTKUtils::Polydata(md))
     {
       m_Workers.push_back(new PointFlow(md, meshID));
     }
-  if(sensei::VTKUtils::Unstructured(md))
+  if(sensei::SVTKUtils::Unstructured(md))
     {
       m_Workers.push_back(new UnstructuredCellFlow(md, meshID));
     }
-  if(sensei::VTKUtils::Polydata(md))
+  if(sensei::SVTKUtils::Polydata(md))
     {
       m_Workers.push_back(new PolydataCellFlow(md, meshID));
     }
-  if(sensei::VTKUtils::UniformCartesian(md))
+  if(sensei::SVTKUtils::UniformCartesian(md))
     {
       m_Workers.push_back(new UniformCartesianFlow(md, meshID));
     }
-  if(sensei::VTKUtils::StretchedCartesian(md))
+  if(sensei::SVTKUtils::StretchedCartesian(md))
     {
       m_Workers.push_back(new StretchedCartesianFlow(md, meshID));
     }
-  if(sensei::VTKUtils::LogicallyCartesian(md))
+  if(sensei::SVTKUtils::LogicallyCartesian(md))
     {
       m_Workers.push_back(new LogicallyCartesianFlow(md, meshID));
     }
@@ -1221,7 +1221,7 @@ WorkerCollection::~WorkerCollection()
 }
 
 bool WorkerCollection::load(unsigned int block_id,
-                            vtkCompositeDataIterator *it,
+                            svtkCompositeDataIterator *it,
                             ReadStream *reader)
 {
   for(size_t i = 0; i < m_Workers.size(); i++)
@@ -1234,7 +1234,7 @@ bool WorkerCollection::load(unsigned int block_id,
 }
 
 bool WorkerCollection::unload(unsigned int block_id,
-                              vtkCompositeDataIterator *it,
+                              svtkCompositeDataIterator *it,
                               WriteStream *writer)
 {
   for(size_t i = 0; i < m_Workers.size(); i++)
@@ -1260,7 +1260,7 @@ bool WorkerCollection::update(unsigned int block_id)
 ArrayFlow::ArrayFlow(const sensei::MeshMetadataPtr &md,
                      unsigned int meshID,
                      unsigned int arrayID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
   , m_BlockOffset(0)
   , m_ArrayID(arrayID)
 {
@@ -1282,15 +1282,15 @@ ArrayFlow::ArrayFlow(const sensei::MeshMetadataPtr &md,
 
 ArrayFlow::ArrayFlow(unsigned int meshID, int GhostCentering,
                      const sensei::MeshMetadataPtr &md)
-    : VTKObjectFlow(md, meshID), m_BlockOffset(0) {
+    : SVTKObjectFlow(md, meshID), m_BlockOffset(0) {
   m_ArrayCenter = GhostCentering;
   m_NumArrayComponent = 1; // md->ArrayComponents[arrayID];
 
   m_IsGhostArray = true;
 
-  if (GhostCentering == vtkDataObject::CELL)
+  if (GhostCentering == svtkDataObject::CELL)
     gGetNameStr(m_ArrayPath, m_MeshID, "ghostcell");
-  else if (GhostCentering == vtkDataObject::POINT)
+  else if (GhostCentering == svtkDataObject::POINT)
     gGetNameStr(m_ArrayPath, m_MeshID, "ghostpoint");
 
   m_ArrayVarID = -1;
@@ -1311,22 +1311,22 @@ ArrayFlow::~ArrayFlow()
 int ArrayFlow::GetArrayType() {
   if (!m_IsGhostArray)
     return m_Metadata->ArrayType[m_ArrayID];
-  return VTK_UNSIGNED_CHAR; // ghost data type
+  return SVTK_UNSIGNED_CHAR; // ghost data type
 }
 
 const std::string &ArrayFlow::GetArrayName() {
   if (!m_IsGhostArray)
     return m_Metadata->ArrayName[m_ArrayID];
-  return TAG_VTK_GHOST;
+  return TAG_SVTK_GHOST;
 }
 
 
 bool ArrayFlow::load(unsigned int block_id,
-                     vtkCompositeDataIterator *it,
+                     svtkCompositeDataIterator *it,
                      ReadStream *reader)
 {
   unsigned long long num_elem_local =
-    m_NumArrayComponent * (m_ArrayCenter == vtkDataObject::POINT
+    m_NumArrayComponent * (m_ArrayCenter == svtkDataObject::POINT
                            ? m_Metadata->BlockNumPoints[block_id]
                            : m_Metadata->BlockNumCells[block_id]);
 
@@ -1334,7 +1334,7 @@ bool ArrayFlow::load(unsigned int block_id,
   uint64_t count = num_elem_local;
   ;
 
-  vtkDataArray *array = vtkDataArray::CreateDataArray(GetArrayType());
+  svtkDataArray *array = svtkDataArray::CreateDataArray(GetArrayType());
   array->SetNumberOfComponents(m_NumArrayComponent);
   array->SetName(GetArrayName().c_str());
   array->SetNumberOfTuples(num_elem_local);
@@ -1342,8 +1342,8 @@ bool ArrayFlow::load(unsigned int block_id,
   if(!reader->ReadVar1D(m_ArrayPath, start, count, array->GetVoidPointer(0)))
     return false;
 
-  // pass to vtk
-  vtkDataSet *ds = dynamic_cast<vtkDataSet *>(it->GetCurrentDataObject());
+  // pass to svtk
+  svtkDataSet *ds = dynamic_cast<svtkDataSet *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id << " rank"
@@ -1351,10 +1351,10 @@ bool ArrayFlow::load(unsigned int block_id,
       return false;
     }
 
-  vtkDataSetAttributes *dsa =
-    (m_ArrayCenter == vtkDataObject::POINT)
-    ? dynamic_cast<vtkDataSetAttributes *>(ds->GetPointData())
-    : dynamic_cast<vtkDataSetAttributes *>(ds->GetCellData());
+  svtkDataSetAttributes *dsa =
+    (m_ArrayCenter == svtkDataObject::POINT)
+    ? dynamic_cast<svtkDataSetAttributes *>(ds->GetPointData())
+    : dynamic_cast<svtkDataSetAttributes *>(ds->GetCellData());
 
   dsa->AddArray(array);
   array->Delete();
@@ -1363,27 +1363,27 @@ bool ArrayFlow::load(unsigned int block_id,
 }
 
 bool ArrayFlow::unload(unsigned int block_id,
-                       vtkCompositeDataIterator *it,
+                       svtkCompositeDataIterator *it,
                        WriteStream *output)
 {
-  vtkDataSet *ds = dynamic_cast<vtkDataSet *>(it->GetCurrentDataObject());
+  svtkDataSet *ds = dynamic_cast<svtkDataSet *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id);
       // dob->Print(std::cerr);
       m_Metadata->ToStream(std::cerr);
       it->Print(std::cerr);
-      vtkDataObject *d = it->GetCurrentDataObject();
+      svtkDataObject *d = it->GetCurrentDataObject();
       d->Print(std::cerr);
       return false;
     }
 
-  vtkDataSetAttributes *dsa =
-    m_ArrayCenter == vtkDataObject::POINT
-    ? dynamic_cast<vtkDataSetAttributes *>(ds->GetPointData())
-    : dynamic_cast<vtkDataSetAttributes *>(ds->GetCellData());
+  svtkDataSetAttributes *dsa =
+    m_ArrayCenter == svtkDataObject::POINT
+    ? dynamic_cast<svtkDataSetAttributes *>(ds->GetPointData())
+    : dynamic_cast<svtkDataSetAttributes *>(ds->GetCellData());
 
-  vtkDataArray *da = dsa->GetArray(GetArrayName().c_str()); 
+  svtkDataArray *da = dsa->GetArray(GetArrayName().c_str()); 
   if(!da)
     {
       SENSEI_ERROR("Failed to get array \"" << GetArrayName()
@@ -1411,7 +1411,7 @@ bool ArrayFlow::unload(unsigned int block_id,
 
 unsigned long long ArrayFlow::getLocalElement(unsigned int block_id)
 {
-  return (m_ArrayCenter == vtkDataObject::POINT
+  return (m_ArrayCenter == svtkDataObject::POINT
           ? m_Metadata->BlockNumPoints[block_id]
           : m_Metadata->BlockNumCells[block_id]);
 }
@@ -1431,7 +1431,7 @@ bool ArrayFlow::update(unsigned int block_id)
 //
 PolydataCellFlow::PolydataCellFlow(const sensei::MeshMetadataPtr &md,
                                    unsigned int meshID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
 {
   m_CellTypesBlockOffset = 0;
   m_CellArrayBlockOffset = 0;
@@ -1440,7 +1440,7 @@ PolydataCellFlow::PolydataCellFlow(const sensei::MeshMetadataPtr &md,
 PolydataCellFlow::~PolydataCellFlow() {}
 
 bool PolydataCellFlow::load(unsigned int block_id,
-                            vtkCompositeDataIterator *it,
+                            svtkCompositeDataIterator *it,
                             ReadStream *reader)
 {
   // /data_object_<id>/cell_types
@@ -1448,7 +1448,7 @@ bool PolydataCellFlow::load(unsigned int block_id,
     m_Metadata->BlockCellArraySize[block_id];
   unsigned long long num_cells_local = m_Metadata->BlockNumCells[block_id];
 
-  std::vector<vtkIdType> cell_array(cell_array_size_local);
+  std::vector<svtkIdType> cell_array(cell_array_size_local);
   std::vector<unsigned char> cell_types(num_cells_local);
 
   uint64_t ct_start = m_CellTypesBlockOffset;
@@ -1465,55 +1465,55 @@ bool PolydataCellFlow::load(unsigned int block_id,
     return false;
 
   unsigned char *p_types = cell_types.data();
-  vtkIdType *p_cells = cell_array.data();
+  svtkIdType *p_cells = cell_array.data();
 
   // find first and last vert and number of verts
   unsigned long i = 0;
   unsigned long n_verts = 0;
-  vtkIdType *vert_begin = p_cells;
-  while((i < num_cells_local) && (p_types[i] == VTK_VERTEX))
+  svtkIdType *vert_begin = p_cells;
+  while((i < num_cells_local) && (p_types[i] == SVTK_VERTEX))
     {
       p_cells += p_cells[0] + 1;
       ++n_verts;
       ++i;
     }
-  vtkIdType *vert_end = p_cells;
+  svtkIdType *vert_end = p_cells;
 
   // find first and last line and number of lines
   unsigned long n_lines = 0;
-  vtkIdType *line_begin = p_cells;
-  while((i < num_cells_local) && (p_types[i] == VTK_LINE))
+  svtkIdType *line_begin = p_cells;
+  while((i < num_cells_local) && (p_types[i] == SVTK_LINE))
     {
       p_cells += p_cells[0] + 1;
       ++n_lines;
       ++i;
     }
-  vtkIdType *line_end = p_cells;
+  svtkIdType *line_end = p_cells;
 
   // find first and last poly and number of polys
   unsigned long n_polys = 0;
-  vtkIdType *poly_begin = p_cells;
-  while((i < num_cells_local) && (p_types[i] == VTK_VERTEX))
+  svtkIdType *poly_begin = p_cells;
+  while((i < num_cells_local) && (p_types[i] == SVTK_VERTEX))
     {
       p_cells += p_cells[0] + 1;
       ++n_polys;
       ++i;
     }
-  vtkIdType *poly_end = p_cells;
+  svtkIdType *poly_end = p_cells;
 
   // find first and last strip and number of strips
   unsigned long n_strips = 0;
-  vtkIdType *strip_begin = p_cells;
-  while((i < num_cells_local) && (p_types[i] == VTK_VERTEX))
+  svtkIdType *strip_begin = p_cells;
+  while((i < num_cells_local) && (p_types[i] == SVTK_VERTEX))
     {
       p_cells += p_cells[0] + 1;
       ++n_strips;
       ++i;
     }
-  vtkIdType *strip_end = p_cells;
+  svtkIdType *strip_end = p_cells;
 
-  // pass into vtk
-  vtkPolyData *pd = dynamic_cast<vtkPolyData *>(it->GetCurrentDataObject());
+  // pass into svtk
+  svtkPolyData *pd = dynamic_cast<svtkPolyData *>(it->GetCurrentDataObject());
   if(!pd)
     {
       SENSEI_ERROR("Failed to get block " << block_id);
@@ -1522,14 +1522,14 @@ bool PolydataCellFlow::load(unsigned int block_id,
 
   // pass verts
   unsigned long n_tups = vert_end - vert_begin;
-  vtkIdTypeArray *verts = vtkIdTypeArray::New();
+  svtkIdTypeArray *verts = svtkIdTypeArray::New();
   verts->SetNumberOfTuples(n_tups);
-  vtkIdType *p_verts = verts->GetPointer(0);
+  svtkIdType *p_verts = verts->GetPointer(0);
 
   for(unsigned long j = 0; j < n_tups; ++j)
     p_verts[j] = vert_begin[j];
 
-  vtkCellArray *ca = vtkCellArray::New();
+  svtkCellArray *ca = svtkCellArray::New();
   ca->SetCells(n_verts, verts);
   verts->Delete();
 
@@ -1538,14 +1538,14 @@ bool PolydataCellFlow::load(unsigned int block_id,
 
   // pass lines
   n_tups = line_end - line_begin;
-  vtkIdTypeArray *lines = vtkIdTypeArray::New();
+  svtkIdTypeArray *lines = svtkIdTypeArray::New();
   lines->SetNumberOfTuples(n_tups);
-  vtkIdType *p_lines = lines->GetPointer(0);
+  svtkIdType *p_lines = lines->GetPointer(0);
 
   for(unsigned long j = 0; j < n_tups; ++j)
     p_lines[j] = line_begin[j];
 
-  ca = vtkCellArray::New();
+  ca = svtkCellArray::New();
   ca->SetCells(n_lines, lines);
   lines->Delete();
 
@@ -1554,14 +1554,14 @@ bool PolydataCellFlow::load(unsigned int block_id,
 
   // pass polys
   n_tups = poly_end - poly_begin;
-  vtkIdTypeArray *polys = vtkIdTypeArray::New();
+  svtkIdTypeArray *polys = svtkIdTypeArray::New();
   polys->SetNumberOfTuples(n_tups);
-  vtkIdType *p_polys = polys->GetPointer(0);
+  svtkIdType *p_polys = polys->GetPointer(0);
 
   for(unsigned long j = 0; j < n_tups; ++j)
     p_polys[j] = poly_begin[j];
 
-  ca = vtkCellArray::New();
+  ca = svtkCellArray::New();
   ca->SetCells(n_polys, polys);
   polys->Delete();
 
@@ -1570,14 +1570,14 @@ bool PolydataCellFlow::load(unsigned int block_id,
 
   // pass strips
   n_tups = strip_end - strip_begin;
-  vtkIdTypeArray *strips = vtkIdTypeArray::New();
+  svtkIdTypeArray *strips = svtkIdTypeArray::New();
   strips->SetNumberOfTuples(n_tups);
-  vtkIdType *p_strips = strips->GetPointer(0);
+  svtkIdType *p_strips = strips->GetPointer(0);
 
   for(unsigned long j = 0; j < n_tups; ++j)
     p_strips[j] = strip_begin[j];
 
-  ca = vtkCellArray::New();
+  ca = svtkCellArray::New();
   ca->SetCells(n_strips, strips);
   strips->Delete();
 
@@ -1590,7 +1590,7 @@ bool PolydataCellFlow::load(unsigned int block_id,
 }
 
 bool PolydataCellFlow::unload(unsigned int block_id,
-                              vtkCompositeDataIterator *it,
+                              svtkCompositeDataIterator *it,
                               WriteStream *output)
 {
   hid_t h5TypeCellArray = senseiHDF5::gHDF5_IDType();
@@ -1600,7 +1600,7 @@ bool PolydataCellFlow::unload(unsigned int block_id,
   unsigned long long cell_array_size_local =
     m_Metadata->BlockCellArraySize[block_id];
 
-  vtkPolyData *pd = dynamic_cast<vtkPolyData *>(it->GetCurrentDataObject());
+  svtkPolyData *pd = dynamic_cast<svtkPolyData *>(it->GetCurrentDataObject());
 
   if(!pd)
     {
@@ -1609,40 +1609,40 @@ bool PolydataCellFlow::unload(unsigned int block_id,
     }
 
   std::vector<char> types;
-  std::vector<vtkIdType> cells;
+  std::vector<svtkIdType> cells;
 
-  vtkIdType nv = pd->GetNumberOfVerts();
+  svtkIdType nv = pd->GetNumberOfVerts();
   if(nv)
     {
-      types.insert(types.end(), nv, VTK_VERTEX);
-      vtkIdType *pv = pd->GetVerts()->GetData()->GetPointer(0);
+      types.insert(types.end(), nv, SVTK_VERTEX);
+      svtkIdType *pv = pd->GetVerts()->GetData()->GetPointer(0);
       cells.insert(
         cells.end(), pv, pv + pd->GetVerts()->GetData()->GetNumberOfTuples());
     }
 
-  vtkIdType nl = pd->GetNumberOfLines();
+  svtkIdType nl = pd->GetNumberOfLines();
   if(nl)
     {
-      types.insert(types.end(), nl, VTK_LINE);
-      vtkIdType *pl = pd->GetLines()->GetData()->GetPointer(0);
+      types.insert(types.end(), nl, SVTK_LINE);
+      svtkIdType *pl = pd->GetLines()->GetData()->GetPointer(0);
       cells.insert(
         cells.end(), pl, pl + pd->GetLines()->GetData()->GetNumberOfTuples());
     }
 
-  vtkIdType np = pd->GetNumberOfPolys();
+  svtkIdType np = pd->GetNumberOfPolys();
   if(np)
     {
-      types.insert(types.end(), np, VTK_POLYGON);
-      vtkIdType *pp = pd->GetPolys()->GetData()->GetPointer(0);
+      types.insert(types.end(), np, SVTK_POLYGON);
+      svtkIdType *pp = pd->GetPolys()->GetData()->GetPointer(0);
       cells.insert(
         cells.end(), pp, pp + pd->GetPolys()->GetData()->GetNumberOfTuples());
     }
 
-  vtkIdType ns = pd->GetNumberOfStrips();
+  svtkIdType ns = pd->GetNumberOfStrips();
   if(ns)
     {
-      types.insert(types.end(), ns, VTK_TRIANGLE_STRIP);
-      vtkIdType *ps = pd->GetStrips()->GetData()->GetPointer(0);
+      types.insert(types.end(), ns, SVTK_TRIANGLE_STRIP);
+      svtkIdType *ps = pd->GetStrips()->GetData()->GetPointer(0);
       cells.insert(
         cells.end(), ps, ps + pd->GetStrips()->GetData()->GetNumberOfTuples());
     }
@@ -1688,14 +1688,14 @@ bool PolydataCellFlow::update(unsigned int block_id)
 //
 UnstructuredCellFlow::UnstructuredCellFlow(const sensei::MeshMetadataPtr &md,
     unsigned int meshID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
 {
   m_CellTypesBlockOffset = 0;
   m_CellArrayBlockOffset = 0;
 }
 
 bool UnstructuredCellFlow::load(unsigned int block_id,
-                                vtkCompositeDataIterator *it,
+                                svtkCompositeDataIterator *it,
                                 ReadStream *reader)
 {
   // /data_object_<id>/cell_types
@@ -1705,7 +1705,7 @@ bool UnstructuredCellFlow::load(unsigned int block_id,
   uint64_t ct_start = m_CellTypesBlockOffset;
   uint64_t ct_count = num_cells_local;
 
-  vtkUnsignedCharArray *cell_types = vtkUnsignedCharArray::New();
+  svtkUnsignedCharArray *cell_types = svtkUnsignedCharArray::New();
   cell_types->SetNumberOfComponents(1);
   cell_types->SetNumberOfTuples(ct_count);
   cell_types->SetName("cell_types");
@@ -1719,7 +1719,7 @@ bool UnstructuredCellFlow::load(unsigned int block_id,
   uint64_t ca_count = cell_array_size_local;
   ;
 
-  vtkIdTypeArray *cell_array = vtkIdTypeArray::New();
+  svtkIdTypeArray *cell_array = svtkIdTypeArray::New();
   cell_array->SetNumberOfComponents(1);
   cell_array->SetNumberOfTuples(cell_array_size_local);
   cell_array->SetName("cell_array");
@@ -1728,8 +1728,8 @@ bool UnstructuredCellFlow::load(unsigned int block_id,
         m_CellArrayVarName, ca_start, ca_count, cell_array->GetVoidPointer(0)))
     return false;
 
-  vtkUnstructuredGrid *ds =
-    dynamic_cast<vtkUnstructuredGrid *>(it->GetCurrentDataObject());
+  svtkUnstructuredGrid *ds =
+    dynamic_cast<svtkUnstructuredGrid *>(it->GetCurrentDataObject());
 
   if(!ds)
     {
@@ -1737,16 +1737,16 @@ bool UnstructuredCellFlow::load(unsigned int block_id,
       return -1;
     }
   // build locations
-  vtkIdTypeArray *cell_locs = vtkIdTypeArray::New();
+  svtkIdTypeArray *cell_locs = svtkIdTypeArray::New();
   cell_locs->SetNumberOfTuples(m_Metadata->BlockNumCells[block_id]);
-  vtkIdType *p_locs = cell_locs->GetPointer(0);
-  vtkIdType *p_cells = cell_array->GetPointer(0);
+  svtkIdType *p_locs = cell_locs->GetPointer(0);
+  svtkIdType *p_cells = cell_array->GetPointer(0);
   p_locs[0] = 0;
   for(unsigned long i = 1; i < num_cells_local; ++i)
     p_locs[i] = p_locs[i - 1] + p_cells[p_locs[i - 1]] + 1;
 
   // pass types, cell_locs, and cells
-  vtkCellArray *ca = vtkCellArray::New();
+  svtkCellArray *ca = svtkCellArray::New();
   ca->SetCells(num_cells_local, cell_array);
   cell_array->Delete();
 
@@ -1769,7 +1769,7 @@ bool UnstructuredCellFlow::update(unsigned int block_id)
 }
 
 bool UnstructuredCellFlow::unload(unsigned int block_id,
-                                  vtkCompositeDataIterator *it,
+                                  svtkCompositeDataIterator *it,
                                   WriteStream *output)
 {
   hid_t h5TypeCellArray = senseiHDF5::gHDF5_IDType();
@@ -1779,8 +1779,8 @@ bool UnstructuredCellFlow::unload(unsigned int block_id,
   unsigned long long cell_array_size_local =
     m_Metadata->BlockCellArraySize[block_id];
 
-  vtkUnstructuredGrid *ds =
-    dynamic_cast<vtkUnstructuredGrid *>(it->GetCurrentDataObject());
+  svtkUnstructuredGrid *ds =
+    dynamic_cast<svtkUnstructuredGrid *>(it->GetCurrentDataObject());
 
   if(!ds)
     {
@@ -1810,7 +1810,7 @@ bool UnstructuredCellFlow::unload(unsigned int block_id,
 //
 //
 //
-VTKObjectFlow::VTKObjectFlow(const sensei::MeshMetadataPtr &md,
+SVTKObjectFlow::SVTKObjectFlow(const sensei::MeshMetadataPtr &md,
                              unsigned int meshID)
   : m_Metadata(md)
   , m_MeshID(meshID)
@@ -1834,10 +1834,10 @@ VTKObjectFlow::VTKObjectFlow(const sensei::MeshMetadataPtr &md,
     m_TotalArraySize += md->BlockCellArraySize[j];
     }
 
-  m_PointType = senseiHDF5::gVTKToH5Type(m_Metadata->CoordinateType);
+  m_PointType = senseiHDF5::gSVTKToH5Type(m_Metadata->CoordinateType);
 }
 
-VTKObjectFlow::~VTKObjectFlow()
+SVTKObjectFlow::~SVTKObjectFlow()
 {
   if(-1 != m_CellTypeVarID)
     H5Dclose(m_CellTypeVarID);
@@ -1853,7 +1853,7 @@ VTKObjectFlow::~VTKObjectFlow()
 //
 //
 PointFlow::PointFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
   , m_BlockOffset(0)
   , m_GlobalTotal(0)
 {
@@ -1867,14 +1867,14 @@ PointFlow::PointFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID)
 }
 
 bool PointFlow::load(unsigned int block_id,
-                     vtkCompositeDataIterator *it,
+                     svtkCompositeDataIterator *it,
                      ReadStream *reader)
 {
   uint64_t start = 3 * m_BlockOffset;
   uint64_t count = 3 * m_Metadata->BlockNumPoints[block_id];
 
-  vtkDataArray *points =
-    vtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
+  svtkDataArray *points =
+    svtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
   points->SetNumberOfComponents(3);
   points->SetNumberOfTuples(m_Metadata->BlockNumPoints[block_id]);
   points->SetName("points");
@@ -1886,12 +1886,12 @@ bool PointFlow::load(unsigned int block_id,
         m_PointVarName, start, count, points->GetVoidPointer(0)))
     return false;
 
-  // pass into vtk
-  vtkPoints *pts = vtkPoints::New();
+  // pass into svtk
+  svtkPoints *pts = svtkPoints::New();
   pts->SetData(points);
   points->Delete();
 
-  vtkPointSet *ds = dynamic_cast<vtkPointSet *>(it->GetCurrentDataObject());
+  svtkPointSet *ds = dynamic_cast<svtkPointSet *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id);
@@ -1905,13 +1905,13 @@ bool PointFlow::load(unsigned int block_id,
 }
 
 bool PointFlow::unload(unsigned int block_id,
-                       vtkCompositeDataIterator *it,
+                       svtkCompositeDataIterator *it,
                        WriteStream *output)
 {
   uint64_t start = 3 * m_BlockOffset;
   uint64_t count = 3 * m_Metadata->BlockNumPoints[block_id];
 
-  vtkPointSet *ds = dynamic_cast<vtkPointSet *>(it->GetCurrentDataObject());
+  svtkPointSet *ds = dynamic_cast<svtkPointSet *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id);
@@ -1944,7 +1944,7 @@ bool PointFlow::update(unsigned int j)
 
 UniformCartesianFlow::UniformCartesianFlow(const sensei::MeshMetadataPtr &md,
     unsigned int meshID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
 {
   gGetNameStr(m_OriginPath, m_MeshID, "origin");
   gGetNameStr(m_SpacingPath, m_MeshID, "spacing");
@@ -1963,7 +1963,7 @@ UniformCartesianFlow::~UniformCartesianFlow()
 }
 
 bool UniformCartesianFlow::load(unsigned int block_id,
-                                vtkCompositeDataIterator *it,
+                                svtkCompositeDataIterator *it,
                                 ReadStream *reader)
 {
   uint64_t triplet_start = 3 * block_id;
@@ -1977,8 +1977,8 @@ bool UniformCartesianFlow::load(unsigned int block_id,
   if(!reader->ReadVar1D(m_SpacingPath, triplet_start, triplet_count, dx))
     return false;
 
-  // update the vtk object
-  vtkImageData *ds = dynamic_cast<vtkImageData *>(it->GetCurrentDataObject());
+  // update the svtk object
+  svtkImageData *ds = dynamic_cast<svtkImageData *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id << " not image data");
@@ -1992,14 +1992,14 @@ bool UniformCartesianFlow::load(unsigned int block_id,
 }
 
 bool UniformCartesianFlow::unload(unsigned int block_id,
-                                  vtkCompositeDataIterator *it,
+                                  svtkCompositeDataIterator *it,
                                   WriteStream *output)
 {
   unsigned int num_blocks = m_Metadata->NumBlocks;
 
   HDF5SpaceGuard space(3 * num_blocks, 3 * block_id, 3);
 
-  vtkImageData *ds = dynamic_cast<vtkImageData *>(it->GetCurrentDataObject());
+  svtkImageData *ds = dynamic_cast<svtkImageData *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id << " not image data");
@@ -2026,7 +2026,7 @@ bool UniformCartesianFlow::unload(unsigned int block_id,
 LogicallyCartesianFlow::LogicallyCartesianFlow(
   const sensei::MeshMetadataPtr &md,
   unsigned int meshID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
 {
   gGetNameStr(m_ExtentPath, m_MeshID, "extent");
   m_ExtentID = -1;
@@ -2039,10 +2039,10 @@ LogicallyCartesianFlow::~LogicallyCartesianFlow()
 }
 
 bool LogicallyCartesianFlow::unload(unsigned int block_id,
-                                    vtkCompositeDataIterator *it,
+                                    svtkCompositeDataIterator *it,
                                     WriteStream *output)
 {
-  vtkDataObject *dobj = it->GetCurrentDataObject();
+  svtkDataObject *dobj = it->GetCurrentDataObject();
   if(!dobj)
     {
       SENSEI_ERROR("Failed to get logically cartesian data from block"
@@ -2058,26 +2058,26 @@ bool LogicallyCartesianFlow::unload(unsigned int block_id,
 
   switch(m_Metadata->BlockType)
     {
-    case VTK_RECTILINEAR_GRID:
+    case SVTK_RECTILINEAR_GRID:
       output->WriteVar(m_ExtentID,
                        m_ExtentPath,
                        space,
                        H5T_NATIVE_INT,
-                       dynamic_cast<vtkRectilinearGrid *>(dobj)->GetExtent());
+                       dynamic_cast<svtkRectilinearGrid *>(dobj)->GetExtent());
       break;
-    case VTK_IMAGE_DATA:
+    case SVTK_IMAGE_DATA:
       output->WriteVar(m_ExtentID,
                        m_ExtentPath,
                        space,
                        H5T_NATIVE_INT,
-                       dynamic_cast<vtkImageData *>(dobj)->GetExtent());
+                       dynamic_cast<svtkImageData *>(dobj)->GetExtent());
       break;
-    case VTK_STRUCTURED_GRID:
+    case SVTK_STRUCTURED_GRID:
       output->WriteVar(m_ExtentID,
                        m_ExtentPath,
                        space,
                        H5T_NATIVE_INT,
-                       dynamic_cast<vtkStructuredGrid *>(dobj)->GetExtent());
+                       dynamic_cast<svtkStructuredGrid *>(dobj)->GetExtent());
       break;
     }
 
@@ -2085,7 +2085,7 @@ bool LogicallyCartesianFlow::unload(unsigned int block_id,
 }
 
 bool LogicallyCartesianFlow::load(unsigned int block_id,
-                                  vtkCompositeDataIterator *it,
+                                  svtkCompositeDataIterator *it,
                                   ReadStream *reader)
 {
   uint64_t hexlet_start = 6 * block_id;
@@ -2095,7 +2095,7 @@ bool LogicallyCartesianFlow::load(unsigned int block_id,
   if(!reader->ReadVar1D(m_ExtentPath, hexlet_start, hexlet_count, ext))
     return false;
 
-  vtkDataObject *dobj = it->GetCurrentDataObject();
+  svtkDataObject *dobj = it->GetCurrentDataObject();
   if(!dobj)
     {
       SENSEI_ERROR("Failed to get block " << block_id);
@@ -2103,14 +2103,14 @@ bool LogicallyCartesianFlow::load(unsigned int block_id,
     }
   switch(m_Metadata->BlockType)
     {
-    case VTK_RECTILINEAR_GRID:
-      dynamic_cast<vtkRectilinearGrid *>(dobj)->SetExtent(ext);
+    case SVTK_RECTILINEAR_GRID:
+      dynamic_cast<svtkRectilinearGrid *>(dobj)->SetExtent(ext);
       break;
-    case VTK_IMAGE_DATA:
-      dynamic_cast<vtkImageData *>(dobj)->SetExtent(ext);
+    case SVTK_IMAGE_DATA:
+      dynamic_cast<svtkImageData *>(dobj)->SetExtent(ext);
       break;
-    case VTK_STRUCTURED_GRID:
-      dynamic_cast<vtkStructuredGrid *>(dobj)->SetExtent(ext);
+    case SVTK_STRUCTURED_GRID:
+      dynamic_cast<svtkStructuredGrid *>(dobj)->SetExtent(ext);
       break;
     }
 
@@ -2123,7 +2123,7 @@ bool LogicallyCartesianFlow::load(unsigned int block_id,
 StretchedCartesianFlow::StretchedCartesianFlow(
   const sensei::MeshMetadataPtr &md,
   unsigned int meshID)
-  : VTKObjectFlow(md, meshID)
+  : SVTKObjectFlow(md, meshID)
 {
   gGetNameStr(m_XPath, m_MeshID, "x_coords");
   gGetNameStr(m_YPath, m_MeshID, "y_coords");
@@ -2158,34 +2158,34 @@ void StretchedCartesianFlow::GetLocal(int block_id,
 }
 
 bool StretchedCartesianFlow::load(unsigned int block_id,
-                                  vtkCompositeDataIterator *it,
+                                  svtkCompositeDataIterator *it,
                                   ReadStream *reader)
 {
   unsigned long long local[3];
   GetLocal(block_id, local);
 
-  vtkRectilinearGrid *ds =
-    dynamic_cast<vtkRectilinearGrid *>(it->GetCurrentDataObject());
+  svtkRectilinearGrid *ds =
+    dynamic_cast<svtkRectilinearGrid *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get rectilinear data fromblock " << block_id);
       return false;
     }
 
-  vtkDataArray *x_coords =
-    vtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
+  svtkDataArray *x_coords =
+    svtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
   x_coords->SetNumberOfComponents(1);
   x_coords->SetNumberOfTuples(local[0]);
   x_coords->SetName("x_coords");
 
-  vtkDataArray *y_coords =
-    vtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
+  svtkDataArray *y_coords =
+    svtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
   y_coords->SetNumberOfComponents(1);
   y_coords->SetNumberOfTuples(local[1]);
   y_coords->SetName("y_coords");
 
-  vtkDataArray *z_coords =
-    vtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
+  svtkDataArray *z_coords =
+    svtkDataArray::CreateDataArray(m_Metadata->CoordinateType);
   z_coords->SetNumberOfComponents(1);
   z_coords->SetNumberOfTuples(local[2]);
   z_coords->SetName("z_coords");
@@ -2212,14 +2212,14 @@ bool StretchedCartesianFlow::load(unsigned int block_id,
 }
 
 bool StretchedCartesianFlow::unload(unsigned int block_id,
-                                    vtkCompositeDataIterator *it,
+                                    svtkCompositeDataIterator *it,
                                     WriteStream *output)
 {
   unsigned long long local[3];
   GetLocal(block_id, local);
 
-  vtkRectilinearGrid *ds =
-    dynamic_cast<vtkRectilinearGrid *>(it->GetCurrentDataObject());
+  svtkRectilinearGrid *ds =
+    dynamic_cast<svtkRectilinearGrid *>(it->GetCurrentDataObject());
   if(!ds)
     {
       SENSEI_ERROR("Failed to get block " << block_id << " not unstructured");
@@ -2447,7 +2447,7 @@ bool WriteStream::WriteBinary(const std::string &name,
 }
 
 bool WriteStream::WriteMesh(sensei::MeshMetadataPtr &md,
-                            vtkCompositeDataSet *vtkPtr)
+                            svtkCompositeDataSet *svtkPtr)
 {
   std::string meshName;
   gGetNameStr(meshName, m_MeshCounter, "");
@@ -2465,7 +2465,7 @@ bool WriteStream::WriteMesh(sensei::MeshMetadataPtr &md,
 
   WriteMetadata(md);
 
-  MeshFlow m(vtkPtr, m_MeshCounter);
+  MeshFlow m(svtkPtr, m_MeshCounter);
   m.WriteTo(this, md);
 
   m_MeshCounter++;

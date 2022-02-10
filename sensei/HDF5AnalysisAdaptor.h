@@ -12,8 +12,8 @@
 
 #include "HDF5Schema.h"
 
-class vtkDataObject;
-class vtkCompositeDataSet;
+class svtkDataObject;
+class svtkCompositeDataSet;
 
 namespace sensei {
 
@@ -26,8 +26,7 @@ public:
   senseiTypeMacro(HDF5AnalysisAdaptor, AnalysisAdaptor);
 
   /// prints the current object state.
-  void PrintSelf(ostream &os, vtkIndent indent) override;
-
+  void PrintSelf(ostream &os, svtkIndent indent) override;
 
   /// @name Run time configuration
   /// @{
@@ -76,7 +75,7 @@ protected:
   /*
   bool WriteTimestep(unsigned long timeStep, double time,
                      const std::vector<MeshMetadataPtr> &metadata,
-                     const std::vector<vtkCompositeDataSet*> &dobjects);
+                     const std::vector<svtkCompositeDataSet*> &dobjects);
   */
   unsigned int MaxBufferSize;
   sensei::DataRequirements Requirements;

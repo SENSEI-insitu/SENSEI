@@ -1,8 +1,8 @@
-#ifndef HDF5_VTK_h
-#define HDF5_VTK_h
+#ifndef HDF5_SVTK_h
+#define HDF5_SVTK_h
 
-class vtkDataSet;
-class vtkDataObject;
+class svtkDataSet;
+class svtkDataObject;
 typedef struct _ADIOS_FILE ADIOS_FILE;
 
 #include "MeshMetadata.h"
@@ -14,8 +14,8 @@ typedef struct _ADIOS_FILE ADIOS_FILE;
 #include <set>
 #include <string>
 #include <vector>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataObject.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataObject.h>
 
 namespace senseiHDF5
 {
@@ -215,7 +215,7 @@ public:
   bool AdvanceTimeStep(unsigned long &time_step, double &time);
 
   void Close() {}
-  bool WriteMesh(sensei::MeshMetadataPtr &md, vtkCompositeDataSet *vtkPtr);
+  bool WriteMesh(sensei::MeshMetadataPtr &md, svtkCompositeDataSet *svtkPtr);
 
   bool WriteBinary(const std::string &name, sensei::BinaryStream &str);
   bool WriteMetadata(sensei::MeshMetadataPtr &md);
@@ -259,12 +259,12 @@ public:
   bool ReadSenderMeshMetaData(unsigned int i, sensei::MeshMetadataPtr &ptr);
   bool ReadReceiverMeshMetaData(unsigned int i, sensei::MeshMetadataPtr &ptr);
 
-  bool ReadMesh(std::string name, vtkDataObject *&dobj, bool structure_only);
+  bool ReadMesh(std::string name, svtkDataObject *&dobj, bool structure_only);
 
   bool ReadInArray(const std::string &meshName,
                    int association,
                    const std::string &array_name,
-                   vtkDataObject *dobj);
+                   svtkDataObject *dobj);
 
   bool ReadNativeAttr(const std::string &name,
                       void *val,
@@ -280,12 +280,12 @@ private:
 class ArrayFlow;
 
 //
-// a MESH is a vtkCompositeDataset
+// a MESH is a svtkCompositeDataset
 //
 class MeshFlow
 {
 public:
-  MeshFlow(vtkCompositeDataSet *, unsigned int meshID);
+  MeshFlow(svtkCompositeDataSet *, unsigned int meshID);
   ~MeshFlow();
 
   bool ReadBlockOwnerArray(ReadStream *input,
@@ -300,7 +300,7 @@ public:
 
   bool WriteTo(WriteStream *StreamPtr, const sensei::MeshMetadataPtr &md);
 
-  vtkCompositeDataSet *m_VtkPtr;
+  svtkCompositeDataSet *m_VtkPtr;
 
 private:
   bool ValidateMetaData(const sensei::MeshMetadataPtr &md);
@@ -316,17 +316,17 @@ private:
   unsigned int m_MeshID;
 };
 
-class VTKObjectFlow
+class SVTKObjectFlow
 {
 public:
-  VTKObjectFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID);
-  virtual ~VTKObjectFlow();
+  SVTKObjectFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID);
+  virtual ~SVTKObjectFlow();
   virtual bool load(unsigned int block_id,
-                    vtkCompositeDataIterator *it,
+                    svtkCompositeDataIterator *it,
                     ReadStream *input) = 0;
   virtual bool update(unsigned int block_id) = 0;
   virtual bool unload(unsigned int block_id,
-                      vtkCompositeDataIterator *it,
+                      svtkCompositeDataIterator *it,
                       WriteStream *output) = 0;
 
 protected:
@@ -354,18 +354,18 @@ public:
   ~WorkerCollection();
 
   bool load(unsigned int block_id,
-            vtkCompositeDataIterator *it,
+            svtkCompositeDataIterator *it,
             ReadStream *input);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *input);
   bool update(unsigned int block_id);
 
 protected:
-  std::vector<VTKObjectFlow *> m_Workers;
+  std::vector<SVTKObjectFlow *> m_Workers;
 };
 
-class ArrayFlow : public VTKObjectFlow {
+class ArrayFlow : public SVTKObjectFlow {
 public:
   // regular array init
   ArrayFlow(const sensei::MeshMetadataPtr &md, 
@@ -378,10 +378,10 @@ public:
   ~ArrayFlow();
 
   bool load(unsigned int block_id, 
-	    vtkCompositeDataIterator *it, 
+	    svtkCompositeDataIterator *it, 
 	    ReadStream *);
   bool unload(unsigned int block_id, 
-	      vtkCompositeDataIterator *it,
+	      svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int block_id);
 
@@ -405,14 +405,14 @@ private:
 };
 
 
-class PointFlow : public VTKObjectFlow
+class PointFlow : public SVTKObjectFlow
 {
 public:
   PointFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID);
   ~PointFlow() {}
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
+  bool load(unsigned int block_id, svtkCompositeDataIterator *it, ReadStream *);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int block_id);
 
@@ -421,15 +421,15 @@ private:
   unsigned long long m_GlobalTotal;
 };
 
-class PolydataCellFlow : public VTKObjectFlow
+class PolydataCellFlow : public SVTKObjectFlow
 {
 public:
   PolydataCellFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID);
   ~PolydataCellFlow();
 
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
+  bool load(unsigned int block_id, svtkCompositeDataIterator *it, ReadStream *);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int block_id);
 
@@ -438,14 +438,14 @@ private:
   unsigned long long m_CellArrayBlockOffset = 0;
 };
 
-class UniformCartesianFlow : public VTKObjectFlow
+class UniformCartesianFlow : public SVTKObjectFlow
 {
 public:
   UniformCartesianFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID);
   ~UniformCartesianFlow();
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
+  bool load(unsigned int block_id, svtkCompositeDataIterator *it, ReadStream *);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int) { return true; }
 
@@ -457,16 +457,16 @@ private:
   hid_t m_OriginVarID;
 };
 
-class LogicallyCartesianFlow : public VTKObjectFlow
+class LogicallyCartesianFlow : public SVTKObjectFlow
 {
 public:
   LogicallyCartesianFlow(const sensei::MeshMetadataPtr &md,
                          unsigned int meshID);
   ~LogicallyCartesianFlow();
 
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
+  bool load(unsigned int block_id, svtkCompositeDataIterator *it, ReadStream *);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int) { return true; }
 
@@ -475,15 +475,15 @@ private:
   hid_t m_ExtentID;
 };
 
-class StretchedCartesianFlow : public VTKObjectFlow
+class StretchedCartesianFlow : public SVTKObjectFlow
 {
 public:
   StretchedCartesianFlow(const sensei::MeshMetadataPtr &md,
                          unsigned int meshID);
   ~StretchedCartesianFlow();
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
+  bool load(unsigned int block_id, svtkCompositeDataIterator *it, ReadStream *);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int);
 
@@ -499,15 +499,15 @@ private:
   unsigned long long m_BlockOffset[3] = { 0, 0, 0 };
 };
 
-class UnstructuredCellFlow : public VTKObjectFlow
+class UnstructuredCellFlow : public SVTKObjectFlow
 {
 public:
   UnstructuredCellFlow(const sensei::MeshMetadataPtr &md, unsigned int meshID);
   ~UnstructuredCellFlow() {}
 
-  bool load(unsigned int block_id, vtkCompositeDataIterator *it, ReadStream *);
+  bool load(unsigned int block_id, svtkCompositeDataIterator *it, ReadStream *);
   bool unload(unsigned int block_id,
-              vtkCompositeDataIterator *it,
+              svtkCompositeDataIterator *it,
               WriteStream *output);
   bool update(unsigned int block_id);
 
@@ -520,16 +520,16 @@ private:
 // blocks  of a mesh have the <same> type
 //
 /*
-class BlockFlow: public VTKObjectFlow
+class BlockFlow: public SVTKObjectFlow
 {
  public:
-  BlockFlow(sensei::MeshMetadataPtr& md, vtkDataObject*);
+  BlockFlow(sensei::MeshMetadataPtr& md, svtkDataObject*);
 
   void ToStream(StreamPtr);
   void FromStream(StreamPtr);
 
  private:
-  vtkDataObject* _vtkPtr;
+  svtkDataObject* _svtkPtr;
 };
 */
 

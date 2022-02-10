@@ -1,33 +1,33 @@
 #include "HDF5AnalysisAdaptor.h"
 #include "HDF5DataAdaptor.h"
-#include "VTKDataAdaptor.h"
-#include <vtkCellArray.h>
-#include <vtkCellData.h>
-#include <vtkCharArray.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkDataArray.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkImageData.h>
-#include <vtkIndent.h>
-#include <vtkIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkPointData.h>
-#include <vtkPoints.h>
-#include <vtkPolyData.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkUnsignedLongArray.h>
+#include "SVTKDataAdaptor.h"
+#include <svtkCellArray.h>
+#include <svtkCellData.h>
+#include <svtkCharArray.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkDataArray.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkImageData.h>
+#include <svtkIndent.h>
+#include <svtkIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkPointData.h>
+#include <svtkPoints.h>
+#include <svtkPolyData.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkUnsignedLongArray.h>
 
 #include <stdlib.h>
 
-using H5DataAdaptorPtr = vtkSmartPointer<sensei::HDF5DataAdaptor>;
-using H5AnalysisAdaptorPtr = vtkSmartPointer<sensei::HDF5AnalysisAdaptor>;
+using H5DataAdaptorPtr = svtkSmartPointer<sensei::HDF5DataAdaptor>;
+using H5AnalysisAdaptorPtr = svtkSmartPointer<sensei::HDF5AnalysisAdaptor>;
 
-void get_data_arrays(unsigned long size, vtkDataSetAttributes* dsa);
+void get_data_arrays(unsigned long size, svtkDataSetAttributes* dsa);
 
 class AAWrap
 {
@@ -77,7 +77,7 @@ public:
 //
 // reading
 //
-int check_array(vtkDataArray* array)
+int check_array(svtkDataArray* array)
 {
   int n_comp = array->GetNumberOfComponents();
   int n_tuple = array->GetNumberOfTuples();
@@ -146,11 +146,11 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
 
           std::string meshName = mmd->MeshName;
 
-          vtkDataObject* mesh = nullptr;
+          svtkDataObject* mesh = nullptr;
           da->GetMesh(meshName, false, mesh);
 // request each array
 #ifdef BEFORE
-          int assoc_ids[2] = { vtkDataObject::POINT, vtkDataObject::CELL };
+          int assoc_ids[2] = { svtkDataObject::POINT, svtkDataObject::CELL };
           std::string assoc_names[2] = { "point", "cell" };
           for (int k = 0; k < 2; k++)
             {
@@ -188,7 +188,7 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
           if (mesh == NULL)
             break;
 
-          vtkMultiBlockDataSet* ds = vtkMultiBlockDataSet::SafeDownCast(mesh);
+          svtkMultiBlockDataSet* ds = svtkMultiBlockDataSet::SafeDownCast(mesh);
 
           if (ds == NULL)
             {
@@ -198,13 +198,13 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
               retval = -1;
               break;
             }
-          vtkCompositeDataIterator* it = ds->NewIterator();
+          svtkCompositeDataIterator* it = ds->NewIterator();
 
           while (!it->IsDoneWithTraversal())
             {
-              vtkDataObject* curr = it->GetCurrentDataObject();
+              svtkDataObject* curr = it->GetCurrentDataObject();
 
-              vtkDataSet* bds = vtkDataSet::SafeDownCast(curr);
+              svtkDataSet* bds = svtkDataSet::SafeDownCast(curr);
               if (bds == NULL)
                 {
                   std::cerr << " surprise! " << std::endl;
@@ -223,8 +223,8 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
 #else
               for (unsigned int j = 0; j < n_arrays; j++)
                 {
-                  vtkDataArray* array;
-                  if (mmd->ArrayCentering[j] == vtkDataObject::POINT)
+                  svtkDataArray* array;
+                  if (mmd->ArrayCentering[j] == svtkDataObject::POINT)
                     {
                       array = bds->GetPointData()->GetArray(
                         mmd->ArrayName[j].c_str());
@@ -281,14 +281,14 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
 
 /////////////// writing out /////////////////
 
-vtkPolyData* points_to_polydata(std::vector<float>& x,
+svtkPolyData* points_to_polydata(std::vector<float>& x,
                                 std::vector<float>& y,
                                 std::vector<float>& z)
 {
-  vtkPolyData* pd = vtkPolyData::New();
+  svtkPolyData* pd = svtkPolyData::New();
   unsigned long nx = x.size();
 
-  vtkFloatArray* vxyz = vtkFloatArray::New();
+  svtkFloatArray* vxyz = svtkFloatArray::New();
   vxyz->SetNumberOfComponents(3);
   vxyz->SetNumberOfTuples(nx);
   for (unsigned long i = 0; i < nx; i++)
@@ -296,11 +296,11 @@ vtkPolyData* points_to_polydata(std::vector<float>& x,
       vxyz->SetTuple3(i, x[i], y[i], z[i]);
     }
 
-  vtkPoints* pts = vtkPoints::New();
+  svtkPoints* pts = svtkPoints::New();
   pts->SetData(vxyz);
 
   /*
-  vtkIntArray* cids = vtkIntArray::New();
+  svtkIntArray* cids = svtkIntArray::New();
   cids->SetNumberOfTuples(2*nx);
   cids->SetNumberOfComponents(1);
   for (unsigned long i=0; i<nx; i++) {
@@ -308,7 +308,7 @@ vtkPolyData* points_to_polydata(std::vector<float>& x,
     cids->SetTuple1(i*2+ 1, i);
     }*/
 
-  vtkIdTypeArray* cellVals = vtkIdTypeArray::New();
+  svtkIdTypeArray* cellVals = svtkIdTypeArray::New();
   cellVals->SetNumberOfComponents(1);
   cellVals->SetNumberOfTuples(2 * nx);
   for (unsigned long i = 0; i < nx; i++)
@@ -317,7 +317,7 @@ vtkPolyData* points_to_polydata(std::vector<float>& x,
       cellVals->SetTuple1(i * 2 + 1, i);
     }
 
-  vtkCellArray* cells = vtkCellArray::New();
+  svtkCellArray* cells = svtkCellArray::New();
   cells->SetCells(nx, cellVals);
 
   pd->SetPoints(pts);
@@ -334,20 +334,20 @@ vtkPolyData* points_to_polydata(std::vector<float>& x,
   xyz[::3] = x[:]
   xyz[1::3] = y[:]
   xyz[2::3] = z[:]
-  vxyz = vtknp.numpy_to_vtk(xyz, deep=1)
+  vxyz = svtknp.numpy_to_svtk(xyz, deep=1)
   vxyz.SetNumberOfComponents(3)
   vxyz.SetNumberOfTuples(nx)
-  pts = vtk.vtkPoints()
+  pts = svtk.svtkPoints()
   pts.SetData(vxyz)
   # cells
   cids = np.empty(2*nx, dtype=np.int32)
   cids[::2] = 1
   cids[1::2] = np.arange(0,nx,dtype=np.int32)
-  cells = vtk.vtkCellArray()
-  cells.SetCells(nx, vtknp.numpy_to_vtk(cids, \
-      deep=1, array_type=vtk.VTK_ID_TYPE))
+  cells = svtk.svtkCellArray()
+  cells.SetCells(nx, svtknp.numpy_to_svtk(cids, \
+      deep=1, array_type=svtk.SVTK_ID_TYPE))
   # package it all up in a poly data set
-  pd = vtk.vtkPolyData()
+  pd = svtk.svtkPolyData()
   pd.SetPoints(pts)
   pd.SetVerts(cells)
   # add some scalar data
@@ -357,7 +357,7 @@ vtkPolyData* points_to_polydata(std::vector<float>& x,
   */
 }
 
-vtkPolyData* get_polydata(unsigned long nx)
+svtkPolyData* get_polydata(unsigned long nx)
 {
   srand(2);
 
@@ -374,7 +374,7 @@ vtkPolyData* get_polydata(unsigned long nx)
       z.push_back(((float)rand() / (RAND_MAX)));
     }
 
-  vtkPolyData* pd = points_to_polydata(x, y, z);
+  svtkPolyData* pd = points_to_polydata(x, y, z);
   // std::cout<<"......... poly:: points_to_poly  above ... "<<nx<<std::endl;
 
   // std::cout<<"......... poly:: point array now ... check
@@ -389,9 +389,9 @@ vtkPolyData* get_polydata(unsigned long nx)
 }
 
 template<class T>
-vtkDataArray* generate_array(const char* name,
+svtkDataArray* generate_array(const char* name,
                              unsigned long size,
-                             vtkDataArray* result)
+                             svtkDataArray* result)
 {
   std::vector<T> values(size);
 
@@ -416,68 +416,68 @@ vtkDataArray* generate_array(const char* name,
   return result;
 }
 
-void get_data_arrays(unsigned long size, vtkDataSetAttributes* dsa)
+void get_data_arrays(unsigned long size, svtkDataSetAttributes* dsa)
 {
   // dsa->AddArray(generate_array<char>("char_array", size,
-  // vtkCharArray::New())); dsa->AddArray(generate_array<double>("double_array",
-  // size, vtkDoubleArray::New()));
-  // dsa->AddArray(generate_array<int>("int_array", size, vtkIntArray::New()));
+  // svtkCharArray::New())); dsa->AddArray(generate_array<double>("double_array",
+  // size, svtkDoubleArray::New()));
+  // dsa->AddArray(generate_array<int>("int_array", size, svtkIntArray::New()));
 
   // dsa->AddArray(generate_array<float>("float_array", size,
-  // vtkFloatArray::New()));  dsa->AddArray(generate_array<long>("long_array",
-  // size, vtkLongArray::New()));
+  // svtkFloatArray::New()));  dsa->AddArray(generate_array<long>("long_array",
+  // size, svtkLongArray::New()));
 
   // dsa->AddArray(generate_array<unsigned char>("unsigned_char_array", size,
-  // vtkUnsignedCharArray::New()));  dsa->AddArray(generate_array<unsigned
-  // int>("unsigned_int_array", size, vtkUnsignedIntArray::New()));
+  // svtkUnsignedCharArray::New()));  dsa->AddArray(generate_array<unsigned
+  // int>("unsigned_int_array", size, svtkUnsignedIntArray::New()));
   // dsa->AddArray(generate_array<unsigned long>("unsigned_long_array", size,
-  // vtkUnsignedLongArray::New()));
+  // svtkUnsignedLongArray::New()));
 
-  vtkDataArray* temp =
-    generate_array<char>("char_array", size, vtkCharArray::New());
+  svtkDataArray* temp =
+    generate_array<char>("char_array", size, svtkCharArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
-  temp = generate_array<double>("double_array", size, vtkDoubleArray::New());
+  temp = generate_array<double>("double_array", size, svtkDoubleArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
-  temp = generate_array<int>("int_array", size, vtkIntArray::New());
+  temp = generate_array<int>("int_array", size, svtkIntArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
-  temp = generate_array<float>("float_array", size, vtkFloatArray::New());
+  temp = generate_array<float>("float_array", size, svtkFloatArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
-  temp = generate_array<long>("long_array", size, vtkLongArray::New());
+  temp = generate_array<long>("long_array", size, svtkLongArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
   temp = generate_array<unsigned char>(
-    "unsigned_char_array", size, vtkUnsignedCharArray::New());
+    "unsigned_char_array", size, svtkUnsignedCharArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
   temp = generate_array<unsigned int>(
-    "unsigned_int_array", size, vtkUnsignedIntArray::New());
+    "unsigned_int_array", size, svtkUnsignedIntArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 
   temp = generate_array<unsigned long>(
-    "unsigned_long_array", size, vtkUnsignedLongArray::New());
+    "unsigned_long_array", size, svtkUnsignedLongArray::New());
   dsa->AddArray(temp);
   temp->Delete();
 }
 
-vtkImageData* get_image(unsigned long i0,
+svtkImageData* get_image(unsigned long i0,
                         unsigned long i1,
                         unsigned long j0,
                         unsigned long j1,
                         unsigned long k0,
                         unsigned long k1)
 {
-  vtkImageData* im = vtkImageData::New();
+  svtkImageData* im = svtkImageData::New();
   im->SetExtent(i0, i1, j0, j1, k0, k1);
   unsigned long nx = i1 - i0 + 1;
   unsigned long ny = j1 - j0 + 1;
@@ -500,15 +500,15 @@ void writeMe(sensei::AnalysisAdaptor* aw, int n_its, MPI_Comm& comm)
 
   // the first mesh is an image
 
-  vtkSmartPointer<vtkMultiBlockDataSet> im =
-    vtkSmartPointer<vtkMultiBlockDataSet>::New();
+  svtkSmartPointer<svtkMultiBlockDataSet> im =
+    svtkSmartPointer<svtkMultiBlockDataSet>::New();
 
   im->SetNumberOfBlocks(n_ranks);
   im->SetBlock(rank, get_image(rank, rank, 0, 16, 0, 1));
 
   // the second mesh is unstructured
-  vtkSmartPointer<vtkMultiBlockDataSet> ug =
-    vtkSmartPointer<vtkMultiBlockDataSet>::New();
+  svtkSmartPointer<svtkMultiBlockDataSet> ug =
+    svtkSmartPointer<svtkMultiBlockDataSet>::New();
 
   ug->SetNumberOfBlocks(n_ranks);
   ug->SetBlock(rank, get_polydata(16));
@@ -517,7 +517,7 @@ void writeMe(sensei::AnalysisAdaptor* aw, int n_its, MPI_Comm& comm)
 
   // meshes = {'image':im, 'unstructured':ug}
   std::string meshNames[2] = { "image", "unstructured" };
-  vtkDataObject* meshObj[2] = { im, ug };
+  svtkDataObject* meshObj[2] = { im, ug };
 
   // loop over time steps
   for (int i = 0; i < n_its; i++)
@@ -526,10 +526,10 @@ void writeMe(sensei::AnalysisAdaptor* aw, int n_its, MPI_Comm& comm)
       int it = i;
 
       if (rank == 0)
-        std::cout << "initializing the VTKDataAdaptor step:" << it << " t=" << t
+        std::cout << "initializing the SVTKDataAdaptor step:" << it << " t=" << t
                   << std::endl;
 
-      sensei::VTKDataAdaptor* da = sensei::VTKDataAdaptor::New();
+      sensei::SVTKDataAdaptor* da = sensei::SVTKDataAdaptor::New();
       da->SetDataTime(t);
       da->SetDataTimeStep(it);
 

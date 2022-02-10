@@ -7,14 +7,14 @@
 #include <map>
 #include <mpi.h>
 #include <string>
-#include <vtkSmartPointer.h>
+#include <svtkSmartPointer.h>
 
 #include "HDF5Schema.h"
 
 namespace sensei {
 
 //
-// read from HDF and construct VTK object
+// read from HDF and construct SVTK object
 //
 class HDF5DataAdaptor : public InTransitDataAdaptor {
 public:
@@ -37,14 +37,14 @@ public:
   int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   int GetMesh(const std::string &meshName, bool structure_only,
-              vtkDataObject *&mesh) override;
+              svtkDataObject *&mesh) override;
 
-  int AddGhostNodesArray(vtkDataObject *mesh,
+  int AddGhostNodesArray(svtkDataObject *mesh,
                          const std::string &meshName) override;
-  int AddGhostCellsArray(vtkDataObject *mesh,
+  int AddGhostCellsArray(svtkDataObject *mesh,
                          const std::string &meshName) override;
 
-  int AddArray(vtkDataObject *mesh, const std::string &meshName,
+  int AddArray(svtkDataObject *mesh, const std::string &meshName,
                int association, const std::string &arrayName) override;
 
   int ReleaseData() override;
