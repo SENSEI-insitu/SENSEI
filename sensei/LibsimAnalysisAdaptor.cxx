@@ -2,35 +2,35 @@
 #include "LibsimImageProperties.h"
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "STLUtils.h"
 #include "MPIUtils.h"
 #include "Profiler.h"
 #include "Error.h"
 #include "BinaryStream.h"
 
-#include <vtkCellArray.h>
-#include <vtkCellData.h>
-#include <vtkCharArray.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataArray.h>
-#include <vtkDataObject.h>
-#include <vtkImageData.h>
-#include <vtkIntArray.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkPolyData.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkAMRBox.h>
-#include <vtkAMRInformation.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkUniformGrid.h>
-#include <vtkDataObject.h>
-#include <vtkXMLUniformGridAMRWriter.h>
-#include <vtkUniformGridAMRDataIterator.h>
+#include <svtkCellArray.h>
+#include <svtkCellData.h>
+#include <svtkCharArray.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataArray.h>
+#include <svtkDataObject.h>
+#include <svtkImageData.h>
+#include <svtkIntArray.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkPolyData.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkStructuredGrid.h>
+#include <svtkUnstructuredGrid.h>
+#include <svtkAMRBox.h>
+#include <svtkAMRInformation.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkUniformGrid.h>
+#include <svtkDataObject.h>
+#include <svtkUniformGridAMRDataIterator.h>
+#include <svtkUnsignedCharArray.h>
 
 #include <VisItControlInterface_V2.h>
 #include <VisItDataInterface_V2.h>
@@ -52,7 +52,7 @@
 #define VISIT_COMMAND_SUCCESS 1
 #define VISIT_COMMAND_FAILURE 2
 
-using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
+using svtkDataObjectPtr = svtkSmartPointer<svtkDataObject>;
 
 namespace sensei
 {
@@ -147,7 +147,7 @@ public:
     void SetMode(const std::string &mode);
     void SetComputeNesting(int v);
 
-    void PrintSelf(ostream& os, vtkIndent indent);
+    void PrintSelf(ostream& os, svtkIndent indent);
 
     bool Initialize();
 
@@ -184,9 +184,9 @@ private:
     bool Execute_Batch(int rank);
     bool Execute_Interactive(int rank);
 
-    int GetMesh(const std::string &meshName, vtkDataObjectPtr &cdp);
-    int GetMesh(int dom, const std::string &meshName, vtkDataObject *&mesh);
-    int GetVariable(int dom, const std::string &varName, vtkDataArray *&array);
+    int GetMesh(const std::string &meshName, svtkDataObjectPtr &cdp);
+    int GetMesh(int dom, const std::string &meshName, svtkDataObject *&mesh);
+    int GetVariable(int dom, const std::string &varName, svtkDataArray *&array);
 
     int DecodeVarName(const std::string &varName, std::string &meshName,
         std::string &arrayName, int &association);
@@ -205,7 +205,7 @@ private:
     MPI_Comm Comm;
     sensei::DataAdaptor *Adaptor;
 
-    std::map<std::string, vtkDataObjectPtr> Meshes;
+    std::map<std::string, svtkDataObjectPtr> Meshes;
     std::map<std::string, sensei::MeshMetadataPtr> Metadata;
 
     int ComputeNesting;
@@ -286,7 +286,7 @@ LibsimAnalysisAdaptor::PrivateData::SetMode(const std::string &m)
 
 // --------------------------------------------------------------------------
 void
-LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, vtkIndent)
+LibsimAnalysisAdaptor::PrivateData::PrintSelf(ostream &os, svtkIndent)
 {
     int rank = 0, size = 1;
     MPI_Comm_rank(Comm, &rank);
@@ -553,14 +553,14 @@ LibsimAnalysisAdaptor::PrivateData::DetermineExportFilename(const std::string &f
     }
     else
     {
-        fnoext = f; // The VTK writer makes ok filenames.
-        fmt = "VTK_1.0";
+        fnoext = f; // The SVTK writer makes ok filenames.
+        fmt = "SVTK_1.0";
     }
 }
 
 // --------------------------------------------------------------------------
 bool
-LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
+LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *da)
 {
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::Execute\n");
@@ -573,7 +573,7 @@ LibsimAnalysisAdaptor::PrivateData::Execute(sensei::DataAdaptor *DataAdaptor)
     }
 
     // Keep a pointer to the data adaptor so the callbacks can access it.
-    Adaptor = DataAdaptor;
+    Adaptor = da;
 
     int rank = 0;
     MPI_Comm_rank(Comm, &rank);
@@ -906,11 +906,11 @@ LibsimAnalysisAdaptor::PrivateData::DecodeVarName(const std::string &varName,
     std::string centering = varName.substr(slash1+1, slash2 - slash1 - 1);
     if (centering == "point")
     {
-        association = vtkDataObject::POINT;
+        association = svtkDataObject::POINT;
     }
     else if (centering == "cell")
     {
-        association = vtkDataObject::CELL;
+        association = svtkDataObject::CELL;
     }
     else
     {
@@ -926,12 +926,12 @@ LibsimAnalysisAdaptor::PrivateData::DecodeVarName(const std::string &varName,
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-// VTK to Libsim helper functions
+// SVTK to Libsim helper functions
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 static visit_handle
-vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
+svtkDataArray_To_VisIt_VariableData(svtkDataArray *arr)
 {
     visit_handle h = VISIT_INVALID_HANDLE;
     if(arr != nullptr)
@@ -945,15 +945,15 @@ vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
             int nt = arr->GetNumberOfTuples();
             if(arr->HasStandardMemoryLayout())
             {
-                if(arr->GetDataType() == VTK_CHAR || arr->GetDataType() == VTK_UNSIGNED_CHAR)
+                if(arr->GetDataType() == SVTK_CHAR || arr->GetDataType() == SVTK_UNSIGNED_CHAR)
                     VisIt_VariableData_setDataC(h, VISIT_OWNER_SIM, nc, nt, (char *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_INT)
+                else if(arr->GetDataType() == SVTK_INT)
                     VisIt_VariableData_setDataI(h, VISIT_OWNER_SIM, nc, nt, (int *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_LONG)
+                else if(arr->GetDataType() == SVTK_LONG)
                     VisIt_VariableData_setDataL(h, VISIT_OWNER_SIM, nc, nt, (long *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_FLOAT)
+                else if(arr->GetDataType() == SVTK_FLOAT)
                     VisIt_VariableData_setDataF(h, VISIT_OWNER_SIM, nc, nt, (float *)arr->GetVoidPointer(0));
-                else if(arr->GetDataType() == VTK_DOUBLE)
+                else if(arr->GetDataType() == SVTK_DOUBLE)
                     VisIt_VariableData_setDataD(h, VISIT_OWNER_SIM, nc, nt, (double *)arr->GetVoidPointer(0));
                 else
                     copy = true;
@@ -995,72 +995,72 @@ vtkDataArray_To_VisIt_VariableData(vtkDataArray *arr)
 }
 
 // -----------------------------------------------------------------------------
-static int vtk_to_libsim[VTK_NUMBER_OF_CELL_TYPES];
-static bool vtk_to_libsim_init = false;
+static int svtk_to_libsim[SVTK_NUMBER_OF_CELL_TYPES];
+static bool svtk_to_libsim_init = false;
 static int
-celltype_vtk_to_libsim(unsigned char vtkcelltype)
+celltype_svtk_to_libsim(unsigned char svtkcelltype)
 {
-    if(!vtk_to_libsim_init)
+    if(!svtk_to_libsim_init)
     {
-        for(int i =0; i < VTK_NUMBER_OF_CELL_TYPES; ++i)
-            vtk_to_libsim[i] = -1;
+        for(int i =0; i < SVTK_NUMBER_OF_CELL_TYPES; ++i)
+            svtk_to_libsim[i] = -1;
 
-        vtk_to_libsim[VTK_LINE] = VISIT_CELL_BEAM;
-        vtk_to_libsim[VTK_TRIANGLE] =  VISIT_CELL_TRI;
-        vtk_to_libsim[VTK_QUAD] =  VISIT_CELL_QUAD;
-        vtk_to_libsim[VTK_TETRA] =  VISIT_CELL_TET;
-        vtk_to_libsim[VTK_PYRAMID] =  VISIT_CELL_PYR;
-        vtk_to_libsim[VTK_WEDGE] =  VISIT_CELL_WEDGE;
-        vtk_to_libsim[VTK_HEXAHEDRON] =  VISIT_CELL_HEX;
-        vtk_to_libsim[VTK_VERTEX] =  VISIT_CELL_POINT;
+        svtk_to_libsim[SVTK_LINE] = VISIT_CELL_BEAM;
+        svtk_to_libsim[SVTK_TRIANGLE] =  VISIT_CELL_TRI;
+        svtk_to_libsim[SVTK_QUAD] =  VISIT_CELL_QUAD;
+        svtk_to_libsim[SVTK_TETRA] =  VISIT_CELL_TET;
+        svtk_to_libsim[SVTK_PYRAMID] =  VISIT_CELL_PYR;
+        svtk_to_libsim[SVTK_WEDGE] =  VISIT_CELL_WEDGE;
+        svtk_to_libsim[SVTK_HEXAHEDRON] =  VISIT_CELL_HEX;
+        svtk_to_libsim[SVTK_VERTEX] =  VISIT_CELL_POINT;
 
-        vtk_to_libsim[VTK_QUADRATIC_EDGE] =  VISIT_CELL_QUADRATIC_EDGE;
-        vtk_to_libsim[VTK_QUADRATIC_TRIANGLE] =  VISIT_CELL_QUADRATIC_TRI;
-        vtk_to_libsim[VTK_QUADRATIC_QUAD] =  VISIT_CELL_QUADRATIC_QUAD;
-        vtk_to_libsim[VTK_QUADRATIC_TETRA] =  VISIT_CELL_QUADRATIC_TET;
-        vtk_to_libsim[VTK_QUADRATIC_PYRAMID] =  VISIT_CELL_QUADRATIC_PYR;
-        vtk_to_libsim[VTK_QUADRATIC_WEDGE] =  VISIT_CELL_QUADRATIC_WEDGE;
-        vtk_to_libsim[VTK_QUADRATIC_HEXAHEDRON] =  VISIT_CELL_QUADRATIC_HEX;
+        svtk_to_libsim[SVTK_QUADRATIC_EDGE] =  VISIT_CELL_QUADRATIC_EDGE;
+        svtk_to_libsim[SVTK_QUADRATIC_TRIANGLE] =  VISIT_CELL_QUADRATIC_TRI;
+        svtk_to_libsim[SVTK_QUADRATIC_QUAD] =  VISIT_CELL_QUADRATIC_QUAD;
+        svtk_to_libsim[SVTK_QUADRATIC_TETRA] =  VISIT_CELL_QUADRATIC_TET;
+        svtk_to_libsim[SVTK_QUADRATIC_PYRAMID] =  VISIT_CELL_QUADRATIC_PYR;
+        svtk_to_libsim[SVTK_QUADRATIC_WEDGE] =  VISIT_CELL_QUADRATIC_WEDGE;
+        svtk_to_libsim[SVTK_QUADRATIC_HEXAHEDRON] =  VISIT_CELL_QUADRATIC_HEX;
 
-        vtk_to_libsim[VTK_BIQUADRATIC_TRIANGLE] =  VISIT_CELL_BIQUADRATIC_TRI;
-        vtk_to_libsim[VTK_BIQUADRATIC_QUAD] =  VISIT_CELL_BIQUADRATIC_QUAD;
-        vtk_to_libsim[VTK_TRIQUADRATIC_HEXAHEDRON] =  VISIT_CELL_TRIQUADRATIC_HEX;
-        vtk_to_libsim[VTK_QUADRATIC_LINEAR_QUAD] =  VISIT_CELL_QUADRATIC_LINEAR_QUAD;
-        vtk_to_libsim[VTK_QUADRATIC_LINEAR_WEDGE] =  VISIT_CELL_QUADRATIC_LINEAR_WEDGE;
-        vtk_to_libsim[VTK_BIQUADRATIC_QUADRATIC_WEDGE] =  VISIT_CELL_BIQUADRATIC_QUADRATIC_WEDGE;
-        vtk_to_libsim[VTK_BIQUADRATIC_QUADRATIC_HEXAHEDRON] =  VISIT_CELL_BIQUADRATIC_QUADRATIC_HEX;
+        svtk_to_libsim[SVTK_BIQUADRATIC_TRIANGLE] =  VISIT_CELL_BIQUADRATIC_TRI;
+        svtk_to_libsim[SVTK_BIQUADRATIC_QUAD] =  VISIT_CELL_BIQUADRATIC_QUAD;
+        svtk_to_libsim[SVTK_TRIQUADRATIC_HEXAHEDRON] =  VISIT_CELL_TRIQUADRATIC_HEX;
+        svtk_to_libsim[SVTK_QUADRATIC_LINEAR_QUAD] =  VISIT_CELL_QUADRATIC_LINEAR_QUAD;
+        svtk_to_libsim[SVTK_QUADRATIC_LINEAR_WEDGE] =  VISIT_CELL_QUADRATIC_LINEAR_WEDGE;
+        svtk_to_libsim[SVTK_BIQUADRATIC_QUADRATIC_WEDGE] =  VISIT_CELL_BIQUADRATIC_QUADRATIC_WEDGE;
+        svtk_to_libsim[SVTK_BIQUADRATIC_QUADRATIC_HEXAHEDRON] =  VISIT_CELL_BIQUADRATIC_QUADRATIC_HEX;
 
-        vtk_to_libsim_init = true;
+        svtk_to_libsim_init = true;
     }
 
-    return vtk_to_libsim[vtkcelltype];
+    return svtk_to_libsim[svtkcelltype];
 }
 
 // -----------------------------------------------------------------------------
 static visit_handle
-vtkDataSet_GhostData(vtkDataSetAttributes *dsa, const std::string &name)
+svtkDataSet_GhostData(svtkDataSetAttributes *dsa, const std::string &name)
 {
     visit_handle h = VISIT_INVALID_HANDLE;
     // Check that we have the array and it is of allowed types.
-    vtkDataArray *arr = dsa->GetArray(name.c_str());
+    svtkDataArray *arr = dsa->GetArray(name.c_str());
     if(arr &&
        arr->GetNumberOfComponents() == 1 &&
        arr->GetNumberOfTuples() > 0 &&
-       (vtkUnsignedCharArray::SafeDownCast(arr) ||
-        vtkCharArray::SafeDownCast(arr) ||
-        vtkIntArray::SafeDownCast(arr))
+       (svtkUnsignedCharArray::SafeDownCast(arr) ||
+        svtkCharArray::SafeDownCast(arr) ||
+        svtkIntArray::SafeDownCast(arr))
       )
     {
-        h = vtkDataArray_To_VisIt_VariableData(arr);
+        h = svtkDataArray_To_VisIt_VariableData(arr);
     }
     return h;
 }
 
 // -----------------------------------------------------------------------------
 static visit_handle
-vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
+svtkDataSet_to_VisIt_Mesh(svtkDataObject *dobj)
 {
-    vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj);
+    svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj);
     if (dobj && !ds)
     {
         SENSEI_ERROR("Can't convert a "
@@ -1069,21 +1069,21 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
     }
 
     visit_handle mesh = VISIT_INVALID_HANDLE;
-    vtkImageData *igrid = vtkImageData::SafeDownCast(ds);
-    vtkRectilinearGrid *rgrid = vtkRectilinearGrid::SafeDownCast(ds);
-    vtkStructuredGrid  *sgrid = vtkStructuredGrid::SafeDownCast(ds);
-    vtkPolyData *pgrid = vtkPolyData::SafeDownCast(ds);
-    vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::SafeDownCast(ds);
+    svtkImageData *igrid = svtkImageData::SafeDownCast(ds);
+    svtkRectilinearGrid *rgrid = svtkRectilinearGrid::SafeDownCast(ds);
+    svtkStructuredGrid  *sgrid = svtkStructuredGrid::SafeDownCast(ds);
+    svtkPolyData *pgrid = svtkPolyData::SafeDownCast(ds);
+    svtkUnstructuredGrid *ugrid = svtkUnstructuredGrid::SafeDownCast(ds);
     if(igrid != nullptr)
     {
 #ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: \tExposing vtkImageData as a rectilinear grid.\n");
+        VisItDebug5("SENSEI: \tExposing svtkImageData as a rectilinear grid.\n");
 #endif
-        // We already have a VTK dataset. Libsim doesn't have a path to just
+        // We already have a SVTK dataset. Libsim doesn't have a path to just
         // pass it through to SimV2+VisIt so we have to pull some details
         // out to make the right Libsim calls so the SimV2 reader will be
-        // able to make the right VTK dataset on the other end. Silly/Stupid
-        // but giving VTK datasets to Libsim has never come up before.
+        // able to make the right SVTK dataset on the other end. Silly/Stupid
+        // but giving SVTK datasets to Libsim has never come up before.
 
         double x0[3] = {0.0};
         double dx[3] = {0.0};
@@ -1131,13 +1131,13 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
                     }
 
                     // Try and make some ghost nodes.
-                    visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
-                                          "vtkGhostType");
+                    visit_handle gn = svtkDataSet_GhostData(ds->GetPointData(),
+                                          "svtkGhostType");
                     if(gn != VISIT_INVALID_HANDLE)
                         VisIt_RectilinearMesh_setGhostNodes(mesh, gn);
                     // Try and make some ghost cells.
-                    visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
-                                          "vtkGhostType");
+                    visit_handle gz = svtkDataSet_GhostData(ds->GetCellData(),
+                                          "svtkGhostType");
                     if(gz != VISIT_INVALID_HANDLE)
                         VisIt_RectilinearMesh_setGhostCells(mesh, gz);
                 }
@@ -1171,24 +1171,24 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
         if(VisIt_RectilinearMesh_alloc(&mesh) != VISIT_ERROR)
         {
             visit_handle hx, hy, hz;
-            hx = vtkDataArray_To_VisIt_VariableData(rgrid->GetXCoordinates());
-            hy = vtkDataArray_To_VisIt_VariableData(rgrid->GetYCoordinates());
+            hx = svtkDataArray_To_VisIt_VariableData(rgrid->GetXCoordinates());
+            hy = svtkDataArray_To_VisIt_VariableData(rgrid->GetYCoordinates());
             if(hx != VISIT_INVALID_HANDLE && hy != VISIT_INVALID_HANDLE)
             {
-                hz = vtkDataArray_To_VisIt_VariableData(rgrid->GetZCoordinates());
+                hz = svtkDataArray_To_VisIt_VariableData(rgrid->GetZCoordinates());
                 if(hz != VISIT_INVALID_HANDLE)
                     VisIt_RectilinearMesh_setCoordsXYZ(mesh, hx, hy, hz);
                 else
                     VisIt_RectilinearMesh_setCoordsXY(mesh, hx, hy);
 
                 // Try and make some ghost nodes.
-                visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
-                                      "vtkGhostType");
+                visit_handle gn = svtkDataSet_GhostData(ds->GetPointData(),
+                                      "svtkGhostType");
                 if(gn != VISIT_INVALID_HANDLE)
                     VisIt_RectilinearMesh_setGhostNodes(mesh, gn);
                 // Try and make some ghost cells.
-                visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
-                                      "vtkGhostType");
+                visit_handle gz = svtkDataSet_GhostData(ds->GetCellData(),
+                                      "svtkGhostType");
                 if(gz != VISIT_INVALID_HANDLE)
                     VisIt_RectilinearMesh_setGhostCells(mesh, gz);
             }
@@ -1209,19 +1209,19 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
         {
             int dims[3];
             sgrid->GetDimensions(dims);
-            visit_handle pts = vtkDataArray_To_VisIt_VariableData(sgrid->GetPoints()->GetData());
+            visit_handle pts = svtkDataArray_To_VisIt_VariableData(sgrid->GetPoints()->GetData());
             if(pts != VISIT_INVALID_HANDLE)
             {
                 VisIt_CurvilinearMesh_setCoords3(mesh, dims, pts);
 
                 // Try and make some ghost nodes.
-                visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
-                                      "vtkGhostType");
+                visit_handle gn = svtkDataSet_GhostData(ds->GetPointData(),
+                                      "svtkGhostType");
                 if(gn != VISIT_INVALID_HANDLE)
                     VisIt_CurvilinearMesh_setGhostNodes(mesh, gn);
                 // Try and make some ghost cells.
-                visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
-                                      "vtkGhostType");
+                visit_handle gz = svtkDataSet_GhostData(ds->GetCellData(),
+                                      "svtkGhostType");
                 if(gz != VISIT_INVALID_HANDLE)
                     VisIt_CurvilinearMesh_setGhostCells(mesh, gz);
             }
@@ -1237,10 +1237,10 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
         if(VisIt_PointMesh_alloc(&mesh) != VISIT_ERROR)
         {
             bool perr = true;
-            vtkPoints *p = pgrid->GetPoints();
+            svtkPoints *p = pgrid->GetPoints();
             if(p != nullptr)
             {
-                visit_handle pts = vtkDataArray_To_VisIt_VariableData(p->GetData());
+                visit_handle pts = svtkDataArray_To_VisIt_VariableData(p->GetData());
                 if(pts != VISIT_INVALID_HANDLE)
                 {
                     VisIt_PointMesh_setCoords(mesh, pts);
@@ -1250,7 +1250,7 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
 
             if(perr)
             {
-                SENSEI_ERROR("The vtkPolyData's coordinates are not set.")
+                SENSEI_ERROR("The svtkPolyData's coordinates are not set.")
                 VisIt_PointMesh_free(mesh);
                 mesh = VISIT_INVALID_HANDLE;
             }
@@ -1259,41 +1259,41 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
     else if(ugrid != nullptr)
     {
 #ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: vtkUnstructuredGrid: npts = %d, ncells = %d\n",
+        VisItDebug5("SENSEI: svtkUnstructuredGrid: npts = %d, ncells = %d\n",
             (int)ugrid->GetNumberOfPoints(), (int)ugrid->GetNumberOfCells());
 #endif
         if(VisIt_UnstructuredMesh_alloc(&mesh) != VISIT_ERROR)
         {
             bool err = false;
-            visit_handle pts = vtkDataArray_To_VisIt_VariableData(ugrid->GetPoints()->GetData());
+            visit_handle pts = svtkDataArray_To_VisIt_VariableData(ugrid->GetPoints()->GetData());
             if(pts != VISIT_INVALID_HANDLE)
                 VisIt_UnstructuredMesh_setCoords(mesh, pts);
             else
                 err = true;
 
-            // Libsim and VTK connectivity is a little different. Why'd we do that?
-            vtkIdType ncells = ugrid->GetNumberOfCells();
+            // Libsim and SVTK connectivity is a little different. Why'd we do that?
+            svtkIdType ncells = ugrid->GetNumberOfCells();
             if(ncells > 0 && !err)
             {
                 const unsigned char *cellTypes = (const unsigned char *)ugrid->GetCellTypesArray()->GetVoidPointer(0);
-                const vtkIdType *vtkconn = (const vtkIdType *)ugrid->GetCells()->GetData()->GetVoidPointer(0);
-                const vtkIdType *offsets = (const vtkIdType *)ugrid->GetCellLocationsArray()->GetVoidPointer(0);
+                const svtkIdType *svtkconn = (const svtkIdType *)ugrid->GetCells()->GetData()->GetVoidPointer(0);
+                const svtkIdType *offsets = (const svtkIdType *)ugrid->GetCellLocationsArray()->GetVoidPointer(0);
                 int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
                 int *newconn = new int[connlen];
                 int *lsconn = newconn;
                 for(int cellid = 0; cellid < ncells; ++cellid)
                 {
-                    // Map VTK cell type to Libsim cell type.
-                    int lsct = celltype_vtk_to_libsim(cellTypes[cellid]);
+                    // Map SVTK cell type to Libsim cell type.
+                    int lsct = celltype_svtk_to_libsim(cellTypes[cellid]);
                     if(lsct != -1)
                     {
                         *lsconn++ = lsct;
 
                         // The number of points is the first number for the cell.
-                        const vtkIdType *cellConn = vtkconn + offsets[cellid];
-                        vtkIdType npts = cellConn[0];
+                        const svtkIdType *cellConn = svtkconn + offsets[cellid];
+                        svtkIdType npts = cellConn[0];
                         cellConn++;
-                        for(vtkIdType idx = 0; idx < npts; ++idx)
+                        for(svtkIdType idx = 0; idx < npts; ++idx)
                             *lsconn++ = static_cast<int>(cellConn[idx]);
                     }
                     else
@@ -1301,7 +1301,7 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
                         // We got a cell type we don't support. Make a vertex cell
                         // so we at least don't mess up the cell data later.
                         *lsconn++ = VISIT_CELL_POINT;
-                        const vtkIdType *cellConn = vtkconn + offsets[cellid];
+                        const svtkIdType *cellConn = svtkconn + offsets[cellid];
                         *lsconn++ = cellConn[1];
                     }
                 }
@@ -1314,13 +1314,13 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
                     VisIt_UnstructuredMesh_setConnectivity(mesh, ncells, hc);
 
                     // Try and make some ghost nodes.
-                    visit_handle gn = vtkDataSet_GhostData(ds->GetPointData(),
-                                          "vtkGhostType");
+                    visit_handle gn = svtkDataSet_GhostData(ds->GetPointData(),
+                                          "svtkGhostType");
                     if(gn != VISIT_INVALID_HANDLE)
                         VisIt_RectilinearMesh_setGhostNodes(mesh, gn);
                     // Try and make some ghost cells.
-                    visit_handle gz = vtkDataSet_GhostData(ds->GetCellData(),
-                                          "vtkGhostType");
+                    visit_handle gz = svtkDataSet_GhostData(ds->GetCellData(),
+                                          "svtkGhostType");
                     if(gz != VISIT_INVALID_HANDLE)
                         VisIt_UnstructuredMesh_setGhostCells(mesh, gz);
                 }
@@ -1341,10 +1341,10 @@ vtkDataSet_to_VisIt_Mesh(vtkDataObject *dobj)
     // TODO: expand to other mesh types.
     else
     {
-        SENSEI_ERROR("Unsupported VTK mesh type "
+        SENSEI_ERROR("Unsupported SVTK mesh type "
           << (ds ? ds->GetClassName() : dobj ? dobj->GetClassName() : "nullptr"))
 #ifdef VISIT_DEBUG_LOG
-        VisItDebug5("SENSEI: Unsupported VTK mesh type.\n");
+        VisItDebug5("SENSEI: Unsupported SVTK mesh type.\n");
 #endif
     }
 
@@ -1473,7 +1473,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             return VISIT_INVALID_HANDLE;
         }
 
-        if (mmd->MeshType == VTK_OVERLAPPING_AMR)
+        if (mmd->MeshType == SVTK_OVERLAPPING_AMR)
         {
             int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
                 mmd->Extent[3] - mmd->Extent[2] + 1,
@@ -1509,11 +1509,11 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
         {
             switch (mmd->BlockType)
             {
-                case VTK_STRUCTURED_GRID:
-                case VTK_RECTILINEAR_GRID:
-                case VTK_IMAGE_DATA:
+                case SVTK_STRUCTURED_GRID:
+                case SVTK_RECTILINEAR_GRID:
+                case SVTK_IMAGE_DATA:
                 {
-                    int meshType = mmd->BlockType == VTK_STRUCTURED_GRID ?
+                    int meshType = mmd->BlockType == SVTK_STRUCTURED_GRID ?
                         VISIT_MESHTYPE_CURVILINEAR : VISIT_MESHTYPE_RECTILINEAR;
 
                     int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
@@ -1528,8 +1528,8 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
                 }
                 break;
 
-                case VTK_UNSTRUCTURED_GRID:
-                case VTK_POLY_DATA:
+                case SVTK_UNSTRUCTURED_GRID:
+                case SVTK_POLY_DATA:
                 {
                     VisIt_MeshMetaData_setMeshType(vmmd, VISIT_MESHTYPE_UNSTRUCTURED);
                     VisIt_MeshMetaData_setTopologicalDimension(vmmd, 3);
@@ -1561,7 +1561,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
 
             // naming convention: <mesh>/<centering>/<var>
             std::string arrayName = mmd->MeshName + "/" +
-                (mmd->ArrayCentering[j] == vtkDataObject::POINT ? "point" : "cell") +
+                (mmd->ArrayCentering[j] == svtkDataObject::POINT ? "point" : "cell") +
                 "/" + mmd->ArrayName[j];
 
             VisIt_VariableMetaData_setName(vmd, arrayName.c_str());
@@ -1590,7 +1590,7 @@ LibsimAnalysisAdaptor::PrivateData::GetMetaData(void *cbdata)
             }
             VisIt_VariableMetaData_setType(vmd, varType);
 
-            int varCen = mmd->ArrayCentering[j] == vtkDataObject::POINT ?
+            int varCen = mmd->ArrayCentering[j] == svtkDataObject::POINT ?
                 VISIT_VARCENTERING_NODE : VISIT_VARCENTERING_ZONE;
 
             VisIt_VariableMetaData_setCentering(vmd, varCen);
@@ -1626,7 +1626,7 @@ void LibsimAnalysisAdaptor::PrivateData::ClearCache()
 
 // --------------------------------------------------------------------------
 int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
-    vtkDataObjectPtr &dobjp)
+    svtkDataObjectPtr &dobjp)
 {
     dobjp = nullptr;
 
@@ -1636,7 +1636,7 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
     if (it  == this->Meshes.end())
     {
         // mesh was not in the cache add it now
-        vtkDataObject *dobj = nullptr;
+        svtkDataObject *dobj = nullptr;
         if (this->Adaptor->GetMesh(meshName, false, dobj))
         {
             SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -1654,7 +1654,7 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
 
         // add ghost zones. if the simulation has them we always want/need
         // them
-        if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+        if ((mmd->NumGhostCells || SVTKUtils::AMR(mmd)) &&
           this->Adaptor->AddGhostCellsArray(dobj, meshName))
         {
             SENSEI_ERROR("Failed to add ghost cells to mesh \""
@@ -1683,7 +1683,7 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(const std::string &meshName,
 
 // --------------------------------------------------------------------------
 int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
-    const std::string &varName, vtkDataArray *&array)
+    const std::string &varName, svtkDataArray *&array)
 {
 #ifdef VISIT_DEBUG_LOG
     VisItDebug5("SENSEI: LibsimAnalysisAdaptor::PrivateData::GetVariable\n");
@@ -1700,15 +1700,15 @@ int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
         return -1;
 
     // get the mesh
-    vtkDataObjectPtr dobj;
+    svtkDataObjectPtr dobj;
     if (this->GetMesh(meshName, dobj))
         return -1;
 
-    vtkCompositeDataSetPtr cd =
-      VTKUtils::AsCompositeData(this->Comm, dobj.GetPointer(), false);
+    svtkCompositeDataSetPtr cd =
+      SVTKUtils::AsCompositeData(this->Comm, dobj.GetPointer(), false);
 
     // see if we already have this array
-    vtkCompositeDataIterator *cdit = cd->NewIterator();
+    svtkCompositeDataIterator *cdit = cd->NewIterator();
 
     // this rank has no local data
     if (cdit->IsDoneWithTraversal())
@@ -1722,7 +1722,7 @@ int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
     {
         if (this->Adaptor->AddArray(dobj.GetPointer(), meshName, association, arrayName))
         {
-            SENSEI_ERROR("Failed to add " << VTKUtils::GetAttributesName(association)
+            SENSEI_ERROR("Failed to add " << SVTKUtils::GetAttributesName(association)
               << " data array \"" << arrayName << "\"")
             cdit->Delete();
             return -1;
@@ -1731,12 +1731,12 @@ int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
 
     // extract array from the requested block
 
-    // VTK's iterators for AMR datasets behave differently than for multiblock
+    // SVTK's iterators for AMR datasets behave differently than for multiblock
     // datasets.  we are going to have to handle AMR data as a special case for
     // now.
 
-    vtkUniformGridAMRDataIterator *amrIt = dynamic_cast<vtkUniformGridAMRDataIterator*>(cdit);
-    vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(cd.Get());
+    svtkUniformGridAMRDataIterator *amrIt = dynamic_cast<svtkUniformGridAMRDataIterator*>(cdit);
+    svtkOverlappingAMR *amrMesh = dynamic_cast<svtkOverlappingAMR*>(cd.Get());
 
     for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
     {
@@ -1776,7 +1776,7 @@ int LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom,
 
 // --------------------------------------------------------------------------
 int LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom,
-    const std::string &meshName, vtkDataObject *&mesh)
+    const std::string &meshName, svtkDataObject *&mesh)
 {
     mesh = nullptr;
 
@@ -1790,24 +1790,24 @@ int LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom,
     MeshMetadataPtr mmd = mdit->second;
 
     // get the mesh
-    vtkDataObjectPtr dobj;
+    svtkDataObjectPtr dobj;
     if (this->GetMesh(meshName, dobj))
         return -1;
 
-    vtkCompositeDataSetPtr cd =
-      VTKUtils::AsCompositeData(this->Comm, dobj.GetPointer(), false);
+    svtkCompositeDataSetPtr cd =
+      SVTKUtils::AsCompositeData(this->Comm, dobj.GetPointer(), false);
 
     // get the block that visit is after
-    vtkCompositeDataIterator *cdit = cd->NewIterator();
+    svtkCompositeDataIterator *cdit = cd->NewIterator();
 
     // extract array from the requested block
 
-    // VTK's iterators for AMR datasets behave differently than for multiblock
+    // SVTK's iterators for AMR datasets behave differently than for multiblock
     // datasets.  we are going to have to handle AMR data as a special case for
     // now.
 
-    vtkUniformGridAMRDataIterator *amrIt = dynamic_cast<vtkUniformGridAMRDataIterator*>(cdit);
-    vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(cd.Get());
+    svtkUniformGridAMRDataIterator *amrIt = dynamic_cast<svtkUniformGridAMRDataIterator*>(cdit);
+    svtkOverlappingAMR *amrMesh = dynamic_cast<svtkOverlappingAMR*>(cd.Get());
 
     for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
     {
@@ -1853,12 +1853,12 @@ LibsimAnalysisAdaptor::PrivateData::GetMesh(int dom, const char *meshName,
 
     PrivateData *This = (PrivateData *)cbdata;
 
-    vtkDataObject *block = nullptr;
+    svtkDataObject *block = nullptr;
 
     if (This->GetMesh(dom, std::string(meshName), block))
         return VISIT_INVALID_HANDLE;
 
-    return vtkDataSet_to_VisIt_Mesh(block);
+    return svtkDataSet_to_VisIt_Mesh(block);
 }
 
 // --------------------------------------------------------------------------
@@ -1871,7 +1871,7 @@ LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *varName,
     PrivateData *This = (PrivateData *)cbdata;
 
     // get the array for this block
-    vtkDataArray *array = nullptr;
+    svtkDataArray *array = nullptr;
 
     if (This->GetVariable(dom, std::string(varName), array))
         return VISIT_INVALID_HANDLE;
@@ -1880,7 +1880,7 @@ LibsimAnalysisAdaptor::PrivateData::GetVariable(int dom, const char *varName,
     if (!array)
         return VISIT_INVALID_HANDLE;
 
-    return vtkDataArray_To_VisIt_VariableData(array);
+    return svtkDataArray_To_VisIt_VariableData(array);
 }
 
 // --------------------------------------------------------------------------
@@ -1932,7 +1932,7 @@ std::array<int,6> refine(const std::array<int,6> &cext, const std::array<int,3> 
 }
 
 // check if a course patch,cext, intersects a rr refined fine patch, fext.
-// extents are to provided in VTK order: [ilo,ihi, jlo,jhi, klo,khi]
+// extents are to provided in SVTK order: [ilo,ihi, jlo,jhi, klo,khi]
 // for 2D patches the 3d dim should have hi=lo and rr=1
 bool
 intersects(const std::array<int,6> &rcext, const std::array<int,6> &fext)
@@ -1967,7 +1967,7 @@ LibsimAnalysisAdaptor::PrivateData::GetDomainNesting(const char *name,
     MeshMetadataPtr mmd = This->Metadata[meshName];
 
     // skip non-amr datasets
-    if (mmd->MeshType != VTK_OVERLAPPING_AMR)
+    if (mmd->MeshType != SVTK_OVERLAPPING_AMR)
         return VISIT_INVALID_HANDLE;
 
     // Try and allocate the domain nesting object.
@@ -2135,10 +2135,10 @@ void LibsimAnalysisAdaptor::Initialize()
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::Execute(DataAdaptor* DataAdaptor)
+bool LibsimAnalysisAdaptor::Execute(sensei::DataAdaptor* da, sensei::DataAdaptor *&)
 {
     TimeEvent<128> mark("LibsimAnalysisAdaptor::Execute");
-    return internals->Execute(DataAdaptor);
+    return internals->Execute(da);
 }
 
 //-----------------------------------------------------------------------------
