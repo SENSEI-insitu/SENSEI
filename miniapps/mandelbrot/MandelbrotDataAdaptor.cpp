@@ -3,22 +3,22 @@
 #include "Profiler.h"
 #include "Error.h"
 
-#include <vtkCellArray.h>
-#include <vtkCellData.h>
-#include <vtkFloatArray.h>
-#include <vtkImageData.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkSmartPointer.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkUniformGridAMRDataIterator.h>
-#include <vtkCompositeDataIterator.h>
+#include <svtkCellArray.h>
+#include <svtkCellData.h>
+#include <svtkFloatArray.h>
+#include <svtkImageData.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkObjectFactory.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkSmartPointer.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkUniformGridAMRDataIterator.h>
+#include <svtkCompositeDataIterator.h>
 
-#include <vtkAMRBox.h>
-#include <vtkAMRInformation.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkUniformGrid.h>
+#include <svtkAMRBox.h>
+#include <svtkAMRInformation.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkUniformGrid.h>
 
 #include "simulation_data.h"
 #include "patch.h"
@@ -57,7 +57,7 @@ void MandelbrotDataAdaptor::Initialize(simulation_data *sim)
 
 //-----------------------------------------------------------------------------
 int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
-   bool structureOnly, vtkDataObject *&mesh)
+   bool structureOnly, svtkDataObject *&mesh)
 {
   sensei::TimeEvent<64> event("MandelbrotDataAdaptor::GetMesh");
 
@@ -74,7 +74,7 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
 
   DInternals& internals = (*this->Internals);
 
-  // VTK's data model requires a global view of blocks, but this simualtion
+  // SVTK's data model requires a global view of blocks, but this simualtion
   // doesn't provide it. construct it here.
   sensei::MeshMetadataFlags flags;
   flags.SetBlockDecomp();
@@ -93,9 +93,9 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
 
   int rr = mmd->RefRatio[0][0];
 
-  // create the VTK dataset
-  vtkSmartPointer<vtkOverlappingAMR> amrMesh =
-    vtkSmartPointer<vtkOverlappingAMR>::New();
+  // create the SVTK dataset
+  svtkSmartPointer<svtkOverlappingAMR> amrMesh =
+    svtkSmartPointer<svtkOverlappingAMR>::New();
 
   amrMesh->Initialize(mmd->NumLevels,
     mmd->BlocksPerLevel.data());
@@ -120,7 +120,7 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
       if (mmd->BlockLevel[i] != j)
         continue;
 
-      // get patch info for VTK
+      // get patch info for SVTK
       int cellExt[6];
       memcpy(cellExt, mmd->BlockExtents[i].data(), 6*sizeof(int));
       int cellExtLow[3] = {cellExt[0], cellExt[2], 0};
@@ -130,8 +130,8 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
       // patch when we need to add arrays
       int gid = mmd->BlockIds[i];
 
-      // pass metadata describing all boxes, including off rank, into VTK
-      vtkAMRBox box(cellExtLow, cellExtHigh);
+      // pass metadata describing all boxes, including off rank, into SVTK
+      svtkAMRBox box(cellExtLow, cellExtHigh);
       amrMesh->SetAMRBox(j, lbid, box);
       amrMesh->SetAMRBlockSourceIndex(j, lbid, gid);
 
@@ -145,12 +145,12 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
         ptExt[3] += 1;
         ptExt[5] += 1;
 
-        vtkUniformGrid *p = vtkUniformGrid::New();
+        svtkUniformGrid *p = svtkUniformGrid::New();
         p->SetOrigin(x0);
         p->SetSpacing(dx);
         p->SetExtent(ptExt);
 
-        // Set the vtkUniformGrid into the AMR dataset.
+        // Set the svtkUniformGrid into the AMR dataset.
         amrMesh->SetDataSet(j, lbid, p);
         p->Delete();
         }
@@ -166,7 +166,7 @@ int MandelbrotDataAdaptor::GetMesh(const std::string &meshName,
 }
 
 //-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
+int MandelbrotDataAdaptor::AddGhostCellsArray(svtkDataObject* mesh,
     const std::string &meshName)
 {
   sensei::TimeEvent<64> event("MandelbrotDataAdaptor::AddGhostCellsArray");
@@ -183,10 +183,10 @@ int MandelbrotDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
   patch_t **patches = patch_flat_array(&this->Internals->sim->patch, &np);
 
   // walk over all local blocks and zero-copy simulation data into the blocks
-  vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(mesh);
+  svtkOverlappingAMR *amrMesh = dynamic_cast<svtkOverlappingAMR*>(mesh);
 
-  vtkUniformGridAMRDataIterator *it =
-    dynamic_cast<vtkUniformGridAMRDataIterator*>(amrMesh->NewIterator());
+  svtkUniformGridAMRDataIterator *it =
+    dynamic_cast<svtkUniformGridAMRDataIterator*>(amrMesh->NewIterator());
 
   for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
     {
@@ -206,8 +206,8 @@ int MandelbrotDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
       }
 
     int nxy = patch->nx*patch->ny;
-    vtkUnsignedCharArray *arr = vtkUnsignedCharArray::New();
-    arr->SetName("vtkGhostType");
+    svtkUnsignedCharArray *arr = svtkUnsignedCharArray::New();
+    arr->SetName("svtkGhostType");
     if (patch->blank)
       {
       arr->SetArray(patch->blank, nxy, 1);
@@ -219,8 +219,8 @@ int MandelbrotDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
       memset(arr->GetVoidPointer(0), 0, nxy*sizeof(unsigned char));
       }
 
-    vtkUniformGrid *block =
-      dynamic_cast<vtkUniformGrid*>(it->GetCurrentDataObject());
+    svtkUniformGrid *block =
+      dynamic_cast<svtkUniformGrid*>(it->GetCurrentDataObject());
     block->GetCellData()->AddArray(arr);
     arr->Delete();
     }
@@ -232,12 +232,12 @@ int MandelbrotDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
 }
 
 //-----------------------------------------------------------------------------
-int MandelbrotDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
+int MandelbrotDataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
   sensei::TimeEvent<64> event("MandelbrotDataAdaptor::AddArray");
 
-  if ((association != vtkDataObject::FIELD_ASSOCIATION_CELLS) ||
+  if ((association != svtkDataObject::FIELD_ASSOCIATION_CELLS) ||
     (arrayName != "mandelbrot") || (meshName != "mesh"))
     {
     SENSEI_ERROR("the miniapp provides a cell centered array named \"mandelbrot\" "
@@ -250,10 +250,10 @@ int MandelbrotDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &mesh
   patch_t **patches = patch_flat_array(&this->Internals->sim->patch, &np);
 
   // walk over all local blocks and zero-copy simulation data into the blocks
-  vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(mesh);
+  svtkOverlappingAMR *amrMesh = dynamic_cast<svtkOverlappingAMR*>(mesh);
 
-  vtkUniformGridAMRDataIterator *it =
-    dynamic_cast<vtkUniformGridAMRDataIterator*>(amrMesh->NewIterator());
+  svtkUniformGridAMRDataIterator *it =
+    dynamic_cast<svtkUniformGridAMRDataIterator*>(amrMesh->NewIterator());
 
   for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
     {
@@ -272,9 +272,9 @@ int MandelbrotDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &mesh
       return -1;
       }
 
-    // pass it into VTK
-    vtkUniformGrid *block = dynamic_cast<vtkUniformGrid*>(it->GetCurrentDataObject());
-    vtkUnsignedCharArray *arr = vtkUnsignedCharArray::New();
+    // pass it into SVTK
+    svtkUniformGrid *block = dynamic_cast<svtkUniformGrid*>(it->GetCurrentDataObject());
+    svtkUnsignedCharArray *arr = svtkUnsignedCharArray::New();
     arr->SetName("mandelbrot");
     arr->SetArray(patch->data, patch->nx*patch->ny, 1);
     block->GetCellData()->SetScalars(arr);
@@ -311,16 +311,16 @@ int MandelbrotDataAdaptor::GetMeshMetadata(unsigned int id,
   DInternals &internals = (*this->Internals);
 
   metadata->MeshName = "mesh";
-  metadata->MeshType = VTK_OVERLAPPING_AMR;
-  metadata->BlockType = VTK_UNIFORM_GRID;
+  metadata->MeshType = SVTK_OVERLAPPING_AMR;
+  metadata->BlockType = SVTK_UNIFORM_GRID;
 
   metadata->NumGhostCells = 0;
   metadata->NumGhostNodes = 0;
 
   metadata->NumArrays = 1;
   metadata->ArrayName = {"mandelbrot"};
-  metadata->ArrayCentering = {vtkDataObject::CELL};
-  metadata->ArrayType = {VTK_UNSIGNED_CHAR};
+  metadata->ArrayCentering = {svtkDataObject::CELL};
+  metadata->ArrayType = {SVTK_UNSIGNED_CHAR};
   metadata->ArrayComponents = {1};
 
   metadata->NumLevels = internals.sim->max_levels + 1;
