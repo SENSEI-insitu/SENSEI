@@ -24,7 +24,7 @@ int AnalysisAdaptor::SetCommunicator(MPI_Comm comm)
 }
 
 //----------------------------------------------------------------------------
-void AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void AnalysisAdaptor::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

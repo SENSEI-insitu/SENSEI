@@ -8,8 +8,8 @@
 
 #include <pugixml.hpp>
 
-#include <vtkDataObject.h>
-#include <vtkObjectFactory.h>
+#include <svtkDataObject.h>
+#include <svtkObjectFactory.h>
 
 #include <map>
 #include <vector>

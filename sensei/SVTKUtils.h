@@ -1,58 +1,58 @@
-#ifndef VTKUtils_h
-#define VTKUtils_h
+#ifndef SVTKUtils_h
+#define SVTKUtils_h
 
 #include "MeshMetadata.h"
 #include "Error.h"
 
-class vtkDataSet;
-class vtkDataObject;
-class vtkFieldData;
-class vtkDataSetAttributes;
-class vtkCompositeDataSet;
+class svtkDataSet;
+class svtkDataObject;
+class svtkFieldData;
+class svtkDataSetAttributes;
+class svtkCompositeDataSet;
 
-#include <vtkDataArray.h>
-#include <vtkAOSDataArrayTemplate.h>
-#include <vtkSOADataArrayTemplate.h>
+#include <svtkDataArray.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
 
-#include <vtkSmartPointer.h>
-#include <vtkAOSDataArrayTemplate.h>
-#include <vtkCellArray.h>
+#include <svtkSmartPointer.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkCellArray.h>
 
 #include <functional>
 #include <vector>
 #include <mpi.h>
 
-#define vtkCellTemplateMacro(code)                                                                 \
-  vtkTemplateMacroCase(VTK_LONG_LONG, long long, code);                                            \
-  vtkTemplateMacroCase(VTK_UNSIGNED_LONG_LONG, unsigned long long, code);                          \
-  vtkTemplateMacroCase(VTK_ID_TYPE, vtkIdType, code);                                              \
-  vtkTemplateMacroCase(VTK_LONG, long, code);                                                      \
-  vtkTemplateMacroCase(VTK_UNSIGNED_LONG, unsigned long, code);                                    \
-  vtkTemplateMacroCase(VTK_INT, int, code);                                                        \
-  vtkTemplateMacroCase(VTK_UNSIGNED_INT, unsigned int, code);
+#define svtkCellTemplateMacro(code)                                         \
+  svtkTemplateMacroCase(SVTK_LONG_LONG, long long, code);                   \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_LONG_LONG, unsigned long long, code); \
+  svtkTemplateMacroCase(SVTK_ID_TYPE, svtkIdType, code);                    \
+  svtkTemplateMacroCase(SVTK_LONG, long, code);                             \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_LONG, unsigned long, code);           \
+  svtkTemplateMacroCase(SVTK_INT, int, code);                               \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_INT, unsigned int, code);
 
-using vtkCompositeDataSetPtr = vtkSmartPointer<vtkCompositeDataSet>;
+using svtkCompositeDataSetPtr = svtkSmartPointer<svtkCompositeDataSet>;
 
-#define vtkTemplateMacroFP(call)                                                                   \
-  vtkTemplateMacroCase(VTK_DOUBLE, double, call);                                                  \
-  vtkTemplateMacroCase(VTK_FLOAT, float, call);                                                    \
+#define svtkTemplateMacroFP(call)                   \
+  svtkTemplateMacroCase(SVTK_DOUBLE, double, call); \
+  svtkTemplateMacroCase(SVTK_FLOAT, float, call);   \
 
 namespace sensei
 {
 
 /// A collection of generally useful funcitons implementing
-/// common access patterns or operations on VTK data structures
-namespace VTKUtils
+/// common access patterns or operations on SVTK data structures
+namespace SVTKUtils
 {
-/** given a vtkDataArray get a pointer to underlying data
- * this handles access from VTK's AOS and SOA layouts. For
+/** given a svtkDataArray get a pointer to underlying data
+ * this handles access from SVTK's AOS and SOA layouts. For
  * SOA layout only single component arrays should be passed.
  */
-template <typename VTK_TT>
-VTK_TT *GetPointer(vtkDataArray *da)
+template <typename SVTK_TT>
+SVTK_TT *GetPointer(svtkDataArray *da)
 {
-  using AOS_ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>;
-  using SOA_ARRAY_TT = vtkSOADataArrayTemplate<VTK_TT>;
+  using AOS_ARRAY_TT = svtkAOSDataArrayTemplate<SVTK_TT>;
+  using SOA_ARRAY_TT = svtkSOADataArrayTemplate<SVTK_TT>;
 
   AOS_ARRAY_TT *aosDa = nullptr;
   SOA_ARRAY_TT *soaDa = nullptr;
@@ -66,19 +66,19 @@ VTK_TT *GetPointer(vtkDataArray *da)
     return soaDa->GetPointer(0);
     }
 
-  SENSEI_ERROR("Invalid vtkDataArray "
+  SENSEI_ERROR("Invalid svtkDataArray "
      << (da ? da->GetClassName() : "nullptr"))
   return nullptr;
 }
 
-/// given a VTK type enum returns the sizeof that type
-unsigned int Size(int vtkt);
+/// given a SVTK type enum returns the sizeof that type
+unsigned int Size(int svtkt);
 
-/// given a VTK data object enum returns true if it a legacy object
+/// given a SVTK data object enum returns true if it a legacy object
 int IsLegacyDataObject(int code);
 
-/// givne a VTK data object enum constructs an instance
-vtkDataObject *NewDataObject(int code);
+/// givne a SVTK data object enum constructs an instance
+svtkDataObject *NewDataObject(int code);
 
 /// returns the enum value given an association name. where name
 /// can be one of: point, cell or, field
@@ -87,87 +87,87 @@ int GetAssociation(std::string assocStr, int &assoc);
 /// returns the name of the association, point, cell or field
 const char *GetAttributesName(int association);
 
-/// returns the container for the associations: vtkPointData,
-/// vtkCellData, or vtkFieldData
-vtkFieldData *GetAttributes(vtkDataSet *dobj, int association);
+/// returns the container for the associations: svtkPointData,
+/// svtkCellData, or svtkFieldData
+svtkFieldData *GetAttributes(svtkDataSet *dobj, int association);
 
 /// callback that processes input and output datasets
 /// return 0 for success, > zero to stop without error, < zero to stop with error
-using BinaryDatasetFunction = std::function<int(vtkDataSet*, vtkDataSet*)>;
+using BinaryDatasetFunction = std::function<int(svtkDataSet*, svtkDataSet*)>;
 
 /// Applies the function to leaves of the structurally equivalent
 /// input and output data objects.
-int Apply(vtkDataObject *input, vtkDataObject *output,
+int Apply(svtkDataObject *input, svtkDataObject *output,
   BinaryDatasetFunction &func);
 
 /// callback that processes input and output datasets
 /// return 0 for success, > zero to stop without error, < zero to stop with error
-using DatasetFunction = std::function<int(vtkDataSet*)>;
+using DatasetFunction = std::function<int(svtkDataSet*)>;
 
 /// Applies the function to the data object
 /// The function is called once for each leaf dataset
-int Apply(vtkDataObject *dobj, DatasetFunction &func);
+int Apply(svtkDataObject *dobj, DatasetFunction &func);
 
 /// Store ghost layer metadata in the mesh
-int SetGhostLayerMetadata(vtkDataObject *mesh,
+int SetGhostLayerMetadata(svtkDataObject *mesh,
   int nGhostCellLayers, int nGhostNodeLayers);
 
 /// Retreive ghost layer metadata from the mesh. returns non-zero if
 /// no such metadata is found.
-int GetGhostLayerMetadata(vtkDataObject *mesh,
+int GetGhostLayerMetadata(svtkDataObject *mesh,
   int &nGhostCellLayers, int &nGhostNodeLayers);
 
 /// Get  metadata, note that data set variant is not meant to
 /// be used on blocks of a multi-block
-int GetMetadata(MPI_Comm comm, vtkDataSet *ds, MeshMetadataPtr);
-int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr);
+int GetMetadata(MPI_Comm comm, svtkDataSet *ds, MeshMetadataPtr);
+int GetMetadata(MPI_Comm comm, svtkCompositeDataSet *cd, MeshMetadataPtr);
 
 /// Given a data object ensure that it is a composite data set
 /// If it already is, then the call is a no-op, if it is not
 /// then it is converted to a multiblock. The flag take determines
 /// if the smart pointer takes ownership or adds a reference.
-vtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
-  vtkDataObject *dobj, bool take = true);
+svtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
+  svtkDataObject *dobj, bool take = true);
 
 /// Return true if the mesh or block type is AMR
 inline bool AMR(const MeshMetadataPtr &md)
 {
-  return (md->MeshType == VTK_OVERLAPPING_AMR) ||
-    (md->MeshType == VTK_NON_OVERLAPPING_AMR);
+  return (md->MeshType == SVTK_OVERLAPPING_AMR) ||
+    (md->MeshType == SVTK_NON_OVERLAPPING_AMR);
 }
 
 /// Return true if the mesh or block type is logically Cartesian
 inline bool Structured(const MeshMetadataPtr &md)
 {
-  return (md->BlockType == VTK_STRUCTURED_GRID) ||
-    (md->MeshType == VTK_STRUCTURED_GRID);
+  return (md->BlockType == SVTK_STRUCTURED_GRID) ||
+    (md->MeshType == SVTK_STRUCTURED_GRID);
 }
 
 /// Return true if the mesh or block type is polydata
 inline bool Polydata(const MeshMetadataPtr &md)
 {
-  return (md->BlockType == VTK_POLY_DATA) || (md->MeshType == VTK_POLY_DATA);
+  return (md->BlockType == SVTK_POLY_DATA) || (md->MeshType == SVTK_POLY_DATA);
 }
 
 /// Return true if the mesh or block type is unstructured
 inline bool Unstructured(const MeshMetadataPtr &md)
 {
-  return (md->BlockType == VTK_UNSTRUCTURED_GRID) ||
-    (md->MeshType == VTK_UNSTRUCTURED_GRID);
+  return (md->BlockType == SVTK_UNSTRUCTURED_GRID) ||
+    (md->MeshType == SVTK_UNSTRUCTURED_GRID);
 }
 
 /// Return true if the mesh or block type is stretched Cartesian
 inline bool StretchedCartesian(const MeshMetadataPtr &md)
 {
-  return (md->BlockType == VTK_RECTILINEAR_GRID) ||
-    (md->MeshType == VTK_RECTILINEAR_GRID);
+  return (md->BlockType == SVTK_RECTILINEAR_GRID) ||
+    (md->MeshType == SVTK_RECTILINEAR_GRID);
 }
 
 /// Return true if the mesh or block type is uniform Cartesian
 inline bool UniformCartesian(const MeshMetadataPtr &md)
 {
-  return (md->BlockType == VTK_IMAGE_DATA) || (md->MeshType == VTK_IMAGE_DATA)
-    || (md->BlockType == VTK_UNIFORM_GRID) || (md->MeshType == VTK_UNIFORM_GRID);
+  return (md->BlockType == SVTK_IMAGE_DATA) || (md->MeshType == SVTK_IMAGE_DATA)
+    || (md->BlockType == SVTK_UNIFORM_GRID) || (md->MeshType == SVTK_UNIFORM_GRID);
 }
 
 /// Return true if the mesh or block type is logically Cartesian
@@ -184,14 +184,14 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
  * where to insert into the output array. Use it to serialze verys, lines, polys
  * strips form a polytdata into a single cell array for transport
  */
-template <typename VTK_TT, typename ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>>
+template <typename SVTK_TT, typename ARRAY_TT = svtkAOSDataArrayTemplate<SVTK_TT>>
 void PackCells(ARRAY_TT *coIn, ARRAY_TT *ccIn, ARRAY_TT *coOut, ARRAY_TT *ccOut,
   size_t &coId, size_t &ccId)
 {
   // copy offsets
   size_t nOffs = coIn->GetNumberOfTuples();
-  const VTK_TT *pSrc = coIn->GetPointer(0);
-  VTK_TT *pDest = coOut->GetPointer(0);
+  const SVTK_TT *pSrc = coIn->GetPointer(0);
+  SVTK_TT *pDest = coOut->GetPointer(0);
 
   for (size_t i = 0; i < nOffs; ++i)
     pDest[coId + i] = pSrc[i];
@@ -211,20 +211,20 @@ void PackCells(ARRAY_TT *coIn, ARRAY_TT *ccIn, ARRAY_TT *coOut, ARRAY_TT *ccOut,
   ccId += nConn;
 }
 
-/// deserializes a buffer made by VTKUtils::PackCells.
-template <typename VTK_TT,  typename ARRAY_TT = vtkAOSDataArrayTemplate<VTK_TT>>
+/// deserializes a buffer made by SVTKUtils::PackCells.
+template <typename SVTK_TT,  typename ARRAY_TT = svtkAOSDataArrayTemplate<SVTK_TT>>
 void UnpackCells(size_t nc, ARRAY_TT *coIn, ARRAY_TT *ccIn,
-  vtkCellArray *caOut, size_t &coId, size_t &ccId)
+  svtkCellArray *caOut, size_t &coId, size_t &ccId)
 {
   // offsets
   size_t nCo = nc + 1;
 
-  VTK_TT *pCoIn = coIn->GetPointer(0);
+  SVTK_TT *pCoIn = coIn->GetPointer(0);
 
   ARRAY_TT *coOut = ARRAY_TT::New();
 
   coOut->SetNumberOfTuples(nCo);
-  VTK_TT *pCoOut = coOut->GetPointer(0);
+  SVTK_TT *pCoOut = coOut->GetPointer(0);
 
   for (size_t i = 0; i < nCo; ++i)
     pCoOut[i] = pCoIn[coId + i];
@@ -237,10 +237,10 @@ void UnpackCells(size_t nc, ARRAY_TT *coIn, ARRAY_TT *ccIn,
   ARRAY_TT *ccOut = ARRAY_TT::New();
   if (nCc)
     {
-    VTK_TT *pCcIn = ccIn->GetPointer(0);
+    SVTK_TT *pCcIn = ccIn->GetPointer(0);
 
     ccOut->SetNumberOfTuples(nCc);
-    VTK_TT *pCcOut = ccOut->GetPointer(0);
+    SVTK_TT *pCcOut = ccOut->GetPointer(0);
 
     for (size_t i = 0; i < nCc; ++i)
       pCcOut[i] = pCcIn[ccId + i];

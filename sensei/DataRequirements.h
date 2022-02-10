@@ -91,7 +91,7 @@ public:
 
   /// For the named mesh, gets the list of required arrays
   /// @param[in] meshName the name of the mesh
-  /// @param[in] association vtkDataObject::POINT, vtkDataObject::CELL, etc
+  /// @param[in] association svtkDataObject::POINT, svtkDataObject::CELL, etc
   /// @param[out] arrays a vector where the arrays will be stored
   /// @returns zero if successful
   int GetRequiredArrays(const std::string &meshName, int association,
@@ -99,7 +99,7 @@ public:
 
   /// For the named mesh, and association, gets the number of required arrays
   /// @param[in] meshName the name of the mesh
-  /// @param[in] association vtkDataObject::POINT, vtkDataObject::CELL, etc
+  /// @param[in] association svtkDataObject::POINT, svtkDataObject::CELL, etc
   /// @param[out] number of arrays
   /// @returns zero if successful
   int GetNumberOfRequiredArrays(const std::string &meshName,

@@ -1,10 +1,10 @@
 #include "DataRequirements.h"
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 
-#include <vtkDataObject.h>
+#include <svtkDataObject.h>
 #include <sstream>
 
 namespace sensei
@@ -84,12 +84,12 @@ int DataRequirements::Initialize(pugi::xml_node parent)
     // get cell data arrays, optional
     std::vector<std::string> arrays;
     if (getArrayNames(node.child("cell_arrays"), arrays))
-      this->MeshArrayMap[meshName][vtkDataObject::CELL] = arrays;
+      this->MeshArrayMap[meshName][svtkDataObject::CELL] = arrays;
 
     // get point data arrays, optional
     arrays.clear();
     if (getArrayNames(node.child("point_arrays"), arrays))
-      this->MeshArrayMap[meshName][vtkDataObject::POINT] = arrays;
+      this->MeshArrayMap[meshName][svtkDataObject::POINT] = arrays;
 
     meshId += 1;
     }

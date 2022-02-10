@@ -1,125 +1,125 @@
 #include "senseiConfig.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "MPIUtils.h"
 #include "MeshMetadata.h"
 #include "Error.h"
 
 
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDataArray.h>
-#include <vtkAbstractArray.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkIntArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkLongLongArray.h>
-#include <vtkUnsignedLongLongArray.h>
-#include <vtkCharArray.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkPoints.h>
-#include <vtkPolyData.h>
-#include <vtkStructuredPoints.h>
-#include <vtkStructuredGrid.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkImageData.h>
-#include <vtkUniformGrid.h>
-#include <vtkTable.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkHierarchicalBoxDataSet.h>
-#include <vtkMultiPieceDataSet.h>
-#include <vtkHyperTreeGrid.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkNonOverlappingAMR.h>
-#include <vtkUniformGridAMR.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
-#include <vtkDataObject.h>
-#include <vtkDataSet.h>
-#include <vtkPointSet.h>
-#include <vtkAMRBox.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkFieldData.h>
-#include <vtkCellData.h>
-#include <vtkPointData.h>
-#include <vtkObjectBase.h>
-#include <vtkObject.h>
-#include <vtkCellArray.h>
-#include <vtkCellTypes.h>
-#include <vtkSmartPointer.h>
-#include <vtkIntArray.h>
-#include <vtkVersionMacros.h>
-#if ((VTK_VERSION_MAJOR >= 8) && (VTK_VERSION_MINOR >= 2))
-#include <vtkAOSDataArrayTemplate.h>
-#include <vtkSOADataArrayTemplate.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDataArray.h>
+#include <svtkAbstractArray.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkIntArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkLongLongArray.h>
+#include <svtkUnsignedLongLongArray.h>
+#include <svtkCharArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkPoints.h>
+#include <svtkPolyData.h>
+#include <svtkStructuredPoints.h>
+#include <svtkStructuredGrid.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkUnstructuredGrid.h>
+#include <svtkImageData.h>
+#include <svtkUniformGrid.h>
+#include <svtkTable.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkHierarchicalBoxDataSet.h>
+#include <svtkMultiPieceDataSet.h>
+#include <svtkHyperTreeGrid.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkNonOverlappingAMR.h>
+#include <svtkUniformGridAMR.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkSmartPointer.h>
+#include <svtkDataObject.h>
+#include <svtkDataSet.h>
+#include <svtkPointSet.h>
+#include <svtkAMRBox.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkFieldData.h>
+#include <svtkCellData.h>
+#include <svtkPointData.h>
+#include <svtkObjectBase.h>
+#include <svtkObject.h>
+#include <svtkCellArray.h>
+#include <svtkCellTypes.h>
+#include <svtkSmartPointer.h>
+#include <svtkIntArray.h>
+#include <svtkVersionMacros.h>
+#if ((SVTK_VERSION_MAJOR >= 8) && (SVTK_VERSION_MINOR >= 2))
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
 #endif
 #if defined(ENABLE_VTK_IO)
-#include <vtkXMLUnstructuredGridWriter.h>
+#include <svtkXMLUnstructuredGridWriter.h>
 #endif
-#include <vtkPoints.h>
-#include <vtkDoubleArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkUnsignedCharArray.h>
+#include <svtkPoints.h>
+#include <svtkDoubleArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkUnsignedCharArray.h>
 
 #include <sstream>
 #include <functional>
 #include <mpi.h>
 
-using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
-using vtkCompositeDataIteratorPtr = vtkSmartPointer<vtkCompositeDataIterator>;
+using svtkDataObjectPtr = svtkSmartPointer<svtkDataObject>;
+using svtkCompositeDataIteratorPtr = svtkSmartPointer<svtkCompositeDataIterator>;
 
 namespace sensei
 {
-namespace VTKUtils
+namespace SVTKUtils
 {
 
 // --------------------------------------------------------------------------
-unsigned int Size(int vtkt)
+unsigned int Size(int svtkt)
 {
-  switch (vtkt)
+  switch (svtkt)
     {
-    case VTK_FLOAT:
+    case SVTK_FLOAT:
       return sizeof(float);
       break;
-    case VTK_DOUBLE:
+    case SVTK_DOUBLE:
       return sizeof(double);
       break;
-    case VTK_CHAR:
+    case SVTK_CHAR:
       return sizeof(char);
       break;
-    case VTK_UNSIGNED_CHAR:
+    case SVTK_UNSIGNED_CHAR:
       return sizeof(unsigned char);
       break;
-    case VTK_INT:
+    case SVTK_INT:
       return sizeof(int);
       break;
-    case VTK_UNSIGNED_INT:
+    case SVTK_UNSIGNED_INT:
       return sizeof(unsigned int);
       break;
-    case VTK_LONG:
+    case SVTK_LONG:
       return sizeof(long);
       break;
-    case VTK_UNSIGNED_LONG:
+    case SVTK_UNSIGNED_LONG:
       return sizeof(unsigned long);
       break;
-    case VTK_LONG_LONG:
+    case SVTK_LONG_LONG:
       return sizeof(long long);
       break;
-    case VTK_UNSIGNED_LONG_LONG:
+    case SVTK_UNSIGNED_LONG_LONG:
       return sizeof(unsigned long long);
       break;
-    case VTK_ID_TYPE:
-      return sizeof(vtkIdType);
+    case SVTK_ID_TYPE:
+      return sizeof(svtkIdType);
       break;
     default:
       {
-      SENSEI_ERROR("the adios type for vtk type enumeration " << vtkt
+      SENSEI_ERROR("the adios type for svtk type enumeration " << svtkt
         << " is currently not implemented")
       MPI_Abort(MPI_COMM_WORLD, -1);
       }
@@ -131,60 +131,60 @@ unsigned int Size(int vtkt)
 int IsLegacyDataObject(int code)
 {
   // this function is used to determine data parallelization strategy.
-  // VTK has 2, namely the legacy one in which each process holds 1
-  // legacy dataset, and the more modern approach where VTK composite
+  // SVTK has 2, namely the legacy one in which each process holds 1
+  // legacy dataset, and the more modern approach where SVTK composite
   // dataset holds any number of datasets on any number of processes.
   int ret = 0;
   switch (code)
     {
     // legacy
-    case VTK_POLY_DATA:
-    case VTK_STRUCTURED_POINTS:
-    case VTK_STRUCTURED_GRID:
-    case VTK_RECTILINEAR_GRID:
-    case VTK_UNSTRUCTURED_GRID:
-    case VTK_IMAGE_DATA:
-    case VTK_UNIFORM_GRID:
-    case VTK_TABLE:
+    case SVTK_POLY_DATA:
+    case SVTK_STRUCTURED_POINTS:
+    case SVTK_STRUCTURED_GRID:
+    case SVTK_RECTILINEAR_GRID:
+    case SVTK_UNSTRUCTURED_GRID:
+    case SVTK_IMAGE_DATA:
+    case SVTK_UNIFORM_GRID:
+    case SVTK_TABLE:
     // others
-    case VTK_GRAPH:
-    case VTK_TREE:
-    case VTK_SELECTION:
-    case VTK_DIRECTED_GRAPH:
-    case VTK_UNDIRECTED_GRAPH:
-    case VTK_DIRECTED_ACYCLIC_GRAPH:
-    case VTK_ARRAY_DATA:
-    case VTK_REEB_GRAPH:
-    case VTK_MOLECULE:
-    case VTK_PATH:
-    case VTK_PIECEWISE_FUNCTION:
+    case SVTK_GRAPH:
+    case SVTK_TREE:
+    case SVTK_SELECTION:
+    case SVTK_DIRECTED_GRAPH:
+    case SVTK_UNDIRECTED_GRAPH:
+    case SVTK_DIRECTED_ACYCLIC_GRAPH:
+    case SVTK_ARRAY_DATA:
+    case SVTK_REEB_GRAPH:
+    case SVTK_MOLECULE:
+    case SVTK_PATH:
+    case SVTK_PIECEWISE_FUNCTION:
       ret = 1;
       break;
     // composite data etc
-    case VTK_MULTIBLOCK_DATA_SET:
-    case VTK_HIERARCHICAL_BOX_DATA_SET:
-    case VTK_MULTIPIECE_DATA_SET:
-    case VTK_HYPER_OCTREE:
-    case VTK_HYPER_TREE_GRID:
-    case VTK_OVERLAPPING_AMR:
-    case VTK_NON_OVERLAPPING_AMR:
-    case VTK_UNIFORM_GRID_AMR:
+    case SVTK_MULTIBLOCK_DATA_SET:
+    case SVTK_HIERARCHICAL_BOX_DATA_SET:
+    case SVTK_MULTIPIECE_DATA_SET:
+    case SVTK_HYPER_OCTREE:
+    case SVTK_HYPER_TREE_GRID:
+    case SVTK_OVERLAPPING_AMR:
+    case SVTK_NON_OVERLAPPING_AMR:
+    case SVTK_UNIFORM_GRID_AMR:
       ret = 0;
       break;
     // base classes
-    case VTK_DATA_OBJECT:
-    case VTK_DATA_SET:
-    case VTK_POINT_SET:
-    case VTK_COMPOSITE_DATA_SET:
-    case VTK_GENERIC_DATA_SET:
-#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
-    case VTK_UNSTRUCTURED_GRID_BASE:
-    case VTK_PISTON_DATA_OBJECT:
+    case SVTK_DATA_OBJECT:
+    case SVTK_DATA_SET:
+    case SVTK_POINT_SET:
+    case SVTK_COMPOSITE_DATA_SET:
+    case SVTK_GENERIC_DATA_SET:
+#if !(SVTK_MAJOR_VERSION == 6 && SVTK_MINOR_VERSION == 1)
+    case SVTK_UNSTRUCTURED_GRID_BASE:
+    case SVTK_PISTON_DATA_OBJECT:
 #endif
     // deprecated/removed
-    case VTK_HIERARCHICAL_DATA_SET:
-    case VTK_TEMPORAL_DATA_SET:
-    case VTK_MULTIGROUP_DATA_SET:
+    case SVTK_HIERARCHICAL_DATA_SET:
+    case SVTK_TEMPORAL_DATA_SET:
+    case SVTK_MULTIGROUP_DATA_SET:
     // unknown code
     default:
       SENSEI_ERROR("Neither legacy nor composite " << code)
@@ -194,86 +194,86 @@ int IsLegacyDataObject(int code)
 }
 
 // --------------------------------------------------------------------------
-vtkDataObject *NewDataObject(int code)
+svtkDataObject *NewDataObject(int code)
 {
-  vtkDataObject *ret = nullptr;
+  svtkDataObject *ret = nullptr;
   switch (code)
     {
     // simple
-    case VTK_POLY_DATA:
-      ret = vtkPolyData::New();
+    case SVTK_POLY_DATA:
+      ret = svtkPolyData::New();
       break;
-    case VTK_STRUCTURED_POINTS:
-      ret = vtkStructuredPoints::New();
+    case SVTK_STRUCTURED_POINTS:
+      ret = svtkStructuredPoints::New();
       break;
-    case VTK_STRUCTURED_GRID:
-      ret = vtkStructuredGrid::New();
+    case SVTK_STRUCTURED_GRID:
+      ret = svtkStructuredGrid::New();
       break;
-    case VTK_RECTILINEAR_GRID:
-      ret = vtkRectilinearGrid::New();
+    case SVTK_RECTILINEAR_GRID:
+      ret = svtkRectilinearGrid::New();
       break;
-    case VTK_UNSTRUCTURED_GRID:
-      ret = vtkUnstructuredGrid::New();
+    case SVTK_UNSTRUCTURED_GRID:
+      ret = svtkUnstructuredGrid::New();
       break;
-    case VTK_IMAGE_DATA:
-      ret = vtkImageData::New();
+    case SVTK_IMAGE_DATA:
+      ret = svtkImageData::New();
       break;
-    case VTK_UNIFORM_GRID:
-      ret = vtkUniformGrid::New();
+    case SVTK_UNIFORM_GRID:
+      ret = svtkUniformGrid::New();
       break;
-    case VTK_TABLE:
-      ret = vtkTable::New();
+    case SVTK_TABLE:
+      ret = svtkTable::New();
       break;
     // composite data etc
-    case VTK_MULTIBLOCK_DATA_SET:
-      ret = vtkMultiBlockDataSet::New();
+    case SVTK_MULTIBLOCK_DATA_SET:
+      ret = svtkMultiBlockDataSet::New();
       break;
-    case VTK_HIERARCHICAL_BOX_DATA_SET:
-      ret = vtkHierarchicalBoxDataSet::New();
+    case SVTK_HIERARCHICAL_BOX_DATA_SET:
+      ret = svtkHierarchicalBoxDataSet::New();
       break;
-    case VTK_MULTIPIECE_DATA_SET:
-      ret = vtkMultiPieceDataSet::New();
+    case SVTK_MULTIPIECE_DATA_SET:
+      ret = svtkMultiPieceDataSet::New();
       break;
-    case VTK_HYPER_TREE_GRID:
-      ret = vtkHyperTreeGrid::New();
+    case SVTK_HYPER_TREE_GRID:
+      ret = svtkHyperTreeGrid::New();
       break;
-    case VTK_OVERLAPPING_AMR:
-      ret = vtkOverlappingAMR::New();
+    case SVTK_OVERLAPPING_AMR:
+      ret = svtkOverlappingAMR::New();
       break;
-    case VTK_NON_OVERLAPPING_AMR:
-      ret = vtkNonOverlappingAMR::New();
+    case SVTK_NON_OVERLAPPING_AMR:
+      ret = svtkNonOverlappingAMR::New();
       break;
-    case VTK_UNIFORM_GRID_AMR:
-      ret = vtkUniformGridAMR::New();
+    case SVTK_UNIFORM_GRID_AMR:
+      ret = svtkUniformGridAMR::New();
       break;
     // TODO
-    case VTK_GRAPH:
-    case VTK_TREE:
-    case VTK_SELECTION:
-    case VTK_DIRECTED_GRAPH:
-    case VTK_UNDIRECTED_GRAPH:
-    case VTK_DIRECTED_ACYCLIC_GRAPH:
-    case VTK_ARRAY_DATA:
-    case VTK_REEB_GRAPH:
-    case VTK_MOLECULE:
-    case VTK_PATH:
-    case VTK_PIECEWISE_FUNCTION:
+    case SVTK_GRAPH:
+    case SVTK_TREE:
+    case SVTK_SELECTION:
+    case SVTK_DIRECTED_GRAPH:
+    case SVTK_UNDIRECTED_GRAPH:
+    case SVTK_DIRECTED_ACYCLIC_GRAPH:
+    case SVTK_ARRAY_DATA:
+    case SVTK_REEB_GRAPH:
+    case SVTK_MOLECULE:
+    case SVTK_PATH:
+    case SVTK_PIECEWISE_FUNCTION:
       SENSEI_WARNING("Factory for " << code << " not yet implemented")
       break;
     // base classes
-    case VTK_DATA_OBJECT:
-    case VTK_DATA_SET:
-    case VTK_POINT_SET:
-    case VTK_COMPOSITE_DATA_SET:
-    case VTK_GENERIC_DATA_SET:
-#if !(VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1)
-    case VTK_UNSTRUCTURED_GRID_BASE:
-    case VTK_PISTON_DATA_OBJECT:
+    case SVTK_DATA_OBJECT:
+    case SVTK_DATA_SET:
+    case SVTK_POINT_SET:
+    case SVTK_COMPOSITE_DATA_SET:
+    case SVTK_GENERIC_DATA_SET:
+#if !(SVTK_MAJOR_VERSION == 6 && SVTK_MINOR_VERSION == 1)
+    case SVTK_UNSTRUCTURED_GRID_BASE:
+    case SVTK_PISTON_DATA_OBJECT:
 #endif
     // deprecated/removed
-    case VTK_HIERARCHICAL_DATA_SET:
-    case VTK_TEMPORAL_DATA_SET:
-    case VTK_MULTIGROUP_DATA_SET:
+    case SVTK_HIERARCHICAL_DATA_SET:
+    case SVTK_TEMPORAL_DATA_SET:
+    case SVTK_MULTIGROUP_DATA_SET:
     // unknown code
     default:
       SENSEI_ERROR("data object for " << code << " could not be construtced")
@@ -290,17 +290,17 @@ int GetAssociation(std::string assocStr, int &assoc)
 
   if (assocStr == "point")
     {
-    assoc = vtkDataObject::POINT;
+    assoc = svtkDataObject::POINT;
     return 0;
     }
   else if (assocStr == "cell")
     {
-    assoc = vtkDataObject::CELL;
+    assoc = svtkDataObject::CELL;
     return 0;
     }
   else if (assocStr == "field")
     {
-    assoc = vtkDataObject::FIELD;
+    assoc = svtkDataObject::FIELD;
     return 0;
     }
 
@@ -313,13 +313,13 @@ const char *GetAttributesName(int association)
 {
   switch (association)
     {
-    case vtkDataObject::POINT:
+    case svtkDataObject::POINT:
       return "point";
       break;
-    case vtkDataObject::CELL:
+    case svtkDataObject::CELL:
       return "cell";
       break;
-    case vtkDataObject::FIELD:
+    case svtkDataObject::FIELD:
       return "field";
       break;
     }
@@ -328,18 +328,18 @@ const char *GetAttributesName(int association)
 }
 
 //----------------------------------------------------------------------------
-vtkFieldData *GetAttributes(vtkDataSet *dobj, int association)
+svtkFieldData *GetAttributes(svtkDataSet *dobj, int association)
 {
   switch (association)
     {
-    case vtkDataObject::POINT:
-      return static_cast<vtkFieldData*>(dobj->GetPointData());
+    case svtkDataObject::POINT:
+      return static_cast<svtkFieldData*>(dobj->GetPointData());
       break;
-    case vtkDataObject::CELL:
-      return static_cast<vtkFieldData*>(dobj->GetCellData());
+    case svtkDataObject::CELL:
+      return static_cast<svtkFieldData*>(dobj->GetCellData());
       break;
-    case vtkDataObject::FIELD:
-      return static_cast<vtkFieldData*>(dobj->GetFieldData());
+    case svtkDataObject::FIELD:
+      return static_cast<svtkFieldData*>(dobj->GetFieldData());
       break;
     }
   SENSEI_ERROR("Invalid data set attributes association")
@@ -347,20 +347,20 @@ vtkFieldData *GetAttributes(vtkDataSet *dobj, int association)
 }
 
 //----------------------------------------------------------------------------
-int Apply(vtkCompositeDataSet *cd, vtkCompositeDataSet *cdo,
+int Apply(svtkCompositeDataSet *cd, svtkCompositeDataSet *cdo,
   BinaryDatasetFunction &func)
 {
-  vtkCompositeDataIteratorPtr cdit;
+  svtkCompositeDataIteratorPtr cdit;
   cdit.TakeReference(cd->NewIterator());
   while (!cdit->IsDoneWithTraversal())
     {
-    vtkDataObject *obj = cd->GetDataSet(cdit);
-    vtkDataObject *objOut = cdo->GetDataSet(cdit);
+    svtkDataObject *obj = cd->GetDataSet(cdit);
+    svtkDataObject *objOut = cdo->GetDataSet(cdit);
 
     // recurse through nested composite datasets
-    if (vtkCompositeDataSet *cdn = dynamic_cast<vtkCompositeDataSet*>(obj))
+    if (svtkCompositeDataSet *cdn = dynamic_cast<svtkCompositeDataSet*>(obj))
       {
-      vtkCompositeDataSet*cdnOut = static_cast<vtkCompositeDataSet*>(objOut);
+      svtkCompositeDataSet*cdnOut = static_cast<svtkCompositeDataSet*>(objOut);
       int ret = Apply(cdn, cdnOut, func);
       if (ret < 0)
         {
@@ -376,9 +376,9 @@ int Apply(vtkCompositeDataSet *cd, vtkCompositeDataSet *cdo,
         }
       }
     // process data set leaves
-    else if(vtkDataSet *ds = dynamic_cast<vtkDataSet*>(obj))
+    else if(svtkDataSet *ds = dynamic_cast<svtkDataSet*>(obj))
       {
-      vtkDataSet *dsOut = static_cast<vtkDataSet*>(objOut);
+      svtkDataSet *dsOut = static_cast<svtkDataSet*>(objOut);
       int ret = func(ds, dsOut);
       if (ret < 0)
         {
@@ -404,20 +404,20 @@ int Apply(vtkCompositeDataSet *cd, vtkCompositeDataSet *cdo,
 }
 
 //----------------------------------------------------------------------------
-int Apply(vtkDataObject *dobj, vtkDataObject *dobjo,
+int Apply(svtkDataObject *dobj, svtkDataObject *dobjo,
   BinaryDatasetFunction &func)
 {
-  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  if (svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet*>(dobj))
     {
-    vtkCompositeDataSet *cdo = static_cast<vtkCompositeDataSet*>(dobjo);
+    svtkCompositeDataSet *cdo = static_cast<svtkCompositeDataSet*>(dobjo);
     if (Apply(cd, cdo, func) < 0)
       {
       return -1;
       }
     }
-  else if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+  else if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
     {
-    vtkDataSet *dso = static_cast<vtkDataSet*>(dobjo);
+    svtkDataSet *dso = static_cast<svtkDataSet*>(dobjo);
     if (func(ds, dso) < 0)
       {
       return -1;
@@ -433,15 +433,15 @@ int Apply(vtkDataObject *dobj, vtkDataObject *dobjo,
 }
 
 //----------------------------------------------------------------------------
-int Apply(vtkCompositeDataSet *cd, DatasetFunction &func)
+int Apply(svtkCompositeDataSet *cd, DatasetFunction &func)
 {
-  vtkCompositeDataIteratorPtr cdit;
+  svtkCompositeDataIteratorPtr cdit;
   cdit.TakeReference(cd->NewIterator());
   while (!cdit->IsDoneWithTraversal())
     {
-    vtkDataObject *obj = cd->GetDataSet(cdit);
+    svtkDataObject *obj = cd->GetDataSet(cdit);
     // recurse through nested composite datasets
-    if (vtkCompositeDataSet *cdn = dynamic_cast<vtkCompositeDataSet*>(obj))
+    if (svtkCompositeDataSet *cdn = dynamic_cast<svtkCompositeDataSet*>(obj))
       {
       int ret = Apply(cdn, func);
       if (ret < 0)
@@ -458,7 +458,7 @@ int Apply(vtkCompositeDataSet *cd, DatasetFunction &func)
         }
       }
     // process data set leaves
-    else if(vtkDataSet *ds = dynamic_cast<vtkDataSet*>(obj))
+    else if(svtkDataSet *ds = dynamic_cast<svtkDataSet*>(obj))
       {
       int ret = func(ds);
       if (ret < 0)
@@ -485,16 +485,16 @@ int Apply(vtkCompositeDataSet *cd, DatasetFunction &func)
 }
 
 //----------------------------------------------------------------------------
-int Apply(vtkDataObject *dobj, DatasetFunction &func)
+int Apply(svtkDataObject *dobj, DatasetFunction &func)
 {
-  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  if (svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet*>(dobj))
     {
     if (Apply(cd, func) < 0)
       {
       return -1;
       }
     }
-  else if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+  else if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
     {
     if (func(ds) < 0)
       {
@@ -510,14 +510,14 @@ int Apply(vtkDataObject *dobj, DatasetFunction &func)
 }
 
 //----------------------------------------------------------------------------
-int GetGhostLayerMetadata(vtkDataObject *mesh,
+int GetGhostLayerMetadata(svtkDataObject *mesh,
   int &nGhostCellLayers, int &nGhostNodeLayers)
 {
   // get the ghost layer metadata
-  vtkFieldData *fd = mesh->GetFieldData();
+  svtkFieldData *fd = mesh->GetFieldData();
 
-  vtkIntArray *glmd =
-    dynamic_cast<vtkIntArray*>(fd->GetArray("senseiGhostLayers"));
+  svtkIntArray *glmd =
+    dynamic_cast<svtkIntArray*>(fd->GetArray("senseiGhostLayers"));
 
   if (!glmd)
     return -1;
@@ -529,17 +529,17 @@ int GetGhostLayerMetadata(vtkDataObject *mesh,
 }
 
 //----------------------------------------------------------------------------
-int SetGhostLayerMetadata(vtkDataObject *mesh,
+int SetGhostLayerMetadata(svtkDataObject *mesh,
   int nGhostCellLayers, int nGhostNodeLayers)
 {
   // pass ghost layer metadata in field data.
-  vtkIntArray *glmd = vtkIntArray::New();
+  svtkIntArray *glmd = svtkIntArray::New();
   glmd->SetName("senseiGhostLayers");
   glmd->SetNumberOfTuples(2);
   glmd->SetValue(0, nGhostCellLayers);
   glmd->SetValue(1, nGhostNodeLayers);
 
-  vtkFieldData *fd = mesh->GetFieldData();
+  svtkFieldData *fd = mesh->GetFieldData();
   fd->AddArray(glmd);
   glmd->Delete();
 
@@ -547,7 +547,7 @@ int SetGhostLayerMetadata(vtkDataObject *mesh,
 }
 
 // --------------------------------------------------------------------------
-int GetArrayMetadata(vtkDataSetAttributes *dsa, int centering,
+int GetArrayMetadata(svtkDataSetAttributes *dsa, int centering,
   std::vector<std::string> &arrayNames, std::vector<int> &arrayCen,
   std::vector<int> &arrayComps, std::vector<int> &arrayType,
   std::vector<std::array<double,2>> &arrayRange,
@@ -556,7 +556,7 @@ int GetArrayMetadata(vtkDataSetAttributes *dsa, int centering,
   int na = dsa->GetNumberOfArrays();
   for (int i = 0; i < na; ++i)
     {
-    vtkDataArray *da = dsa->GetArray(i);
+    svtkDataArray *da = dsa->GetArray(i);
 
     const char *name = da->GetName();
     arrayNames.emplace_back((name ? name : "unkown"));
@@ -568,20 +568,20 @@ int GetArrayMetadata(vtkDataSetAttributes *dsa, int centering,
     arrayRange.emplace_back(std::array<double,2>({std::numeric_limits<double>::max(),
       std::numeric_limits<double>::lowest()}));
 
-    if (!hasGhostArray && name && !strcmp("vtkGhostType", name))
+    if (!hasGhostArray && name && !strcmp("svtkGhostType", name))
       hasGhostArray = 1;
     }
   return 0;
 }
 
 // --------------------------------------------------------------------------
-int GetArrayMetadata(vtkDataSetAttributes *dsa,
+int GetArrayMetadata(svtkDataSetAttributes *dsa,
   std::vector<std::array<double,2>> &arrayRange)
 {
   int na = dsa->GetNumberOfArrays();
   for (int i = 0; i < na; ++i)
     {
-    vtkDataArray *da = dsa->GetArray(i);
+    svtkDataArray *da = dsa->GetArray(i);
 
     double rng[2];
     da->GetRange(rng);
@@ -592,13 +592,13 @@ int GetArrayMetadata(vtkDataSetAttributes *dsa,
 }
 
 // --------------------------------------------------------------------------
-int GetArrayMetadata(vtkDataSet *ds, MeshMetadataPtr &metadata)
+int GetArrayMetadata(svtkDataSet *ds, MeshMetadataPtr &metadata)
 {
-  VTKUtils::GetArrayMetadata(ds->GetPointData(), vtkDataObject::POINT,
+  SVTKUtils::GetArrayMetadata(ds->GetPointData(), svtkDataObject::POINT,
     metadata->ArrayName, metadata->ArrayCentering, metadata->ArrayComponents,
     metadata->ArrayType, metadata->ArrayRange, metadata->NumGhostNodes);
 
-  VTKUtils::GetArrayMetadata(ds->GetCellData(), vtkDataObject::CELL,
+  SVTKUtils::GetArrayMetadata(ds->GetCellData(), svtkDataObject::CELL,
     metadata->ArrayName, metadata->ArrayCentering, metadata->ArrayComponents,
     metadata->ArrayType, metadata->ArrayRange, metadata->NumGhostCells);
 
@@ -608,7 +608,7 @@ int GetArrayMetadata(vtkDataSet *ds, MeshMetadataPtr &metadata)
 }
 
 // --------------------------------------------------------------------------
-int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
+int GetBlockMetadata(int rank, int id, svtkDataSet *ds,
   const MeshMetadataFlags &flags, std::vector<int> &blockOwner,
   std::vector<int> &blockIds, std::vector<long> &blockPoints,
   std::vector<long> &blockCells, std::vector<long> &blockCellArraySize,
@@ -634,11 +634,11 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
     blockCells.emplace_back(nCells);
 
     long cellArraySize = 0;
-    if (vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds))
+    if (svtkUnstructuredGrid *ug = dynamic_cast<svtkUnstructuredGrid*>(ds))
       {
       cellArraySize = ug->GetCells()->GetConnectivityArray()->GetNumberOfTuples();
       }
-    else if (vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds))
+    else if (svtkPolyData *pd = dynamic_cast<svtkPolyData*>(ds))
       {
       cellArraySize =
         pd->GetVerts()->GetConnectivityArray()->GetNumberOfTuples() +
@@ -653,15 +653,15 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
   if (flags.BlockExtentsSet())
     {
     std::array<int,6> ext = {1, 0, 1, 0, 1, 0};
-    if (vtkImageData *im = dynamic_cast<vtkImageData*>(ds))
+    if (svtkImageData *im = dynamic_cast<svtkImageData*>(ds))
       {
       im->GetExtent(ext.data());
       }
-    else if (vtkRectilinearGrid *rg = dynamic_cast<vtkRectilinearGrid*>(ds))
+    else if (svtkRectilinearGrid *rg = dynamic_cast<svtkRectilinearGrid*>(ds))
       {
       rg->GetExtent(ext.data());
       }
-    else if (vtkStructuredGrid *sg = dynamic_cast<vtkStructuredGrid*>(ds))
+    else if (svtkStructuredGrid *sg = dynamic_cast<svtkStructuredGrid*>(ds))
       {
       sg->GetExtent(ext.data());
       }
@@ -693,7 +693,7 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds,
 }
 
 // --------------------------------------------------------------------------
-int GetBlockMetadata(int rank, int id, vtkDataSet *ds, MeshMetadataPtr metadata)
+int GetBlockMetadata(int rank, int id, svtkDataSet *ds, MeshMetadataPtr metadata)
 {
     return GetBlockMetadata(rank, id, ds, metadata->Flags,
       metadata->BlockOwner, metadata->BlockIds, metadata->BlockNumPoints,
@@ -702,28 +702,28 @@ int GetBlockMetadata(int rank, int id, vtkDataSet *ds, MeshMetadataPtr metadata)
 }
 
 // --------------------------------------------------------------------------
-int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata)
+int GetMetadata(MPI_Comm comm, svtkCompositeDataSet *cd, MeshMetadataPtr metadata)
 {
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
-  vtkOverlappingAMR *amrds = dynamic_cast<vtkOverlappingAMR*>(cd);
+  svtkOverlappingAMR *amrds = dynamic_cast<svtkOverlappingAMR*>(cd);
 
-  metadata->MeshType = amrds ? VTK_OVERLAPPING_AMR : VTK_MULTIBLOCK_DATA_SET;
+  metadata->MeshType = amrds ? SVTK_OVERLAPPING_AMR : SVTK_MULTIBLOCK_DATA_SET;
 
   // get global metadata
-  vtkCompositeDataIterator *cdit = cd->NewIterator();
+  svtkCompositeDataIterator *cdit = cd->NewIterator();
   if (!cdit->IsDoneWithTraversal())
     {
-    vtkDataObject *bobj = cd->GetDataSet(cdit);
+    svtkDataObject *bobj = cd->GetDataSet(cdit);
 
     metadata->BlockType = bobj->GetDataObjectType();
 
     // get array metadata
-    if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(bobj))
-      VTKUtils::GetArrayMetadata(ds, metadata);
+    if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(bobj))
+      SVTKUtils::GetArrayMetadata(ds, metadata);
 
-    if (vtkPointSet *ps = dynamic_cast<vtkPointSet*>(bobj))
+    if (svtkPointSet *ps = dynamic_cast<svtkPointSet*>(bobj))
       metadata->CoordinateType = ps->GetPoints()->GetData()->GetDataType();
     }
 
@@ -736,14 +736,14 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
     {
     numBlocks += 1;
 
-    vtkDataObject *dobj = cd->GetDataSet(cdit);
+    svtkDataObject *dobj = cd->GetDataSet(cdit);
     int bid = std::max(0, int(cdit->GetCurrentFlatIndex() - 1));
 
-    if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+    if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
       {
       numBlocksLocal += 1;
 
-      if (VTKUtils::GetBlockMetadata(rank, bid, ds, metadata))
+      if (SVTKUtils::GetBlockMetadata(rank, bid, ds, metadata))
         {
         SENSEI_ERROR("Failed to get block metadata for block "
          << cdit->GetCurrentFlatIndex())
@@ -794,7 +794,7 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
 
         int *pbaq = metadata->BlockExtents[q].data();
 
-        const vtkAMRBox &box = amrds->GetAMRBox(i, j);
+        const svtkAMRBox &box = amrds->GetAMRBox(i, j);
         box.GetDimensions(pbaq, pbaq+3);
         }
       }
@@ -805,7 +805,7 @@ int GetMetadata(MPI_Comm comm, vtkCompositeDataSet *cd, MeshMetadataPtr metadata
 
 // --------------------------------------------------------------------------
 // note: not intended for use on the blocks of a multiblock
-int GetMetadata(MPI_Comm comm, vtkDataSet *ds, MeshMetadataPtr metadata)
+int GetMetadata(MPI_Comm comm, svtkDataSet *ds, MeshMetadataPtr metadata)
 {
   int rank = 0;
   int nRanks = 1;
@@ -816,9 +816,9 @@ int GetMetadata(MPI_Comm comm, vtkDataSet *ds, MeshMetadataPtr metadata)
   metadata->MeshType = ds->GetDataObjectType();
   metadata->BlockType = ds->GetDataObjectType();
 
-  VTKUtils::GetArrayMetadata(ds, metadata);
+  SVTKUtils::GetArrayMetadata(ds, metadata);
 
-  if (VTKUtils::GetBlockMetadata(rank, 0, ds, metadata))
+  if (SVTKUtils::GetBlockMetadata(rank, 0, ds, metadata))
     {
     SENSEI_ERROR("Failed to get block metadata for block " << rank)
     return -1;
@@ -838,13 +838,13 @@ int GetMetadata(MPI_Comm comm, vtkDataSet *ds, MeshMetadataPtr metadata)
 }
 
 // --------------------------------------------------------------------------
-vtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
-  vtkDataObject *dobj, bool take)
+svtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
+  svtkDataObject *dobj, bool take)
 {
   // make sure we have composite dataset if not create one
-  vtkCompositeDataSetPtr cd;
-  vtkCompositeDataSet *tmp = nullptr;
-  if ((tmp = dynamic_cast<vtkCompositeDataSet*>(dobj)))
+  svtkCompositeDataSetPtr cd;
+  svtkCompositeDataSet *tmp = nullptr;
+  if ((tmp = dynamic_cast<svtkCompositeDataSet*>(dobj)))
     {
     if (take)
       cd.TakeReference(tmp);
@@ -859,7 +859,7 @@ vtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nRanks);
 
-    vtkMultiBlockDataSet *mb = vtkMultiBlockDataSet::New();
+    svtkMultiBlockDataSet *mb = svtkMultiBlockDataSet::New();
     mb->SetNumberOfBlocks(nRanks);
     mb->SetBlock(rank, dobj);
     if (take)
@@ -871,29 +871,29 @@ vtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
 }
 
 /*
-int arrayCpy(void *&wptr, vtkDataArray *da)
+int arrayCpy(void *&wptr, svtkDataArray *da)
 {
   unsigned long nt = da->GetNumberOfTuples();
   unsigned int nc = da->GetNumberOfComponents();
 
   switch (da->GetDataType())
     {
-    vtkTemplateMacro(
-      if (vtkAOSDataArrayTemplate<VTK_TT> *aosda =
-        dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(da))
+    svtkTemplateMacro(
+      if (svtkAOSDataArrayTemplate<SVTK_TT> *aosda =
+        dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(da))
         {
-        unsigned long long nb = nt*nc*sizeof(VTK_TT);
-        VTK_TT *pda = aosda->GetPointer(0);
+        unsigned long long nb = nt*nc*sizeof(SVTK_TT);
+        SVTK_TT *pda = aosda->GetPointer(0);
         memcpy(wptr, pda, nb);
         ((char*)wptr) += nb;
         }
-      else if (vtkSOADataArrayTemplate<VTK_TT> *soada =
-        dynamic_cast<vtkSOADataArrayTemplate<VTK_TT>*>(da))
+      else if (svtkSOADataArrayTemplate<SVTK_TT> *soada =
+        dynamic_cast<svtkSOADataArrayTemplate<SVTK_TT>*>(da))
         {
-        unsigned long long nb = nt*sizeof(VTK_TT);
+        unsigned long long nb = nt*sizeof(SVTK_TT);
         for (unsigned int j = 0; j < nc; ++j)
           {
-          VTK_TT *pda = soada->GetComponentArrayPointer(j);
+          SVTK_TT *pda = soada->GetComponentArrayPointer(j);
           memcpy(wptr, pda, nb);
           ((char*)wptr) += nb;
           }
@@ -911,9 +911,9 @@ int arrayCpy(void *&wptr, vtkDataArray *da)
 
 
 // --------------------------------------------------------------------------
-int DataArraySerializer::operator()(vtkDataSet *ds)
+int DataArraySerializer::operator()(svtkDataSet *ds)
 {
-  vtkDataArray *da = m_centering == vtkDataObject::POINT ?
+  svtkDataArray *da = m_centering == svtkDataObject::POINT ?
     ds->GetPointData()->GetName(m_name) : ds->GetCellData()->GetName(m_name);
 
   if (!da || arrayCpy(m_write_ptr, da))
@@ -928,16 +928,16 @@ int DataArraySerializer::operator()(vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int PointsSerializer::operator()(vtkDataSet *ds)
+int PointsSerializer::operator()(svtkDataSet *ds)
 {
-  vtkPointSet *ps = dynamic_cast<vtkPointSet*>(ps);
+  svtkPointSet *ps = dynamic_cast<svtkPointSet*>(ps);
   if (!ps)
     {
     SENSEI_ERROR("Invalid dataset type " << ds->GetClassName())
     return -1;
     }
 
-  vtkDataArray *da = ps->GetPoints()->GetData();
+  svtkDataArray *da = ps->GetPoints()->GetData();
   if (!da || arrayCpy(m_write_ptr, da))
     {
     SENSEI_ERROR("Failed to serialize points")
@@ -948,10 +948,10 @@ int PointsSerializer::operator()(vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int CellTypesSerializer::operator()(vtkDataSet *ds)
+int CellTypesSerializer::operator()(svtkDataSet *ds)
 {
-  vtkDataArray *da = nullptr;
-  if (vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds))
+  svtkDataArray *da = nullptr;
+  if (svtkUnstructuredGrid *ug = dynamic_cast<svtkUnstructuredGrid*>(ds))
     {
     da = ug->GetCellTypesArray();
     if (!da || arrayCpy(m_write_ptr, da))
@@ -960,22 +960,22 @@ int CellTypesSerializer::operator()(vtkDataSet *ds)
       return -1;
       }
     }
-  else if (vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds))
+  else if (svtkPolyData *pd = dynamic_cast<svtkPolyData*>(ds))
     {
-    vtkIdType nv = pd->GetNumberOfVerts();
-    memset(m_write_ptr, nv, VTK_VERTEX);
+    svtkIdType nv = pd->GetNumberOfVerts();
+    memset(m_write_ptr, nv, SVTK_VERTEX);
     m_write_ptr += nv;
 
-    vtkIdType nl = pd->GetNumberOfLines();
-    memset(m_write_ptr, nl, VTK_LINE);
+    svtkIdType nl = pd->GetNumberOfLines();
+    memset(m_write_ptr, nl, SVTK_LINE);
     m_write_ptr += nl;
 
-    vtkIdType np = pd->GetNumberOfPolys();
-    memset(m_write_ptr, np, VTK_POLYGON);
+    svtkIdType np = pd->GetNumberOfPolys();
+    memset(m_write_ptr, np, SVTK_POLYGON);
     m_write_ptr += np;
 
-    vtkIdType ns = pd->GetNumberOfStrips();
-    memset(m_write_ptr, ns, VTK_TRIANGLE_STRIP)
+    svtkIdType ns = pd->GetNumberOfStrips();
+    memset(m_write_ptr, ns, SVTK_TRIANGLE_STRIP)
     m_write_ptr += ns;
     }
   else
@@ -988,10 +988,10 @@ int CellTypesSerializer::operator()(vtkDataSet *ds)
 }
 
 // --------------------------------------------------------------------------
-int CellArraySerializer::operator()(vtkDataSet *ds)
+int CellArraySerializer::operator()(svtkDataSet *ds)
 {
-  vtkDataArray *da = nullptr;
-  if (vtkUnstructuredGrid *ug = dynamic_cast<vtkUnstructuredGrid*>(ds))
+  svtkDataArray *da = nullptr;
+  if (svtkUnstructuredGrid *ug = dynamic_cast<svtkUnstructuredGrid*>(ds))
     {
     da = ug->GetCells()->GetData();
     if (!da || arrayCpy(m_write_ptr, da))
@@ -1000,7 +1000,7 @@ int CellArraySerializer::operator()(vtkDataSet *ds)
       return -1;
       }
     }
-  else if (vtkPolyData *pd = dynamic_cast<vtkPolyData*>(ds))
+  else if (svtkPolyData *pd = dynamic_cast<svtkPolyData*>(ds))
     {
     da = pd->GetVerts()->GetData();
     if (!da || arrayCpy(m_write_ptr, da))
@@ -1073,8 +1073,8 @@ int GetSizesAndOffsets(MPI_Comm comm,
     num_points_total += md->BlockNumPoints[i];
     num_cells_total += md->BlockNumCells[i];
 
-    if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
-     (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+    if ((md->BlockType == SVTK_POLYDATA) || (md->MeshType == SVTK_POLYDATA) ||
+     (md->BlockType == SVTK_UNSTRUCTURED_GRID) || (md->MeshType == SVTK_UNSTRUCTURED_GRID))
      {
      cell_array_size_total += md->BlockCellArraySize[i];
      }
@@ -1083,8 +1083,8 @@ int GetSizesAndOffsets(MPI_Comm comm,
       {
       point_offset_local += md->BlockNumPoints[i];
       cell_offset_local += md->BlockNumCells[i];
-      if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
-        (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+      if ((md->BlockType == SVTK_POLYDATA) || (md->MeshType == SVTK_POLYDATA) ||
+        (md->BlockType == SVTK_UNSTRUCTURED_GRID) || (md->MeshType == SVTK_UNSTRUCTURED_GRID))
         {
         cell_array_offset_local += md->BlockCellArraySize[i];
         }
@@ -1093,8 +1093,8 @@ int GetSizesAndOffsets(MPI_Comm comm,
       {
       num_points_local += md->BlockNumPoints[i]
       num_cells_local += md->BlockNumCells[i]
-      if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
-        (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+      if ((md->BlockType == SVTK_POLYDATA) || (md->MeshType == SVTK_POLYDATA) ||
+        (md->BlockType == SVTK_UNSTRUCTURED_GRID) || (md->MeshType == SVTK_UNSTRUCTURED_GRID))
         {
         cell_array_size_local += md->BlockCellArraySize[i];
         }
@@ -1121,8 +1121,8 @@ int GetLocalGeometrySizes(MPI_Comm comm,
       {
       num_points_local += md->BlockNumPoints[i]
       num_cells_local += md->BlockNumCells[i]
-      if ((md->BlockType == VTK_POLYDATA) || (md->MeshType == VTK_POLYDATA) ||
-        (md->BlockType == VTK_UNSTRUCTURED_GRID) || (md->MeshType == VTK_UNSTRUCTURED_GRID))
+      if ((md->BlockType == SVTK_POLYDATA) || (md->MeshType == SVTK_POLYDATA) ||
+        (md->BlockType == SVTK_UNSTRUCTURED_GRID) || (md->MeshType == SVTK_UNSTRUCTURED_GRID))
         {
         cell_array_size_local += md->BlockCellArraySize[i];
         }
@@ -1134,7 +1134,6 @@ int GetLocalGeometrySizes(MPI_Comm comm,
 */
 
 #if defined(ENABLE_VTK_IO)
-
 // helper for creating hexahedron
 static
 void HexPoints(long cid, const std::array<double,6> &bds, double *pCoords)
@@ -1175,10 +1174,10 @@ void HexPoints(long cid, const std::array<double,6> &bds, double *pCoords)
 
 // helper to make hexahedron cell
 static
-void HexCell(long cid, unsigned char *pCta, vtkIdType *pClocs, vtkIdType *pCids)
+void HexCell(long cid, unsigned char *pCta, svtkIdType *pClocs, svtkIdType *pCids)
 {
     // cell types & location
-    pCta[cid] = VTK_HEXAHEDRON;
+    pCta[cid] = SVTK_HEXAHEDRON;
     pClocs[cid] = cid*9;
 
     // cells
@@ -1194,8 +1193,7 @@ void HexCell(long cid, unsigned char *pCta, vtkIdType *pClocs, vtkIdType *pCids)
     pCids[jj + 7] = ii + 6;
     pCids[jj + 8] = ii + 7;
 }
-
-#endif // defined(ENABLE_VTK_IO)
+#endif
 
 // --------------------------------------------------------------------------
 int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
@@ -1205,7 +1203,7 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
     (void)comm;
     (void)md;
     (void)fileName;
-    SENSEI_ERROR("VTK XML I/O capabilites are required by WriteDomainDecomp"
+    SENSEI_ERROR("SVTK XML I/O capabilites are required by WriteDomainDecomp"
       " but are not present in this build")
     return -1;
 #else
@@ -1221,43 +1219,43 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
     return -1;
     }
 
-  bool haveAMR = VTKUtils::AMR(md);
+  bool haveAMR = SVTKUtils::AMR(md);
 
   int numPoints = 8*(md->NumBlocks + 1);
   int numCells = md->NumBlocks + 1;
 
-  vtkDoubleArray *coords = vtkDoubleArray::New();
+  svtkDoubleArray *coords = svtkDoubleArray::New();
   coords->SetNumberOfComponents(3);
   coords->SetNumberOfTuples(numPoints);
   double *pCoords = coords->GetPointer(0);
 
-  vtkIdTypeArray *cids = vtkIdTypeArray::New();
+  svtkIdTypeArray *cids = svtkIdTypeArray::New();
   cids->SetNumberOfTuples(numPoints+numCells);
-  vtkIdType *pCids = cids->GetPointer(0);
+  svtkIdType *pCids = cids->GetPointer(0);
 
-  vtkUnsignedCharArray *cta = vtkUnsignedCharArray::New();
+  svtkUnsignedCharArray *cta = svtkUnsignedCharArray::New();
   cta->SetNumberOfTuples(numCells);
   unsigned char *pCta = cta->GetPointer(0);
 
-  vtkIdTypeArray *clocs = vtkIdTypeArray::New();
+  svtkIdTypeArray *clocs = svtkIdTypeArray::New();
   clocs->SetNumberOfTuples(numCells);
-  vtkIdType *pClocs = clocs->GetPointer(0);
+  svtkIdType *pClocs = clocs->GetPointer(0);
 
-  vtkDoubleArray *owner = vtkDoubleArray::New();
+  svtkDoubleArray *owner = svtkDoubleArray::New();
   owner->SetNumberOfTuples(numCells);
   owner->SetName("BlockOwner");
   double *pOwner = owner->GetPointer(0);
 
-  vtkDoubleArray *ids = vtkDoubleArray::New();
+  svtkDoubleArray *ids = svtkDoubleArray::New();
   ids->SetNumberOfTuples(numCells);
   ids->SetName("BlockIds");
   double *pIds = ids->GetPointer(0);
 
-  vtkIntArray *lev = nullptr;
+  svtkIntArray *lev = nullptr;
   int *pLev = nullptr;
-  if (VTKUtils::AMR(md))
+  if (SVTKUtils::AMR(md))
     {
-    lev = vtkIntArray::New();
+    lev = svtkIntArray::New();
     lev->SetNumberOfTuples(numCells);
     lev->SetName("BlockLevel");
     pLev = lev->GetPointer(0);
@@ -1282,15 +1280,15 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   if (haveAMR)
     pLev[md->NumBlocks] = -2;
 
-  vtkPoints *pts = vtkPoints::New();
+  svtkPoints *pts = svtkPoints::New();
   pts->SetData(coords);
   coords->Delete();
 
-  vtkCellArray *ca = vtkCellArray::New();
+  svtkCellArray *ca = svtkCellArray::New();
   ca->SetCells(numCells, cids);
   cids->Delete();
 
-  vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
+  svtkUnstructuredGrid *ug = svtkUnstructuredGrid::New();
   ug->SetPoints(pts);
   ug->SetCells(cta, clocs, ca);
   ug->GetCellData()->AddArray(ids);
@@ -1306,7 +1304,7 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   pts->Delete();
   ca->Delete();
 
-  vtkXMLUnstructuredGridWriter *w = vtkXMLUnstructuredGridWriter::New();
+  svtkXMLUnstructuredGridWriter *w = svtkXMLUnstructuredGridWriter::New();
   w->SetInputData(ug);
   w->SetFileName(fileName.c_str());
   w->SetCompressorTypeToNone();

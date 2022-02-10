@@ -2,7 +2,7 @@
 #define sensei_AnalysisAdaptor_h
 
 #include "senseiConfig.h"
-#include <vtkObjectBase.h>
+#include <svtkObjectBase.h>
 #include <mpi.h>
 
 namespace sensei
@@ -16,13 +16,13 @@ class DataAdaptor;
  * Simulations invoke in situ processing by calling the ::Execute method.
  * Typically simulations will make use of the ::ConfigurableAnalysis.
  */
-class AnalysisAdaptor : public vtkObjectBase
+class AnalysisAdaptor : public svtkObjectBase
 {
 public:
-  senseiBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
+  senseiBaseTypeMacro(AnalysisAdaptor, svtkObjectBase);
 
   /// Prints the current state of the adaptor.
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /// Set the level of verbosity of console output.
   virtual void SetVerbose(int val){ this->Verbose = val; }

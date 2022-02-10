@@ -147,7 +147,7 @@ struct MeshMetadata
   // expensive to generate and only generated when their corresponding flag is
   // see. See MeshMetadataFlags. AMR metadata is stored in flat arrays, first
   // level 0, then level 1 and so on until the finest level. The index of the
-  // array will give you the VTK composite dataset index,
+  // array will give you the SVTK composite dataset index,
 
   bool GlobalView;       // tells if the information describes data
                          // on this rank or all ranks. Passed into
@@ -206,9 +206,9 @@ struct MeshMetadata
 
 protected:
   MeshMetadata() : GlobalView(false), MeshName(),
-    MeshType(VTK_MULTIBLOCK_DATA_SET), BlockType(VTK_DATA_SET), NumBlocks(0),
-    NumBlocksLocal(), Extent(), Bounds(), CoordinateType(VTK_DOUBLE),
-    NumPoints(0), NumCells(0), CellArraySize(0), CellArrayType(VTK_TYPE_INT64),
+    MeshType(SVTK_MULTIBLOCK_DATA_SET), BlockType(SVTK_DATA_SET), NumBlocks(0),
+    NumBlocksLocal(), Extent(), Bounds(), CoordinateType(SVTK_DOUBLE),
+    NumPoints(0), NumCells(0), CellArraySize(0), CellArrayType(SVTK_TYPE_INT64),
     NumArrays(0), NumGhostCells(0), NumGhostNodes(0), NumLevels(0),
     StaticMesh(0), ArrayName(), ArrayCentering(), ArrayType(),
     ArrayRange(),BlockOwner(), BlockIds(), BlockNumPoints(), BlockNumCells(),

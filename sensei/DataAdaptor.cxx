@@ -1,11 +1,11 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 
-#include <vtkDataObject.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkObjectFactory.h>
+#include <svtkDataObject.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkObjectFactory.h>
 
 #include <map>
 #include <vector>
@@ -74,19 +74,19 @@ void DataAdaptor::SetDataTimeStep(long index)
 
 //----------------------------------------------------------------------------
 int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
-    vtkCompositeDataSet *&mesh)
+    svtkCompositeDataSet *&mesh)
 {
   mesh = nullptr;
 
   // get the object from the simulation
-  vtkDataObject *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (this->GetMesh(meshName, structureOnly, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
     return -1;
     }
 
-  vtkCompositeDataSetPtr meshptr = VTKUtils::AsCompositeData(
+  svtkCompositeDataSetPtr meshptr = SVTKUtils::AsCompositeData(
     this->GetCommunicator(), dobj, true);
 
   mesh = meshptr.GetPointer();
@@ -96,7 +96,7 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
+int DataAdaptor::AddArrays(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::vector<std::string> &arrayNames)
 {
   unsigned int nArrays = arrayNames.size();
@@ -105,7 +105,7 @@ int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
     if (this->AddArray(mesh, meshName, association, arrayNames[i]))
       {
       SENSEI_ERROR("Failed to add "
-        << VTKUtils::GetAttributesName(association) << " data array \""
+        << SVTKUtils::GetAttributesName(association) << " data array \""
         << arrayNames[i] << " to mesh \"" << meshName << "\"")
       return -1;
       }
@@ -114,19 +114,19 @@ int DataAdaptor::AddArrays(vtkDataObject* mesh, const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::AddGhostNodesArray(vtkDataObject*, const std::string &)
+int DataAdaptor::AddGhostNodesArray(svtkDataObject*, const std::string &)
 {
   return 0;
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::AddGhostCellsArray(vtkDataObject*, const std::string &)
+int DataAdaptor::AddGhostCellsArray(svtkDataObject*, const std::string &)
 {
   return 0;
 }
 
 //----------------------------------------------------------------------------
-void DataAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void DataAdaptor::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }
