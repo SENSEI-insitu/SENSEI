@@ -11,7 +11,7 @@ code up analysis adaptors in a Python script."
 #define PY_ARRAY_UNIQUE_SYMBOL  PyArray_API_SENSEI_PYTHON_ANALYSIS
 #include <numpy/arrayobject.h>
 #include "senseiConfig.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "DataRequirements.h"
 #include "Error.h"
 #include <mpi.h>
@@ -29,19 +29,21 @@ PyEval_InitThreads();
 import_array();
 %}
 
-%include <mpi4py/mpi4py.i>
-%include "vtk.i"
-%include "senseiSTL.i"
+/* import the SVTK module */
+%{
+#include "svtk.h"
+%}
+%import "svtk.i"
 
+%include <mpi4py/mpi4py.i>
 %mpi4py_typemap(Comm, MPI_Comm);
 
-%import "senseiConfig.h"
+%include "senseiSTL.i"
 
 /****************************************************************************
- * VTK objects used in our API
+ * comnpile time settings
  ***************************************************************************/
-VTK_SWIG_INTEROP(vtkObjectBase)
-VTK_SWIG_INTEROP(vtkDataObject)
+%import "senseiConfig.h"
 
 /****************************************************************************
  * DataAdaptor

@@ -11,6 +11,17 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
+  if (ENABLE_PYTHON)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml @ONLY)
+  endif()
+
+  senseiAddTest(testOscillatorPythonHistogram
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml
+      ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
+      FEATURES PYTHON)
+
   senseiAddTest(testOscillatorAutocorrelation
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml

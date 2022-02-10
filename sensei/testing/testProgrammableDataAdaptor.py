@@ -1,7 +1,7 @@
 from mpi4py import *
 import sys
 import sensei
-import vtk, vtk.util.numpy_support as vtknp
+import svtk, svtk.numpy_support as svtknp
 import numpy as np
 
 #                     *
@@ -28,13 +28,13 @@ def getMeshMetadata(i, flags):
   if i == 0:
     md = sensei.MeshMetadata.New()
     md.MeshName = 'image'
-    md.MeshType = vtk.VTK_IMAGE_DATA
-    md.BlockType = vtk.VTK_IMAGE_DATA
+    md.MeshType = svtk.SVTK_IMAGE_DATA
+    md.BlockType = svtk.SVTK_IMAGE_DATA
     md.NumArrays = 1
     md.ArrayName = ['data']
-    md.ArrayCentering = [vtk.vtkDataObject.POINT]
+    md.ArrayCentering = [svtk.svtkDataObject.POINT]
     md.ArrayComponents = [1]
-    md.ArrayType = [vtk.VTK_DOUBLE]
+    md.ArrayType = [svtk.SVTK_DOUBLE]
     return md
   raise RunTimeError('no mesh %d'%(i))
 
@@ -42,7 +42,7 @@ def getMeshMetadata(i, flags):
 def getMesh(meshName, structureOnly):
   sys.stderr.write('===getMesh\n')
   if (meshName == 'image'):
-    im = vtk.vtkImageData()
+    im = svtk.svtkImageData()
     im.SetDimensions(len(data), 1, 1)
     return im
   raise RuntimeError('failed to get mesh')
@@ -50,9 +50,9 @@ def getMesh(meshName, structureOnly):
 # add array callback
 def addArray(mesh, meshName, assoc, arrayName):
   sys.stderr.write('===addArray\n')
-  if ((meshName == 'image') and (assoc == vtk.vtkDataObject.POINT) \
+  if ((meshName == 'image') and (assoc == svtk.svtkDataObject.POINT) \
     and (arrayName == 'data')):
-    da = vtknp.numpy_to_vtk(data)
+    da = svtknp.numpy_to_svtk(data)
     da.SetName('data')
     mesh.GetPointData().AddArray(da)
     return
@@ -61,6 +61,12 @@ def addArray(mesh, meshName, assoc, arrayName):
 # release data callback
 def releaseData():
   sys.stderr.write('===releaseData\n')
+
+m = getMesh('image', False)
+addArray(m, 'image', svtk.svtkDataObject.POINT, 'data')
+sys.stderr.write('m = %s\n'%str(m))
+sys.exit(0)
+
 
 
 pda = sensei.ProgrammableDataAdaptor.New()

@@ -1,0 +1,12 @@
+<sensei>
+  <analysis type="python"
+    script_file="@CMAKE_BINARY_DIR@/@SENSEI_PYTHON_DIR@/Histogram.py"
+    enabled="1">
+    <initialize_source>
+numBins=10
+meshName='ucdmesh'
+arrayName='data'
+arrayCen=1
+     </initialize_source>
+  </analysis>
+</sensei>

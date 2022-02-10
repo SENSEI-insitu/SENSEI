@@ -8,12 +8,9 @@
 
 #include <Python.h>
 
-#include <vtkDataObject.h>
-#include <vtkPythonUtil.h>
+#include <svtkDataObject.h>
 #include <string>
 #include <iostream>
-using std::cerr;
-using std::endl;
 
 namespace senseiPyDataAdaptor
 {
@@ -158,7 +155,7 @@ public:
   { return static_cast<bool>(this->Callback); }
 
   int operator()(const std::string &meshName,
-    bool structureOnly, vtkDataObject *&mesh)
+    bool structureOnly, svtkDataObject *&mesh)
     {
     mesh = nullptr;
 
@@ -188,11 +185,34 @@ public:
     Py_DECREF(args);
 
     // convert the return
-    mesh = static_cast<vtkDataObject*>(
-        vtkPythonUtil::GetPointerFromObject(ret, "vtkDataObject"));
+    int newmem = 0;
+    void *tmpvp = nullptr;
+    int ierr = SWIG_ConvertPtrAndOwn(ret, &tmpvp,
+      SWIGTYPE_p_svtkDataObject, 0, &newmem);
 
-    // because VTK's python runtime akes ownership
-    mesh->Register(nullptr);
+    if (ierr == SWIG_ERROR)
+      {
+      SENSEI_PY_CALLBACK_ERROR(DataAdaptor::GetMeshCallback, f)
+      return -1;
+      }
+
+    /* newmem = 1 SWIG_CAST_NEW_MEMORY = 2 tmpvp = 0x557e358ea080
+    std::cerr << "newmem = " << newmem << " SWIG_CAST_NEW_MEMORY = "
+       << SWIG_CAST_NEW_MEMORY  << " tmpvp = " << tmpvp << std::endl;*/
+
+    if (tmpvp)
+      mesh = reinterpret_cast<svtkDataObject*>(tmpvp);
+
+    if (newmem & SWIG_CAST_NEW_MEMORY)
+      abort(); //delete reinterpret_cast<svtkDataObject*>(tmpvp);
+
+    // TODO -- is this needed with SWIG ?
+    // because VTK's python runtime takes ownership
+    // mesh->Register(nullptr);
+
+    // delete the python wrapping and release its reference
+    // now that we hold one
+    Py_DECREF(ret);
 
     return 0;
     }
@@ -213,7 +233,7 @@ public:
   explicit operator bool() const
   { return static_cast<bool>(this->Callback); }
 
-  int operator()(vtkDataObject* mesh, const std::string &meshName,
+  int operator()(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
     {
     // lock the GIL
@@ -228,9 +248,10 @@ public:
       return -1;
       }
 
+    // TODO -- look for memory leaks with SWIG here
     // build arguments list and call the callback
-    PyObject *pyMesh = vtkPythonUtil::GetObjectFromPointer(
-      static_cast<vtkObjectBase*>(mesh));
+    PyObject *pyMesh = SWIG_NewPointerObj(
+      (void*)mesh, SWIGTYPE_p_svtkDataObject, 0);
 
     PyObject *args = Py_BuildValue("Nsis", pyMesh, meshName.c_str(),
       association, arrayName.c_str());
