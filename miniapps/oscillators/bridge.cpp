@@ -5,14 +5,14 @@
 #include <vector>
 #include <ConfigurableAnalysis.h>
 #include <Profiler.h>
-#include <vtkDataObject.h>
-#include <vtkNew.h>
-#include <vtkSmartPointer.h>
+#include <svtkDataObject.h>
+#include <svtkNew.h>
+#include <svtkSmartPointer.h>
 
 namespace bridge
 {
-static vtkSmartPointer<oscillators::DataAdaptor> DataAdaptor;
-static vtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
+static svtkSmartPointer<oscillators::DataAdaptor> DataAdaptor;
+static svtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
 
 //-----------------------------------------------------------------------------
 int initialize(size_t nblocks, size_t n_local_blocks,
@@ -23,13 +23,13 @@ int initialize(size_t nblocks, size_t n_local_blocks,
 {
   sensei::TimeEvent<128> mark("oscillators::bridge::initialize");
 
-  DataAdaptor = vtkSmartPointer<oscillators::DataAdaptor>::New();
+  DataAdaptor = svtkSmartPointer<oscillators::DataAdaptor>::New();
 
   DataAdaptor->Initialize(nblocks, n_local_blocks, origin, spacing,
     domain_shape_x, domain_shape_y, domain_shape_z, gid, from_x, from_y,
     from_z, to_x, to_y, to_z, shape, ghostLevels);
 
-  AnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
+  AnalysisAdaptor = svtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   if (AnalysisAdaptor->Initialize(config_file))
     {
     std::cerr << "Failed to initialize the analysis adaptor" << std::endl;
