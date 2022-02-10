@@ -6,16 +6,16 @@
 #include <string>
 
 #include <ConfigurableAnalysis.h>
-#include <vtkNew.h>
-#include <vtkSmartPointer.h>
-#include <vtkDataObject.h>
-#include <vtkObjectBase.h>
+#include <svtkNew.h>
+#include <svtkSmartPointer.h>
+#include <svtkDataObject.h>
+#include <svtkObjectBase.h>
 #include <iostream>
 
 namespace BridgeGuts
 {
-  static vtkSmartPointer<sensei::ConduitDataAdaptor> DataAdaptor;
-  static vtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
+  static svtkSmartPointer<sensei::ConduitDataAdaptor> DataAdaptor;
+  static svtkSmartPointer<sensei::ConfigurableAnalysis> AnalysisAdaptor;
   static MPI_Comm comm;
 }
 
@@ -27,11 +27,11 @@ void initialize(MPI_Comm comm,
   BridgeGuts::comm = comm;
     
   //data adaptor
-  BridgeGuts::DataAdaptor = vtkSmartPointer<sensei::ConduitDataAdaptor>::New();
+  BridgeGuts::DataAdaptor = svtkSmartPointer<sensei::ConduitDataAdaptor>::New();
   BridgeGuts::DataAdaptor->Initialize(node); 
 
   //analysis adaptor
-  BridgeGuts::AnalysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
+  BridgeGuts::AnalysisAdaptor = svtkSmartPointer<sensei::ConfigurableAnalysis>::New();
   BridgeGuts::AnalysisAdaptor->Initialize(config_file); 
 }
 
