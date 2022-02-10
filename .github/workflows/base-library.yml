@@ -1,0 +1,28 @@
+name: base-library
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  base:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build_and_test
+        run: |
+          export DEBIAN_FRONTEND="noninteractive"
+          export TZ="America/Los_Angeles"
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y git-core gcc g++ gfortran cmake subversion automake m4 wget swig python3-dev mpich python3-numpy python3-mpi4py
+          mkdir build
+          cd build
+          export LD_LIBRARY_PATH=`pwd`/lib/:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=`pwd`/lib/python-3.8/site-packages/svtk:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=`pwd`/lib/python-3.8/site-packages/sensei:$LD_LIBRARY_PATH
+          export PYTHONPATH=`pwd`/lib/python-3.8/site-packages:$PYTHONPATH
+          cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DTEST_NP=2 ..
+          make -j2
+          ctest --output-on-failure
