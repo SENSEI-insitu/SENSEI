@@ -4,7 +4,6 @@
 #include "AnalysisAdaptor.h"
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
-#include "VTKUtils.h"
 
 #include <ADIOS2Schema.h>
 
@@ -19,10 +18,10 @@ struct AdiosHandle;
 class DataObjectCollectionSchema;
 }
 
-namespace pugi { class xml_node; }
+class svtkDataObject;
+class svtkCompositeDataSet;
 
-class vtkDataObject;
-class vtkCompositeDataSet;
+namespace pugi { class xml_node; }
 /// @endcond
 
 namespace sensei
@@ -130,14 +129,14 @@ protected:
   // writes the data collection
   int WriteTimestep(unsigned long timeStep, double time,
     const std::vector<MeshMetadataPtr> &metadata,
-    const std::vector<vtkCompositeDataSetPtr> &dobjects);
+    const std::vector<svtkCompositeDataSetPtr> &dobjects);
 
   // shuts down ADIOS2
   int FinalizeADIOS2();
 
   // fetch meshes and metadata objects from the simulation
   int FetchFromProducer(sensei::DataAdaptor *da,
-    std::vector<vtkCompositeDataSetPtr> &objects,
+    std::vector<svtkCompositeDataSetPtr> &objects,
     std::vector<MeshMetadataPtr> &metadata);
 
   senseiADIOS2::DataObjectCollectionSchema *Schema;

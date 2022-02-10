@@ -1,9 +1,9 @@
 from mpi4py import *
-from sensei import VTKDataAdaptor,ConfigurableAnalysis, \
+from sensei import SVTKDataAdaptor,ConfigurableAnalysis, \
   BlockPartitioner,MeshMetadata,Profiler
 import sys,os
 import numpy as np
-import vtk, vtk.util.numpy_support as vtknp
+import svtk, svtk.numpy_support as svtknp
 from time import sleep
 from random import seed,random
 
@@ -27,12 +27,12 @@ def MakeBlock(t, x0,y0, dx,dy, nx, ny, nbx, nby, bi, bj):
     npz = 2
     xx = x0 + nx*bi*dx
     yy = y0 + ny*bj*dy
-    blk = vtk.vtkImageData()
+    blk = svtk.svtkImageData()
     blk.SetOrigin(xx, yy, -1.0e-2)
     blk.SetSpacing(dx, dy, 2.0e-2)
     blk.SetDimensions(npx, npy, npz)
     # add an array
-    dat = vtk.vtkFloatArray()
+    dat = svtk.svtkFloatArray()
     dat.SetName('f_xyt')
     dat.SetNumberOfTuples(npx*npy*npz)
     k = 0
@@ -50,7 +50,7 @@ def MakeBlock(t, x0,y0, dx,dy, nx, ny, nbx, nby, bi, bj):
         k += 1
     blk.GetPointData().AddArray(dat)
     # add another array
-    dat = vtk.vtkFloatArray()
+    dat = svtk.svtkFloatArray()
     dat.SetName('sin_x_sin_y')
     dat.SetNumberOfTuples(npx*npy*npz)
     k = 0
@@ -79,7 +79,7 @@ def MakeMultiBlock(t, x0,y0, dx,dy, nx, ny, nbx, nby):
     md.BlockIds = range(0,nBlocks)
     part = BlockPartitioner.New()
     md = part.GetPartition(comm, md)
-    mbds = vtk.vtkMultiBlockDataSet()
+    mbds = svtk.svtkMultiBlockDataSet()
     mbds.SetNumberOfBlocks(nBlocks)
     bit = mbds.NewIterator()
     bit.SetSkipEmptyNodes(0)
@@ -121,7 +121,7 @@ def run_simulation(xmlConfig, nIts, theta, dom, nx, nblks):
     mbds = MakeMultiBlock(t, dom[0],dom[2], \
       dx[0],dx[1], nx[0],nx[1], nblks[0],nblks[1])
 
-    da = VTKDataAdaptor.New()
+    da = SVTKDataAdaptor.New()
     da.SetDataTime(t)
     da.SetDataTimeStep(i)
     da.SetDataObject('mesh', mbds)

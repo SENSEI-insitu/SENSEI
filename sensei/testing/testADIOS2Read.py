@@ -1,10 +1,10 @@
 from mpi4py import *
 from multiprocessing import Process,Lock,Value
-from sensei import VTKDataAdaptor,ADIOS2DataAdaptor, \
+from sensei import SVTKDataAdaptor,ADIOS2DataAdaptor, \
   ADIOS2AnalysisAdaptor,BlockPartitioner,PlanarPartitioner
 import sys,os
 import numpy as np
-import vtk, vtk.util.numpy_support as vtknp
+import svtk, svtk.numpy_support as svtknp
 from time import sleep
 
 comm = MPI.COMM_WORLD
@@ -20,16 +20,16 @@ def status_message(msg, io_rank=0):
 
 def check_array(array):
   # checks that array[i] == i
-  test_array = vtknp.vtk_to_numpy(array)
+  test_array = svtknp.svtk_to_numpy(array).ravel()
   n_vals = len(test_array)
   base_array = np.empty(n_vals, dtype=test_array.dtype)
   i = 0
   while i < n_vals:
     base_array[i] = i
     i += 1
-  ids = np.where(base_array != test_array)[0]
-  if len(ids):
-    error_message('wrong values at %s'%(str(ids)))
+  if not np.allclose(base_array, test_array):
+    error_message('Wrong values detected! test_array = %s\n' \
+                  'base_array = %s\n'%(str(test_array), str(base_array)))
     return -1
   return 0
 
@@ -69,7 +69,7 @@ def read_data(engine, fileName, verbose):
         status_message('    SenderBlockOwner=%s'%(str(smd.BlockOwner)))
         status_message('    ReceiverBlockOwner=%s'%(str(md.BlockOwner)))
 
-      # get a VTK dataset with all the arrays
+      # get a SVTK dataset with all the arrays
       ds = da.GetMesh(meshName, False)
 
       # request each array
@@ -106,7 +106,7 @@ def read_data(engine, fileName, verbose):
         while j < n_arrays:
 
           array = bds.GetPointData().GetArray(md.ArrayName[j]) \
-            if md.ArrayCentering[j] == vtk.vtkDataObject.POINT else \
+            if md.ArrayCentering[j] == svtk.svtkDataObject.POINT else \
               bds.GetCellData().GetArray(md.ArrayName[j])
 
           if not 'BlockOwner' in md.ArrayName[j] and check_array(array):
