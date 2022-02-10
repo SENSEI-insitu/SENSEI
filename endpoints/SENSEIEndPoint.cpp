@@ -8,12 +8,12 @@
 
 #include <mpi.h>
 #include <iostream>
-#include <vtkNew.h>
-#include <vtkSmartPointer.h>
-#include <vtkDataSet.h>
+#include <svtkNew.h>
+#include <svtkSmartPointer.h>
+#include <svtkDataSet.h>
 
-using DataAdaptorPtr = vtkSmartPointer<sensei::ConfigurableInTransitDataAdaptor>;
-using AnalysisAdaptorPtr = vtkSmartPointer<sensei::ConfigurableAnalysis>;
+using DataAdaptorPtr = svtkSmartPointer<sensei::ConfigurableInTransitDataAdaptor>;
+using AnalysisAdaptorPtr = svtkSmartPointer<sensei::ConfigurableAnalysis>;
 
 int main(int argc, char **argv)
 {
