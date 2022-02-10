@@ -5,7 +5,7 @@ cmake_dependent_option(ENABLE_CUDA
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_PYTHON
-  "Enable Python binding to Sensei infrastucture" OFF
+  "Enable Python binding to Sensei infrastucture" ON
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_CATALYST
