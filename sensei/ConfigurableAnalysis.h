@@ -25,8 +25,8 @@ namespace sensei
  * | sensei::CatalystAnalysisAdaptor | Processes simulation data using ParaView Catalyst |
  * | sensei::LibsimAnalysisAdaptor | Processes simulation data using VisIt Libsim |
  * | sensei::Autocorrelation | Compute autocorrelation of simulation data over time |
- * | sensei::VTKPosthocIO | Writes simulation data to disk in a VTK format |
- * | sensei::VTKAmrWriter | Writes simulation data to disk in a VTK format |
+ * | sensei::VTKPosthocIO | Writes simulation data to disk in a SVTK format |
+ * | sensei::VTKAmrWriter | Writes simulation data to disk in a SVTK format |
  * | sensei::PythonAnalysis | Invokes user provided Pythons scripts that process simulation data |
  * | sensei::SliceExtract | Computes planar slices and iso-surfaces on simulation data |
  *
@@ -40,7 +40,7 @@ public:
   senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
 
   /// Prints the current adaptor state
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /** Set the communicator used by the adaptor.
    * The default communicator is a duplicate of MPI_COMMM_WORLD, giving
