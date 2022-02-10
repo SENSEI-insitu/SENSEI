@@ -4,7 +4,7 @@
 #include "MeshMetadata.h"
 #include "Error.h"
 
-#include <vtkObjectFactory.h>
+#include <svtkObjectFactory.h>
 
 namespace sensei
 {
@@ -88,7 +88,7 @@ int ProgrammableDataAdaptor::GetMeshMetadata(unsigned int id,
 
 //----------------------------------------------------------------------------
 int ProgrammableDataAdaptor::GetMesh(const std::string &meshName,
-  bool structureOnly, vtkDataObject *&mesh)
+  bool structureOnly, svtkDataObject *&mesh)
 {
   mesh = nullptr;
 
@@ -102,7 +102,7 @@ int ProgrammableDataAdaptor::GetMesh(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-int ProgrammableDataAdaptor::AddArray(vtkDataObject* mesh,
+int ProgrammableDataAdaptor::AddArray(svtkDataObject* mesh,
   const std::string &meshName, int association, const std::string &arrayName)
 {
   if (!this->AddArrayCallback)

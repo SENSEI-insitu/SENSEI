@@ -21,9 +21,9 @@ namespace sensei
 /// virtual methods by passing a callable(functor/function) to the corresponding
 /// set method (Set_X_Callback, where _X_ is the method name).
 ///
-///     vtkDataObject* GetMesh(bool structure_only);
+///     svtkDataObject* GetMesh(bool structure_only);
 ///
-///     bool AddArray(vtkDataObject* mesh, int association,
+///     bool AddArray(svtkDataObject* mesh, int association,
 ///       const std::string& arrayname);
 ///
 ///     unsigned int GetNumberOfArrays(int association);
@@ -76,30 +76,30 @@ public:
   /// Set the callable that will be invoked when GetMesh is called
   /// See GetMesh for details of what the callback must do.
   using GetMeshFunction =
-   std::function<int(const std::string &, bool, vtkDataObject *&)>;
+   std::function<int(const std::string &, bool, svtkDataObject *&)>;
 
   void SetGetMeshCallback(const GetMeshFunction &callback);
 
   /// @brief Return the data object with appropriate structure.
   ///
   /// This method will return a data object of the appropriate type. The data
-  /// object can be a vtkDataSet subclass or a vtkCompositeDataSet subclass.
+  /// object can be a svtkDataSet subclass or a svtkCompositeDataSet subclass.
   /// If \c structureOnly is set to true, then the geometry and topology
   /// information will not be populated. For data adaptors that produce a
-  /// vtkCompositeDataSet subclass, passing \c structureOnly will still produce
+  /// svtkCompositeDataSet subclass, passing \c structureOnly will still produce
   /// appropriate composite data hierarchy.
   ///
   /// @param[in] meshName the name of the mesh to access (see GetMeshName)
   /// @param[in] structureOnly When set to true (default; false) the returned mesh
   ///            may not have any geometry or topology information.
-  /// @param[out] mesh a reference to a pointer where a new VTK object is stored
+  /// @param[out] mesh a reference to a pointer where a new SVTK object is stored
   /// @returns zero if successful, non zero if an error occurred
   int GetMesh(const std::string &meshName, bool structureOnly,
-    vtkDataObject *&mesh) override;
+    svtkDataObject *&mesh) override;
 
   /// Set the callable that will be invoked when AddArray is called
   /// See AddArray for details of what the callback must do.
-  using AddArrayFunction = std::function<int(vtkDataObject*,
+  using AddArrayFunction = std::function<int(svtkDataObject*,
     const std::string &, int, const std::string &)>;
 
   void SetAddArrayCallback(const AddArrayFunction &callback);
@@ -110,13 +110,13 @@ public:
   /// array was already added to the mesh, this will not add it again. The mesh
   /// should not be expected to have geometry or topology information.
   ///
-  /// @param[in] mesh the VTK object returned from GetMesh
+  /// @param[in] mesh the SVTK object returned from GetMesh
   /// @param[in] meshName the name of the mesh on which the array is stored
   /// @param[in] association field association; one of
-  ///            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
+  ///            svtkDataObject::FieldAssociations or svtkDataObject::AttributeTypes.
   /// @param[in] arrayName name of the array
   /// @returns zero if successful, non zero if an error occurred
-  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
   ///Set the callable that will be invoked when ReleaseData is called.
