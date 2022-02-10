@@ -3,32 +3,32 @@
 #include "ADIOS1Schema.h"
 #include "DataAdaptor.h"
 #include "MeshMetadataMap.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "MPIUtils.h"
 #include "Profiler.h"
 #include "Error.h"
 
-#include <vtkCellTypes.h>
-#include <vtkCellData.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkIntArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkCharArray.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkCellArray.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkPolyData.h>
-#include <vtkImageData.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
+#include <svtkCellTypes.h>
+#include <svtkCellData.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkIntArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkCharArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkCellArray.h>
+#include <svtkUnstructuredGrid.h>
+#include <svtkPolyData.h>
+#include <svtkImageData.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkSmartPointer.h>
 
 #include <mpi.h>
 #include <adios.h>
@@ -101,7 +101,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     }
 
   // collect the specified data objects and metadata
-  std::vector<vtkCompositeDataSet*> objects;
+  std::vector<svtkCompositeDataSet*> objects;
   std::vector<MeshMetadataPtr> metadata;
 
   MeshRequirementsIterator mit =
@@ -119,7 +119,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       }
 
     // get the mesh
-    vtkCompositeDataSet *dobj = nullptr;
+    svtkCompositeDataSet *dobj = nullptr;
     if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
@@ -127,7 +127,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       }
 
     // add the ghost cell arrays to the mesh
-    if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+    if ((md->NumGhostCells || SVTKUtils::AMR(md)) &&
       dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
@@ -151,7 +151,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
+          << SVTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << ait.Array() << "\" to mesh \""
           << mit.MeshName() << "\"")
         return false;
@@ -252,7 +252,7 @@ int ADIOS1AnalysisAdaptor::Finalize()
 //----------------------------------------------------------------------------
 int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
-  const std::vector<vtkCompositeDataSet*> &objects)
+  const std::vector<svtkCompositeDataSet*> &objects)
 {
   TimeEvent<128> mark("ADIOS1AnalysisAdaptor::WriteTimestep");
 
@@ -288,7 +288,7 @@ int ADIOS1AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
 }
 
 //----------------------------------------------------------------------------
-void ADIOS1AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void ADIOS1AnalysisAdaptor::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }
