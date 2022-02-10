@@ -1,12 +1,12 @@
 #include <random>
 #include <iostream>
 #include <mpi.h>
-#include <vtkDoubleArray.h>
-#include <vtkImageData.h>
-#include <vtkPointData.h>
+#include <svtkDoubleArray.h>
+#include <svtkImageData.h>
+#include <svtkPointData.h>
 #include "Error.h"
 #include "Histogram.h"
-#include "VTKDataAdaptor.h"
+#include "SVTKDataAdaptor.h"
 
 //#define GENERATE_SEQUENCE
 //#define GENERATE_HISTOGRAM
@@ -112,24 +112,24 @@ int main(int argc, char **argv)
   getSequence(vals);
   unsigned int nVals = vals.size();
 
-  vtkDoubleArray *da = vtkDoubleArray::New();
+  svtkDoubleArray *da = svtkDoubleArray::New();
   da->SetNumberOfTuples(nVals);
   da->SetName("normal");
   for (unsigned int i = 0; i < nVals; ++i)
     *da->GetPointer(i) = vals[i];
 
-  vtkImageData *im = vtkImageData::New();
+  svtkImageData *im = svtkImageData::New();
   im->SetDimensions(gNx, gNy, gNz);
   im->GetPointData()->AddArray(da);
   da->Delete();
 
-  sensei::VTKDataAdaptor *dataAdaptor = sensei::VTKDataAdaptor::New();
+  sensei::SVTKDataAdaptor *dataAdaptor = sensei::SVTKDataAdaptor::New();
   dataAdaptor->SetDataObject("mesh", im);
   im->Delete();
 
   sensei::Histogram *analysisAdaptor = sensei::Histogram::New();
 
-  analysisAdaptor->Initialize(gNBins, "mesh", vtkDataObject::POINT,
+  analysisAdaptor->Initialize(gNBins, "mesh", svtkDataObject::POINT,
      "normal", "");
 
   analysisAdaptor->Execute(dataAdaptor);

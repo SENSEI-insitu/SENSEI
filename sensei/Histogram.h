@@ -5,13 +5,11 @@
 #include <mpi.h>
 #include <vector>
 
-class vtkDataObject;
-class vtkDataArray;
+class svtkDataObject;
+class svtkDataArray;
 
 namespace sensei
 {
-
-class HistogramInternals;
 
 /// Computes a histogram in parallel.
 class Histogram : public AnalysisAdaptor
@@ -56,7 +54,7 @@ protected:
   void operator=(const Histogram&) = delete;
 
   static const char *GetGhostArrayName();
-  vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
+  svtkDataArray* GetArray(svtkDataObject* dobj, const std::string& arrayname);
 
   int NumberOfBins;
   std::string MeshName;

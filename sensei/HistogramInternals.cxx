@@ -1,6 +1,6 @@
 #include "senseiConfig.h"
 #include "HistogramInternals.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "MemoryUtils.h"
 #include "Error.h"
 
@@ -17,18 +17,18 @@
 #include <errno.h>
 #include <limits>
 
-#include <vtkSmartPointer.h>
-#include <vtkDataArray.h>
-#include <vtkFloatArray.h>
-#include <vtkDoubleArray.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkAOSDataArrayTemplate.h>
-#include <vtkSOADataArrayTemplate.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataObject.h>
-#include <vtkFieldData.h>
-#include <vtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkDataArray.h>
+#include <svtkFloatArray.h>
+#include <svtkDoubleArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataObject.h>
+#include <svtkFieldData.h>
+#include <svtkObjectFactory.h>
 
 namespace sensei
 {
@@ -272,8 +272,8 @@ int HistogramInternals::Initialize()
 }
 
 // --------------------------------------------------------------------------
-int HistogramInternals::AddLocalData(vtkDataArray *da,
-  vtkUnsignedCharArray *ghosts)
+int HistogramInternals::AddLocalData(svtkDataArray *da,
+  svtkUnsignedCharArray *ghosts)
 {
   // validate the input
   if (!da)
@@ -375,9 +375,9 @@ int HistogramInternals::AddLocalData(vtkDataArray *da,
   // compute the block min and max
   switch (da->GetDataType())
     {
-    vtkTemplateMacro(
+    svtkTemplateMacro(
 
-      std::shared_ptr<VTK_TT> pDa;
+      std::shared_ptr<SVTK_TT> pDa;
 #if defined(ENABLE_CUDA)
       if (this->DeviceId >= 0)
         {
@@ -387,7 +387,7 @@ int HistogramInternals::AddLocalData(vtkDataArray *da,
 #endif
         // get a pointer to the data that's usable on the GPU
         pDa = sensei::MemoryUtils::MakeCudaAccessible(
-          sensei::VTKUtils::GetPointer<VTK_TT>(da), nVals);
+          sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
         }
       else
         {
@@ -397,7 +397,7 @@ int HistogramInternals::AddLocalData(vtkDataArray *da,
           << (da->GetName() ? da->GetName() : "\"\"") << " CPU" << std::endl;
 #endif
         pDa = sensei::MemoryUtils::MakeCpuAccessible(
-         sensei::VTKUtils::GetPointer<VTK_TT>(da), nVals);
+         sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
 #if defined(ENABLE_CUDA)
         }
 #endif
@@ -429,7 +429,7 @@ int HistogramInternals::ComputeRange()
     // GPU if that was neccessary.
     std::shared_ptr<unsigned char> pGhosts = git->second;
 
-    vtkDataArray *da = dit->first;
+    svtkDataArray *da = dit->first;
     std::shared_ptr<void> pvDa = dit->second;
 
     size_t nVals = da->GetNumberOfTuples();
@@ -437,14 +437,14 @@ int HistogramInternals::ComputeRange()
     // compute the block min and max
     switch (da->GetDataType())
       {
-      vtkTemplateMacro(
+      svtkTemplateMacro(
 
-        VTK_TT blockMin = std::numeric_limits<VTK_TT>::max();
-        VTK_TT blockMax = std::numeric_limits<VTK_TT>::lowest();
+        SVTK_TT blockMin = std::numeric_limits<SVTK_TT>::max();
+        SVTK_TT blockMax = std::numeric_limits<SVTK_TT>::lowest();
 
         // cast to the correct type. The data will already be in the right place
         // data movement is handled in AddLocalData
-        std::shared_ptr<VTK_TT> pDa = std::static_pointer_cast<VTK_TT>(pvDa);
+        std::shared_ptr<SVTK_TT> pDa = std::static_pointer_cast<SVTK_TT>(pvDa);
 
 #if defined(ENABLE_CUDA)
         if (this->DeviceId >= 0)
@@ -452,7 +452,7 @@ int HistogramInternals::ComputeRange()
           // make the requested GPU the active one
           sensei::CUDAUtils::SetDevice(this->DeviceId);
           // calculate range taking into account ghost zones on the GPU
-          HistogramInternalsCUDA::ComputeRange<VTK_TT>(pDa, pGhosts, nVals, blockMin, blockMax);
+          HistogramInternalsCUDA::ComputeRange<SVTK_TT>(pDa, pGhosts, nVals, blockMin, blockMax);
 #if defined(SENSEI_DEBUG)
           std::cerr << "HistogramInternals::ComputeRange CUDA ["
              << blockMin << ", " << blockMax << "]" << std::endl;
@@ -462,13 +462,13 @@ int HistogramInternals::ComputeRange()
           {
 #endif
           // calculate range taking into account ghost zones on the CPU
-          VTK_TT *rpDa = pDa.get();
+          SVTK_TT *rpDa = pDa.get();
           unsigned char *rpGhosts = pGhosts.get();
           for (size_t i = 0; i < nVals; ++i)
             {
             if (rpGhosts[i] == 0)
               {
-              VTK_TT value = rpDa[i];
+              SVTK_TT value = rpDa[i];
               blockMin = std::min(blockMin, value);
               blockMax = std::max(blockMax, value);
               }
@@ -611,7 +611,7 @@ int HistogramInternals::ComputeLocalHistogram()
     // GPU if that was neccessary.
     std::shared_ptr<unsigned char> pGhosts = git->second;
 
-    vtkDataArray *da = dit->first;
+    svtkDataArray *da = dit->first;
     std::shared_ptr<void> pDa = dit->second;
 
     // get the sizes of the datat array
@@ -624,7 +624,7 @@ int HistogramInternals::ComputeLocalHistogram()
 
     switch (da->GetDataType())
       {
-      vtkTemplateMacro(
+      svtkTemplateMacro(
 #if defined(ENABLE_CUDA)
         if (this->DeviceId >= 0)
           {
@@ -637,7 +637,7 @@ int HistogramInternals::ComputeLocalHistogram()
           // compute the histgram for this block's worth of data on the GPU. It is
           // left on the GPU until data for all blocks has been processed.
           // data is already in the right place, it is moved in AddLocalData
-          if (HistogramInternalsCUDA::block_local_histogram<VTK_TT>((VTK_TT*)pDa.get(),
+          if (HistogramInternalsCUDA::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
             pGhosts.get(), nVals, this->Min, this->Width, this->Histogram.get(), nBins))
             return -1;
           }
@@ -649,7 +649,7 @@ int HistogramInternals::ComputeLocalHistogram()
 #endif
           // compute the histgram for this block's worth of data on the CPU
           // data is already in the right place, it is moved in AddLocalData
-          HistogramInternalsCPU::block_local_histogram<VTK_TT>((VTK_TT*)pDa.get(),
+          HistogramInternalsCPU::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
             pGhosts.get(), nVals, this->Min, this->Width, this->Histogram.get(), nBins);
 #if defined(ENABLE_CUDA)
           }
