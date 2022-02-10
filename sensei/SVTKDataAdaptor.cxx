@@ -1,69 +1,69 @@
-#include "VTKDataAdaptor.h"
-#include "VTKUtils.h"
+#include "SVTKDataAdaptor.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 #include "MeshMetadata.h"
 
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkFieldData.h>
-#include <vtkPointData.h>
-#include <vtkCellData.h>
-#include <vtkObjectFactory.h>
-#include <vtkDataObject.h>
-#include <vtkObjectBase.h>
-#include <vtkObject.h>
-#include <vtkDataArray.h>
-#include <vtkAbstractArray.h>
-#include <vtkSmartPointer.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkFieldData.h>
+#include <svtkPointData.h>
+#include <svtkCellData.h>
+#include <svtkObjectFactory.h>
+#include <svtkDataObject.h>
+#include <svtkObjectBase.h>
+#include <svtkObject.h>
+#include <svtkDataArray.h>
+#include <svtkAbstractArray.h>
+#include <svtkSmartPointer.h>
 
 #include <functional>
 #include <map>
 #include <utility>
 
-using vtkDataObjectPtr = vtkSmartPointer<vtkDataObject>;
+using svtkDataObjectPtr = svtkSmartPointer<svtkDataObject>;
 
-using MeshMapType = std::map<std::string, vtkDataObjectPtr>;
+using MeshMapType = std::map<std::string, svtkDataObjectPtr>;
 
-using vtkCompositeDataIteratorPtr =
-  vtkSmartPointer<vtkCompositeDataIterator>;
+using svtkCompositeDataIteratorPtr =
+  svtkSmartPointer<svtkCompositeDataIterator>;
 
 namespace sensei
 {
 
-struct VTKDataAdaptor::InternalsType
+struct SVTKDataAdaptor::InternalsType
 {
   MeshMapType MeshMap;
 };
 
 //----------------------------------------------------------------------------
-senseiNewMacro(VTKDataAdaptor);
+senseiNewMacro(SVTKDataAdaptor);
 
 //----------------------------------------------------------------------------
-VTKDataAdaptor::VTKDataAdaptor()
+SVTKDataAdaptor::SVTKDataAdaptor()
 {
   this->Internals = new InternalsType;
 }
 
 //----------------------------------------------------------------------------
-VTKDataAdaptor::~VTKDataAdaptor()
+SVTKDataAdaptor::~SVTKDataAdaptor()
 {
   delete this->Internals;
 }
 
 //----------------------------------------------------------------------------
-void VTKDataAdaptor::SetDataObject(const std::string &meshName,
-  vtkDataObject* dobj)
+void SVTKDataAdaptor::SetDataObject(const std::string &meshName,
+  svtkDataObject* dobj)
 {
   this->Internals->MeshMap[meshName] =
-    VTKUtils::AsCompositeData(this->GetCommunicator(), dobj, false);
+    SVTKUtils::AsCompositeData(this->GetCommunicator(), dobj, false);
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetDataObject(const std::string &meshName,
-  vtkDataObject *&mesh)
+int SVTKDataAdaptor::GetDataObject(const std::string &meshName,
+  svtkDataObject *&mesh)
 {
  MeshMapType::iterator it = this->Internals->MeshMap.find(meshName);
   if (it == this->Internals->MeshMap.end())
@@ -77,14 +77,14 @@ int VTKDataAdaptor::GetDataObject(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
+int SVTKDataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
   numMeshes = this->Internals->MeshMap.size();
   return 0;
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
+int SVTKDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 {
   int rank = 0;
   int nRanks = 1;
@@ -105,15 +105,15 @@ int VTKDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
     ++it;
 
   std::string meshName = it->first;
-  vtkDataObject *dobj = it->second;
+  svtkDataObject *dobj = it->second;
 
   // fill in metadata
   metadata->MeshName = meshName;
 
   // multiblock and amr
-  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  if (svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet*>(dobj))
     {
-    if (VTKUtils::GetMetadata(this->GetCommunicator(), cd, metadata))
+    if (SVTKUtils::GetMetadata(this->GetCommunicator(), cd, metadata))
       {
       SENSEI_ERROR("Failed to get metadata for composite mesh \""
         << meshName << "\"")
@@ -123,9 +123,9 @@ int VTKDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
     }
 
   // ParaView's legacy domain decomp
-  if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+  if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
     {
-    if (VTKUtils::GetMetadata(this->GetCommunicator(), ds, metadata))
+    if (SVTKUtils::GetMetadata(this->GetCommunicator(), ds, metadata))
       {
       SENSEI_ERROR("Failed to get metadata for dataset mesh \""
         << meshName << "\"")
@@ -139,31 +139,31 @@ int VTKDataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata)
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
-  vtkDataObject *&mesh)
+int SVTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
+  svtkDataObject *&mesh)
 {
-  vtkDataObject *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (this->GetDataObject(meshName, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
     return -1;
     }
 
-  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  if (svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet*>(dobj))
     {
-    vtkCompositeDataSet *cdo = cd->NewInstance();
+    svtkCompositeDataSet *cdo = cd->NewInstance();
     cdo->CopyStructure(cd);
 
-    vtkCompositeDataIterator *cdit = cd->NewIterator();
+    svtkCompositeDataIterator *cdit = cd->NewIterator();
     while (!cdit->IsDoneWithTraversal())
       {
-      vtkDataObject *dobj = cd->GetDataSet(cdit);
-      vtkDataObject *dobjo = dobj->NewInstance();
+      svtkDataObject *dobj = cd->GetDataSet(cdit);
+      svtkDataObject *dobjo = dobj->NewInstance();
       if (!structureOnly)
         {
-        if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+        if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
           {
-          vtkDataSet *dso = static_cast<vtkDataSet*>(dobjo);
+          svtkDataSet *dso = static_cast<svtkDataSet*>(dobjo);
           dso->CopyStructure(ds);
           }
         }
@@ -179,9 +179,9 @@ int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
     return 0;
     }
 
-  if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+  if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
     {
-    vtkDataSet *dsOut = ds->NewInstance();
+    svtkDataSet *dsOut = ds->NewInstance();
 
     if (!structureOnly)
       dsOut->CopyStructure(ds);
@@ -197,20 +197,20 @@ int VTKDataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
+int SVTKDataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
   int association, const std::string &arrayName)
 {
   // define helper function to add the array to the mesh
-  VTKUtils::BinaryDatasetFunction addArray =
-    [&](vtkDataSet *ds, vtkDataSet *dsOut) -> int
+  SVTKUtils::BinaryDatasetFunction addArray =
+    [&](svtkDataSet *ds, svtkDataSet *dsOut) -> int
     {
-    vtkFieldData *dsa = VTKUtils::GetAttributes(ds, association);
-    vtkFieldData *dsaOut = VTKUtils::GetAttributes(dsOut, association);
+    svtkFieldData *dsa = SVTKUtils::GetAttributes(ds, association);
+    svtkFieldData *dsaOut = SVTKUtils::GetAttributes(dsOut, association);
 
-    vtkDataArray *da = dsa->GetArray(arrayName.c_str());
+    svtkDataArray *da = dsa->GetArray(arrayName.c_str());
     if (!da)
       {
-      SENSEI_ERROR("No " << VTKUtils::GetAttributesName(association)
+      SENSEI_ERROR("No " << SVTKUtils::GetAttributesName(association)
         << " data array \"" << arrayName << "\" in mesh \""
         << meshName)
       return -1;
@@ -221,7 +221,7 @@ int VTKDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     };
 
   // get the cached copy of the mesh
-  vtkDataObject *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (this->GetDataObject(meshName, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -229,7 +229,7 @@ int VTKDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
     }
 
   // apply the helper function
-  if (VTKUtils::Apply(dobj, mesh, addArray))
+  if (SVTKUtils::Apply(dobj, mesh, addArray))
     {
     SENSEI_ERROR("Failed to add array \"" << arrayName
       << "\" to mesh \"" << meshName  << "\"")
@@ -242,15 +242,15 @@ int VTKDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
 // TODO
 /*
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetNumberOfArrays(const std::string &meshName,
+int SVTKDataAdaptor::GetNumberOfArrays(const std::string &meshName,
   int association, unsigned int &numberOfArrays)
 {
   numberOfArrays = 0;
 
   // define helper function to compute number of arrays
-  VTKUtils::DatasetFunction getNumberOfArrays = [&](vtkDataSet *ds) -> int
+  SVTKUtils::DatasetFunction getNumberOfArrays = [&](svtkDataSet *ds) -> int
     {
-    vtkFieldData *dsa = VTKUtils::GetAttributes(ds, association);
+    svtkFieldData *dsa = SVTKUtils::GetAttributes(ds, association);
 
     if (!dsa)
       return -1;
@@ -260,7 +260,7 @@ int VTKDataAdaptor::GetNumberOfArrays(const std::string &meshName,
     };
 
   // locate the cached mesh
-  vtkDataObject *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (this->GetDataObject(meshName, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -268,10 +268,10 @@ int VTKDataAdaptor::GetNumberOfArrays(const std::string &meshName,
     }
 
   // apply the helper function
-  if (VTKUtils::Apply(dobj, getNumberOfArrays))
+  if (SVTKUtils::Apply(dobj, getNumberOfArrays))
     {
     SENSEI_ERROR("Failed to get the number of "
-      << VTKUtils::GetAttributesName(association) << " data arrays for mesh \""
+      << SVTKUtils::GetAttributesName(association) << " data arrays for mesh \""
       << meshName  << "\"")
     return -1;
     }
@@ -280,13 +280,13 @@ int VTKDataAdaptor::GetNumberOfArrays(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
+int SVTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
   unsigned int index, std::string &arrayName)
 {
   // define helper function to get the available data arrays
-  VTKUtils::DatasetFunction getArrayName = [&](vtkDataSet *ds) -> int
+  SVTKUtils::DatasetFunction getArrayName = [&](svtkDataSet *ds) -> int
     {
-    vtkFieldData *dsa =  VTKUtils::GetAttributes(ds, association);
+    svtkFieldData *dsa =  SVTKUtils::GetAttributes(ds, association);
 
     if (!dsa)
       return -1;
@@ -296,7 +296,7 @@ int VTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
     if (index > nArrays)
       {
       SENSEI_ERROR("Index " << index << " is out of bounds. "
-        << VTKUtils::GetAttributesName(association) << " data on mesh \""
+        << SVTKUtils::GetAttributesName(association) << " data on mesh \""
         << meshName << "\" has " << nArrays << " arrays.")
       return -1;
       }
@@ -307,7 +307,7 @@ int VTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
     };
 
   // locate the cached mesh
-  vtkDataObject *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (this->GetDataObject(meshName, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -315,7 +315,7 @@ int VTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
     }
 
   // apply the helper function
-  if (VTKUtils::Apply(dobj, getArrayName))
+  if (SVTKUtils::Apply(dobj, getArrayName))
     {
     SENSEI_ERROR("Failed to get the number of arrays for mesh \""
       << meshName  << "\"")
@@ -326,7 +326,7 @@ int VTKDataAdaptor::GetArrayName(const std::string &meshName, int association,
 }
 */
 //----------------------------------------------------------------------------
-int VTKDataAdaptor::ReleaseData()
+int SVTKDataAdaptor::ReleaseData()
 {
   this->Internals->MeshMap.clear();
   return 0;

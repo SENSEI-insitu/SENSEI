@@ -1,29 +1,29 @@
-#ifndef sensei_VTKDataAdaptor_h
-#define sensei_VTKDataAdaptor_h
+#ifndef sensei_SVTKDataAdaptor_h
+#define sensei_SVTKDataAdaptor_h
 
 #include "DataAdaptor.h"
-#include <vtkSmartPointer.h>
+#include <svtkSmartPointer.h>
 
-class vtkDataObject;
+class svtkDataObject;
 
 namespace sensei
 {
-/// @brief DataAdaptor for a vtkDataObject.
+/// @brief DataAdaptor for a svtkDataObject.
 ///
-/// sensei::VTKDataAdaptor is a simple implementation of sensei::DataAdaptor
-/// that provides the sensei::DataAdaptor on a vtkDataObject. To use this data
-/// adaptor for codes that produce a vtkDataObject natively. Once simply passes
-/// the vtkDataObject instance to this class and one then connect it to the
+/// sensei::SVTKDataAdaptor is a simple implementation of sensei::DataAdaptor
+/// that provides the sensei::DataAdaptor on a svtkDataObject. To use this data
+/// adaptor for codes that produce a svtkDataObject natively. Once simply passes
+/// the svtkDataObject instance to this class and one then connect it to the
 /// sensei::AnalysisAdators.
 ///
 /// If the DataObject is a composite-dataset, the first non-null block on the
 /// current rank is assumed to the representative block for answering all
 /// queries.
-class VTKDataAdaptor : public DataAdaptor
+class SVTKDataAdaptor : public DataAdaptor
 {
 public:
-  static VTKDataAdaptor *New();
-  senseiTypeMacro(VTKDataAdaptor, DataAdaptor);
+  static SVTKDataAdaptor *New();
+  senseiTypeMacro(SVTKDataAdaptor, DataAdaptor);
 
   /// @brief Set the data object for current timestep.
   ///
@@ -32,7 +32,7 @@ public:
   ///
   /// @param[in] meshName name of the mesh represented in the object
   /// @param[in] mesh the mesh or nullptr if this rank has no data
-  void SetDataObject(const std::string &meshName, vtkDataObject *mesh);
+  void SetDataObject(const std::string &meshName, svtkDataObject *mesh);
 
   /// @breif Get the data object for the current time step
   ///
@@ -43,7 +43,7 @@ public:
   /// @param[in] meshName the name of the mesh to get
   /// @param[out] mesh a reference to store a pointer to the named mesh
   /// @returns zero if the named mesh is present, non zero if it was not
-  int GetDataObject(const std::string &meshName, vtkDataObject *&dobj);
+  int GetDataObject(const std::string &meshName, svtkDataObject *&dobj);
 
   /// @breif Gets the number of meshes a simulation can provide
   ///
@@ -70,19 +70,19 @@ public:
   /// @brief Return the data object with appropriate structure.
   ///
   /// This method will return a data object of the appropriate type. The data
-  /// object can be a vtkDataSet subclass or a vtkCompositeDataSet subclass.
+  /// object can be a svtkDataSet subclass or a svtkCompositeDataSet subclass.
   /// If \c structure_only is set to true, then the geometry and topology
   /// information will not be populated. For data adaptors that produce a
-  /// vtkCompositeDataSet subclass, passing \c structure_only will still produce
+  /// svtkCompositeDataSet subclass, passing \c structure_only will still produce
   /// appropriate composite data hierarchy.
   ///
   /// @param[in] meshName the name of the mesh to access (see GetMeshName)
   /// @param[in] structure_only When set to true (default; false) the returned mesh
   ///            may not have any geometry or topology information.
-  /// @param[out] a reference to a pointer where a new VTK object is stored
+  /// @param[out] a reference to a pointer where a new SVTK object is stored
   /// @returns zero if successful, non zero if an error occurred
   int GetMesh(const std::string &meshName, bool structure_only,
-    vtkDataObject *&mesh) override;
+    svtkDataObject *&mesh) override;
 
   using sensei::DataAdaptor::GetMesh;
 
@@ -92,13 +92,13 @@ public:
   /// array was already added to the mesh, this will not add it again. The mesh
   /// should not be expected to have geometry or topology information.
   ///
-  /// @param[in] mesh the VTK object returned from GetMesh
+  /// @param[in] mesh the SVTK object returned from GetMesh
   /// @param[in] meshName the name of the mesh on which the array is stored
   /// @param[in] association field association; one of
-  ///            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
+  ///            svtkDataObject::FieldAssociations or svtkDataObject::AttributeTypes.
   /// @param[in] arrayName name of the array
   /// @returns zero if successful, non zero if an error occurred
-  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
   /// @brief Release data allocated for the current timestep.
@@ -110,12 +110,12 @@ public:
   int ReleaseData() override;
 
 protected:
-  VTKDataAdaptor();
-  ~VTKDataAdaptor();
+  SVTKDataAdaptor();
+  ~SVTKDataAdaptor();
 
 private:
-  VTKDataAdaptor(const VTKDataAdaptor&); // Not implemented.
-  void operator=(const VTKDataAdaptor&); // Not implemented.
+  SVTKDataAdaptor(const SVTKDataAdaptor&); // Not implemented.
+  void operator=(const SVTKDataAdaptor&); // Not implemented.
 
   struct InternalsType;
   InternalsType *Internals;
