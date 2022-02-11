@@ -1,6 +1,6 @@
 #include "Catalyst2AnalysisAdaptor.h"
 
-#include "DataAdaptor.h"
+#include "Catalyst2DataAdaptor.h"
 #include "Error.h"
 #include "MeshMetadata.h"
 #include "Profiler.h"
@@ -85,38 +85,16 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   // Conduit node to fill
   conduit_cpp::Node exec_params;
 
-  // Mesh to use
-  for (auto meta : metadata)
+  // Casting into the concrete Catalyst2DataAdaptor is not ideal,
+  // but it remove the need to GetMesh - Mesh to conduit.
+  // (still need testing, may need conduit to conduit adapt)
+  auto c2dataAdaptor = Catalyst2DataAdaptor::SafeDownCast(dataAdaptor);
+  if (c2dataAdaptor == nullptr)
   {
-    const char* meshName = meta->MeshName.c_str();
-    vtkDataObject* dobj = nullptr;
-    if (dataAdaptor->GetMesh(meshName, false, dobj))
-    {
-      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
-      return -1;
-    }
-    if (dobj)
-    {
-      if (auto* pds = vtkPartitionedDataSet::SafeDownCast(dobj))
-      {
-        for (auto node : vtk::Range(pds))
-        {
-          if (node->IsA("vtkDataObject"))
-            vtkDataObjectToConduit::FillConduitNode(node, exec_params);
-          else
-            std::cout << "ingore: " << node->GetClassName() << std::endl;
-        }
-      }
-      else
-      {
-        vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
-      }
-    }
-    else
-    {
-      std::cout << "empty dobj" << std::endl;
-    }
+    SENSEI_ERROR("The Catalyst2AnalysisAdaptor requires a Catalyst2DataAdaptor to do 0-Copy.");
+    return false;
   }
+  exec_params = c2dataAdaptor->GetNode(0);
 
   // Time description
   double time = dataAdaptor->GetDataTime();
