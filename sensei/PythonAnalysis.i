@@ -20,6 +20,9 @@ code up analysis adaptors in a Python script."
    need direct access to the SWIG run time and type table */
 #include "PythonAnalysis.h"
 #include "PythonAnalysis.cxx"
+
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 %}
 
 %init %{

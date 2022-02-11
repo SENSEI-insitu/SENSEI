@@ -19,6 +19,9 @@
 #include "SVTKUtils.h"
 #include "Profiler.h"
 #include <sstream>
+
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 %}
 
 %init %{

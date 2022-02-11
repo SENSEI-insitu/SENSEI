@@ -10,6 +10,9 @@
 #include "svtkSetGet.h"
 
 #include <sstream>
+
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 %}
 
 %include "std_string.i"
