@@ -685,15 +685,11 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
 
   if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {
-#ifndef ENABLE_CATALYST_PYTHON
-    SENSEI_ERROR("Catalyst Python was requested but is disabled in this build")
-#else
     if (node.attribute("filename"))
       {
       std::string fileName = node.attribute("filename").value();
       this->Catalyst2Adaptor->AddPythonScriptPipeline(fileName);
       }
-#endif
     }
   SENSEI_STATUS("Configured Catalyst2AnalysisAdaptor "
     << node.attribute("pipeline").value() << " "

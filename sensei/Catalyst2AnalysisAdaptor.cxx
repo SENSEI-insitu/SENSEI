@@ -39,7 +39,6 @@ void Catalyst2AnalysisAdaptor::Initialize() {}
 //-----------------------------------------------------------------------------
 void Catalyst2AnalysisAdaptor::AddPythonScriptPipeline(const std::string& fileName)
 {
-#ifdef ENABLE_CATALYST_PYTHON
   conduit_cpp::Node node;
   node["catalyst/scripts/script"].set_string(fileName);
   auto error_code = catalyst_initialize(conduit_cpp::c_node(&node));
@@ -48,12 +47,6 @@ void Catalyst2AnalysisAdaptor::AddPythonScriptPipeline(const std::string& fileNa
     // you are in trouble young man
     std::cerr << "catalyst initialize failed with code: " << error_code << std::endl;
   }
-
-#else
-  (void)fileName;
-  SENSEI_ERROR("Failed to add Python script pipeline. "
-               "Re-compile with ENABLE_CATALYST_PYTHON=ON")
-#endif
 }
 
 //----------------------------------------------------------------------------
@@ -94,6 +87,13 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     SENSEI_ERROR("The Catalyst2AnalysisAdaptor requires a Catalyst2DataAdaptor to do 0-Copy.");
     return false;
   }
+  unsigned int nbNodes;
+  c2dataAdaptor->GetNumberOfMeshes(nbNodes);
+  if (nbNodes > 1)
+  {
+    SENSEI_WARNING("The mesh has several nodes, only the first one will be processed.");
+  }
+
   exec_params = c2dataAdaptor->GetNode(0);
 
   // Time description
