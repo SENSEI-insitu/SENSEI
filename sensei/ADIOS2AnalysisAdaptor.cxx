@@ -179,8 +179,21 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 }
 
 //----------------------------------------------------------------------------
+int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency) 
+{
+  this->Frequency = frequency;
+}
+
+//----------------------------------------------------------------------------
 bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
+  long step = dataAdaptor->GetDataTimeStep();
+
+  if(this->Frequency > 0 && step % this->Frequency != 0)
+    {
+    return true;
+    }
+
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
 
   // if no dataAdaptor requirements are given, push all the data

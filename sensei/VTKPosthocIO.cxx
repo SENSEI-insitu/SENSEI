@@ -233,6 +233,14 @@ int VTKPosthocIO::SetDataRequirements(const DataRequirements &reqs)
 }
 
 //-----------------------------------------------------------------------------
+int VTKPosthocIO::SetFrequency(unsigned int frequency)
+{
+  this->Frequency = frequency;
+  return 0;
+}
+
+
+//-----------------------------------------------------------------------------
 int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
   int association, const std::vector<std::string> &arrays)
 {
@@ -244,6 +252,13 @@ int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
 //-----------------------------------------------------------------------------
 bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor)
 {
+  long step = dataAdaptor->GetDataTimeStep();
+
+  if(this->Frequency > 0 && step % this->Frequency != 0) 
+    {
+    return true;
+    }
+
   // see what the simulation is providing
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();

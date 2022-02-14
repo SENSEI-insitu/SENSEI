@@ -34,6 +34,9 @@ public:
   /// Adds a pipeline initialized from a Catalyst python script
   virtual void AddPythonScriptPipeline(const std::string &fileName);
 
+  /// Control the frequency of the Catalyst python script
+  int SetFrequency(unsigned int frequency);
+
   bool Execute(DataAdaptor* data) override;
 
   int Finalize() override;
@@ -55,6 +58,8 @@ protected:
 private:
   CatalystAnalysisAdaptor(const CatalystAnalysisAdaptor&); // Not implemented.
   void operator=(const CatalystAnalysisAdaptor&); // Not implemented.
+
+  unsigned int Frequency;
 };
 
 }

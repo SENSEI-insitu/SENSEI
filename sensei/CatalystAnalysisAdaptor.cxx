@@ -236,8 +236,22 @@ int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
 }
 
 //----------------------------------------------------------------------------
+int CatalystAnalysisAdaptor::SetFrequency(unsigned int frequency)
+{
+  this->Frequency = frequency;
+  return 0;
+}
+
+
+//----------------------------------------------------------------------------
 bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
+  long step = dataAdaptor->GetDataTimeStep();
+
+  if(this->Frequency > 0 && step % this->Frequency != 0)
+    {
+    return true;
+    }
   TimeEvent<128> mark("CatalystAnalysisAdaptor::Execute");
 
   // Get a description of the simulation metadata

@@ -74,6 +74,9 @@ public:
   /// if none are given then all data is pushed.
   int SetDataRequirements(const DataRequirements &reqs);
 
+  /// Control the frequency of the ADIOS2 Adaptor
+  int SetFrequency(unsigned int frequency);
+
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
@@ -119,6 +122,7 @@ protected:
   long StepsPerFile;
   long StepIndex;
   long FileIndex;
+  unsigned int Frequency;
 
 private:
   ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;

@@ -433,6 +433,9 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
     SENSEI_ERROR("Failed to configure the ADIOS2 adaptor from XML")
     return -1;
     }
+  
+  unsigned int frequency = node.attribute("frequency").as_uint(0);
+  this->adiosAdaptor->SetFrequency(frequency);
 
   this->TimeInitialization(adiosAdaptor);
   this->Analyses.push_back(adiosAdaptor.GetPointer());
@@ -647,6 +650,10 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
       std::string fileName = node.attribute("filename").value();
       this->CatalystAdaptor->AddPythonScriptPipeline(fileName);
       }
+    
+    unsigned int frequency = node.attribute("frequency").as_uint(0);
+    this->CatalystAdaptor->SetFrequency(frequency);
+
 #endif
     }
   SENSEI_STATUS("Configured CatalystAnalysisAdaptor "
@@ -859,6 +866,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   std::string writer = node.attribute("writer").as_string("xml");
   std::string ghostArrayName = node.attribute("ghost_array_name").as_string("");
   int verbose = node.attribute("verbose").as_int(0);
+  unsigned int frequency = node.attribute("frequency").as_uint(0);
 
   auto adaptor = vtkSmartPointer<VTKPosthocIO>::New();
 
@@ -867,6 +875,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 
   adaptor->SetGhostArrayName(ghostArrayName);
   adaptor->SetVerbose(verbose);
+  adaptor->SetFrequency(frequency);
 
   if (adaptor->SetOutputDir(outputDir) || adaptor->SetMode(mode) ||
     adaptor->SetWriter(writer) || adaptor->SetDataRequirements(req))
