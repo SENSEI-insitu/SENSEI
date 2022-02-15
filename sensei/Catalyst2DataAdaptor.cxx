@@ -4,8 +4,6 @@
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
 
-#include <vtkConduitSource.h>
-#include <vtkDataObjectToConduit.h> // Not in the 5.9, may requires ParaView 5.10
 #include <vtkNew.h>
 #include <vtkObjectFactory.h>
 
@@ -60,32 +58,33 @@ const conduit_cpp::Node& Catalyst2DataAdaptor::GetNode(unsigned int id) const
 int Catalyst2DataAdaptor::GetMesh(
   const std::string& meshName, bool /*structureOnly*/, vtkDataObject*& mesh)
 {
-  for (auto n : this->Nodes)
-  {
-    if (n.has_path("catalyst/channels/"+meshName))
-    {
-      conduit_cpp::Node meshNode(n["catalyst/channels/"+meshName+"/data"]);
-      // std::cout << "Has mesh: " << meshName << std::endl;
-      // std::cout << meshNode.path()  << std::endl;
-      // meshNode.print();
-      vtkNew<vtkConduitSource> conduitToVTK;
-      conduitToVTK->SetNode(conduit_cpp::c_node(&meshNode));
-      conduitToVTK->Update();
-      if (vtkDataObject* res = conduitToVTK->GetOutputDataObject(0))
-      {
-        mesh = res;
-        mesh->Register(this);
-        return 0;
-      }
-      else
-      {
-        SENSEI_ERROR("Error while creating the VTK mesh for " << meshName);
-        return 1;
-      }
-    }
-  }
-  SENSEI_ERROR("GetMesh: Mesh " << meshName << " Cannot Be Found");
-  return -1;
+  // for (auto n : this->Nodes)
+  // {
+  //   if (n.has_path("catalyst/channels/"+meshName))
+  //   {
+  //     conduit_cpp::Node meshNode(n["catalyst/channels/"+meshName+"/data"]);
+  //     // std::cout << "Has mesh: " << meshName << std::endl;
+  //     // std::cout << meshNode.path()  << std::endl;
+  //     // meshNode.print();
+  //     vtkNew<vtkConduitSource> conduitToVTK;
+  //     conduitToVTK->SetNode(conduit_cpp::c_node(&meshNode));
+  //     conduitToVTK->Update();
+  //     if (vtkDataObject* res = conduitToVTK->GetOutputDataObject(0))
+  //     {
+  //       mesh = res;
+  //       mesh->Register(this);
+  //       return 0;
+  //     }
+  //     else
+  //     {
+  //       SENSEI_ERROR("Error while creating the VTK mesh for " << meshName);
+  //       return 1;
+  //     }
+  //   }
+  // }
+  // SENSEI_ERROR("GetMesh: Mesh " << meshName << " Cannot Be Found");
+  // return -1;
+  throw "not supported yet";
 }
 //-----------------------------------------------------------------------------
 int Catalyst2DataAdaptor::GetNumberOfMeshes(unsigned int& numberOfMeshes)
