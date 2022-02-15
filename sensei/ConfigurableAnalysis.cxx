@@ -435,7 +435,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
     }
   
   unsigned int frequency = node.attribute("frequency").as_uint(0);
-  this->adiosAdaptor->SetFrequency(frequency);
+  adiosAdaptor->SetFrequency(frequency);
 
   this->TimeInitialization(adiosAdaptor);
   this->Analyses.push_back(adiosAdaptor.GetPointer());
