@@ -10,7 +10,6 @@
 #include <catalyst_conduit.hpp>
 
 #include <vtkDataObject.h>
-#include <vtkDataObjectToConduit.h>
 #include <vtkDataObjectTreeRange.h>
 #include <vtkPartitionedDataSet.h>
 #include <vtkRange.h>
