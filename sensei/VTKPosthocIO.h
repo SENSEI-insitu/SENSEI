@@ -58,6 +58,8 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
+  /// Control the frequency of the VTKPosthocIO Adaptor
+  int SetFrequency(unsigned int frequency);
   // SENSEI API
   bool Execute(DataAdaptor* data) override;
   int Finalize() override;
@@ -80,6 +82,7 @@ private:
   template<typename T>
   using NameMap = std::map<std::string, T>;
 
+  unsigned int Frequency;
   NameMap<std::vector<double>> Time;
   NameMap<std::vector<long>> TimeStep;
   NameMap<std::vector<MeshMetadataPtr>> Metadata;
