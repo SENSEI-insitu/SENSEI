@@ -31,7 +31,7 @@ public:
   /// finalize the run
   int Finalize() override;
 
-  /// the computed hostgram may be accessed through the following data structure.
+  /// the computed histogram may be accessed through the following data structure.
   struct Data
   {
       Data() : NumberOfBins(1), BinMin(1.0), BinMax(0.0), BinWidth(1.0), Histogram() {}
