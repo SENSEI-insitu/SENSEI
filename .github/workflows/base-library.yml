@@ -7,12 +7,13 @@ on:
       - develop
 
 jobs:
-  base:
+  base-ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: build_and_test
         run: |
+          set -x
           export DEBIAN_FRONTEND="noninteractive"
           export TZ="America/Los_Angeles"
           sudo apt-get update -qq
@@ -23,6 +24,32 @@ jobs:
           export LD_LIBRARY_PATH=`pwd`/lib/python-3.8/site-packages/svtk:$LD_LIBRARY_PATH
           export LD_LIBRARY_PATH=`pwd`/lib/python-3.8/site-packages/sensei:$LD_LIBRARY_PATH
           export PYTHONPATH=`pwd`/lib/python-3.8/site-packages:$PYTHONPATH
+          cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DTEST_NP=2 ..
+          make -j2
+          ctest --output-on-failure
+
+  base-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build_and_test
+        run: |
+          set -x
+          #brew unlink python@2
+          brew install openmpi swig openssl python@3.9
+          brew unlink python
+          brew link --force python@3.9
+          python3 -mvenv `pwd`/../tci
+          set +x
+          source `pwd`/../tci/bin/activate
+          set -x
+          pip3 install numpy mpi4py
+          mkdir build
+          cd build
+          export DYLD_LIBRARY_PATH=`pwd`/lib/:$DYLD_LIBRARY_PATH
+          export DYLD_LIBRARY_PATH=`pwd`/lib/python-3.9/site-packages/svtk:$DYLD_LIBRARY_PATH
+          export DYLD_LIBRARY_PATH=`pwd`/lib/python-3.9/site-packages/sensei:$DYLD_LIBRARY_PATH
+          export PYTHONPATH=`pwd`/lib/python-3.9/site-packages:$PYTHONPATH
           cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DTEST_NP=2 ..
           make -j2
           ctest --output-on-failure
