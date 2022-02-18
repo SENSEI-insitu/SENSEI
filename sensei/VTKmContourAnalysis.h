@@ -13,7 +13,7 @@ namespace sensei
 /// @class VTKmContourAnalysis
 /// @brief sensei::VTKmContourAnalysis is a AnalysisAdaptor specialization for contouring.
 ///
-class VTKmContourAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT VTKmContourAnalysis : public AnalysisAdaptor
 {
 public:
   static VTKmContourAnalysis* New();

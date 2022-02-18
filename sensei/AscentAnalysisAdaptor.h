@@ -12,7 +12,7 @@ namespace sensei
 {
 
 /// An analysis adaptor for ascent-based analysis pipelines.
-class AscentAnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT AscentAnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   /// Creates an AscentAnalysisAdaptor instance.

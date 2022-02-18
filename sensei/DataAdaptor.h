@@ -22,7 +22,7 @@ namespace sensei
  * Simulation codes provide an implementation of this interface which is used
  * by data consumers to fetch simulation data for processing, movement, or I/O.
  */
-class DataAdaptor : public svtkObjectBase
+class SENSEI_EXPORT DataAdaptor : public svtkObjectBase
 {
 public:
   senseiBaseTypeMacro(DataAdaptor, svtkObjectBase);

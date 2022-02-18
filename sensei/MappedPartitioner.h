@@ -17,7 +17,7 @@ using MappedPartitionerPtr = std::shared_ptr<sensei::MappedPartitioner>;
 /// paritioning of the data. The poarallel vectors 'BlockIds' and 'BlockOwner'
 /// contain the block id of each data block and the rank which should own it.
 /// These may be set programatically or through XML.
-class MappedPartitioner : public sensei::Partitioner
+class SENSEI_EXPORT MappedPartitioner : public sensei::Partitioner
 {
 public:
   static sensei::MappedPartitionerPtr New()

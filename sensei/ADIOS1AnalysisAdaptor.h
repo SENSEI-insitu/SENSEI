@@ -17,7 +17,7 @@ namespace sensei
 {
 
 /// The write side of the ADIOS 1 transport
-class ADIOS1AnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT ADIOS1AnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   static ADIOS1AnalysisAdaptor* New();

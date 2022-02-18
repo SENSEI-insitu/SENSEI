@@ -19,7 +19,7 @@ namespace sensei
  * meshes and the arrays to write from each mesh. File names are derived using
  * the output directory, the mesh name, and the mode.
  */
-class VTKAmrWriter : public AnalysisAdaptor
+class SENSEI_EXPORT VTKAmrWriter : public AnalysisAdaptor
 {
 public:
   /// constructs a new VTKAmrWriter

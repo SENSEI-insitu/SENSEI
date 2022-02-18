@@ -6,7 +6,7 @@
 // RAII helper for managing the Python GIL
 // The class aquires the GIL during contruction
 // and releases during destruction.
-class senseiPyGILState
+class SENSEI_EXPORT senseiPyGILState
 {
 public:
     senseiPyGILState()

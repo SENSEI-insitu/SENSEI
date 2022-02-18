@@ -12,7 +12,7 @@ using BlockPartitionerPtr = std::shared_ptr<sensei::BlockPartitioner>;
 /** The block partitioning mode will distribute blocks to a rank such that
  * consecutive blocks share a rank.
  */
-class BlockPartitioner : public sensei::Partitioner
+class SENSEI_EXPORT BlockPartitioner : public sensei::Partitioner
 {
 public:
   static sensei::BlockPartitionerPtr New()

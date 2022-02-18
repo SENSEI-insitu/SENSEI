@@ -6,6 +6,20 @@
 #define SENSEI_VERSION_MINOR @SENSEI_VERSION_MINOR@
 #define SENSEI_VERSION_PATCH @SENSEI_VERSION_PATCH@
 
+#if defined(_WIN32)
+#define SENSEI_IMPORT __declspec(dllimport)
+#define SENSEI_EXPORT __declspec(dllexport)
+#define SENSEI_HIDDEN
+#elif __GNUC__ >= 4
+#define SENSEI_IMPORT __attribute__((visibility("default")))
+#define SENSEI_EXPORT __attribute__((visibility("default")))
+#define SENSEI_HIDDEN __attribute__((visibility("hidden")))
+#else
+#define SENSEI_IMPORT
+#define SENSEI_EXPORT
+#define SENSEI_HIDDEN
+#endif
+
 #cmakedefine ENABLE_SENSEI
 #cmakedefine ENABLE_CUDA
 #cmakedefine ENABLE_PYTHON

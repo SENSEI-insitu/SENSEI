@@ -40,7 +40,7 @@ namespace sensei
 //   </transport>
 // <sensei>
 //
-class ConfigurableInTransitDataAdaptor : public sensei::InTransitDataAdaptor
+class SENSEI_EXPORT ConfigurableInTransitDataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
   static ConfigurableInTransitDataAdaptor *New();

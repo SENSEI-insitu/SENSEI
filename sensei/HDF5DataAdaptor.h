@@ -11,12 +11,14 @@
 
 #include "HDF5Schema.h"
 
-namespace sensei {
+namespace sensei
+{
 
 //
 // read from HDF and construct SVTK object
 //
-class HDF5DataAdaptor : public InTransitDataAdaptor {
+class SENSEI_EXPORT HDF5DataAdaptor : public InTransitDataAdaptor
+{
 public:
   static HDF5DataAdaptor *New();
   senseiTypeMacro(HDF5DataAdaptor, DataAdaptor);

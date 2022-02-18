@@ -4,7 +4,7 @@
 #include <sensei/DataAdaptor.h>
 #include "simulation_data.h"
 
-class VortexDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT VortexDataAdaptor : public sensei::DataAdaptor
 {
 public:
   static VortexDataAdaptor* New();

@@ -16,7 +16,7 @@ namespace sensei
 {
 
 /// Extract a slice defined by a point and a normal and writes it to disk
-class SliceExtract : public AnalysisAdaptor
+class SENSEI_EXPORT SliceExtract : public AnalysisAdaptor
 {
 public:
   /// Create an instance of SliceExtract

@@ -49,7 +49,7 @@ class DataAdaptor;
  * findable in both the `PYTHONPATH` and the `LD_LIBRARY_PATH`
  * (`DYLD_LIBRARY_PATH` on Mac OS)
  */
-class PythonAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT PythonAnalysis : public AnalysisAdaptor
 {
 public:
   /// Creates a new instance of the PythonAnalysis

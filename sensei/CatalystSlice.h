@@ -6,7 +6,7 @@
 namespace sensei
 {
 
-class CatalystSlice : public vtkCPPipeline
+class SENSEI_EXPORT CatalystSlice : public vtkCPPipeline
 {
 public:
   static CatalystSlice* New();

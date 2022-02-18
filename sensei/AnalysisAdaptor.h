@@ -21,7 +21,7 @@ class DataAdaptor;
  * analysis or provide feedback and other control information  back to the
  * simulation itself.
  */
-class AnalysisAdaptor : public svtkObjectBase
+class SENSEI_EXPORT AnalysisAdaptor : public svtkObjectBase
 {
 public:
   senseiBaseTypeMacro(AnalysisAdaptor, svtkObjectBase);

@@ -9,7 +9,7 @@ namespace sensei
 {
 class CinemaHelper;
 
-class VTKmVolumeReductionAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT VTKmVolumeReductionAnalysis : public AnalysisAdaptor
 {
 public:
   static VTKmVolumeReductionAnalysis* New();

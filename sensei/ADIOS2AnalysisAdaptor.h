@@ -27,7 +27,7 @@ namespace pugi { class xml_node; }
 namespace sensei
 {
 /// The write side of the ADIOS2 transport
-class ADIOS2AnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT ADIOS2AnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   /// constructs a new ADIOS2AnalysisAdaptor instance.

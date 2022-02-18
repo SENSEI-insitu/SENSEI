@@ -19,7 +19,7 @@ namespace sensei
 /// If the DataObject is a composite-dataset, the first non-null block on the
 /// current rank is assumed to the representative block for answering all
 /// queries.
-class SVTKDataAdaptor : public DataAdaptor
+class SENSEI_EXPORT SVTKDataAdaptor : public DataAdaptor
 {
 public:
   static SVTKDataAdaptor *New();

@@ -16,7 +16,7 @@ namespace senseiPyDataAdaptor
 {
 
 // a container for the DataAdaptor::GetNumberOfMeshes callable
-class PyGetNumberOfMeshesCallback
+class SENSEI_EXPORT PyGetNumberOfMeshesCallback
 {
 public:
   PyGetNumberOfMeshesCallback(PyObject *f) : Callback(f) {}
@@ -66,7 +66,7 @@ private:
 };
 
 // a container for the DataAdaptor::GetMeshMetadata callable
-class PyGetMeshMetadataCallback
+class SENSEI_EXPORT PyGetMeshMetadataCallback
 {
 public:
   PyGetMeshMetadataCallback(PyObject *f) : Callback(f) {}
@@ -143,7 +143,7 @@ private:
 };
 
 // a container for the DataAdaptor::GetMesh callable
-class PyGetMeshCallback
+class SENSEI_EXPORT PyGetMeshCallback
 {
 public:
   PyGetMeshCallback(PyObject *f) : Callback(f) {}
@@ -222,7 +222,7 @@ private:
 };
 
 // a container for the DataAdaptor::AddArray callable
-class PyAddArrayCallback
+class SENSEI_EXPORT PyAddArrayCallback
 {
 public:
   PyAddArrayCallback(PyObject *f) : Callback(f) {}
@@ -273,7 +273,7 @@ private:
 };
 
 // a container for the DataAdaptor::GetNumberOfArrays callable
-class PyGetNumberOfArraysCallback
+class SENSEI_EXPORT PyGetNumberOfArraysCallback
 {
 public:
   PyGetNumberOfArraysCallback(PyObject *f) : Callback(f) {}
@@ -328,7 +328,7 @@ private:
 };
 
 // a container for the DataAdaptor::GetArrayName callable
-class PyGetArrayNameCallback
+class SENSEI_EXPORT PyGetArrayNameCallback
 {
 public:
   PyGetArrayNameCallback(PyObject *f) : Callback(f) {}
@@ -384,7 +384,7 @@ private:
 };
 
 // a container for the DataAdaptor::ReleaseData callable
-class PyReleaseDataCallback
+class SENSEI_EXPORT PyReleaseDataCallback
 {
 public:
   PyReleaseDataCallback(PyObject *f) : Callback(f) {}

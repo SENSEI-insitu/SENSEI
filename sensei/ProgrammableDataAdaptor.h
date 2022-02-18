@@ -32,7 +32,7 @@ namespace sensei
 ///
 ///     void ReleaseData();
 ///
-class ProgrammableDataAdaptor : public DataAdaptor
+class SENSEI_EXPORT ProgrammableDataAdaptor : public DataAdaptor
 {
 public:
   static ProgrammableDataAdaptor *New();

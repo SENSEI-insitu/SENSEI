@@ -8,7 +8,7 @@
 namespace sensei
 {
 /// Performs a temporal autocorrelation on the simulation data
-class Autocorrelation : public AnalysisAdaptor
+class SENSEI_EXPORT Autocorrelation : public AnalysisAdaptor
 {
 public:
   /// Allocate a new Autocorrelation instance

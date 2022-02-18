@@ -11,11 +11,10 @@ namespace sensei
 class ConfigurablePartitioner;
 using ConfigurablePartitionerPtr = std::shared_ptr<sensei::ConfigurablePartitioner>;
 
-
 /** An object the selects and configures a sensei::Partitioner from XML.
  * API calls are forwarded to the active intance at run time.
  */
-class ConfigurablePartitioner : public Partitioner
+class SENSEI_EXPORT ConfigurablePartitioner : public Partitioner
 {
 public:
   ~ConfigurablePartitioner();

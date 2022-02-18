@@ -24,7 +24,7 @@ namespace sensei
  * The partioner may be specified in XML, and if it is not, then the default is
  * sensei::BlockPartitioner.
  */
-class InTransitDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT InTransitDataAdaptor : public sensei::DataAdaptor
 {
 public:
   senseiBaseTypeMacro(InTransitDataAdaptor, sensei::DataAdaptor);

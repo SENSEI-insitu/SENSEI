@@ -14,7 +14,7 @@ class LibsimImageProperties;
 /** An implementation that invokes VisIt libsim. Run time configuration is
  * specified using a VisIt session file (see ::AddRenderer or ::AddExtract).
  */
-class LibsimAnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT LibsimAnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   /// Allocates an instance of LibsimAnalysisAdaptor.

@@ -14,7 +14,7 @@ namespace sensei
 {
 /// a set of flags describing which optional fields in the MeshMetadata structure
 /// should be generated.
-class MeshMetadataFlags
+class SENSEI_EXPORT MeshMetadataFlags
 {
 public:
   MeshMetadataFlags() : Flags(0) {}

@@ -9,7 +9,7 @@ namespace sensei
 {
 class CinemaHelper;
 
-class VTKmCDFAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT VTKmCDFAnalysis : public AnalysisAdaptor
 {
 public:
   static VTKmCDFAnalysis* New();

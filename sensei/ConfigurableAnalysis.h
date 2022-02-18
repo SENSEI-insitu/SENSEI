@@ -31,7 +31,7 @@ namespace sensei
  * | sensei::SliceExtract | Computes planar slices and iso-surfaces on simulation data |
  *
  */
-class ConfigurableAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT ConfigurableAnalysis : public AnalysisAdaptor
 {
 public:
   /// creates a new instance.

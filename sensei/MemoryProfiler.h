@@ -18,7 +18,7 @@ Initialize starts profiling, and Finalize ends it. During
 Finaliziation the buffers are written using MPI-I/O to the
 file name provided
 */
-class MemoryProfiler
+class SENSEI_EXPORT MemoryProfiler
 {
 public:
   MemoryProfiler();

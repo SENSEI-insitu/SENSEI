@@ -16,7 +16,7 @@ namespace sensei
 {
 
 // Serialize objects into a binary stream.
-class BinaryStream
+class SENSEI_EXPORT BinaryStream
 {
 public:
   // construct

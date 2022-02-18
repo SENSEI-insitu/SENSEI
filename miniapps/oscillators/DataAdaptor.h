@@ -10,7 +10,7 @@ class svtkDataArray;
 namespace oscillators
 {
 
-class DataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT DataAdaptor : public sensei::DataAdaptor
 {
 public:
   static DataAdaptor* New();

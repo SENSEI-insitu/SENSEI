@@ -15,7 +15,7 @@ namespace sensei
 {
 
 /// The read side of the ADIOS 1 transport layer
-class ADIOS1DataAdaptor : public sensei::InTransitDataAdaptor
+class SENSEI_EXPORT ADIOS1DataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
   static ADIOS1DataAdaptor* New();

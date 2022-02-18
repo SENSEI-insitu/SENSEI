@@ -11,7 +11,7 @@
 namespace sensei
 {
 
-class ConduitDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT ConduitDataAdaptor : public sensei::DataAdaptor
 {
 public:
   static ConduitDataAdaptor* New();

@@ -12,7 +12,7 @@ namespace sensei
 {
 
 /// Computes a histogram in parallel.
-class Histogram : public AnalysisAdaptor
+class SENSEI_EXPORT Histogram : public AnalysisAdaptor
 {
 public:
   /// allocates a new instance

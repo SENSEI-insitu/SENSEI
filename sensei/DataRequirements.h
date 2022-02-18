@@ -1,6 +1,8 @@
 #ifndef DataRequirements_h
 #define DataRequirements_h
 
+#include "senseiConfig.h"
+
 #include <string>
 #include <vector>
 #include <map>
@@ -21,7 +23,7 @@ class ArrayRequirementsIterator;
 /// XML and then probe the requirements during execution
 /// to get the minimal set of data required to complete
 /// the analysis.
-class DataRequirements
+class SENSEI_EXPORT DataRequirements
 {
 public:
   DataRequirements();

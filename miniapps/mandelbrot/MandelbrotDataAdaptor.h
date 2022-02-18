@@ -6,7 +6,7 @@
 
 class svtkDataArray;
 
-class MandelbrotDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT MandelbrotDataAdaptor : public sensei::DataAdaptor
 {
 public:
   static MandelbrotDataAdaptor* New();

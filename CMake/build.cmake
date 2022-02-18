@@ -1,3 +1,5 @@
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+
 option(BUILD_SHARED_LIBS OFF "Build shared libraries by default")
 option(BUILD_STATIC_EXECS  OFF "Link executables statically")
 if (BUILD_STATIC_EXECS)

@@ -25,7 +25,7 @@ using VTKPosthocIOPtr = vtkSmartPointer<VTKPosthocIO>;
  * meshes and the arrays to write from each mesh. File names are derived using
  * the output directory, the mesh name, and the mode.
  */
-class VTKPosthocIO : public AnalysisAdaptor
+class SENSEI_EXPORT VTKPosthocIO : public AnalysisAdaptor
 {
 public:
   /// Constructs a VTKPosthocIO instance.

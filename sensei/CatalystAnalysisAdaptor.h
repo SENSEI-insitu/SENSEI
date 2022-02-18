@@ -18,7 +18,7 @@ namespace sensei
 /** An adaptor that invokes ParaView Catalyst. The adaptor is configured via a
  * ParaView generated Catalyst Python script. See ::AddPythonScriptPipeline.
  */
-class CatalystAnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT CatalystAnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   /// creates a new instance

@@ -18,7 +18,7 @@ class svtkCompositeDataSet;
 namespace sensei {
 
 /// The write side of the HDF5 transport
-class HDF5AnalysisAdaptor : public AnalysisAdaptor {
+class SENSEI_EXPORT HDF5AnalysisAdaptor : public AnalysisAdaptor {
 public:
   /// creates a new instance.
   static HDF5AnalysisAdaptor *New();

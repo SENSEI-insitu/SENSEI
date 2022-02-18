@@ -18,7 +18,7 @@ using IsoSurfacePartitionerPtr = std::shared_ptr<sensei::IsoSurfacePartitioner>;
 /// compute the desired set of iso surfaces. These blocks are partitioned
 /// in consecutive spans to ranks such that each rank gets approximately
 /// the same number. The number of blocks per rank will differ by at most 1.
-class IsoSurfacePartitioner : public sensei::Partitioner
+class SENSEI_EXPORT IsoSurfacePartitioner : public sensei::Partitioner
 {
 public:
   static sensei::IsoSurfacePartitionerPtr New()
