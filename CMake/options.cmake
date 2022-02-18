@@ -1,3 +1,5 @@
+include(CMakeDependentOption)
+
 option(ENABLE_SENSEI "Enable Sensei infrastucture" ON)
 
 cmake_dependent_option(ENABLE_CUDA

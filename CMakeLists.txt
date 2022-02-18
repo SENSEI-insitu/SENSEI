@@ -1,14 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
-if (POLICY CMP0074)
-  cmake_policy(SET CMP0074 OLD)
-endif()
-if (POLICY CMP0127)
-  cmake_policy(SET CMP0127 NEW)
-endif()
-project(sensei)
-
-include(CMakeDependentOption)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
+include(policies)
+project(sensei)
 
 include(options)
 include(cuda)
