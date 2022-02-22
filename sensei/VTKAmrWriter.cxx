@@ -3,14 +3,15 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 
-#include <vtkCompositeDataIterator.h>
-#include <vtkDataObject.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkOverlappingAMR.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkDataObject.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkOverlappingAMR.h>
+
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLPUniformGridAMRWriter.h>
 #include <vtkAlgorithm.h>
@@ -168,7 +169,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
   while (mit)
     {
     // get the mesh
-    vtkDataObject* dobj = nullptr;
+    svtkDataObject* dobj = nullptr;
     std::string meshName = mit.MeshName();
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
@@ -177,7 +178,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       }
 
     // make sure we have amr dataset
-    if (!dynamic_cast<vtkOverlappingAMR*>(dobj))
+    if (!dynamic_cast<svtkOverlappingAMR*>(dobj))
       {
       SENSEI_ERROR("Data \"" << dobj->GetClassName() << "\" is not an AMR data set")
       return false;
@@ -191,7 +192,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       }
 
     // add the ghost cell arrays to the mesh
-    if ((metadata->NumGhostCells || VTKUtils::AMR(metadata)) &
+    if ((metadata->NumGhostCells || SVTKUtils::AMR(metadata)) &
       dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
@@ -216,7 +217,7 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
+          << SVTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << ait.Array() << "\" to mesh \""
           << meshName << "\"")
         return false;
@@ -233,11 +234,12 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       }
 
     // write to disk
+    SENSEI_ERROR("TODO conversion from SVTK to VTK")
     std::string fileName =
       getFileName(this->OutputDir, meshName, this->FileId[meshName], ".vth");
 
     vtkXMLPUniformGridAMRWriter *w = vtkXMLPUniformGridAMRWriter::New();
-    w->SetInputData(dobj);
+    //TODO w->SetInputData(dobj);
     w->SetFileName(fileName.c_str());
     w->Write();
     w->Delete();
