@@ -5,7 +5,7 @@
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
 
-#include <vtkSmartPointer.h>
+#include <svtkSmartPointer.h>
 
 #include <mpi.h>
 #include <vector>
@@ -15,7 +15,7 @@
 namespace sensei
 {
 class VTKPosthocIO;
-using VTKPosthocIOPtr = vtkSmartPointer<VTKPosthocIO>;
+using VTKPosthocIOPtr = svtkSmartPointer<VTKPosthocIO>;
 
 /**  Writes simulation data to disk in a VTK based format. This can be useful
  * for generating preview datasets that allow configuration of Catalyst and/or

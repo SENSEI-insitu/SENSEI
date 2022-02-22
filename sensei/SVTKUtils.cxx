@@ -48,6 +48,7 @@
 #include <svtkFieldData.h>
 #include <svtkCellData.h>
 #include <svtkPointData.h>
+#include <svtkPoints.h>
 #include <svtkObjectBase.h>
 #include <svtkObject.h>
 #include <svtkCellArray.h>
@@ -60,12 +61,17 @@
 #include <svtkSOADataArrayTemplate.h>
 #endif
 #if defined(ENABLE_VTK_IO)
-#include <svtkXMLUnstructuredGridWriter.h>
+#include <vtkXMLUnstructuredGridWriter.h>
+#include <vtkDoubleArray.h>
+#include <vtkIntArray.h>
+#include <vtkIdTypeArray.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkPoints.h>
+#include <vtkCellArray.h>
+#include <vtkCellData.h>
+#include <vtkPointData.h>
 #endif
-#include <svtkPoints.h>
-#include <svtkDoubleArray.h>
-#include <svtkIdTypeArray.h>
-#include <svtkUnsignedCharArray.h>
 
 #include <sstream>
 #include <functional>
@@ -1224,38 +1230,38 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   int numPoints = 8*(md->NumBlocks + 1);
   int numCells = md->NumBlocks + 1;
 
-  svtkDoubleArray *coords = svtkDoubleArray::New();
+  vtkDoubleArray *coords = vtkDoubleArray::New();
   coords->SetNumberOfComponents(3);
   coords->SetNumberOfTuples(numPoints);
   double *pCoords = coords->GetPointer(0);
 
-  svtkIdTypeArray *cids = svtkIdTypeArray::New();
+  vtkIdTypeArray *cids = vtkIdTypeArray::New();
   cids->SetNumberOfTuples(numPoints+numCells);
-  svtkIdType *pCids = cids->GetPointer(0);
+  vtkIdType *pCids = cids->GetPointer(0);
 
-  svtkUnsignedCharArray *cta = svtkUnsignedCharArray::New();
+  vtkUnsignedCharArray *cta = vtkUnsignedCharArray::New();
   cta->SetNumberOfTuples(numCells);
   unsigned char *pCta = cta->GetPointer(0);
 
-  svtkIdTypeArray *clocs = svtkIdTypeArray::New();
+  vtkIdTypeArray *clocs = vtkIdTypeArray::New();
   clocs->SetNumberOfTuples(numCells);
-  svtkIdType *pClocs = clocs->GetPointer(0);
+  vtkIdType *pClocs = clocs->GetPointer(0);
 
-  svtkDoubleArray *owner = svtkDoubleArray::New();
+  vtkDoubleArray *owner = vtkDoubleArray::New();
   owner->SetNumberOfTuples(numCells);
   owner->SetName("BlockOwner");
   double *pOwner = owner->GetPointer(0);
 
-  svtkDoubleArray *ids = svtkDoubleArray::New();
+  vtkDoubleArray *ids = vtkDoubleArray::New();
   ids->SetNumberOfTuples(numCells);
   ids->SetName("BlockIds");
   double *pIds = ids->GetPointer(0);
 
-  svtkIntArray *lev = nullptr;
+  vtkIntArray *lev = nullptr;
   int *pLev = nullptr;
   if (SVTKUtils::AMR(md))
     {
-    lev = svtkIntArray::New();
+    lev = vtkIntArray::New();
     lev->SetNumberOfTuples(numCells);
     lev->SetName("BlockLevel");
     pLev = lev->GetPointer(0);
@@ -1280,15 +1286,15 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   if (haveAMR)
     pLev[md->NumBlocks] = -2;
 
-  svtkPoints *pts = svtkPoints::New();
+  vtkPoints *pts = vtkPoints::New();
   pts->SetData(coords);
   coords->Delete();
 
-  svtkCellArray *ca = svtkCellArray::New();
+  vtkCellArray *ca = vtkCellArray::New();
   ca->SetCells(numCells, cids);
   cids->Delete();
 
-  svtkUnstructuredGrid *ug = svtkUnstructuredGrid::New();
+  vtkUnstructuredGrid *ug = vtkUnstructuredGrid::New();
   ug->SetPoints(pts);
   ug->SetCells(cta, clocs, ca);
   ug->GetCellData()->AddArray(ids);
@@ -1304,7 +1310,7 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   pts->Delete();
   ca->Delete();
 
-  svtkXMLUnstructuredGridWriter *w = svtkXMLUnstructuredGridWriter::New();
+  vtkXMLUnstructuredGridWriter *w = vtkXMLUnstructuredGridWriter::New();
   w->SetInputData(ug);
   w->SetFileName(fileName.c_str());
   w->SetCompressorTypeToNone();

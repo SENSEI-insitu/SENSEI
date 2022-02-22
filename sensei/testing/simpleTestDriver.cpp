@@ -4,11 +4,11 @@
 #include "MeshMetadata.h"
 #include "Error.h"
 
-#include <vtkMultiBlockDataSet.h>
-#include <vtkImageData.h>
-#include <vtkCellData.h>
-#include <vtkDoubleArray.h>
-#include <vtkDataObject.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkImageData.h>
+#include <svtkCellData.h>
+#include <svtkDoubleArray.h>
+#include <svtkDataObject.h>
 
 #include <iostream>
 #include <sstream>
@@ -57,16 +57,16 @@ int getMeshMetadata(unsigned int i, sensei::MeshMetadataPtr &mdp)
 
   mdp = sensei::MeshMetadata::New();
   mdp->MeshName = "mesh";
-  mdp->MeshType = VTK_MULTIBLOCK_DATA_SET;
-  mdp->BlockType = VTK_IMAGE_DATA;
+  mdp->MeshType = SVTK_MULTIBLOCK_DATA_SET;
+  mdp->BlockType = SVTK_IMAGE_DATA;
   mdp->NumBlocks = nRanks;
   mdp->NumBlocksLocal = {1};
   mdp->NumArrays = 1;
 
   mdp->ArrayName = {"values"};
-  mdp->ArrayCentering = {vtkDataObject::CELL};
+  mdp->ArrayCentering = {svtkDataObject::CELL};
   mdp->ArrayComponents = {1};
-  mdp->ArrayType = {VTK_DOUBLE};
+  mdp->ArrayType = {SVTK_DOUBLE};
 
   mdp->BlockIds = {0};
   mdp->BlockOwner = {rank};
@@ -81,7 +81,7 @@ int getMeshMetadata(unsigned int i, sensei::MeshMetadataPtr &mdp)
   return 0;
 }
 
-int getMesh(const std::string &meshName, bool, vtkDataObject *&mesh)
+int getMesh(const std::string &meshName, bool, svtkDataObject *&mesh)
 {
   if (meshName == "mesh")
     {
@@ -93,10 +93,10 @@ int getMesh(const std::string &meshName, bool, vtkDataObject *&mesh)
 
     int ext[] = {0, gnx, 0, gny, rank, rank+1};
 
-    vtkImageData *im = vtkImageData::New();
+    svtkImageData *im = svtkImageData::New();
     im->SetExtent(ext);
 
-    vtkMultiBlockDataSet *mb = vtkMultiBlockDataSet::New();
+    svtkMultiBlockDataSet *mb = svtkMultiBlockDataSet::New();
     mb->SetNumberOfBlocks(nRanks);
     mb->SetBlock(rank, im);
     im->Delete();
@@ -108,10 +108,10 @@ int getMesh(const std::string &meshName, bool, vtkDataObject *&mesh)
   return -1;
 }
 
-int addArray(vtkDataObject *mesh, const std::string &meshName,
+int addArray(svtkDataObject *mesh, const std::string &meshName,
   int assoc, const std::string &name)
 {
-  if ((meshName == "mesh") && (assoc == vtkDataObject::CELL) && (name == "values"))
+  if ((meshName == "mesh") && (assoc == svtkDataObject::CELL) && (name == "values"))
     {
     int rank = 0;
     int nRanks = 1;
@@ -119,19 +119,19 @@ int addArray(vtkDataObject *mesh, const std::string &meshName,
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
 
-    vtkMultiBlockDataSet *mb = dynamic_cast<vtkMultiBlockDataSet*>(mesh);
+    svtkMultiBlockDataSet *mb = dynamic_cast<svtkMultiBlockDataSet*>(mesh);
 
     if (!mb)
       return -1;
 
-    vtkImageData *ds = dynamic_cast<vtkImageData*>(mb->GetBlock(rank));
+    svtkImageData *ds = dynamic_cast<svtkImageData*>(mb->GetBlock(rank));
 
     if (!ds)
       return -1;
 
     long nVals = gnx*gny;
 
-    vtkDoubleArray *da = vtkDoubleArray::New();
+    svtkDoubleArray *da = svtkDoubleArray::New();
     da->SetName("values");
     da->SetNumberOfTuples(nVals);
     double *vals = da->GetPointer(0);
@@ -183,7 +183,9 @@ int main(int argc, char **argv)
     {
     da->SetDataTimeStep(i);
     da->SetDataTime(i);
-    aa->Execute(da);
+
+    sensei::DataAdaptor *ret = nullptr;
+    aa->Execute(da, ret);
     }
 
   aa->Finalize();

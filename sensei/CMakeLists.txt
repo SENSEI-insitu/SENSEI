@@ -77,6 +77,11 @@ if (ENABLE_ADIOS2)
       list(APPEND senseiCore_sources SliceExtract.cxx)
     endif()
   endif()
+  if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
+    ENABLE_VTK_RENDERING OR ENABLE_VTK_ACCELERATORS OR
+    ENABLE_VTK_FILTERS)
+    list(APPEND senseiCore_libs sVTK)
+  endif()
 
   add_library(senseiCore ${senseiCore_sources} ${senseiCore_cuda_sources})
 

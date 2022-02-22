@@ -57,15 +57,23 @@ if (BUILD_TESTING)
 
   ##############################################################################
   senseiAddTest(testPythonAnalysis
-    SOURCES testPythonAnalysis.cpp LIBS sensei EXEC_NAME testPythonAnalysis
-    COMMAND
-      $<TARGET_FILE:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+    SOURCES simpleTestDriver.cpp LIBS sensei EXEC_NAME simpleTestDriver
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml)
+
+  senseiAddTest(testPythonAnalysisParallel PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml)
+
+  ##############################################################################
+  senseiAddTest(testVTKPosthocIO
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testVTKPosthocIO.xml
     FEATURES PYTHON VTK_IO)
 
-  senseiAddTest(testPythonAnalysisParallel
-    PARALLEL ${TEST_NP}
-    COMMAND
-      $<TARGET_FILE:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+  senseiAddTest(testVTKPosthocIOParallel PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testVTKPosthocIO.xml
     FEATURES PYTHON VTK_IO)
 
   ##############################################################################

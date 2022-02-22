@@ -3,24 +3,24 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 
-#include <vtkCellData.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkUniformGridAMR.h>
-#include <vtkDataArray.h>
-#include <vtkDataObject.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkImageData.h>
-#include <vtkPolyData.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
+#include <svtkCellData.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkUniformGridAMR.h>
+#include <svtkDataArray.h>
+#include <svtkDataObject.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkImageData.h>
+#include <svtkPolyData.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkStructuredGrid.h>
+#include <svtkUnstructuredGrid.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkSmartPointer.h>
 
 #include <algorithm>
 #include <sstream>
@@ -41,29 +41,29 @@
 
 //-----------------------------------------------------------------------------
 static
-std::string getBlockExtension(vtkDataObject *dob)
+std::string getBlockExtension(svtkDataObject *dob)
 {
-  if (dynamic_cast<vtkPolyData*>(dob))
+  if (dynamic_cast<svtkPolyData*>(dob))
   {
     return ".vtp";
   }
-  else if (dynamic_cast<vtkUnstructuredGrid*>(dob))
+  else if (dynamic_cast<svtkUnstructuredGrid*>(dob))
   {
     return ".vtu";
   }
-  else if (dynamic_cast<vtkImageData*>(dob))
+  else if (dynamic_cast<svtkImageData*>(dob))
   {
     return ".vti";
   }
-  else if (dynamic_cast<vtkRectilinearGrid*>(dob))
+  else if (dynamic_cast<svtkRectilinearGrid*>(dob))
   {
     return ".vtr";
   }
-  else if (dynamic_cast<vtkStructuredGrid*>(dob))
+  else if (dynamic_cast<svtkStructuredGrid*>(dob))
   {
     return ".vts";
   }
-  else if (dynamic_cast<vtkMultiBlockDataSet*>(dob))
+  else if (dynamic_cast<svtkMultiBlockDataSet*>(dob))
   {
     return ".vtm";
   }
@@ -219,7 +219,7 @@ std::string VTKPosthocIO::GetGhostArrayName()
       return "avtGhostZones";
 
     if (this->Mode == VTKPosthocIO::MODE_PARAVIEW)
-      return "vtkGhostType";
+      return "svtkGhostType";
     }
 
   return this->GhostArrayName;
@@ -305,7 +305,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       mmd->GlobalizeView(this->GetCommunicator());
 
     // get the mesh
-    vtkDataObject* dobj = nullptr;
+    svtkDataObject* dobj = nullptr;
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -313,7 +313,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       }
 
     // add the ghost cell arrays to the mesh
-    if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+    if ((mmd->NumGhostCells || SVTKUtils::AMR(mmd)) &&
       dataAdaptor->AddGhostCellsArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
@@ -337,7 +337,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
+          << SVTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << ait.Array() << "\" to mesh \""
           << meshName << "\"")
         return false;
@@ -345,15 +345,15 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       ++ait;
       }
 
-    // This class does not use VTK's parallel writers because at this
+    // This class does not use SVTK's parallel writers because at this
     // time those writers gather some data to rank 0 and this results
     // in OOM crashes when run with 45k cores on Cori.
 
     // make sure we have composite dataset if not create one
-    vtkCompositeDataSetPtr cd =
-      VTKUtils::AsCompositeData(this->GetCommunicator(), dobj, false);
+    svtkCompositeDataSetPtr cd =
+      SVTKUtils::AsCompositeData(this->GetCommunicator(), dobj, false);
 
-    vtkCompositeDataIterator *it = cd->NewIterator();
+    svtkCompositeDataIterator *it = cd->NewIterator();
     it->SetSkipEmptyNodes(1);
     it->InitTraversal();
 
@@ -362,20 +362,20 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
     if (!it->IsDoneWithTraversal() && !this->HaveBlockInfo[meshName])
       {
       this->BlockExt[meshName] = this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY ?
-        ".vtk" : getBlockExtension(it->GetCurrentDataObject());
+        ".svtk" : getBlockExtension(it->GetCurrentDataObject());
 
       this->HaveBlockInfo[meshName] = 1;
       }
 
     // amr meshes indices start from 0 while multiblock starts at 1
     long bidShift = 1;
-    if (dynamic_cast<vtkUniformGridAMR*>(cd.GetPointer()))
+    if (dynamic_cast<svtkUniformGridAMR*>(cd.GetPointer()))
       bidShift = 0;
 
     // write the blocks
     for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
       {
-      vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+      svtkDataSet *ds = dynamic_cast<svtkDataSet*>(it->GetCurrentDataObject());
       if (!ds)
         {
         // this should never happen
@@ -400,17 +400,18 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
         getBlockFileName(this->OutputDir, meshName, blockId,
           this->FileId[meshName], this->BlockExt[meshName]);
 
-      vtkDataArray *ga = ds->GetCellData()->GetArray("vtkGhostType");
+      svtkDataArray *ga = ds->GetCellData()->GetArray("svtkGhostType");
       if (ga)
         {
         ga->SetName(this->GetGhostArrayName().c_str());
         ds->UpdateCellGhostArrayCache();
         }
 
+      SENSEI_ERROR("TODO : Conversion from SVTK to VTK data set")
       if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)
         {
         vtkDataSetWriter *writer = vtkDataSetWriter::New();
-        writer->SetInputData(ds);
+        // TODO writer->SetInputData(ds);
         writer->SetFileName(fileName.c_str());
         writer->SetFileTypeToBinary();
         writer->Write();
@@ -419,7 +420,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       else
         {
         vtkXMLDataSetWriter *writer = vtkXMLDataSetWriter::New();
-        writer->SetInputData(ds);
+        // TODO writer->SetInputData(ds);
         writer->SetDataModeToAppended();
         writer->EncodeAppendedDataOff();
         writer->SetCompressorTypeToNone();
@@ -508,7 +509,7 @@ int VTKPosthocIO::Finalize()
         }
 
       pvdFile << "<?xml version=\"1.0\"?>" << endl
-        << "<VTKFile type=\"Collection\" version=\"0.1\""
+        << "<SVTKFile type=\"Collection\" version=\"0.1\""
            " byte_order=\"LittleEndian\" compressor=\"\">" << endl
         << "<Collection>" << endl;
 
@@ -531,7 +532,7 @@ int VTKPosthocIO::Finalize()
         }
 
       pvdFile << "</Collection>" << endl
-        << "</VTKFile>" << endl;
+        << "</SVTKFile>" << endl;
 
       return 0;
       }
