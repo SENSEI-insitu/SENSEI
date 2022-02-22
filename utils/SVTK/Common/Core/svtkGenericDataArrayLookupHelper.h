@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <vector>
 
+namespace svtk
+{
 namespace detail
 {
 template <typename T, bool>
@@ -52,6 +54,7 @@ bool isnan(T x)
   return has_NaN<T, std::numeric_limits<T>::has_quiet_NaN>::isnan(x);
 }
 } // namespace detail
+}
 
 template <class ArrayTypeT>
 class svtkGenericDataArrayLookupHelper
@@ -127,7 +130,7 @@ private:
     for (svtkIdType i = 0; i < num; ++i)
     {
       auto value = this->AssociatedArray->GetValue(i);
-      if (::detail::isnan(value))
+      if (svtk::detail::isnan(value))
       {
         NanIndices.push_back(i);
       }
@@ -140,7 +143,7 @@ private:
   std::vector<svtkIdType>* FindIndexVec(ValueType value)
   {
     std::vector<svtkIdType>* indices{ nullptr };
-    if (::detail::isnan(value) && !this->NanIndices.empty())
+    if (svtk::detail::isnan(value) && !this->NanIndices.empty())
     {
       indices = &this->NanIndices;
     }

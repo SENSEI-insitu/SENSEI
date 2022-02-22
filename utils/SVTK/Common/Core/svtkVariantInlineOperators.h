@@ -3,6 +3,9 @@
 
 #include <climits>
 
+namespace svtk
+{
+
 // ----------------------------------------------------------------------
 
 // First we have several helper functions that will determine what
@@ -78,6 +81,7 @@ inline bool CompareUnsignedLessThan(const svtkVariant& A, const svtkVariant& B)
 {
   return (A.ToTypeUInt64() < B.ToTypeUInt64());
 }
+}
 
 // ----------------------------------------------------------------------
 
@@ -132,18 +136,18 @@ inline bool svtkVariant::operator==(const svtkVariant& other) const
 
   // 6A: catch signed/unsigned comparison.  If the signed object is
   // less than zero then they cannot be equal.
-  bool thisSigned = IsSigned(this->Type);
-  bool otherSigned = IsSigned(other.Type);
+  bool thisSigned = svtk::IsSigned(this->Type);
+  bool otherSigned = svtk::IsSigned(other.Type);
 
   if (thisSigned ^ otherSigned)
   {
     if (thisSigned)
     {
-      return CompareSignedUnsignedEqual(*this, other);
+      return svtk::CompareSignedUnsignedEqual(*this, other);
     }
     else
     {
-      return CompareSignedUnsignedEqual(other, *this);
+      return svtk::CompareSignedUnsignedEqual(other, *this);
     }
   }
   else // 6B: both are signed or both are unsigned.  In either event
@@ -207,27 +211,27 @@ inline bool svtkVariant::operator<(const svtkVariant& other) const
 
   // 5A: catch signed/unsigned comparison.  If the signed object is
   // less than zero then they cannot be equal.
-  bool thisSigned = IsSigned(this->Type);
-  bool otherSigned = IsSigned(other.Type);
+  bool thisSigned = svtk::IsSigned(this->Type);
+  bool otherSigned = svtk::IsSigned(other.Type);
 
   if (thisSigned ^ otherSigned)
   {
     if (thisSigned)
     {
-      return CompareSignedUnsignedLessThan(*this, other);
+      return svtk::CompareSignedUnsignedLessThan(*this, other);
     }
     else
     {
-      return CompareUnsignedSignedLessThan(*this, other);
+      return svtk::CompareUnsignedSignedLessThan(*this, other);
     }
   }
   else if (thisSigned)
   {
-    return CompareSignedLessThan(*this, other);
+    return svtk::CompareSignedLessThan(*this, other);
   }
   else
   {
-    return CompareUnsignedLessThan(*this, other);
+    return svtk::CompareUnsignedLessThan(*this, other);
   }
 }
 
@@ -258,6 +262,7 @@ inline bool svtkVariant::operator>=(const svtkVariant& other) const
 {
   return (!this->operator<(other));
 }
+
 
 #endif
 // SVTK-HeaderTest-Exclude: svtkVariantInlineOperators.h
