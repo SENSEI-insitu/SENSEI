@@ -39,11 +39,11 @@ jobs:
           brew install openmpi swig openssl python@3.9
           brew unlink python
           brew link --force python@3.9
-          python3 -mvenv `pwd`/../tci
-          set +x
-          source `pwd`/../tci/bin/activate
-          set -x
-          pip3 install numpy mpi4py
+          #python3 -mvenv `pwd`/../tci
+          #set +x
+          #source `pwd`/../tci/bin/activate
+          #set -x
+          python3 -mpip install numpy mpi4py
           mkdir build
           cd build
           export DYLD_LIBRARY_PATH=`pwd`/lib/:$DYLD_LIBRARY_PATH
