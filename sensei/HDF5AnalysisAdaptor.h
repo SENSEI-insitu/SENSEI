@@ -12,32 +12,39 @@
 
 #include "HDF5Schema.h"
 
-// namespace senseiHDF5 { class DataObjectCollectionSchema; }
 class vtkDataObject;
 class vtkCompositeDataSet;
 
 namespace sensei {
 
-/// The write side of the ADIOS 1 transport
+/// The write side of the HDF5 transport
 class HDF5AnalysisAdaptor : public AnalysisAdaptor {
 public:
+  /// creates a new instance.
   static HDF5AnalysisAdaptor *New();
+
   senseiTypeMacro(HDF5AnalysisAdaptor, AnalysisAdaptor);
+
+  /// prints the current object state.
   void PrintSelf(ostream &os, vtkIndent indent) override;
 
-  /// Sets the maximum buffer allocated by HDF5 in MB
-  /// takes affect on first Execute
+
+  /// @name Run time configuration
+  /// @{
+
+  /** Sets the maximum buffer allocated by HDF5 in MB takes affect on first
+   * Execute.
+   */
   void SetMaxBufferSize(unsigned int size) { this->MaxBufferSize = size; }
 
-  /// @brief Set the filename.
-  ///
-  /// Default value is "sensei.bp"
-  void SetStreamName(const std::string &filename) {
-    this->m_FileName = filename;
-  }
+  /// Set the filename. The default value is "no.file"
+  void SetStreamName(const std::string &filename)
+  { this->m_FileName = filename; }
 
+  /// Enables HDF5 streaming
   void SetStreaming(bool streamOption) { this->m_DoStreaming = streamOption; }
 
+  /// Enables MPI collective I/O
   void SetCollective(bool s) { m_Collective = s; }
 
   std::string GetFileName() const { return this->m_FileName; }
@@ -49,8 +56,12 @@ public:
   int AddDataRequirement(const std::string &meshName, int association,
                          const std::vector<std::string> &arrays);
 
-  // SENSEI AnalysisAdaptor API
+  ///@}
+
+  /// Triggers I/O and processing on the receiving side.
   bool Execute(DataAdaptor *data) override;
+
+  /// Flushes and closes all open streams and files.
   int Finalize() override;
 
 protected:
@@ -80,6 +91,6 @@ private:
   void operator=(const HDF5AnalysisAdaptor &) = delete;
 };
 
-} // namespace sensei
+}
 
 #endif

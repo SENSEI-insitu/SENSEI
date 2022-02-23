@@ -787,8 +787,7 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
   return 0;
 }
 
-
-// wes 8/2021
+//------------------------------------------------------------------------------
 bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 {
 #if DEBUG_TRACE
@@ -950,17 +949,14 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 
 }
 
-
 //------------------------------------------------------------------------------
-
-// wes aug 2021
 bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
 {
     // return AscentAnalysisAdaptor::Execute_original(dataAdaptor);
     return AscentAnalysisAdaptor::Execute_new(dataAdaptor);
 }
 
-// wes aug 2021
+//------------------------------------------------------------------------------
 bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
 {
   // FIXME -- data requirements needs to be determined from ascent

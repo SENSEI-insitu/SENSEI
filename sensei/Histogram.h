@@ -13,12 +13,13 @@ namespace sensei
 
 class HistogramInternals;
 
-/// @class Histogram
-/// @brief Computes a parallel histogram
+/// Computes a histogram in parallel.
 class Histogram : public AnalysisAdaptor
 {
 public:
+  /// allocates a new instance
   static Histogram* New();
+
   senseiTypeMacro(Histogram, AnalysisAdaptor);
 
   /// initialize for the run
@@ -37,11 +38,11 @@ public:
   {
       Data() : NumberOfBins(1), BinMin(1.0), BinMax(0.0), BinWidth(1.0), Histogram() {}
 
-      int NumberOfBins;
-      double BinMin;
-      double BinMax;
-      double BinWidth;
-      std::vector<unsigned int> Histogram;
+      int NumberOfBins; /// The number of bins in the histogram
+      double BinMin;    /// The left most bin edge
+      double BinMax;    /// The right most bin edge
+      double BinWidth;  /// The width of the equally spaced bins
+      std::vector<unsigned int> Histogram; /// The counts of each bin
   };
 
   /// return the histogram computed by the most recent call to ::Execute

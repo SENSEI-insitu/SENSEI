@@ -8,39 +8,52 @@
 #include <ascent.hpp>
 #include <string>
 
-// 2/5/2021 wes. created an ascent-2021 branch for doign code dev work
-// to modernize the AscentAnalysisAdaptor
-
-
 namespace sensei
 {
 
-/// @brief Analysis adaptor for ascent-based analysis pipelines.
-///
-/// AscentAnalysisAdaptor is a subclass of sensei::AnalysisAdaptor that
-/// can be used as the superclass for all analysis that uses libsim.
+/// An analysis adaptor for ascent-based analysis pipelines.
 class AscentAnalysisAdaptor : public AnalysisAdaptor
 {
 public:
+  /// Creates an AscentAnalysisAdaptor instance.
   static AscentAnalysisAdaptor* New();
+
   senseiTypeMacro(AscentAnalysisAdaptor, AnalysisAdaptor);
 
+  /// @name Run time configuration
+  /// @{
+
+  /// Initialize the Ascent library using Ascent specific json configurations.
   int Initialize(const std::string &json_file_path,
     const std::string &options_file_path);
 
-  bool Execute(DataAdaptor* data) override;
-//  bool Execute_original(DataAdaptor* data) override; // wes, dev
-  bool Execute_original(DataAdaptor* data) ; // wes, dev
-  bool Execute_new(DataAdaptor* data) ; // wes, dev
-
-  int Finalize() override;
-
-  /// data requirements tell the adaptor what to process
-  /// currently data requiremetns must be specified
+  /** Adds a set of sensei::DataRequirements, typically this will come from an XML
+   * configuratiopn file. Data requirements tell the adaptor what to fetch from
+   * the simulation and write to disk. If none are given then all available
+   * data is fetched and written.
+   */
   int SetDataRequirements(const DataRequirements &reqs);
 
+  /** Add an indivudal data requirement. Data requirements tell the adaptor
+   * what to fetch from the simulation and write to disk. If none are given
+   * then all available data is fetched and written.
+
+   * @param[in] meshName    the name of the mesh to fetch and write
+   * @param[in] association the type of data array to fetch and write
+   *                        vtkDataObject::POINT or vtkDataObject::CELL
+   * @param[in] arrays      a list of arrays to fetch and write
+   * @returns zero if successful.
+   */
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
+
+  /// @}
+
+  /// Invoke in situ processing using Ascent
+  bool Execute(DataAdaptor* data) override;
+
+  /// Shut down and clean up the Ascent library.
+  int Finalize() override;
 
 protected:
   AscentAnalysisAdaptor();
@@ -50,6 +63,9 @@ protected:
   void operator=(const AscentAnalysisAdaptor&) = delete;
 
 private:
+  bool Execute_original(DataAdaptor* data);
+  bool Execute_new(DataAdaptor* data);
+
   ascent::Ascent _ascent;
   conduit::Node optionsNode;    // Ascent options from json file.
   conduit::Node actionsNode;    // Ascent actions from json file.
