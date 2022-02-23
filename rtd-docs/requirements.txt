@@ -1,0 +1,5 @@
+pyparsing
+Pygments
+Sphinx
+sphinxcontrib-doxylink
+sphinx_rtd_theme

@@ -7,36 +7,35 @@
 
 namespace sensei
 {
-/// @class autocorrelation::AnalysisAdaptor
-/// @brief AnalysisAdaptor subclass for autocorrelation.
-///
-/// Autocorrelation is an analysis adaptor that performs
-/// autocorrelation on the dataset.
+/// Performs a temporal autocorrelation on the simulation data
 class Autocorrelation : public AnalysisAdaptor
 {
 public:
+  /// Allocate a new Autocorrelation instance
   static Autocorrelation* New();
+
   senseiTypeMacro(Autocorrelation, AnalysisAdaptor);
 
-  /// @brief Initialize the adaptor.
-  ///
-  /// This method must be called to initialize the adaptor with configuration
-  /// parameters for the analysis to perform.
-  ///
-  /// @param window analysis window in timestep count.
-  /// @param name of mesh containing the array to process
-  /// @param association together with \c arrayname, identifies the array to
-  ///         compute autocorrelation for.
-  /// @param arrayname together with \c association, identifies the array to
-  ///         compute autocorrelation for.
-  /// @param kMax number of strongest autocorrelations to report
-  /// @param numThreads number of threads in sdiy's thread pool
+  /** Initialize the adaptor.  This method must be called to initialize the
+   * adaptor with configuration parameters for the analysis to perform.
+   *
+   * @param window analysis window in timestep count.
+   * @param name of mesh containing the array to process
+   * @param association together with \c arrayname, identifies the array to
+   *         compute autocorrelation for.
+   * @param arrayname together with \c association, identifies the array to
+   *         compute autocorrelation for.
+   * @param kMax number of strongest autocorrelations to report
+   * @param numThreads number of threads in sdiy's thread pool
+   */
   void Initialize(size_t window, const std::string &meshName,
     int association, const std::string &arrayname, size_t kMax,
     int numThreads = 1);
 
+  /// Incrementally computes autocorrelation on the current simulation state
   bool Execute(DataAdaptor* data) override;
 
+  /// Finishes the calculation and dumps the results
   int Finalize() override;
 
 protected:
