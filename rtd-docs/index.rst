@@ -47,6 +47,20 @@ run-time via an XML configuration file. This document is targeted at scientists
 and developers wishing to run simulations instrumented with SENSEI, instrument
 a new simulation, or develop new analysis back-ends.
 
+***********
+Source Code
+***********
+SENSEI is open source and freely available on github at `<https://github.com/SENSEI-insitu/SENSEI>`_.
+
+********************
+Online Documentation
+********************
+SENSEI has autmated Doxygen documentation at `<https://sensei-insitu.readthedocs.io/en/latest/doxygen>`_.
+
+*****************
+Table of Contents
+*****************
+
 .. toctree::
    :maxdepth: 3
 
