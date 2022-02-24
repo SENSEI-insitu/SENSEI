@@ -57,6 +57,13 @@ ConduitDataAdaptor::~ConduitDataAdaptor()
 }
 
 //-----------------------------------------------------------------------------
+void ConduitDataAdaptor::PrintSelf(ostream &os, vtkIndent indent)
+{
+  os << indent << indent << "Internal conduit node: " << this->Node->to_json_default() << std::endl;
+  Superclass::PrintSelf(os, indent);
+}
+
+//-----------------------------------------------------------------------------
 static inline int ElementShapeNameToVTKCellType( const std::string &shape_name )
 {
   if (shape_name == "point") return VTK_VERTEX;

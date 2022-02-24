@@ -10,6 +10,7 @@
 #cmakedefine ENABLE_CUDA
 #cmakedefine ENABLE_PYTHON
 #cmakedefine ENABLE_CATALYST
+#cmakedefine ENABLE_CATALYST2
 #cmakedefine ENABLE_CATALYST_PYTHON
 #cmakedefine ENABLE_LIBSIM
 #cmakedefine ENABLE_ADIOS1
