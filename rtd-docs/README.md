@@ -46,7 +46,7 @@ SENSEI comes with a number of ready to use in situ processing options. These inc
 
 | Class | Description |
 | ----- | ----------- |
-| sensei::AnalsysiAdaptor | base class for in situ data processors |
+| sensei::AnalysisAdaptor | base class for in situ data processors |
 | sensei::DataAdaptor | defines the API by which data processors fetch data from the simulation |
 | sensei::Histogram | Computes histograms |
 | sensei::AscentAnalysisAdaptor | Processes simulation data using Ascent |
@@ -79,7 +79,7 @@ while simulation is running.
 
 | Class | Description |
 | ----- | ----------- |
-| sensei::AnalsysiAdaptor | base class for the write side of the transport |
+| sensei::AnalysisAdaptor | base class for the write side of the transport |
 | sensei::DataAdaptor | base class for the read side of the transport |
 | sensei::ConfigurableAnalysis | used to select and configure the write side of the transport at run time from XML |
 | sensei::ConfigurableInTransitDataAdaptor | used to configure the read side of the transport at run time from XML |
