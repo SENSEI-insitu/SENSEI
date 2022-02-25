@@ -2,10 +2,15 @@
 
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 #include "Profiler.h"
 
+#include <svtkDataObject.h>
+#include <svtkImageData.h>
+#include <svtkObjectFactory.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkStructuredGrid.h>
 
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
@@ -13,14 +18,11 @@
 #include <vtkCPAdaptorAPI.h>
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
-#include <vtkCPProcessor.h>
-#include <vtkDataObject.h>
-#include <vtkImageData.h>
 #include <vtkMultiProcessController.h>
-#include <vtkObjectFactory.h>
+#include <vtkCPProcessor.h>
+
 #include <vtkPVConfig.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
+
 #ifdef ENABLE_CATALYST_PYTHON
 #include <vtkCPPythonScriptPipeline.h>
 #endif
@@ -110,9 +112,9 @@ int CatalystAnalysisAdaptor::DescribeData(int timeStep, double time,
 #if (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 6) || PARAVIEW_VERSION_MAJOR > 5
       inDesc->AddField(arrayName, assoc);
 #else
-      if (assoc == vtkDataObject::POINT)
+      if (assoc == svtkDataObject::POINT)
         inDesc->AddPointField(arrayName);
-      else if (assoc == vtkDataObject::CELL)
+      else if (assoc == svtkDataObject::CELL)
         inDesc->AddCellField(arrayName);
       else
         SENSEI_WARNING("Unknown association " << assoc)
@@ -142,7 +144,7 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
     if (inDesc->GetIfGridIsNecessary())
       {
       // get the mesh
-      vtkDataObject* dobj = nullptr;
+      svtkDataObject* dobj = nullptr;
       if (dataAdaptor->GetMesh(meshName, false, dobj))
         {
         SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -164,7 +166,7 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
           if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
             {
             SENSEI_ERROR("Failed to add "
-              << VTKUtils::GetAttributesName(assoc)
+              << SVTKUtils::GetAttributesName(assoc)
               << " data array \"" << arrayName << "\" to mesh \""
               << meshName << "\"")
             return -1;
@@ -173,7 +175,7 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
         }
 
       // add ghost zones
-      if ((metadata[i]->NumGhostCells || VTKUtils::AMR(metadata[i])) &&
+      if ((metadata[i]->NumGhostCells || SVTKUtils::AMR(metadata[i])) &&
         dataAdaptor->AddGhostNodesArray(dobj, meshName))
         {
         SENSEI_ERROR("Failed to get ghost nodes array for mesh \""
@@ -187,7 +189,9 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
           << meshName << "\"")
         }
 
-      inDesc->SetGrid(dobj);
+      SENSEI_ERROR("TODO conversion from SVTK data set to VTK data set")
+      // TODO inDesc->SetGrid(dobj);
+
       dobj->Delete();
 
       // we could get this info from metadata, however if there
@@ -201,16 +205,16 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
 }
 
 //----------------------------------------------------------------------------
-int CatalystAnalysisAdaptor::SetWholeExtent(vtkDataObject *dobj,
+int CatalystAnalysisAdaptor::SetWholeExtent(svtkDataObject *dobj,
   vtkCPInputDataDescription *desc)
 {
   int localExtent[6] = {0};
 
-  if (vtkImageData *id = dynamic_cast<vtkImageData*>(dobj))
+  if (svtkImageData *id = dynamic_cast<svtkImageData*>(dobj))
     id->GetExtent(localExtent);
-  else if (vtkRectilinearGrid *rg = dynamic_cast<vtkRectilinearGrid*>(dobj))
+  else if (svtkRectilinearGrid *rg = dynamic_cast<svtkRectilinearGrid*>(dobj))
     rg->GetExtent(localExtent);
-  else if (vtkStructuredGrid *sg = dynamic_cast<vtkStructuredGrid*>(dobj))
+  else if (svtkStructuredGrid *sg = dynamic_cast<svtkStructuredGrid*>(dobj))
     sg->GetExtent(localExtent);
   else
     return 0;
@@ -320,7 +324,7 @@ int CatalystAnalysisAdaptor::Finalize()
 }
 
 //-----------------------------------------------------------------------------
-void CatalystAnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void CatalystAnalysisAdaptor::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

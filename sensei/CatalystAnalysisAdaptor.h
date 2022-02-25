@@ -10,7 +10,7 @@
 class vtkCPDataDescription;
 class vtkCPInputDataDescription;
 class vtkCPPipeline;
-class vtkDataObject;
+class svtkDataObject;
 
 namespace sensei
 {
@@ -27,7 +27,7 @@ public:
   senseiTypeMacro(CatalystAnalysisAdaptor, AnalysisAdaptor);
 
   /// prints the current adaptor state.
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   ///@name Run time configuration
   ///@{
@@ -70,7 +70,7 @@ protected:
   int SelectData(DataAdaptor *dataAdaptor,
     const std::vector<MeshMetadataPtr> &reqs, vtkCPDataDescription *dataDesc);
 
-  int SetWholeExtent(vtkDataObject *dobj, vtkCPInputDataDescription *desc);
+  int SetWholeExtent(svtkDataObject *dobj, vtkCPInputDataDescription *desc);
 
 private:
   CatalystAnalysisAdaptor(const CatalystAnalysisAdaptor&); // Not implemented.

@@ -46,6 +46,7 @@
 #include "CatalystAnalysisAdaptor.h"
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
+#include <vtkNew.h>
 #endif
 #ifdef ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
@@ -519,7 +520,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
   // Add the pipelines
   if (strcmp(node.attribute("pipeline").value(), "slice") == 0)
     {
-    svtkNew<CatalystSlice> slice;
+    vtkNew<CatalystSlice> slice;
 
     double tmp[3];
     if (node.attribute("mesh"))
@@ -578,7 +579,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     }
   else if (strcmp(node.attribute("pipeline").value(), "particle") == 0)
     {
-    svtkNew<CatalystParticle> particle;
+    vtkNew<CatalystParticle> particle;
 
     double tmp[3];
     if (node.attribute("mesh"))

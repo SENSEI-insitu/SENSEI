@@ -1,6 +1,7 @@
 #ifndef sensei_CatalystSlice_h
 #define sensei_CatalystSlice_h
 
+#include "senseiConfig.h"
 #include "vtkCPPipeline.h"
 
 namespace sensei
