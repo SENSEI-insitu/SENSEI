@@ -24,10 +24,10 @@ namespace sensei
  * The partioner may be specified in XML, and if it is not, then the default is
  * sensei::BlockPartitioner.
  */
-class InTransitDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT InTransitDataAdaptor : public sensei::DataAdaptor
 {
 public:
-  senseiBaseTypeMacro(InTransitDataAdaptor, sensei::DataAdaptor);
+  senseiTypeMacro(InTransitDataAdaptor, sensei::DataAdaptor);
 
   /** Pass in a string containing transport specific connection information.
    * This is optional, as XML may be used to specify connection as well.

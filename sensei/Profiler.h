@@ -15,7 +15,7 @@ namespace sensei
 // A class containing methods managing memory and time profiling
 // Each timed event logs rank, event name, start and end time, and
 // duration.
-class Profiler
+class SENSEI_EXPORT Profiler
 {
 public:
   // Initialize logging from environment variables, and/or the timer

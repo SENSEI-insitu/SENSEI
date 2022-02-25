@@ -12,7 +12,7 @@ namespace sensei
 {
 
 /// An analysis adaptor for ascent-based analysis pipelines.
-class AscentAnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT AscentAnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   /// Creates an AscentAnalysisAdaptor instance.
@@ -50,7 +50,7 @@ public:
   /// @}
 
   /// Invoke in situ processing using Ascent
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Shut down and clean up the Ascent library.
   int Finalize() override;

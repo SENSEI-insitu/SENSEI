@@ -1,0 +1,315 @@
+#[==[.md
+# svtk-config.cmake
+
+This file is used by CMake when finding SVTK. It provides the [SVTK module
+API][] as well as some SVTK-specific APIs.
+
+The following variables are provided by this module:
+
+  * `SVTK_VERSION`: The version of SVTK found.
+  * `SVTK_MAJOR_VERSION`: The major version of SVTK found.
+  * `SVTK_MINOR_VERSION`: The minor version of SVTK found.
+  * `SVTK_BUILD_VERSION`: The build version of SVTK found.
+  * `SVTK_AVAILABLE_COMPONENTS`: Components available with SVTK.
+  * `SVTK_PREFIX_PATH`: Install prefix for SVTK.
+  * `SVTK_LEGACY_REMOVE`: Whether SVTK's deprecated APIs are
+    compiled out or not.
+  * `SVTK_HAS_SVTKm`: If SVTK provides SVTK-m.
+  * `SVTK_OPENGL_HAS_EGL`: If SVTK::opengl uses EGL. Only provided if the
+    `SVTK::opengl` target exists.
+  * `SVTK_PYTHON_VERSION`: The major version of Python used by SVTK. Empty if
+    Python support is not available.
+  * `SVTK_WRAP_PYTHON`: If SVTK itself provides Python wrapping. If so, the
+    Python parts of the module API are available.
+  * `SVTK_WRAP_JAVA`: If SVTK itself provides Java wrapping. If so, the
+    Java parts of the module API are available.
+  * `SVTK_PYTHONPATH`: Where SVTK's Python modules live inside the install
+    prefix. Unset if Python is not available.
+  * `SVTK_LIBRARIES`: The list of modules specified by `COMPONENTS` and
+    `OPTIONAL_COMPONENTS`. However, if no components are specified, all
+    available components are added to this variable. This may be used in
+    `MODULES` arguments in the API (e.g., `svtk_module_autoinit`). All modules
+    are also targets and may be linked to using `target_link_libraries`.
+  * `SVTK_AUTOINIT_INCLUDE`: The header to include for access to SVTK's autoinit
+    support.
+
+For more information about the Python in use by SVTK, the `SVTK_PYTHON_VERSION`
+variable may be used to query the `find_package(Python)` that SVTK performs
+internally (note that the `Python` component must be found to guarantee that
+this happens). For example, the following information would be useful:
+
+  - the `Python${SVTK_PYTHON_VERSION}_VERSION` variable; and
+  - the `Python${SVTK_PYTHON_VERSION}::Python` target.
+
+See [FindPython2][] and [FindPython3][] documentation for all of the available
+data.
+
+[FindPython2]: https://cmake.org/cmake/help/v3.13/module/FindPython2.html
+[FindPython3]: https://cmake.org/cmake/help/v3.13/module/FindPython3.html
+[SVTK module API]: TODO: Link to hosted documentation.
+#]==]
+
+cmake_policy(PUSH)
+cmake_policy(VERSION 3.8...3.12)
+
+set(_svtk_temp_variables)
+set(_svtk_real_components)
+foreach (_svtk_component IN LISTS "${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS")
+  if (_svtk_component MATCHES "^svtk" AND
+      NOT _svtk_component STREQUAL "svtksys" AND
+      NOT _svtk_component STREQUAL "svtkjava")
+    string(SUBSTRING "${_svtk_component}" 3 -1 _svtk_actual_component)
+    if (NOT ${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
+      if (NOT ${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+        message(DEPRECATION
+          "The new name for the '${_svtk_component}' component is "
+          "'${_svtk_actual_component}'")
+      endif ()
+    elseif (${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION VERSION_LESS 8.90)
+      # Ignore for compatibility.
+    else ()
+      message(FATAL_ERROR
+        "The new name for the '${_svtk_component}' component is "
+        "'${_svtk_actual_component}'. By requesting at least version 8.90, the "
+        "new component names are now required.")
+    endif ()
+    list(APPEND _svtk_real_components
+      "${_svtk_actual_component}")
+    list(APPEND _svtk_temp_variables
+      "${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED_${_svtk_actual_component}")
+    set("${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED_${_svtk_actual_component}"
+      "${${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED_${_svtk_component}}")
+    unset(_svtk_actual_component)
+  else ()
+    list(APPEND _svtk_real_components
+      "${_svtk_component}")
+  endif ()
+endforeach ()
+unset(_svtk_component)
+set("${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS"
+  ${_svtk_real_components})
+unset(_svtk_real_components)
+
+set("${CMAKE_FIND_PACKAGE_NAME}_CMAKE_MODULE_PATH_save" "${CMAKE_MODULE_PATH}")
+list(INSERT CMAKE_MODULE_PATH 0
+  "${CMAKE_CURRENT_LIST_DIR}")
+
+set("${CMAKE_FIND_PACKAGE_NAME}_CMAKE_PREFIX_PATH_save" "${CMAKE_PREFIX_PATH}")
+include("${CMAKE_CURRENT_LIST_DIR}/svtk-prefix.cmake")
+set("${CMAKE_FIND_PACKAGE_NAME}_PREFIX_PATH"
+  "${_svtk_module_import_prefix}")
+unset(_svtk_module_import_prefix)
+list(INSERT CMAKE_PREFIX_PATH 0
+  "${${CMAKE_FIND_PACKAGE_NAME}_PREFIX_PATH}")
+
+set("${CMAKE_FIND_PACKAGE_NAME}_VERSION" "@SVTK_MAJOR_VERSION@.@SVTK_MINOR_VERSION@.@SVTK_BUILD_VERSION@")
+set("${CMAKE_FIND_PACKAGE_NAME}_MAJOR_VERSION" "@SVTK_MAJOR_VERSION@")
+set("${CMAKE_FIND_PACKAGE_NAME}_MINOR_VERSION" "@SVTK_MINOR_VERSION@")
+set("${CMAKE_FIND_PACKAGE_NAME}_BUILD_VERSION" "@SVTK_BUILD_VERSION@")
+set("${CMAKE_FIND_PACKAGE_NAME}_LEGACY_REMOVE" "@SVTK_LEGACY_REMOVE@")
+set("${CMAKE_FIND_PACKAGE_NAME}_AUTOINIT_INCLUDE" "\"svtkAutoInit.h\"")
+
+set("${CMAKE_FIND_PACKAGE_NAME}_AVAILABLE_COMPONENTS" "@svtk_all_components@")
+
+unset("${CMAKE_FIND_PACKAGE_NAME}_FOUND")
+set("${CMAKE_FIND_PACKAGE_NAME}_HAS_SVTKm" "@svtk_has_svtkm@")
+if (${CMAKE_FIND_PACKAGE_NAME}_HAS_SVTKm)
+  find_package(SVTKm
+    PATHS "${CMAKE_CURRENT_LIST_DIR}/svtkm"
+    NO_DEFAULT_PATH)
+  if (NOT SVTKm_FOUND)
+    set("${CMAKE_FIND_PACKAGE_NAME}_FOUND" 0)
+  endif ()
+endif ()
+
+include("${CMAKE_CURRENT_LIST_DIR}/svtkCMakeBackports.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/${CMAKE_FIND_PACKAGE_NAME}-targets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/${CMAKE_FIND_PACKAGE_NAME}-svtk-module-properties.cmake")
+
+include("${CMAKE_CURRENT_LIST_DIR}/svtk-find-package-helpers.cmake" OPTIONAL)
+
+include("${CMAKE_CURRENT_LIST_DIR}/${CMAKE_FIND_PACKAGE_NAME}-svtk-module-find-packages.cmake")
+
+if (TARGET SVTK::opengl)
+  set(SVTK_OPENGL_HAS_EGL "@SVTK_OPENGL_HAS_EGL@")
+endif ()
+
+include("${CMAKE_CURRENT_LIST_DIR}/svtkModule.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/svtkEncodeString.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/svtkHashSource.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/svtkObjectFactory.cmake")
+
+include("${CMAKE_CURRENT_LIST_DIR}/svtkModuleJson.cmake")
+
+set("${CMAKE_FIND_PACKAGE_NAME}_PYTHON_VERSION" "@svtk_python_version@")
+set("${CMAKE_FIND_PACKAGE_NAME}_WRAP_PYTHON" "@SVTK_WRAP_PYTHON@")
+if (${CMAKE_FIND_PACKAGE_NAME}_WRAP_PYTHON)
+  include("${CMAKE_CURRENT_LIST_DIR}/SVTKPython-targets.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/svtkmodules-svtk-python-module-properties.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/svtkModuleWrapPython.cmake")
+  set("${CMAKE_FIND_PACKAGE_NAME}_PYTHONPATH" "@SVTK_PYTHON_SITE_PACKAGES_SUFFIX@")
+endif ()
+
+set("${CMAKE_FIND_PACKAGE_NAME}_WRAP_JAVA" "@SVTK_WRAP_JAVA@")
+if (${CMAKE_FIND_PACKAGE_NAME}_WRAP_JAVA)
+  include("${CMAKE_CURRENT_LIST_DIR}/svtkModuleWrapJava.cmake")
+
+  if (@SVTK_JAVA_JOGL_COMPONENT@) # SVTK_JAVA_JOGL_COMPONENT
+    set(_svtk_find_jogl_args)
+    if (${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+      list(APPEND _svtk_find_jogl_args QUIET)
+    endif ()
+    find_package(JOGL ${_svtk_find_jogl_args})
+    unset(_svtk_find_jogl_args)
+
+    if (JOGL_FOUND)
+      include("${CMAKE_CURRENT_LIST_DIR}/SVTKJava-targets.cmake")
+      set("${CMAKE_FIND_PACKAGE_NAME}_svtkjava_FOUND" 1)
+    else ()
+      set("${CMAKE_FIND_PACKAGE_NAME}_svtkjava_FOUND" 0)
+      set("${CMAKE_FIND_PACKAGE_NAME}_svtkjava_NOT_FOUND_MESSAGE"
+        "JOGL was not found")
+    endif ()
+  endif ()
+endif ()
+
+set(_svtk_components_to_check)
+foreach (_svtk_component IN LISTS "${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS")
+  if (DEFINED "${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND")
+    # It was already not-found (likely due to `find-package` failures).
+  elseif (TARGET "${CMAKE_FIND_PACKAGE_NAME}::${_svtk_component}")
+    list(APPEND _svtk_components_to_check
+      "${_svtk_component}")
+  else ()
+    set("${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND" 0)
+    list(APPEND "${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_NOT_FOUND_MESSAGE"
+      "The ${_svtk_component} component is not available.")
+  endif ()
+endforeach ()
+unset(_svtk_component)
+
+while (_svtk_components_to_check)
+  list(GET _svtk_components_to_check 0 _svtk_component)
+  list(REMOVE_AT _svtk_components_to_check 0)
+  if (DEFINED "${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND")
+    # We've already made a determiniation.
+    continue ()
+  endif ()
+
+  get_property(_svtk_public_dependencies
+    TARGET    "${CMAKE_FIND_PACKAGE_NAME}::${_svtk_component}"
+    PROPERTY  "INTERFACE_svtk_module_depends")
+  get_property(_svtk_private_dependencies
+    TARGET    "${CMAKE_FIND_PACKAGE_NAME}::${_svtk_component}"
+    PROPERTY  "INTERFACE_svtk_module_private_depends")
+  get_property(_svtk_optional_dependencies
+    TARGET    "${CMAKE_FIND_PACKAGE_NAME}::${_svtk_component}"
+    PROPERTY  "INTERFACE_svtk_module_optional_depends")
+  set(_svtk_dependencies
+    ${_svtk_public_dependencies}
+    ${_svtk_private_dependencies})
+  foreach (_svtk_optional_dependency IN LISTS _svtk_optional_dependencies)
+    if (TARGET "${_svtk_optional_dependency}")
+      list(APPEND _svtk_dependencies
+        "${_svtk_optional_dependency}")
+    endif ()
+  endforeach ()
+  unset(_svtk_public_dependencies)
+  unset(_svtk_private_dependencies)
+  unset(_svtk_optional_dependency)
+  unset(_svtk_optional_dependencies)
+
+  string(REPLACE "${CMAKE_FIND_PACKAGE_NAME}::" "" _svtk_dependencies "${_svtk_dependencies}")
+  set(_svtk_all_dependencies_checked TRUE)
+  foreach (_svtk_dependency IN LISTS _svtk_dependencies)
+    if (DEFINED "${CMAKE_FIND_PACKAGE_NAME}_${_svtk_dependency}_FOUND")
+      if (NOT ${CMAKE_FIND_PACKAGE_NAME}_${_svtk_dependency}_FOUND)
+        set("${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND" 0)
+        list(APPEND "${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_NOT_FOUND_MESSAGE"
+          "Failed to find the ${_svtk_dependency} component.")
+      endif ()
+    else ()
+      # Check its dependencies.
+      list(APPEND _svtk_components_to_check
+        "${_svtk_dependency}")
+      set(_svtk_all_found FALSE)
+    endif ()
+  endforeach ()
+  if (NOT DEFINED "${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND")
+    if (_svtk_all_dependencies_checked)
+      set("${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND" 1)
+    else ()
+      list(APPEND _svtk_components_to_check
+        "${_svtk_component}")
+    endif ()
+  endif ()
+  unset(_svtk_all_dependencies_checked)
+  unset(_svtk_dependency)
+  unset(_svtk_dependencies)
+endwhile ()
+unset(_svtk_component)
+unset(_svtk_components_to_check)
+
+set(_svtk_missing_components)
+foreach (_svtk_component IN LISTS "${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS")
+  if (NOT ${CMAKE_FIND_PACKAGE_NAME}_${_svtk_component}_FOUND AND ${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED_${_svtk_component})
+    list(APPEND _svtk_missing_components
+      "${_svtk_component}")
+  endif ()
+endforeach ()
+
+if (_svtk_missing_components)
+  list(REMOVE_DUPLICATES _svtk_missing_components)
+  list(SORT _svtk_missing_components)
+  string(REPLACE ";" ", " _svtk_missing_components "${_svtk_missing_components}")
+  set("${CMAKE_FIND_PACKAGE_NAME}_FOUND" 0)
+  set("${CMAKE_FIND_PACKAGE_NAME}_NOT_FOUND_MESSAGE"
+    "Could not find the ${CMAKE_FIND_PACKAGE_NAME} package with the following required components: ${_svtk_missing_components}.")
+endif ()
+unset(_svtk_missing_components)
+
+set("${CMAKE_FIND_PACKAGE_NAME}_LIBRARIES")
+if (NOT DEFINED "${CMAKE_FIND_PACKAGE_NAME}_FOUND")
+  # If nothing went wrong, we've successfully found the package.
+  set("${CMAKE_FIND_PACKAGE_NAME}_FOUND" 1)
+  set(_svtk_found_components
+    ${${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS})
+  if (NOT _svtk_found_components)
+    set(_svtk_found_components
+      ${${CMAKE_FIND_PACKAGE_NAME}_AVAILABLE_COMPONENTS})
+  endif ()
+  list(REMOVE_ITEM _svtk_found_components
+    # This component needs to always be requested explicitly (it is not a
+    # module).
+    svtkjava)
+  # Build the `_LIBRARIES` variable.
+  foreach (_svtk_component IN LISTS _svtk_found_components)
+    list(APPEND "${CMAKE_FIND_PACKAGE_NAME}_LIBRARIES"
+      "${CMAKE_FIND_PACKAGE_NAME}::${_svtk_component}")
+  endforeach ()
+  unset(_svtk_component)
+  unset(_svtk_found_components)
+endif ()
+
+set(CMAKE_PREFIX_PATH "${${CMAKE_FIND_PACKAGE_NAME}_CMAKE_PREFIX_PATH_save}")
+unset("${CMAKE_FIND_PACKAGE_NAME}_CMAKE_PREFIX_PATH_save")
+
+set(CMAKE_MODULE_PATH "${${CMAKE_FIND_PACKAGE_NAME}_CMAKE_MODULE_PATH_save}")
+unset("${CMAKE_FIND_PACKAGE_NAME}_CMAKE_MODULE_PATH_save")
+
+foreach (_svtk_temp_variable IN LISTS _svtk_temp_variables)
+  unset("${_svtk_temp_variable}")
+endforeach ()
+unset(_svtk_temp_variable)
+unset(_svtk_temp_variables)
+
+# Compatibility with old code.
+if (NOT ${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
+  set(SVTK_USE_FILE "${CMAKE_CURRENT_LIST_DIR}/svtk-use-file-deprecated.cmake")
+elseif (${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION VERSION_LESS 8.90)
+  set(SVTK_USE_FILE "${CMAKE_CURRENT_LIST_DIR}/svtk-use-file-compat.cmake")
+else ()
+  set(SVTK_USE_FILE "${CMAKE_CURRENT_LIST_DIR}/svtk-use-file-error.cmake")
+endif ()
+
+cmake_policy(POP)

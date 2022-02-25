@@ -15,7 +15,7 @@ namespace sensei
 {
 
 /// The read side of the ADIOS 1 transport layer
-class ADIOS1DataAdaptor : public sensei::InTransitDataAdaptor
+class SENSEI_EXPORT ADIOS1DataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
   static ADIOS1DataAdaptor* New();
@@ -44,12 +44,12 @@ public:
   int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   int GetMesh(const std::string &meshName, bool structure_only,
-    vtkDataObject *&mesh) override;
+    svtkDataObject *&mesh) override;
 
-  int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName) override;
-  int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
+  int AddGhostNodesArray(svtkDataObject* mesh, const std::string &meshName) override;
+  int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName) override;
 
-  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
   int ReleaseData() override;

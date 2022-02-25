@@ -1,17 +1,17 @@
 from sensei import *
-from vtk import VTK_MULTIBLOCK_DATA_SET, vtkDataObject, VTK_IMAGE_DATA, VTK_DOUBLE, VTK_FLOAT
+from svtk import SVTK_MULTIBLOCK_DATA_SET, svtkDataObject, SVTK_IMAGE_DATA, SVTK_DOUBLE, SVTK_FLOAT
 
 # test setting and getting the members
 md = MeshMetadata.New()
 md.GlobalView = True
 md.MeshName = "foo"
-md.MeshType = VTK_MULTIBLOCK_DATA_SET
-md.BlockType = VTK_IMAGE_DATA
+md.MeshType = SVTK_MULTIBLOCK_DATA_SET
+md.BlockType = SVTK_IMAGE_DATA
 md.NumBlocks = 2
 md.NumBlocksLocal = [2]
 md.Extent = [0,2,0,2,0,2]
 md.Bounds = [0.,1.,0.,1.,0.,1.]
-md.CoordinateType = VTK_DOUBLE
+md.CoordinateType = SVTK_DOUBLE
 md.NumPoints = 3**3
 md.NumCells = 2**3
 md.CellArraySize = -1
@@ -21,9 +21,9 @@ md.NumGhostNodes = 0
 md.NumLevels = 1
 md.StaticMesh = 1
 md.ArrayName = ['a1', 'a2']
-md.ArrayCentering = [vtkDataObject.POINT, vtkDataObject.CELL]
+md.ArrayCentering = [svtkDataObject.POINT, svtkDataObject.CELL]
 md.ArrayComponents = [1, 3]
-md.ArrayType = [VTK_DOUBLE, VTK_FLOAT]
+md.ArrayType = [SVTK_DOUBLE, SVTK_FLOAT]
 md.ArrayRange = [[0.,1.],[0.,1.]]
 md.BlockOwner = [0, 0]
 md.BlockIds = [0,1]

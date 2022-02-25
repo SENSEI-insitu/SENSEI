@@ -1,7 +1,7 @@
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
-#include <vtkDataObject.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkNew.h>
+#include <svtkDataObject.h>
 
 #include <vector>
 #include <fstream>
@@ -13,7 +13,7 @@
 #include "senseiConfig.h"
 #include "Error.h"
 #include "Profiler.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "XMLUtils.h"
 #include "STLUtils.h"
 #include "DataRequirements.h"
@@ -46,6 +46,7 @@
 #include "CatalystAnalysisAdaptor.h"
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
+#include <vtkNew.h>
 #endif
 #ifdef ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
@@ -61,8 +62,11 @@
 #define ENABLE_SLICE_EXTRACT
 #include "SliceExtract.h"
 #endif
+#if defined(ENABLE_VTK_FILTERS)
+#include "Calculator.h"
+#endif
 
-using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
+using AnalysisAdaptorPtr = svtkSmartPointer<sensei::AnalysisAdaptor>;
 using AnalysisAdaptorVector = std::vector<AnalysisAdaptorPtr>;
 
 namespace sensei
@@ -104,6 +108,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddVTKAmrWriter(pugi::xml_node node);
   int AddPythonAnalysis(pugi::xml_node node);
   int AddSliceExtract(pugi::xml_node node);
+  int AddCalculator(pugi::xml_node node);
 
 public:
   // list of all analyses. api calls are forwareded to each
@@ -114,10 +119,10 @@ public:
   // they require special treatment which is simplified by
   // storing an additional pointer.
 #ifdef ENABLE_LIBSIM
-  vtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
+  svtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
 #endif
 #ifdef ENABLE_CATALYST
-  vtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
+  svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
 #endif
 
   // the communicator that is used to initialize new analyses.
@@ -171,7 +176,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 
   int association = 0;
   std::string assocStr = node.attribute("association").as_string("point");
-  if (VTKUtils::GetAssociation(assocStr, association))
+  if (SVTKUtils::GetAssociation(assocStr, association))
     {
     SENSEI_ERROR("Failed to initialize Histogram");
     return -1;
@@ -182,7 +187,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
   int bins = node.attribute("bins").as_int(10);
   std::string fileName = node.attribute("file").value();
 
-  auto histogram = vtkSmartPointer<Histogram>::New();
+  auto histogram = svtkSmartPointer<Histogram>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     histogram->SetCommunicator(this->Comm);
@@ -206,7 +211,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 {
 #ifndef ENABLE_VTK_ACCELERATORS
   (void)node;
-  SENSEI_ERROR("vtkAcceleratorsVtkm was requested but is disabled in this build")
+  SENSEI_ERROR("svtkAcceleratorsVtkm was requested but is disabled in this build")
   return -1;
 #else
 
@@ -222,7 +227,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   double value = node.attribute("value").as_double(0.0);
   bool writeOutput = node.attribute("write_output").as_bool(false);
 
-  auto contour = vtkSmartPointer<VTKmContourAnalysis>::New();
+  auto contour = svtkSmartPointer<VTKmContourAnalysis>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     contour->SetCommunicator(this->Comm);
@@ -261,7 +266,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
 
   std::string workDir = node.attribute("working-directory").as_string(".");
 
-  auto reducer = vtkSmartPointer<VTKmVolumeReductionAnalysis>::New();
+  auto reducer = svtkSmartPointer<VTKmVolumeReductionAnalysis>::New();
   this->TimeInitialization(reducer, [&]() {
     reducer->Initialize(mesh, field, assoc, workDir, reduction, this->Comm);
     return 0;
@@ -301,7 +306,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
   bool haveWorkDir = !!node.attribute("working-directory");
   std::string workDir =  haveWorkDir ? node.attribute("working-directory").as_string() : ".";
 
-  auto analysis = vtkSmartPointer<VTKmCDFAnalysis>::New();
+  auto analysis = svtkSmartPointer<VTKmCDFAnalysis>::New();
   this->TimeInitialization(analysis, [&]() {
     analysis->Initialize(mesh, field, assoc, workDir, quantiles, exchangeSize, this->Comm);
     return 0;
@@ -322,7 +327,7 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
   SENSEI_ERROR("Ascent was requested but is disabled in this build")
   return( -1 );
 #else
-  vtkNew<AscentAnalysisAdaptor> ascent;
+  svtkNew<AscentAnalysisAdaptor> ascent;
 
   if (this->Comm != MPI_COMM_NULL)
     ascent->SetCommunicator(this->Comm);
@@ -379,7 +384,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
   SENSEI_ERROR("ADIOS 1 was requested but is disabled in this build")
   return -1;
 #else
-  auto adios = vtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
+  auto adios = svtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adios->SetCommunicator(this->Comm);
@@ -423,7 +428,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
   return -1;
 #else
-  auto adiosAdaptor = vtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
+  auto adiosAdaptor = svtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adiosAdaptor->SetCommunicator(this->Comm);
@@ -452,7 +457,7 @@ int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
   SENSEI_ERROR("HDF5 was requested but is disabled in this build");
   return -1;
 #else
-  auto dataE = vtkSmartPointer<HDF5AnalysisAdaptor>::New();
+  auto dataE = svtkSmartPointer<HDF5AnalysisAdaptor>::New();
 
   if(this->Comm != MPI_COMM_NULL)
     dataE->SetCommunicator(this->Comm);
@@ -507,7 +512,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
   // a single adaptor used with multiple pipelines
   if (!this->CatalystAdaptor)
     {
-    this->CatalystAdaptor = vtkSmartPointer<CatalystAnalysisAdaptor>::New();
+    this->CatalystAdaptor = svtkSmartPointer<CatalystAnalysisAdaptor>::New();
 
     if (this->Comm != MPI_COMM_NULL)
       this->CatalystAdaptor->SetCommunicator(this->Comm);
@@ -547,7 +552,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 
     int association = 0;
     std::string assocStr = node.attribute("association").as_string("point");
-    if (VTKUtils::GetAssociation(assocStr, association))
+    if (SVTKUtils::GetAssociation(assocStr, association))
       {
       SENSEI_ERROR("Failed to initialize Catalyst")
       return -1;
@@ -611,7 +616,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 
     int association = 0;
     std::string assocStr = node.attribute("association").as_string("point");
-    if (VTKUtils::GetAssociation(assocStr, association))
+    if (SVTKUtils::GetAssociation(assocStr, association))
       {
       SENSEI_ERROR("Failed to initialize Catalyst")
       return -1;
@@ -648,7 +653,14 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     if (node.attribute("filename"))
       {
       std::string fileName = node.attribute("filename").value();
-      this->CatalystAdaptor->AddPythonScriptPipeline(fileName);
+      std::string producer, mesh;
+      if (auto resultnode = node.child("result"))
+      {
+        producer = resultnode.attribute("producer").as_string();
+        mesh = resultnode.attribute("mesh").as_string();
+      }
+      this->CatalystAdaptor->AddPythonScriptPipeline(fileName,
+          producer, mesh);
       }
     
     unsigned int frequency = node.attribute("frequency").as_uint(0);
@@ -676,7 +688,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   // do different things.
   if (!this->LibsimAdaptor)
     {
-    this->LibsimAdaptor = vtkSmartPointer<LibsimAnalysisAdaptor>::New();
+    this->LibsimAdaptor = svtkSmartPointer<LibsimAnalysisAdaptor>::New();
 
     if (this->Comm != MPI_COMM_NULL)
       this->LibsimAdaptor->SetCommunicator(this->Comm);
@@ -815,7 +827,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 
   std::string assocStr = node.attribute("association").as_string("point");
   int assoc = 0;
-  if (VTKUtils::GetAssociation(assocStr, assoc))
+  if (SVTKUtils::GetAssociation(assocStr, assoc))
     {
     SENSEI_ERROR("Failed to initialize Autocorrelation");
     return -1;
@@ -825,7 +837,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
   int kMax = node.attribute("k-max").as_int(3);
   int numThreads = node.attribute("n-threads").as_int(1);
 
-  auto adaptor = vtkSmartPointer<Autocorrelation>::New();
+  auto adaptor = svtkSmartPointer<Autocorrelation>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adaptor->SetCommunicator(this->Comm);
@@ -868,7 +880,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   int verbose = node.attribute("verbose").as_int(0);
   unsigned int frequency = node.attribute("frequency").as_uint(0);
 
-  auto adaptor = vtkSmartPointer<VTKPosthocIO>::New();
+  auto adaptor = svtkSmartPointer<VTKPosthocIO>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adaptor->SetCommunicator(this->Comm);
@@ -913,7 +925,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
   std::string fileName = node.attribute("file_name").as_string("data");
   std::string mode = node.attribute("mode").as_string("visit");
 
-  auto adapter = vtkSmartPointer<VTKAmrWriter>::New();
+  auto adapter = svtkSmartPointer<VTKAmrWriter>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adapter->SetCommunicator(this->Comm);
@@ -958,7 +970,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
   if (inode)
     initSource = inode.text().as_string();
 
-  auto pyAnalysis = vtkSmartPointer<PythonAnalysis>::New();
+  auto pyAnalysis = svtkSmartPointer<PythonAnalysis>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     pyAnalysis->SetCommunicator(this->Comm);
@@ -1000,7 +1012,7 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
   oss << "Configured SliceExtract ";
 
   // initialize the slice extract
-  auto adaptor = vtkSmartPointer<SliceExtract>::New();
+  auto adaptor = svtkSmartPointer<SliceExtract>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     adaptor->SetCommunicator(this->Comm);
@@ -1084,7 +1096,7 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
     std::string arrayCenStr = valsNode.attribute("array_centering").as_string();
 
     int arrayCen = 0;
-    if (VTKUtils::GetAssociation(arrayCenStr.c_str(), arrayCen))
+    if (SVTKUtils::GetAssociation(arrayCenStr.c_str(), arrayCen))
       return -1;
 
     adaptor->SetIsoValues(meshName, arrayName, arrayCen, isoVals);
@@ -1117,8 +1129,51 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 #endif
 }
 
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
+{
+#if !defined(ENABLE_VTK_FILTERS)
+  (void)node;
+  SENSEI_ERROR("Calculator requested but is disabled in this build")
+  return -1;
+#else
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "expression") ||
+      XMLUtils::RequireAttribute(node, "result"))
+    {
+    SENSEI_ERROR("Failed to initialize Calculator");
+    return -1;
+    }
 
+  int association = 0;
+  std::string assocStr = node.attribute("association").as_string("point");
+  if (VTKUtils::GetAssociation(assocStr, association))
+    {
+    SENSEI_ERROR("Failed to initialize Calculator");
+    return -1;
+    }
 
+  std::string mesh = node.attribute("mesh").value();
+  std::string expression = node.attribute("expression").value();
+  std::string result = node.attribute("result").value();
+
+  auto calculator = vtkSmartPointer<Calculator>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    calculator->SetCommunicator(this->Comm);
+
+  this->TimeInitialization(calculator, [&]() {
+      calculator->Initialize(mesh, association, expression, result);
+      return 0;
+    });
+  this->Analyses.push_back(calculator.GetPointer());
+
+  SENSEI_STATUS("Configured calculator with expression '" << expression
+    << "' on mesh '" << mesh << "' to generate '" << result << "' on "
+    << assocStr);
+
+  return 0;
+#endif
+}
 
 //----------------------------------------------------------------------------
 senseiNewMacro(ConfigurableAnalysis);
@@ -1196,11 +1251,12 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
-      || ((type == "vtkmcontour") && !this->Internals->AddVTKmContour(node))
-      || ((type == "vtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
+      || ((type == "svtkmcontour") && !this->Internals->AddVTKmContour(node))
+      || ((type == "svtkmhaar") && !this->Internals->AddVTKmVolumeReduction(node))
       || ((type == "cdf") && !this->Internals->AddVTKmCDF(node))
       || ((type == "python") && !this->Internals->AddPythonAnalysis(node))
-      || ((type == "SliceExtract") && !this->Internals->AddSliceExtract(node))))
+      || ((type == "SliceExtract") && !this->Internals->AddSliceExtract(node))
+      || ((type == "calculator") && !this->Internals->AddCalculator(node))))
       {
       SENSEI_ERROR("Failed to add \"" << type << "\" analysis")
       MPI_Abort(this->GetCommunicator(), -1);
@@ -1228,8 +1284,16 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 }
 
 //----------------------------------------------------------------------------
-bool ConfigurableAnalysis::Execute(DataAdaptor* data)
+bool ConfigurableAnalysis::Execute(DataAdaptor* data, DataAdaptor*& result)
 {
+  result = nullptr;
+
+  // Currently, we'll assume that only 1 analysis adaptor will generate
+  // non-null result to report as the result; in case of multiple, the last one wins.
+  // In future, we can extend the XML
+  // specification to support identifying which analysis generates results of
+  // interest and potentially how results are propagated between analyses.
+
   TimeEvent<128> event("ConfigurableAnalysis::Execute");
 
   int ai = 0;
@@ -1245,7 +1309,7 @@ bool ConfigurableAnalysis::Execute(DataAdaptor* data)
       Profiler::StartEvent(analysisName);
       }
 
-    if (!(*iter)->Execute(data))
+    if (!(*iter)->Execute(data, result))
       {
       SENSEI_ERROR("Failed to execute " << (*iter)->GetClassName())
       MPI_Abort(this->GetCommunicator(), -1);
@@ -1290,7 +1354,7 @@ int ConfigurableAnalysis::Finalize()
 }
 
 //----------------------------------------------------------------------------
-void ConfigurableAnalysis::PrintSelf(ostream& os, vtkIndent indent)
+void ConfigurableAnalysis::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

@@ -5,12 +5,12 @@
 
 #include "Particles.h"
 
-class vtkDataArray;
+class svtkDataArray;
 
 namespace oscillators
 {
 
-class DataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT DataAdaptor : public sensei::DataAdaptor
 {
 public:
   static DataAdaptor* New();
@@ -45,12 +45,12 @@ public:
   int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md) override;
 
   int GetMesh(const std::string &meshName, bool structureOnly,
-    vtkDataObject *&mesh) override;
+    svtkDataObject *&mesh) override;
 
-  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
-  int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
+  int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName) override;
 
   int ReleaseData() override;
 
@@ -58,9 +58,9 @@ protected:
   DataAdaptor();
   ~DataAdaptor();
 
-  vtkDataArray*  CreateGhostCellsArray(int cc) const;
+  svtkDataArray*  CreateGhostCellsArray(int cc) const;
 
-  vtkDataObject* GetParticlesBlock(int gid, bool structureOnly);
+  svtkDataObject* GetParticlesBlock(int gid, bool structureOnly);
 
 private:
   DataAdaptor(const DataAdaptor&); // not implemented.

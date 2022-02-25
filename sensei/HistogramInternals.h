@@ -3,8 +3,8 @@
 
 // #define SENSEI_DEBUG 1
 
-class vtkUnsignedCharArray;
-class vtkDataArray;
+class svtkUnsignedCharArray;
+class svtkDataArray;
 
 #include <mpi.h>
 #include <string>
@@ -51,7 +51,7 @@ public:
     int Initialize();
 
     /** add block local contributions */
-    int AddLocalData(vtkDataArray *da, vtkUnsignedCharArray *ghostArray);
+    int AddLocalData(svtkDataArray *da, svtkUnsignedCharArray *ghostArray);
 
     /** compute the histogram. this call uses MPI collectives, all ranks must
      * participate */
@@ -85,8 +85,8 @@ private:
   double Min;
   double Max;
   double Width;
-  std::map<vtkDataArray*, std::shared_ptr<void>> DataCache;
-  std::map<vtkDataArray*, std::shared_ptr<unsigned char>> GhostCache;
+  std::map<svtkDataArray*, std::shared_ptr<void>> DataCache;
+  std::map<svtkDataArray*, std::shared_ptr<unsigned char>> GhostCache;
   std::shared_ptr<unsigned int> Histogram;
 };
 

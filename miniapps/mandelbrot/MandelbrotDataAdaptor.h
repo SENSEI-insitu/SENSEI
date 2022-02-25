@@ -4,9 +4,9 @@
 #include <sensei/DataAdaptor.h>
 #include "simulation_data.h"
 
-class vtkDataArray;
+class svtkDataArray;
 
-class MandelbrotDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT MandelbrotDataAdaptor : public sensei::DataAdaptor
 {
 public:
   static MandelbrotDataAdaptor* New();
@@ -24,12 +24,12 @@ public:
   int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) override;
 
   int GetMesh(const std::string &meshName, bool structureOnly,
-    vtkDataObject *&mesh) override;
+    svtkDataObject *&mesh) override;
 
-  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
-  int AddGhostCellsArray(vtkDataObject* mesh,
+  int AddGhostCellsArray(svtkDataObject* mesh,
     const std::string &meshName) override;
 
   int ReleaseData() override;

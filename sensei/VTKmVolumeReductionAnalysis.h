@@ -9,7 +9,7 @@ namespace sensei
 {
 class CinemaHelper;
 
-class VTKmVolumeReductionAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT VTKmVolumeReductionAnalysis : public AnalysisAdaptor
 {
 public:
   static VTKmVolumeReductionAnalysis* New();
@@ -23,7 +23,7 @@ public:
     int reductionFactor,
     MPI_Comm comm);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   int Finalize() override { return 0; }
 

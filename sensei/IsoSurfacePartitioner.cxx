@@ -1,7 +1,7 @@
 #include "IsoSurfacePartitioner.h"
 #include "XMLUtils.h"
 #include "STLUtils.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Profiler.h"
 
 #include <array>
@@ -139,7 +139,7 @@ int IsoSurfacePartitioner::GetPartition(MPI_Comm comm,
     if (verbose > 1)
       {
       oss << it;
-      VTKUtils::WriteDomainDecomp(comm, mdOut,
+      SVTKUtils::WriteDomainDecomp(comm, mdOut,
         "iso_surface_partitioner_receiver_decomp_" + oss.str() + ".vtu");
       oss.str("");
       }

@@ -1,0 +1,10 @@
+# List of wrapped classes in SVTK.
+
+
+SVTKClassList = [
+    @SVTK_CLASSES@
+    ]
+
+
+def get_svtk_classes():
+    return SVTKClassList

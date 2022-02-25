@@ -13,7 +13,7 @@ class DataAdaptor;
 
 // An associative container mapping mesh names to metadata
 // and data object id
-class MeshMetadataMap
+class SENSEI_EXPORT MeshMetadataMap
 {
 public:
   // initialize the map by getting metadata for all of the

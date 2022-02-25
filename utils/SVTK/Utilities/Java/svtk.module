@@ -1,0 +1,10 @@
+NAME
+  SVTK::Java
+LIBRARY_NAME
+  svtkJava
+DEPENDS
+  SVTK::CommonCore
+TEST_DEPENDS
+  SVTK::RenderingOpenGL2
+  SVTK::TestingRendering
+EXCLUDE_WRAP

@@ -1,0 +1,16 @@
+NAME
+  SVTK::CommonSystem
+LIBRARY_NAME
+  svtkCommonSystem
+DESCRIPTION
+  Filesystem and networking support
+KIT
+  SVTK::Common
+GROUPS
+  StandAlone
+DEPENDS
+  SVTK::CommonCore
+PRIVATE_DEPENDS
+  SVTK::svtksys
+TEST_DEPENDS
+  SVTK::TestingCore

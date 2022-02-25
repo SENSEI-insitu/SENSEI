@@ -19,7 +19,7 @@ namespace sensei
  * meshes and the arrays to write from each mesh. File names are derived using
  * the output directory, the mesh name, and the mode.
  */
-class VTKAmrWriter : public AnalysisAdaptor
+class SENSEI_EXPORT VTKAmrWriter : public AnalysisAdaptor
 {
 public:
   /// constructs a new VTKAmrWriter
@@ -61,12 +61,12 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
-  /// Must be called before ::Execute to configure for the run.
+  /// Must be called before Execute to configure for the run.
   int Initialize();
   /// @}
 
   /// Invokes the write.
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /** Finalizes output, flushes buffers, creates metadata files, and closes all
    * streams.

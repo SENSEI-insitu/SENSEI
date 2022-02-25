@@ -140,7 +140,7 @@ template <> struct PyTT<std::string>
 
 
 // container that keeps a reference to a PyObject
-class PyObjectPointer
+class SENSEI_EXPORT PyObjectPointer
 {
 public:
   PyObjectPointer() : Object(nullptr) {}
@@ -190,7 +190,7 @@ private:
 
 
 // container that keeps a Python callable object
-class PyCallablePointer : public PyObjectPointer
+class SENSEI_EXPORT PyCallablePointer : public PyObjectPointer
 {
 public:
   PyCallablePointer() : PyObjectPointer() {}

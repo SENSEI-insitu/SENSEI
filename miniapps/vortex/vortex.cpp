@@ -14,8 +14,8 @@
 #include "simulation_data.h"
 #include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
-#include <vtkNew.h>
-#include <vtkSmartPointer.h>
+#include <svtkNew.h>
+#include <svtkSmartPointer.h>
 
 #include <Profiler.h>
 #include <ConfigurableAnalysis.h>
@@ -701,13 +701,13 @@ int main(int argc, char **argv)
 
     sensei::Profiler::StartEvent("vortex::initialize");
     // Initialize in situ
-    vtkSmartPointer<VortexDataAdaptor> dataAdaptor;
-    dataAdaptor = vtkSmartPointer<VortexDataAdaptor>::New();
+    svtkSmartPointer<VortexDataAdaptor> dataAdaptor;
+    dataAdaptor = svtkSmartPointer<VortexDataAdaptor>::New();
     dataAdaptor->Initialize(&sim);
     dataAdaptor->SetDataTimeStep(-1);
 
-    vtkSmartPointer<sensei::ConfigurableAnalysis> analysisAdaptor;
-    analysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
+    svtkSmartPointer<sensei::ConfigurableAnalysis> analysisAdaptor;
+    analysisAdaptor = svtkSmartPointer<sensei::ConfigurableAnalysis>::New();
     analysisAdaptor->SetCommunicator(MPI_COMM_WORLD);
     analysisAdaptor->Initialize(config_file);
     
@@ -779,7 +779,8 @@ int main(int argc, char **argv)
         dataAdaptor->SetDataTime(sim.time);
         dataAdaptor->SetDataTimeStep(sim.cycle);
         sensei::Profiler::StartEvent("vortex::analyze");
-        analysisAdaptor->Execute(dataAdaptor.GetPointer());
+        sensei::DataAdaptor* reply = nullptr;
+        analysisAdaptor->Execute(dataAdaptor.GetPointer(), reply);
         sensei::Profiler::EndEvent("vortex::analyze");
 
         sensei::Profiler::StartEvent("vortex::analyze::release-data");

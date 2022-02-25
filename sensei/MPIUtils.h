@@ -40,7 +40,7 @@ void GlobalCounts(MPI_Comm comm, std::vector<cpp_t> &vec)
 // that bounds a collection of distrubted axis aligned bounding
 // boxes
 //
-// these can be integer index space bounds (ie VTK extents)
+// these can be integer index space bounds (ie SVTK extents)
 // or floating point world cooridnate system bounds, but for
 // index space bounds a signed integer type is required.
 //

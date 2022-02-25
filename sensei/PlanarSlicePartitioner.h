@@ -15,7 +15,7 @@ using PlanarSlicePartitionerPtr = std::shared_ptr<sensei::PlanarSlicePartitioner
 /// defined by a given point and normal. This blocks are partitioned
 /// in consecutive blocks to ranks such that each rank gets approximately
 /// the same number. Ranks will differ by at most 1 block.
-class PlanarSlicePartitioner : public sensei::Partitioner
+class SENSEI_EXPORT PlanarSlicePartitioner : public sensei::Partitioner
 {
 public:
   static sensei::PlanarSlicePartitionerPtr New()

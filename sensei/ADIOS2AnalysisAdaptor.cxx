@@ -3,33 +3,33 @@
 #include "ADIOS2Schema.h"
 #include "DataAdaptor.h"
 #include "MeshMetadataMap.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "MPIUtils.h"
 #include "XMLUtils.h"
 #include "Profiler.h"
 #include "Error.h"
 
-#include <vtkCellTypes.h>
-#include <vtkCellData.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkIntArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkCharArray.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkCellArray.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkPolyData.h>
-#include <vtkImageData.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
+#include <svtkCellTypes.h>
+#include <svtkCellData.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkIntArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkCharArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkCellArray.h>
+#include <svtkUnstructuredGrid.h>
+#include <svtkPolyData.h>
+#include <svtkImageData.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkSmartPointer.h>
 
 #include <mpi.h>
 #include <vector>
@@ -74,12 +74,10 @@ int ADIOS2AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
   return 0;
 }
 
-
-
 //-----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::FetchFromProducer(
   sensei::DataAdaptor *dataAdaptor,
-  std::vector<vtkCompositeDataSet*> &objects,
+  std::vector<svtkCompositeDataSetPtr> &objects,
   std::vector<MeshMetadataPtr> &metadata)
 {
   // figure out what the simulation can provide. include the full
@@ -120,7 +118,7 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
     mdOut->ClearArrayInfo();
 
     // get the mesh
-    vtkCompositeDataSet *dobj = nullptr;
+    svtkDataObject *dobj = nullptr;
     if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
@@ -128,7 +126,7 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
       }
 
     // add the ghost cell arrays to the mesh
-    if ((mdIn->NumGhostCells || VTKUtils::AMR(mdIn)) &&
+    if ((mdIn->NumGhostCells || SVTKUtils::AMR(mdIn)) &&
         dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
@@ -155,7 +153,7 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
          ait.Association(), arrayName))
         {
         SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
+          << SVTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << arrayName << "\" to mesh \""
           << mit.MeshName() << "\"")
         return false;
@@ -166,10 +164,14 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 
     // generate a global view of the metadata. everything we do from here
     // on out depends on having the global view.
-    mdOut->GlobalizeView(this->GetCommunicator());
+    MPI_Comm comm = this->GetCommunicator();
+    mdOut->GlobalizeView(comm);
+
+    // ensure a composite data object
+    svtkCompositeDataSetPtr cds = sensei::SVTKUtils::AsCompositeData(comm, dobj);
 
     // add to the collection
-    objects.push_back(dobj);
+    objects.push_back(cds);
     metadata.push_back(mdOut);
 
     ++mit;
@@ -179,13 +181,14 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency) 
+int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency)
 {
   this->Frequency = frequency;
+  return 0;
 }
 
 //----------------------------------------------------------------------------
-bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   long step = dataAdaptor->GetDataTimeStep();
 
@@ -209,7 +212,7 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     }
 
   // collect the specified data objects and metadata
-  std::vector<vtkCompositeDataSet*> objects;
+  std::vector<svtkCompositeDataSetPtr> objects;
   std::vector<MeshMetadataPtr> metadata;
 
   if (this->FetchFromProducer(dataAdaptor, objects, metadata))
@@ -218,7 +221,7 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     return false;
     }
 
-  // set everything up the first time trhough
+  // set everything up the first time through
   if (!this->Schema)
     this->InitializeADIOS2();
 
@@ -228,10 +231,6 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   if (this->DefineVariables(metadata) ||
     this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
-
-  unsigned int n_objects = objects.size();
-  for (unsigned int i = 0; i < n_objects; ++i)
-    objects[i]->Delete();
 
   return true;
 }
@@ -477,7 +476,7 @@ int ADIOS2AnalysisAdaptor::Finalize()
 //----------------------------------------------------------------------------
 int ADIOS2AnalysisAdaptor::WriteTimestep(unsigned long timeStep,
   double time, const std::vector<MeshMetadataPtr> &metadata,
-  const std::vector<vtkCompositeDataSet*> &objects)
+  const std::vector<svtkCompositeDataSetPtr> &objects)
 {
   TimeEvent<128> mark("ADIOS2AnalysisAdaptor::WriteTimestep");
 

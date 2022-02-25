@@ -6,30 +6,30 @@
 #include "MPIUtils.h"
 #include "MeshMetadataMap.h"
 #include "Profiler.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 
-#include <vtkCellArray.h>
-#include <vtkCellData.h>
-#include <vtkCellTypes.h>
-#include <vtkCharArray.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkImageData.h>
-#include <vtkInformation.h>
-#include <vtkIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkPolyData.h>
-#include <vtkSmartPointer.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkUnstructuredGrid.h>
+#include <svtkCellArray.h>
+#include <svtkCellData.h>
+#include <svtkCellTypes.h>
+#include <svtkCharArray.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkImageData.h>
+#include <svtkInformation.h>
+#include <svtkIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkPolyData.h>
+#include <svtkSmartPointer.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkUnstructuredGrid.h>
 
 #include <mpi.h>
 #include <vector>
@@ -71,7 +71,7 @@ int HDF5AnalysisAdaptor::AddDataRequirement(
 }
 
 //----------------------------------------------------------------------------
-bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("HDF5AnalysisAdaptor::Execute");
 
@@ -98,7 +98,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       MeshMetadataPtr older;
       mdm.GetMeshMetadata(i, older);
 
-      if (older->BlockType == VTK_IMAGE_DATA) 
+      if (older->BlockType == SVTK_IMAGE_DATA) 
       {
 	MeshMetadataPtr curr = sensei::MeshMetadata::New();;
 	flags.SetBlockExtents();
@@ -144,7 +144,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   // senseiHDF5::HDF5GroupGuard g(this->m_HDF5Writer->m_TimeStepGroupId);
 
   // collect the specified data objects and metadata
-  // std::vector<vtkCompositeDataSet*> objects;
+  // std::vector<svtkCompositeDataSet*> objects;
 
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
@@ -163,7 +163,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         }
 
       // get the mesh
-      vtkCompositeDataSet* dobj = nullptr;
+      svtkCompositeDataSet* dobj = nullptr;
       if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
         {
           SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"");
@@ -171,7 +171,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
         }
 
       // add the ghost cell arrays to the mesh
-      if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+      if ((md->NumGhostCells || SVTKUtils::AMR(md)) &&
           dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
         {
           SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName()
@@ -198,7 +198,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
                 dobj, mit.MeshName(), ait.Association(), ait.Array()))
             {
               SENSEI_ERROR("Failed to add "
-                           << VTKUtils::GetAttributesName(ait.Association())
+                           << SVTKUtils::GetAttributesName(ait.Association())
                            << " data array \"" << ait.Array() << "\" to mesh \""
                            << mit.MeshName() << "\"");
               return false;
@@ -264,7 +264,7 @@ int HDF5AnalysisAdaptor::Finalize()
 /*
 //----------------------------------------------------------------------------
 bool HDF5AnalysisAdaptor::WriteTimestep(unsigned long timeStep, double time,
-                                      const std::vector<vtkCompositeDataSet*>
+                                      const std::vector<svtkCompositeDataSet*>
 &objects)
 {
 TimeEvent<128> mark("HDF5AnalysisAdaptor::WriteTimestep");
@@ -286,7 +286,7 @@ return ierr;
 }
 */
 //----------------------------------------------------------------------------
-void HDF5AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void HDF5AnalysisAdaptor::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

@@ -7,22 +7,24 @@
 #include <array>
 #include <string>
 
-
-class vtkCompositeDataSet;
+/// @cond
+class svtkCompositeDataSet;
 namespace pugi { class xml_node; }
 namespace sensei { class DataRequirements; }
+/// @endcond
 
 namespace sensei
 {
 
 /// Extract a slice defined by a point and a normal and writes it to disk
-class SliceExtract : public AnalysisAdaptor
+class SENSEI_EXPORT SliceExtract : public AnalysisAdaptor
 {
 public:
   /// Create an instance of SliceExtract
   static SliceExtract *New();
 
   senseiTypeMacro(SliceExtract, AnalysisAdaptor);
+  //void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /// @name Run time configuration
   /// @{
@@ -103,7 +105,7 @@ public:
   /// @}
 
   /// Compute a slice and write it to disk.
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Flush and close all open files.
   int Finalize() override;
@@ -113,15 +115,15 @@ private:
     bool ExecuteSlice(DataAdaptor* dataAdaptor);
     bool ExecuteIsoSurface(DataAdaptor* dataAdaptor);
 
-    int Slice(vtkCompositeDataSet *input, const std::array<double,3> &point,
-      const std::array<double,3> &normal, vtkCompositeDataSet *&output);
+    int Slice(svtkCompositeDataSet *input, const std::array<double,3> &point,
+      const std::array<double,3> &normal, svtkCompositeDataSet *&output);
 
-    int IsoSurface(vtkCompositeDataSet *input,
+    int IsoSurface(svtkCompositeDataSet *input,
       const std::string &arrayName, int arrayCen,
-      const std::vector<double> &vals, vtkCompositeDataSet *&output);
+      const std::vector<double> &vals, svtkCompositeDataSet *&output);
 
     int WriteExtract(long timeStep, double time, const std::string &mesh,
-      vtkCompositeDataSet *input);
+      svtkCompositeDataSet *input);
 
 protected:
   SliceExtract();

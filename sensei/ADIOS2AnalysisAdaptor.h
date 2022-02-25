@@ -18,16 +18,16 @@ struct AdiosHandle;
 class DataObjectCollectionSchema;
 }
 
-namespace pugi { class xml_node; }
+class svtkDataObject;
+class svtkCompositeDataSet;
 
-class vtkDataObject;
-class vtkCompositeDataSet;
+namespace pugi { class xml_node; }
 /// @endcond
 
 namespace sensei
 {
 /// The write side of the ADIOS2 transport
-class ADIOS2AnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT ADIOS2AnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   /// constructs a new ADIOS2AnalysisAdaptor instance.
@@ -54,7 +54,7 @@ public:
 
   /** Set the filename.  Default value is "sensei.bp" which is suitable for use
    * with streams or transport engines such as SST. When writing files to disk
-   * using the BP4 engine one could ::SetStepsPerFile to prevent all steps being
+   * using the BP4 engine one could SetStepsPerFile to prevent all steps being
    * accumulated in a single file. In this case one should also use a printf
    * like format specifier compatible with an int type in the file name. For
    * example "sensei_%04d.bp".
@@ -99,7 +99,7 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
-  /** Controls how many calls to ::Execute do nothing between actual I/O and
+  /** Controls how many calls to Execute do nothing between actual I/O and
    * streaming.
    */
   int SetFrequency(unsigned int frequency);
@@ -107,7 +107,7 @@ public:
   /// @}
 
   /// Invokes ADIOS2 based I/O or streaming.
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*& result) override;
 
   /// Shut down and clean up including flushing and closing all streams and files.
   int Finalize() override;
@@ -129,14 +129,14 @@ protected:
   // writes the data collection
   int WriteTimestep(unsigned long timeStep, double time,
     const std::vector<MeshMetadataPtr> &metadata,
-    const std::vector<vtkCompositeDataSet*> &dobjects);
+    const std::vector<svtkCompositeDataSetPtr> &dobjects);
 
   // shuts down ADIOS2
   int FinalizeADIOS2();
 
   // fetch meshes and metadata objects from the simulation
   int FetchFromProducer(sensei::DataAdaptor *da,
-    std::vector<vtkCompositeDataSet*> &objects,
+    std::vector<svtkCompositeDataSetPtr> &objects,
     std::vector<MeshMetadataPtr> &metadata);
 
   senseiADIOS2::DataObjectCollectionSchema *Schema;

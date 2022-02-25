@@ -1,7 +1,7 @@
 #include "PythonAnalysis.h"
 #include "Error.h"
 
-#include <vtkObjectFactory.h>
+#include <svtkObjectFactory.h>
 #include <mpi4py/mpi4py.MPI_api.h>
 #include <string>
 #include <cstdio>
@@ -323,7 +323,7 @@ int PythonAnalysis::Initialize()
   // import the sensei wrapper and mpi4py
   if (runString(this->Internals->Module,
     "from mpi4py import *\n"
-    "from PythonAnalysis import *\n"))
+    "from sensei.PythonAnalysis import *\n"))
     {
     SENSEI_ERROR("Failed to import baseline modules")
     return -1;
@@ -351,7 +351,7 @@ int PythonAnalysis::Initialize()
 }
 
 //-----------------------------------------------------------------------------
-bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor)
+bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor, DataAdaptor*&)
 {
   if (!this->Internals->Execute)
     {

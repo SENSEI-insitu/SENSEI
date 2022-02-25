@@ -1,0 +1,4 @@
+<sensei>
+  <analysis type="PosthocIO" mode="paraview" output_dir="./pv_out" enabled="1" />
+  <analysis type="PosthocIO" mode="visit" output_dir="./visit_out" enabled="1" />
+</sensei>

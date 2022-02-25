@@ -1,0 +1,32 @@
+/*=========================================================================
+
+  Program:   Visualization Toolkit
+  Module:    svtkVersionMacros.h
+
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+  All rights reserved.
+  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
+
+=========================================================================*/
+#ifndef svtkVersionMacros_h
+#define svtkVersionMacros_h
+
+/* Note: this file is deliberately both valid C and valid C++. */
+
+#define SVTK_MAJOR_VERSION @SVTK_MAJOR_VERSION@
+#define SVTK_MINOR_VERSION @SVTK_MINOR_VERSION@
+#define SVTK_BUILD_VERSION @SVTK_BUILD_VERSION@
+#define SVTK_VERSION "@SVTK_VERSION@"
+
+#define SVTK_SOURCE_VERSION "svtk version " SVTK_VERSION
+
+#define SVTK_VERSION_CHECK(major, minor, build)                                                     \
+  (10000000000ULL * major + 100000000ULL * minor + build)
+#define SVTK_VERSION_NUMBER                                                                         \
+  SVTK_VERSION_CHECK(SVTK_MAJOR_VERSION, SVTK_MINOR_VERSION, SVTK_BUILD_VERSION)
+
+#endif

@@ -82,6 +82,7 @@ int MeshMetadata::ToStream(sensei::BinaryStream &str) const
   str.Pack(this->NumPoints);
   str.Pack(this->NumCells);
   str.Pack(this->CellArraySize);
+  str.Pack(this->CellArrayType);
   str.Pack(this->NumArrays);
   str.Pack(this->NumGhostCells);
   str.Pack(this->NumGhostNodes);
@@ -124,6 +125,7 @@ int MeshMetadata::FromStream(sensei::BinaryStream &str)
   str.Unpack(this->NumPoints);
   str.Unpack(this->NumCells);
   str.Unpack(this->CellArraySize);
+  str.Unpack(this->CellArrayType);
   str.Unpack(this->NumArrays);
   str.Unpack(this->NumGhostCells);
   str.Unpack(this->NumGhostNodes);
@@ -165,6 +167,7 @@ int MeshMetadata::ToStream(ostream &str) const
   str << "NumPoints = " << this->NumPoints << std::endl;
   str << "NumCells = " << this->NumCells << std::endl;
   str << "CellArraySize = " << this->CellArraySize << std::endl;
+  str << "CellArrayType = " << this->CellArrayType << std::endl;
   str << "NumArrays = " << this->NumArrays << std::endl;
   str << "NumGhostCells = " << this->NumGhostCells << std::endl;
   str << "NumGhostNodes = " << this->NumGhostNodes << std::endl;
@@ -205,7 +208,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
 
   // an empty dataset is a valid scenario
   // if the dataset is empty there may not be any metadata. for instance
-  // in the VTKDataAdaptor metadata is determined by examining the available
+  // in the SVTKDataAdaptor metadata is determined by examining the available
   // data.
   bool localBlocks = ((this->NumBlocks > 0) ||
     ((this->NumBlocksLocal.size() > 0) && ((this->GlobalView ?
@@ -215,7 +218,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
     return 0;
 
   // figure out what the valid size is in this case
-  bool global = this->GlobalView || (this->MeshType == VTK_OVERLAPPING_AMR);
+  bool global = this->GlobalView || (this->MeshType == SVTK_OVERLAPPING_AMR);
   bool haveLocal = this->NumBlocksLocal.size() > 0;
   bool haveAllLocal = this->NumBlocksLocal.size() == unsigned(nRanks);
   unsigned long validSize = (global || !haveLocal ? this->NumBlocks :
@@ -253,7 +256,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
         << " elements but should have " << validSize)
       err = true;
       }
-    if (((this->BlockType == VTK_UNSTRUCTURED_GRID) || (this->BlockType == VTK_POLY_DATA)) &&
+    if (((this->BlockType == SVTK_UNSTRUCTURED_GRID) || (this->BlockType == SVTK_POLY_DATA)) &&
       (this->BlockCellArraySize.size() != validSize))
       {
       SENSEI_ERROR("Metadata inconsistency. BlockCellArraySize has " << this->BlockCellArraySize.size()
@@ -264,8 +267,8 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
 
   // check block extent
   if ((this->Flags.BlockExtentsSet() || requiredFlags.BlockExtentsSet()) &&
-    ((this->MeshType == VTK_OVERLAPPING_AMR) || (this->BlockType == VTK_IMAGE_DATA) ||
-    (this->BlockType == VTK_RECTILINEAR_GRID) || (this->BlockType == VTK_STRUCTURED_GRID)))
+    ((this->MeshType == SVTK_OVERLAPPING_AMR) || (this->BlockType == SVTK_IMAGE_DATA) ||
+    (this->BlockType == SVTK_RECTILINEAR_GRID) || (this->BlockType == SVTK_STRUCTURED_GRID)))
     {
     if (this->BlockExtents.size() != validSize)
       {
@@ -273,7 +276,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
         << " elements but should have " << validSize)
       err = true;
       }
-    if ((this->MeshType == VTK_OVERLAPPING_AMR) && (this->BlockLevel.size() != validSize))
+    if ((this->MeshType == SVTK_OVERLAPPING_AMR) && (this->BlockLevel.size() != validSize))
       {
       SENSEI_ERROR("Metadata inconsistency. BlockLevel has " << this->BlockLevel.size()
         << " elements but should have " << validSize)
@@ -350,7 +353,7 @@ int MeshMetadata::Validate(MPI_Comm comm, const MeshMetadataFlags &requiredFlags
     }
 
   // check amr specific
-  if (this->MeshType == VTK_OVERLAPPING_AMR)
+  if (this->MeshType == SVTK_OVERLAPPING_AMR)
     {
     if (this->Flags.BlockDecompSet())
       {

@@ -40,7 +40,7 @@ rm -rf ${file}
 echo "testing ${writeMethod} -> ${readMethod}"
 echo "M=${nproc_write} x N=${nproc_read}"
 
-${mpiexec} ${@} ${npflag} ${nproc_write} ${pyexec} ${srcdir}/testADIOS2Write.py ${file} ${writeMethod} ${nits} &
+${mpiexec} ${@} ${npflag} ${nproc_write} ${pyexec} ${srcdir}/testADIOS2Write.py ${writeMethod} ${file} ${stepsPerFile} ${nits} &
 writePid=$!
 
 if [[ "${readMethod}" == "BP4" ]]
@@ -50,5 +50,5 @@ then
   wait ${writePid}
 fi
 
-${mpiexec} ${@} ${npflag} ${nproc_read} ${pyexec} ${srcdir}/testADIOS2Read.py ${file} ${readMethod}
+${mpiexec} ${@} ${npflag} ${nproc_read} ${pyexec} ${srcdir}/testADIOS2Read.py ${readMethod} ${file}
 exit 0

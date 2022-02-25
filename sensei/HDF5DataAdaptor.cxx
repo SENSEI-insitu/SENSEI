@@ -6,14 +6,14 @@
 #include "BlockPartitioner.h"
 #include "MeshMetadata.h"
 #include "Partitioner.h"
-#include "VTKUtils.h"
-#include <vtkCompositeDataIterator.h>
-#include <vtkDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkInformation.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
+#include "SVTKUtils.h"
+#include <svtkCompositeDataIterator.h>
+#include <svtkDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkInformation.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
 
 #include <pugixml.hpp>
 #include <sstream>
@@ -260,7 +260,7 @@ int HDF5DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr& metadata)
 //----------------------------------------------------------------------------
 int HDF5DataAdaptor::GetMesh(const std::string& meshName,
                              bool structureOnly,
-                             vtkDataObject*& mesh)
+                             svtkDataObject*& mesh)
 {
   TimeEvent<128> mark("HDF5DataAdaptor::GetMesh");
 
@@ -277,21 +277,21 @@ int HDF5DataAdaptor::GetMesh(const std::string& meshName,
 }
 
 //----------------------------------------------------------------------------
-int HDF5DataAdaptor::AddGhostNodesArray(vtkDataObject* mesh,
+int HDF5DataAdaptor::AddGhostNodesArray(svtkDataObject* mesh,
                                         const std::string& meshName)
 {
-  return AddArray(mesh, meshName, vtkDataObject::POINT, "vtkGhostType");
+  return AddArray(mesh, meshName, svtkDataObject::POINT, "svtkGhostType");
 }
 
 //----------------------------------------------------------------------------
-int HDF5DataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
+int HDF5DataAdaptor::AddGhostCellsArray(svtkDataObject* mesh,
                                         const std::string& meshName)
 {
-  return AddArray(mesh, meshName, vtkDataObject::CELL, "vtkGhostType");
+  return AddArray(mesh, meshName, svtkDataObject::CELL, "svtkGhostType");
 }
 
 //----------------------------------------------------------------------------
-int HDF5DataAdaptor::AddArray(vtkDataObject* mesh,
+int HDF5DataAdaptor::AddArray(svtkDataObject* mesh,
                               const std::string& meshName,
                               int association,
                               const std::string& arrayName)
@@ -313,7 +313,7 @@ int HDF5DataAdaptor::AddArray(vtkDataObject* mesh,
 
   if (!this->m_HDF5Reader->ReadInArray(meshName, association, arrayName, mesh))
     {
-      SENSEI_ERROR("Failed to read " << VTKUtils::GetAttributesName(association)
+      SENSEI_ERROR("Failed to read " << SVTKUtils::GetAttributesName(association)
                                      << " data array \"" << arrayName
                                      << "\" from mesh \"" << meshName << "\"");
       return -1;

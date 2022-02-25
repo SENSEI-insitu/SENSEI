@@ -32,15 +32,18 @@ namespace CUDAUtils
  *                       MPI rank.
  * @returns              non-zero on error.
  */
+SENSEI_EXPORT
 int GetLocalCudaDevices(MPI_Comm comm, std::deque<int> &localDev);
 
 /// set the CUDA device. returns non-zero on error
 int SetDevice(int deviceId);
 
 /// stop and wait for previuoiusly launched kernels to complete
+SENSEI_EXPORT
 int Synchronize();
 
 /// querry properties for the named CUDA device. retruns non-zero on error
+SENSEI_EXPORT
 int GetLaunchProps(int deviceId,
     int *blockGridMax, int &warpSize,
     int &maxWarpsPerBlock);
@@ -98,6 +101,7 @@ int IndexIsValid(unsigned long index, unsigned long maxIndex)
 //
 // returns:
 //      non zero on error
+SENSEI_EXPORT
 int PartitionThreadBlocks(int deviceId, size_t arraySize,
     int warpsPerBlock, dim3 &blockGrid, int &nBlocks,
     dim3 &threadGrid);
@@ -117,6 +121,7 @@ int PartitionThreadBlocks(int deviceId, size_t arraySize,
 //
 // returns:
 //      non zero on error
+SENSEI_EXPORT
 int PartitionThreadBlocks(size_t arraySize,
     int warpsPerBlock, int warpSize, int *blockGridMax,
     dim3 &blockGrid, int &nBlocks, dim3 &threadGrid);

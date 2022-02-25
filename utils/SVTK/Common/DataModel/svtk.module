@@ -1,0 +1,40 @@
+NAME
+  SVTK::CommonDataModel
+LIBRARY_NAME
+  svtkCommonDataModel
+DESCRIPTION
+  Core data types
+KIT
+  SVTK::Common
+GROUPS
+  StandAlone
+DEPENDS
+  SVTK::CommonCore
+  SVTK::CommonMath
+  SVTK::CommonTransforms
+PRIVATE_DEPENDS
+  SVTK::CommonMisc
+  SVTK::CommonSystem
+  SVTK::svtksys
+TEST_DEPENDS
+  SVTK::ChartsCore
+  SVTK::CommonColor
+  SVTK::CommonExecutionModel
+  SVTK::CommonSystem
+  SVTK::FiltersExtraction
+  SVTK::FiltersGeneric
+  SVTK::FiltersGeometry
+  SVTK::FiltersModeling
+  SVTK::IOGeometry
+  SVTK::IOLegacy
+  SVTK::IOXML
+  SVTK::InteractionStyle
+  SVTK::RenderingContextOpenGL2
+  SVTK::RenderingCore
+  SVTK::RenderingOpenGL2
+  SVTK::TestingCore
+  SVTK::TestingGenericBridge
+  SVTK::TestingRendering
+  SVTK::ViewsContext2D
+TEST_OPTIONAL_DEPENDS
+  SVTK::FiltersPython

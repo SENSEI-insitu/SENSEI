@@ -1,0 +1,6 @@
+if (POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+if (POLICY CMP0127)
+  cmake_policy(SET CMP0127 NEW)
+endif()

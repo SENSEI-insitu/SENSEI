@@ -4,25 +4,25 @@
 #include "IsoSurfacePartitioner.h"
 #include "InTransitDataAdaptor.h"
 #include "VTKPosthocIO.h"
-#include "VTKDataAdaptor.h"
-#include "VTKUtils.h"
+#include "SVTKDataAdaptor.h"
+#include "SVTKUtils.h"
 #include "Profiler.h"
 #include "Error.h"
 
-#include <vtkObjectFactory.h>
-#include <vtkCellData.h>
+#include <svtkObjectFactory.h>
+#include <svtkCellData.h>
+#include <svtkDataObject.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkUniformGridAMRDataIterator.h>
+
 #include <vtkDataObjectAlgorithm.h>
 #include <vtkCellDataToPointData.h>
 #include <vtkContourFilter.h>
 #include <vtkCutter.h>
 #include <vtkPlane.h>
-#include <vtkDataObject.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkUniformGridAMRDataIterator.h>
-
 
 using vtkDataObjectAlgorithmPtr = vtkSmartPointer<vtkDataObjectAlgorithm>;
 using vtkCellDataToPointDataPtr = vtkSmartPointer<vtkCellDataToPointData>;
@@ -194,7 +194,7 @@ int SliceExtract::AddDataRequirement(const std::string &meshName,
 }
 
 // --------------------------------------------------------------------------
-bool SliceExtract::Execute(DataAdaptor* dataAdaptor)
+bool SliceExtract::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("SliceExtract::Execute");
   if (this->Internals->Operation == OP_PLANAR_SLICE)
@@ -218,7 +218,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
   // get the mesh array and iso values
   std::string meshName;
   std::string arrayName;
-  int arrayCentering = vtkDataObject::POINT;
+  int arrayCentering = svtkDataObject::POINT;
   std::vector<double> isoVals;
 
   if (this->Internals->IsoValPartitioner->GetIsoValues(meshName,
@@ -257,7 +257,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // get the mesh
-  vtkCompositeDataSet *dobj = nullptr;
+  svtkCompositeDataSet *dobj = nullptr;
   if (dataAdaptor->GetMesh(meshName, false, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -265,7 +265,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // add the ghost cell arrays to the mesh
-  if ((md->NumGhostCells || VTKUtils::AMR(md)) &&
+  if ((md->NumGhostCells || SVTKUtils::AMR(md)) &&
     dataAdaptor->AddGhostCellsArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
@@ -283,14 +283,14 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
   if (dataAdaptor->AddArray(dobj, meshName, arrayCentering, arrayName))
     {
     SENSEI_ERROR("Failed to add "
-      << VTKUtils::GetAttributesName(arrayCentering)
+      << SVTKUtils::GetAttributesName(arrayCentering)
       << " data array \"" <<arrayName << "\" to mesh \""
       << meshName << "\"")
     return false;
     }
 
   // compute the iso-surfaces
-  vtkCompositeDataSet *isoMesh = nullptr;
+  svtkCompositeDataSet *isoMesh = nullptr;
   if (this->IsoSurface(dobj, arrayName, arrayCentering, isoVals, isoMesh))
     {
     SENSEI_ERROR("Failed to extract slice")
@@ -363,7 +363,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       }
 
     // get the mesh
-    vtkCompositeDataSet *dobj = nullptr;
+    svtkCompositeDataSet *dobj = nullptr;
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -394,7 +394,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
-          << VTKUtils::GetAttributesName(ait.Association())
+          << SVTKUtils::GetAttributesName(ait.Association())
           << " data array \"" << ait.Array() << "\" to mesh \""
           << meshName << "\"")
         return false;
@@ -403,7 +403,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       }
 
     // compute the slice
-    vtkCompositeDataSet *sliceMesh = nullptr;
+    svtkCompositeDataSet *sliceMesh = nullptr;
     std::array<double,3> point, normal;
     this->Internals->SlicePartitioner->GetPoint(point);
     this->Internals->SlicePartitioner->GetNormal(normal);
@@ -435,9 +435,9 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 }
 
 // --------------------------------------------------------------------------
-int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
+int SliceExtract::IsoSurface(svtkCompositeDataSet *input,
   const std::string &arrayName, int arrayCen, const std::vector<double> &vals,
-  vtkCompositeDataSet *&output)
+  svtkCompositeDataSet *&output)
 {
   TimeEvent<128> mark("SliceExtract::IsoSurface");
   // build pipeline
@@ -445,7 +445,7 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
   contour->SetComputeScalars(1);
 
   contour->SetInputArrayToProcess(0, 0, 0,
-    vtkDataObject::FIELD_ASSOCIATION_POINTS, arrayName.c_str());
+    svtkDataObject::FIELD_ASSOCIATION_POINTS, arrayName.c_str());
 
   unsigned int nVals = vals.size();
   contour->SetNumberOfContours(nVals);
@@ -454,33 +454,33 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
 
   // when processing cell data first convert to point data
   vtkCellDataToPointDataPtr cdpd;
-  if (arrayCen == vtkDataObject::CELL)
+  if (arrayCen == svtkDataObject::CELL)
     {
     cdpd = vtkCellDataToPointDataPtr::New();
     cdpd->SetPassCellData(1);
     /* in newer VTK one can select specific arrays to convert
-     * it is important not to convert vtkGhostType.
+     * it is important not to convert svtkGhostType.
     cdpd->SetProcessAllArrays(0);
     cdpd->AddCellDataArray(arrayName.c_str());*/
     contour->SetInputConnection(cdpd->GetOutputPort());
     }
 
   // allocate output
-  vtkCompositeDataIterator *it = input->NewIterator();
+  svtkCompositeDataIterator *it = input->NewIterator();
   it->SetSkipEmptyNodes(0);
 
   unsigned int nBlocks = 0;
   for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
     ++nBlocks;
 
-  vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
+  svtkMultiBlockDataSet *mbds = svtkMultiBlockDataSet::New();
   mbds->SetNumberOfBlocks(nBlocks);
 
-  // VTK's iterators for AMR datasets behave differently than for multiblock
+  // SVTK's iterators for AMR datasets behave differently than for multiblock
   // datasets.  we are going to have to handle AMR data as a special case for
   // now.
-  vtkUniformGridAMRDataIterator *amrIt = dynamic_cast<vtkUniformGridAMRDataIterator*>(it);
-  vtkOverlappingAMR *amrMesh = dynamic_cast<vtkOverlappingAMR*>(input);
+  svtkUniformGridAMRDataIterator *amrIt = dynamic_cast<svtkUniformGridAMRDataIterator*>(it);
+  svtkOverlappingAMR *amrMesh = dynamic_cast<svtkOverlappingAMR*>(input);
 
   // process data
   it->SetSkipEmptyNodes(1);
@@ -501,18 +501,21 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
       bid = it->GetCurrentFlatIndex() - 1;
       }
 
-    vtkDataObject *dobjIn = it->GetCurrentDataObject();
+    svtkDataObject *dobjIn = it->GetCurrentDataObject();
 
     // run the pipeline on the block
-    if (arrayCen == vtkDataObject::CELL)
+    SENSEI_ERROR("TODO conversion from SVTK to VTK data set")
+    /* TODO if (arrayCen == svtkDataObject::CELL)
       cdpd->SetInputData(dobjIn);
     else
-      contour->SetInputData(dobjIn);
+      contour->SetInputData(dobjIn);*/
     contour->SetOutput(nullptr);
     contour->Update();
 
     // save the extract
-    vtkDataObject *dobjOut = contour->GetOutput();
+    SENSEI_ERROR("TODO conversion from VTK to SVTK data set")
+    // TODO svtkDataObject *dobjOut = contour->GetOutput();
+    svtkDataObject *dobjOut = nullptr;
     mbds->SetBlock(bid, dobjOut);
     }
 
@@ -524,9 +527,9 @@ int SliceExtract::IsoSurface(vtkCompositeDataSet *input,
 }
 
 // --------------------------------------------------------------------------
-int SliceExtract::Slice(vtkCompositeDataSet *input,
+int SliceExtract::Slice(svtkCompositeDataSet *input,
   const std::array<double,3> &point, const std::array<double,3> &normal,
-  vtkCompositeDataSet *&output)
+  svtkCompositeDataSet *&output)
 {
   TimeEvent<128> mark("SliceExtract::Slice");
 
@@ -540,14 +543,14 @@ int SliceExtract::Slice(vtkCompositeDataSet *input,
   slice->SetCutFunction(plane.GetPointer());
 
   // allocate output
-  vtkCompositeDataIterator *it = input->NewIterator();
+  svtkCompositeDataIterator *it = input->NewIterator();
   it->SetSkipEmptyNodes(0);
 
   unsigned int nBlocks = 0;
   for (it->InitTraversal(); !it->IsDoneWithTraversal(); it->GoToNextItem())
     ++nBlocks;
 
-  vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
+  svtkMultiBlockDataSet *mbds = svtkMultiBlockDataSet::New();
   mbds->SetNumberOfBlocks(nBlocks);
 
   // process data
@@ -556,15 +559,18 @@ int SliceExtract::Slice(vtkCompositeDataSet *input,
     {
     // get the current block
     unsigned int bid = it->GetCurrentFlatIndex() - 1;
-    vtkDataObject *dobjIn = it->GetCurrentDataObject();
+    svtkDataObject *dobjIn = it->GetCurrentDataObject();
 
     // set up and run the pipeline
-    slice->SetInputData(dobjIn);
+    SENSEI_ERROR("TODO conversion from SVTK to VTK data set")
+    // TODO slice->SetInputData(dobjIn);
     slice->SetOutput(nullptr);
     slice->Update();
 
     // save the extract
-    vtkDataObject *dobjOut = slice->GetOutput();
+    SENSEI_ERROR("TODO conversion from VTK to SVTK data set")
+    // TODO svtkDataObject *dobjOut = slice->GetOutput();
+    svtkDataObject *dobjOut = nullptr;
     mbds->SetBlock(bid, dobjOut);
     }
 
@@ -577,17 +583,18 @@ int SliceExtract::Slice(vtkCompositeDataSet *input,
 
 // --------------------------------------------------------------------------
 int SliceExtract::WriteExtract(long timeStep, double time,
-  const std::string &mesh, vtkCompositeDataSet *input)
+  const std::string &mesh, svtkCompositeDataSet *input)
 {
   TimeEvent<128> mark("SliceExtract::WriteExtract");
 
-  VTKDataAdaptor *dataAdaptor = VTKDataAdaptor::New();
+  SVTKDataAdaptor *dataAdaptor = SVTKDataAdaptor::New();
 
   dataAdaptor->SetDataObject(mesh, input);
   dataAdaptor->SetDataTimeStep(timeStep);
   dataAdaptor->SetDataTime(time);
 
-  if (!this->Internals->Writer->Execute(dataAdaptor))
+  sensei::DataAdaptor *ret = nullptr;
+  if (!this->Internals->Writer->Execute(dataAdaptor, ret))
     {
     SENSEI_ERROR("Failed to write time step " << timeStep)
     return -1;

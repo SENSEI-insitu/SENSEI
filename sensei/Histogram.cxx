@@ -4,16 +4,16 @@
 #include "MeshMetadataMap.h"
 #include "Profiler.h"
 #include "HistogramInternals.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataObject.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkUnsignedCharArray.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataObject.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkUnsignedCharArray.h>
 
 #include <algorithm>
 #include <vector>
@@ -88,7 +88,7 @@ senseiNewMacro(Histogram);
 
 //-----------------------------------------------------------------------------
 Histogram::Histogram() : NumberOfBins(0),
-  Association(vtkDataObject::FIELD_ASSOCIATION_POINTS)
+  Association(svtkDataObject::FIELD_ASSOCIATION_POINTS)
 {
 }
 
@@ -111,15 +111,15 @@ void Histogram::Initialize(int bins, const std::string &meshName,
 //-----------------------------------------------------------------------------
 const char *Histogram::GetGhostArrayName()
 {
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-    return "vtkGhostType";
+#if SVTK_MAJOR_VERSION == 6 && SVTK_MINOR_VERSION == 1
+    return "svtkGhostType";
 #else
-    return vtkDataSetAttributes::GhostArrayName();
+    return svtkDataSetAttributes::GhostArrayName();
 #endif
 }
 
 //-----------------------------------------------------------------------------
-bool Histogram::Execute(DataAdaptor* data)
+bool Histogram::Execute(DataAdaptor* data, DataAdaptor*&)
 {
   TimeEvent<128> mark("Histogram::Execute");
 
@@ -140,7 +140,7 @@ bool Histogram::Execute(DataAdaptor* data)
     }
 
   // get the mesh object
-  vtkDataObject *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (data->GetMesh(this->MeshName, true, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << this->MeshName << "\"")
@@ -197,7 +197,7 @@ bool Histogram::Execute(DataAdaptor* data)
   if (data->AddArray(dobj, this->MeshName, this->Association, this->ArrayName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add "
-      << (this->Association == vtkDataObject::POINT ? "point" : "cell")
+      << (this->Association == svtkDataObject::POINT ? "point" : "cell")
       << " data array \""  << this->ArrayName << "\"")
 
     // abort to avoid deadlocks in collective calls
@@ -206,7 +206,7 @@ bool Histogram::Execute(DataAdaptor* data)
     }
 
   // add the ghost zones
-  if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+  if ((mmd->NumGhostCells || SVTKUtils::AMR(mmd)) &&
     data->AddGhostCellsArray(dobj, this->MeshName))
     {
     SENSEI_ERROR(<< data->GetClassName() << " failed to add ghost cells.")
@@ -224,16 +224,16 @@ bool Histogram::Execute(DataAdaptor* data)
     }
 
   // add all blocks of data
-  vtkCompositeDataSetPtr mesh = VTKUtils::AsCompositeData(comm, dobj, true);
-  vtkSmartPointer<vtkCompositeDataIterator> iter;
+  svtkCompositeDataSetPtr mesh = SVTKUtils::AsCompositeData(comm, dobj, true);
+  svtkSmartPointer<svtkCompositeDataIterator> iter;
   iter.TakeReference(mesh->NewIterator());
   for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
     {
     // get the local mesh
-    vtkDataObject *curObj = iter->GetCurrentDataObject();
+    svtkDataObject *curObj = iter->GetCurrentDataObject();
 
     // get the array to compute histogram for
-    vtkDataArray* array = this->GetArray(curObj, this->ArrayName);
+    svtkDataArray* array = this->GetArray(curObj, this->ArrayName);
     if (!array)
       {
       SENSEI_WARNING("Data block " << iter->GetCurrentFlatIndex()
@@ -243,7 +243,7 @@ bool Histogram::Execute(DataAdaptor* data)
       }
 
     // and get the ghost cell array
-    vtkUnsignedCharArray *ghostArray = dynamic_cast<vtkUnsignedCharArray*>(
+    svtkUnsignedCharArray *ghostArray = dynamic_cast<svtkUnsignedCharArray*>(
       this->GetArray(curObj, this->GetGhostArrayName()));
 
     // add this blocks contribution to the calculation
@@ -299,9 +299,9 @@ bool Histogram::Execute(DataAdaptor* data)
 }
 
 //-----------------------------------------------------------------------------
-vtkDataArray* Histogram::GetArray(vtkDataObject* dobj, const std::string& arrayname)
+svtkDataArray* Histogram::GetArray(svtkDataObject* dobj, const std::string& arrayname)
 {
-  if (vtkFieldData* fd = dobj->GetAttributesAsFieldData(this->Association))
+  if (svtkFieldData* fd = dobj->GetAttributesAsFieldData(this->Association))
     {
     return fd->GetArray(arrayname.c_str());
     }

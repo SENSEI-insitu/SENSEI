@@ -3,7 +3,7 @@ target_include_directories(sDIY SYSTEM INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include>)
 install(TARGETS sDIY EXPORT sDIY)
-install(EXPORT sDIY DESTINATION lib/cmake)
+install(EXPORT sDIY DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/sdiy"
   DESTINATION include)
 
@@ -16,3 +16,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/opts"
 add_subdirectory(pugixml)
 
 #add_subdirectory(ImageTester)
+
+include(SVTKconfig.cmake)
+add_subdirectory(SVTK)
+add_subdirectory(pysvtk)

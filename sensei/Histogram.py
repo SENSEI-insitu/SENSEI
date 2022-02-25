@@ -1,13 +1,13 @@
 import sys
 import numpy as np
-import vtk.util.numpy_support as vtknp
-from vtk import vtkDataObject, vtkCompositeDataSet, vtkMultiBlockDataSet
+import svtk.numpy_support as svtknp
+from svtk import svtkDataObject, svtkCompositeDataSet, svtkMultiBlockDataSet
 
 # default values of control parameters
 numBins = 10
 meshName = ''
 arrayName = ''
-arrayCen = vtkDataObject.POINT
+arrayCen = svtkDataObject.POINT
 outFile = 'hist'
 verbose = True
 
@@ -33,9 +33,9 @@ def Execute(adaptor):
     adaptor.AddArray(mesh, meshName, arrayCen, arrayName)
 
     # force composite data to simplify computations
-    if not isinstance(mesh, vtkCompositeDataSet):
+    if not isinstance(mesh, svtkCompositeDataSet):
         s = comm.Get_size()
-        mb = vtkMultiBlockDataSet()
+        mb = svtkMultiBlockDataSet()
         mb.SetNumberOfBlocks(s)
         mb.SetBlock(r, mesh)
         mesh = mb
@@ -47,10 +47,10 @@ def Execute(adaptor):
     while not it.IsDoneWithTraversal():
         do = it.GetCurrentDataObject()
 
-        atts = do.GetPointData() if arrayCen == vtkDataObject.POINT \
+        atts = do.GetPointData() if arrayCen == svtkDataObject.POINT \
              else do.GetCellData()
 
-        da = vtknp.vtk_to_numpy(atts.GetArray(arrayName))
+        da = svtknp.svtk_to_numpy(atts.GetArray(arrayName))
 
         mn = min(mn, np.min(da))
         mx = max(mx, np.max(da))
@@ -66,10 +66,10 @@ def Execute(adaptor):
     while not it.IsDoneWithTraversal():
         do = it.GetCurrentDataObject()
 
-        atts = do.GetPointData() if arrayCen == vtkDataObject.POINT \
+        atts = do.GetPointData() if arrayCen == svtkDataObject.POINT \
              else do.GetCellData()
 
-        da = vtknp.vtk_to_numpy(atts.GetArray(arrayName))
+        da = svtknp.svtk_to_numpy(atts.GetArray(arrayName))
 
         h,be = np.histogram(da, bins=numBins, range=(mn,mx))
 

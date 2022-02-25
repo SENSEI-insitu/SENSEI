@@ -2,27 +2,32 @@
 #define sensei_AnalysisAdaptor_h
 
 #include "senseiConfig.h"
-#include <vtkObjectBase.h>
+#include <svtkObjectBase.h>
 #include <mpi.h>
 
 namespace sensei
 {
 class DataAdaptor;
 
-/** The base class for data consumers. Implementors will override ::Eexcute,
- * and ::Finalize and can choose to implement an Initialze method. In ::Execute
- * the ::DataAdaptor API is used to fetch simulation data. The fetched data is
+/** The base class for data consumers. Implementors will override Eexcute,
+ * and Finalize and can choose to implement an Initialze method. In Execute
+ * the DataAdaptor API is used to fetch simulation data. The fetched data is
  * transformed as needed by the underlying processing, movement or I/O library.
- * Simulations invoke in situ processing by calling the ::Execute method.
- * Typically simulations will make use of the ::ConfigurableAnalysis.
+ * Simulations invoke in situ processing by calling the Execute method.
+ * Typically simulations will make use of the ConfigurableAnalysis.
+ *
+ * An analysis adaptor can optionally generate an "output" in Execute, and
+ * return it via a DataAdaptor.  Such an output may be used for further
+ * analysis or provide feedback and other control information  back to the
+ * simulation itself.
  */
-class AnalysisAdaptor : public vtkObjectBase
+class SENSEI_EXPORT AnalysisAdaptor : public svtkObjectBase
 {
 public:
-  senseiBaseTypeMacro(AnalysisAdaptor, vtkObjectBase);
+  senseiBaseTypeMacro(AnalysisAdaptor, svtkObjectBase);
 
   /// Prints the current state of the adaptor.
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /// Set the level of verbosity of console output.
   virtual void SetVerbose(int val){ this->Verbose = val; }
@@ -43,17 +48,19 @@ public:
 
   /** Invokes in situ processing, data movement or I/O. The simulation will
    * call this method when data is ready to be processed. Callers will pass a
-   * simulation specific ::DataAdaptor that can be used to fetch the needed
+   * simulation specific sensei::DataAdaptor that can be used to fetch the needed
    * simulation data for processing.
    *
    * @param [in] data the simulation provided data adaptor used to fetch data
    *                  for processing
+   * @param [out] result an optional data adaptor that could be used to fetch
+   *                     data from the analysis
    * @returns false if an error has occurred. Typically this means that in
    *          situ processing is not possible due to misconfiguration or communication
    *          error. In that case callers should abort so as not to waste compute
    *          resources.
    */
-  virtual bool Execute(DataAdaptor* data) = 0;
+  virtual bool Execute(DataAdaptor* data, DataAdaptor*& result) = 0;
 
   /** Clean up and shut down the data consuming library if needed.  This method
    * is called when the run is finsihed clean up and shut down should occur

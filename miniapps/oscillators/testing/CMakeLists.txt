@@ -11,6 +11,17 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
+  if (ENABLE_PYTHON)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml @ONLY)
+  endif()
+
+  senseiAddTest(testOscillatorPythonHistogram
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml
+      ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
+      FEATURES PYTHON)
+
   senseiAddTest(testOscillatorAutocorrelation
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_autocorrelation.xml
@@ -38,6 +49,9 @@ if (BUILD_TESTING)
   if (ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml.in
       ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml @ONLY)
+
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml @ONLY)
   endif()
 
   senseiAddTest(testOscillatorCatalyst
@@ -50,6 +64,19 @@ if (BUILD_TESTING)
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
+      ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
+    FEATURES CATALYST)
+
+  senseiAddTest(testOscillatorCatalystBiDirectional
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml
+      ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
+    FEATURES CATALYST)
+
+  senseiAddTest(testOscillatorCatalystBiDirectionalPar
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 

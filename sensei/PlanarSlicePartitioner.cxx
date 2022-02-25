@@ -1,7 +1,7 @@
 #include "PlanarSlicePartitioner.h"
 #include "XMLUtils.h"
 #include "STLUtils.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Profiler.h"
 
 #include <cstdlib>
@@ -129,7 +129,7 @@ int PlanarSlicePartitioner::GetPartition(MPI_Comm comm,
     if (verbose > 1)
       {
       oss << it;
-      VTKUtils::WriteDomainDecomp(comm, mdOut,
+      SVTKUtils::WriteDomainDecomp(comm, mdOut,
         "planar_slice_partitioner_receiver_decomp_" + oss.str() + ".vtk");
       oss.str();
       }

@@ -1,0 +1,6 @@
+<sensei>
+  <analysis type="catalyst" pipeline="pythonscript"
+    filename="@CMAKE_CURRENT_SOURCE_DIR@/oscillator_catalyst_bidirectional.py" enabled="1">
+    <result producer="calculator" mesh="oscillators" />
+  </analysis>
+</sensei>

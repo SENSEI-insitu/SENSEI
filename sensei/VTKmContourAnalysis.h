@@ -13,7 +13,7 @@ namespace sensei
 /// @class VTKmContourAnalysis
 /// @brief sensei::VTKmContourAnalysis is a AnalysisAdaptor specialization for contouring.
 ///
-class VTKmContourAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT VTKmContourAnalysis : public AnalysisAdaptor
 {
 public:
   static VTKmContourAnalysis* New();
@@ -22,7 +22,7 @@ public:
   void Initialize(const std::string& meshName, const std::string& arrayname,
     double value, bool writeOutput);
 
-  bool Execute(sensei::DataAdaptor* data) override;
+  bool Execute(sensei::DataAdaptor* data, sensei::DataAdaptor*& ) override;
 
   int Finalize() override;
 

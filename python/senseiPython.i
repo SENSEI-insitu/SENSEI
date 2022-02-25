@@ -4,6 +4,7 @@
 %enddef
 %module (docstring=SENSEI_PY_DOC) senseiPython
 %feature("autodoc", "3");
+#pragma SWIG nowarn=302
 
 %{
 #define SWIG_FILE_WITH_INIT
@@ -15,9 +16,12 @@
 #include "LibsimImageProperties.h"
 #include "DataRequirements.h"
 #include "MeshMetadata.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Profiler.h"
 #include <sstream>
+
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 %}
 
 %init %{
@@ -27,26 +31,67 @@ PyEval_InitThreads();
 import_array();
 %}
 
+/* import the SVTK module */
+%{
+#include "svtk.h"
+%}
+%import "svtk.i"
 
 %include <mpi4py/mpi4py.i>
-%include "vtk.i"
+%mpi4py_typemap(Comm, MPI_Comm);
+
 %include "senseiTypeMaps.i"
 %include "senseiSTL.i"
 
-%mpi4py_typemap(Comm, MPI_Comm);
+/* wraps the passed class */
+%define SENSEI_WRAP_ANALYSIS_ADAPTOR(CLASS)
+%{
+#include <CLASS##.h>
+%}
+SVTK_OBJECT_FACTORY(sensei::##CLASS)
+SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
+%ignore sensei::##CLASS::Execute(DataAdaptor*, DataAdaptor*&);
+%extend sensei::##CLASS
+{
+    SENSEI_CONSTRUCTOR(CLASS)
+    SVTK_OBJECT_STR(sensei::##CLASS)
 
+    PyObject *Execute(sensei::DataAdaptor *daIn)
+    {
+        // invoke the analysis
+        sensei::DataAdaptor *daOut = nullptr;
+        int status = self->Execute(daIn, daOut);
+
+        // package the return. first is the status, second is the
+        // optional data adaptor.
+        PyObject *pyDaOut = nullptr;
+        if (daOut)
+        {
+            pyDaOut = SWIG_NewPointerObj((void*)daOut,
+                SWIGTYPE_p_sensei__DataAdaptor, SWIG_POINTER_OWN);
+        }
+        else
+        {
+            pyDaOut = Py_None;
+            Py_INCREF(pyDaOut);
+        }
+
+        PyObject *res = Py_BuildValue("(IN)", status, pyDaOut);
+        return res;
+    }
+};
+%include <CLASS##.h>
+%enddef
+
+/****************************************************************************
+ * comnpile time settings
+ ***************************************************************************/
 %import "senseiConfig.h"
 
 /****************************************************************************
  * timer
  ***************************************************************************/
 %include "Profiler.h"
-
-/****************************************************************************
- * VTK objects used in our API
- ***************************************************************************/
-VTK_SWIG_INTEROP(vtkObjectBase)
-VTK_SWIG_INTEROP(vtkDataObject)
 
 /****************************************************************************
  * DataAdaptor
@@ -97,18 +142,25 @@ VTK_SWIG_INTEROP(vtkDataObject)
 /****************************************************************************
  * AnalysisAdaptor
  ***************************************************************************/
-VTK_DERIVED(AnalysisAdaptor)
+SENSEI_WRAP_ADAPTOR(AnalysisAdaptor)
 
 /****************************************************************************
- * VTKDataAdaptor
+ * SVTKDataAdaptor
  ***************************************************************************/
-SENSEI_DATA_ADAPTOR(VTKDataAdaptor)
+SENSEI_WRAP_DATA_ADAPTOR(SVTKDataAdaptor)
 
 /****************************************************************************
  * ProgrammableDataAdaptor
  ***************************************************************************/
+%{
+#include <ProgrammableDataAdaptor.h>
+%}
+SVTK_OBJECT_FACTORY(sensei::ProgrammableDataAdaptor)
 %extend sensei::ProgrammableDataAdaptor
 {
+  SENSEI_CONSTRUCTOR(ProgrammableDataAdaptor)
+  SVTK_OBJECT_STR(sensei::ProgrammableDataAdaptor)
+  SENSEI_DATA_ADAPTOR_PYTHON_API(sensei::ProgrammableDataAdaptor)
   /* replace the callback setter's. we'll use objects
      that forward to/from a Python callable as there
      is no direct mapping from Python to C/C++ */
@@ -141,24 +193,35 @@ SENSEI_DATA_ADAPTOR(VTKDataAdaptor)
     self->SetReleaseDataCallback(
       senseiPyDataAdaptor::PyReleaseDataCallback(f));
   }
-}
+};
+SVTK_OBJECT_IGNORE_CPP_API(sensei::ProgrammableDataAdaptor)
+SENSEI_DATA_ADAPTOR_IGNORE_CPP_API(sensei::ProgrammableDataAdaptor)
 %ignore sensei::ProgrammableDataAdaptor::SetGetNumberOfMeshesCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetGetMeshMetadataCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetGetMeshCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetAddArrayCallback;
 %ignore sensei::ProgrammableDataAdaptor::SetReleaseDataCallback;
-SENSEI_DATA_ADAPTOR(ProgrammableDataAdaptor)
+%include <ProgrammableDataAdaptor.h>
 
 /****************************************************************************
  * ConfigurableAnalysis
  ***************************************************************************/
-VTK_DERIVED(ConfigurableAnalysis)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(ConfigurableAnalysis)
 
 /****************************************************************************
  * Histogram
  ***************************************************************************/
+%{
+#include <Histogram.h>
+%}
+SVTK_OBJECT_IGNORE_CPP_API(sensei::Histogram)
+SVTK_OBJECT_FACTORY(sensei::Histogram)
+%ignore sensei::Histogram::Data;
+%ignore sensei::Histogram::GetHistogram;
 %extend sensei::Histogram
 {
+    SENSEI_CONSTRUCTOR(Histogram)
+    SVTK_OBJECT_STR(sensei::Histogram)
   /* hide the C++ implementation, as Python doesn't pass by referemce
      and instead return a tuple (min, max, bins) or raise an exception
      if an error occurred */
@@ -181,27 +244,26 @@ VTK_DERIVED(ConfigurableAnalysis)
 
     return retTup;
   }
-}
-%ignore sensei::Histogram::GetHistogram;
-VTK_DERIVED(Histogram)
+};
+%include <Histogram.h>
 
 /****************************************************************************
  * Autocorrelation
  ***************************************************************************/
-VTK_DERIVED(Autocorrelation)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(Autocorrelation)
 
 /****************************************************************************
  * CatalystAnalysisAdaptor
  ***************************************************************************/
 #ifdef ENABLE_CATALYST
-VTK_DERIVED(CatalystAnalysisAdaptor)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(CatalystAnalysisAdaptor)
 #endif
 
 /****************************************************************************
  * LibsimAnalysisAdaptor
  ***************************************************************************/
 #ifdef ENABLE_LIBSIM
-VTK_DERIVED(LibsimAnalysisAdaptor)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(LibsimAnalysisAdaptor)
 %include "LibsimImageProperties.h"
 #endif
 
@@ -209,16 +271,16 @@ VTK_DERIVED(LibsimAnalysisAdaptor)
  * ADIOS1AnalysisAdaptor/DataAdaptor
  ***************************************************************************/
 #ifdef ENABLE_ADIOS1
-VTK_DERIVED(ADIOS1AnalysisAdaptor)
-SENSEI_IN_TRANSIT_DATA_ADAPTOR(ADIOS1DataAdaptor)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(ADIOS1AnalysisAdaptor)
+SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(ADIOS1DataAdaptor)
 #endif
 
 /****************************************************************************
  * ADIOS2AnalysisAdaptor/DataAdaptor
  ***************************************************************************/
 #ifdef ENABLE_ADIOS2
-VTK_DERIVED(ADIOS2AnalysisAdaptor)
-SENSEI_IN_TRANSIT_DATA_ADAPTOR(ADIOS2DataAdaptor)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(ADIOS2AnalysisAdaptor)
+SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(ADIOS2DataAdaptor)
 #endif
 
 
@@ -226,19 +288,19 @@ SENSEI_IN_TRANSIT_DATA_ADAPTOR(ADIOS2DataAdaptor)
 /****************************************************************************
  * VTKPosthocIO
  ***************************************************************************/
-VTK_DERIVED(VTKPosthocIO)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(VTKPosthocIO)
 
 /****************************************************************************
  * VTKAmrWriter
  ***************************************************************************/
 #ifdef ENABLE_VTK_MPI
-VTK_DERIVED(VTKAmrWriter)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(VTKAmrWriter)
 #endif
 
 /****************************************************************************
  * SliceExtract
  ***************************************************************************/
 #ifdef ENABLE_VTK_FILTERS
-VTK_DERIVED(SliceExtract)
+SENSEI_WRAP_ANALYSIS_ADAPTOR(SliceExtract)
 #endif
 #endif

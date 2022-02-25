@@ -2,47 +2,47 @@
 #include "MeshMetadataMap.h"
 #include "BinaryStream.h"
 #include "Partitioner.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "MPIUtils.h"
 #include "Error.h"
 #include "Profiler.h"
 
-#include <vtkCellTypes.h>
-#include <vtkCellData.h>
-#include <vtkCompositeDataIterator.h>
-#include <vtkCompositeDataSet.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkDoubleArray.h>
-#include <vtkFloatArray.h>
-#include <vtkIntArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkLongLongArray.h>
-#include <vtkUnsignedLongLongArray.h>
-#include <vtkCharArray.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkCellArray.h>
-#include <vtkPoints.h>
-#include <vtkPolyData.h>
-#include <vtkStructuredPoints.h>
-#include <vtkStructuredGrid.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkImageData.h>
-#include <vtkUniformGrid.h>
-#include <vtkTable.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkHierarchicalBoxDataSet.h>
-#include <vtkMultiPieceDataSet.h>
-#include <vtkHyperTreeGrid.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkNonOverlappingAMR.h>
-#include <vtkUniformGridAMR.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
+#include <svtkCellTypes.h>
+#include <svtkCellData.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkCompositeDataSet.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkIntArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkLongLongArray.h>
+#include <svtkUnsignedLongLongArray.h>
+#include <svtkCharArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkCellArray.h>
+#include <svtkPoints.h>
+#include <svtkPolyData.h>
+#include <svtkStructuredPoints.h>
+#include <svtkStructuredGrid.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkUnstructuredGrid.h>
+#include <svtkImageData.h>
+#include <svtkUniformGrid.h>
+#include <svtkTable.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkHierarchicalBoxDataSet.h>
+#include <svtkMultiPieceDataSet.h>
+#include <svtkHyperTreeGrid.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkNonOverlappingAMR.h>
+#include <svtkUniformGridAMR.h>
+#include <svtkObjectFactory.h>
+#include <svtkPointData.h>
+#include <svtkSmartPointer.h>
 
 #include <mpi.h>
 
@@ -62,70 +62,70 @@ namespace senseiADIOS1
 // --------------------------------------------------------------------------
 ADIOS_DATATYPES adiosIdType()
 {
-  if (sizeof(vtkIdType) == sizeof(int64_t))
+  if (sizeof(svtkIdType) == sizeof(int64_t))
     {
     return adios_long; // 64 bits
     }
-  else if(sizeof(vtkIdType) == sizeof(int32_t))
+  else if(sizeof(svtkIdType) == sizeof(int32_t))
     {
     return adios_integer; // 32 bits
     }
   else
     {
-    SENSEI_ERROR("No conversion from vtkIdType to ADIOS_DATATYPES")
+    SENSEI_ERROR("No conversion from svtkIdType to ADIOS_DATATYPES")
     MPI_Abort(MPI_COMM_WORLD, -1);
     }
   return adios_unknown;
 }
 
 // --------------------------------------------------------------------------
-ADIOS_DATATYPES adiosType(vtkDataArray* da)
+ADIOS_DATATYPES adiosType(svtkDataArray* da)
 {
-  if (dynamic_cast<vtkFloatArray*>(da))
+  if (dynamic_cast<svtkFloatArray*>(da))
     {
     return adios_real;
     }
-  else if (dynamic_cast<vtkDoubleArray*>(da))
+  else if (dynamic_cast<svtkDoubleArray*>(da))
     {
     return adios_double;
     }
-  else if (dynamic_cast<vtkCharArray*>(da))
+  else if (dynamic_cast<svtkCharArray*>(da))
     {
     return adios_byte;
     }
-  else if (dynamic_cast<vtkIntArray*>(da))
+  else if (dynamic_cast<svtkIntArray*>(da))
     {
     return adios_integer;
     }
-  else if (dynamic_cast<vtkLongArray*>(da))
+  else if (dynamic_cast<svtkLongArray*>(da))
     {
     if (sizeof(long) == 4)
       return adios_integer; // 32 bits
     return adios_long; // 64 bits
     }
-  else if (dynamic_cast<vtkLongLongArray*>(da))
+  else if (dynamic_cast<svtkLongLongArray*>(da))
     {
     return adios_long; // 64 bits
     }
-  else if (dynamic_cast<vtkUnsignedCharArray*>(da))
+  else if (dynamic_cast<svtkUnsignedCharArray*>(da))
     {
     return adios_unsigned_byte;
     }
-  else if (dynamic_cast<vtkUnsignedIntArray*>(da))
+  else if (dynamic_cast<svtkUnsignedIntArray*>(da))
     {
     return adios_unsigned_integer;
     }
-  else if (dynamic_cast<vtkUnsignedLongArray*>(da))
+  else if (dynamic_cast<svtkUnsignedLongArray*>(da))
     {
     if (sizeof(unsigned long) == 4)
       return adios_unsigned_integer; // 32 bits
     return adios_unsigned_long; // 64 bits
     }
-  else if (dynamic_cast<vtkUnsignedLongLongArray*>(da))
+  else if (dynamic_cast<svtkUnsignedLongLongArray*>(da))
     {
     return adios_unsigned_long; // 64 bits
     }
-  else if (dynamic_cast<vtkIdTypeArray*>(da))
+  else if (dynamic_cast<svtkIdTypeArray*>(da))
     {
     return adiosIdType();
     }
@@ -139,50 +139,50 @@ ADIOS_DATATYPES adiosType(vtkDataArray* da)
 }
 
 // --------------------------------------------------------------------------
-ADIOS_DATATYPES adiosType(int vtkt)
+ADIOS_DATATYPES adiosType(int svtkt)
 {
-  switch (vtkt)
+  switch (svtkt)
     {
-    case VTK_FLOAT:
+    case SVTK_FLOAT:
       return adios_real;
       break;
-    case VTK_DOUBLE:
+    case SVTK_DOUBLE:
       return adios_double;
       break;
-    case VTK_CHAR:
+    case SVTK_CHAR:
       return adios_byte;
       break;
-    case VTK_UNSIGNED_CHAR:
+    case SVTK_UNSIGNED_CHAR:
       return adios_byte;
       break;
-    case VTK_INT:
+    case SVTK_INT:
       return adios_integer;
       break;
-    case VTK_UNSIGNED_INT:
+    case SVTK_UNSIGNED_INT:
       return adios_unsigned_integer;
       break;
-    case VTK_LONG:
+    case SVTK_LONG:
       if (sizeof(long) == 4)
         return adios_integer; // 32 bits
       return adios_long; // 64 bits
       break;
-    case VTK_UNSIGNED_LONG:
+    case SVTK_UNSIGNED_LONG:
       if (sizeof(long) == 4)
         return adios_unsigned_integer; // 32 bits
       return adios_unsigned_long; // 64 bits
       break;
-    case VTK_LONG_LONG:
+    case SVTK_LONG_LONG:
       return adios_long;
       break;
-    case VTK_UNSIGNED_LONG_LONG:
+    case SVTK_UNSIGNED_LONG_LONG:
       return adios_unsigned_long; // 64 bits
       break;
-    case VTK_ID_TYPE:
+    case SVTK_ID_TYPE:
       return adiosIdType();
       break;
     default:
       {
-      SENSEI_ERROR("the adios type for vtk type enumeration " << vtkt
+      SENSEI_ERROR("the adios type for svtk type enumeration " << svtkt
         << " is currently not implemented")
       MPI_Abort(MPI_COMM_WORLD, -1);
       }
@@ -223,7 +223,7 @@ int adiosInq(InputStream &iStream, const std::string &path, val_t &val)
   return 0;
 }
 
-// dataset_function takes a vtkDataSet*, it might be nullptr,
+// dataset_function takes a svtkDataSet*, it might be nullptr,
 // does some processing, and returns and integer code.
 //
 // return codes:
@@ -231,16 +231,16 @@ int adiosInq(InputStream &iStream, const std::string &path, val_t &val)
 //  0   : successfully processed the dataset, continue traversal
 //  < 0 : an error occured, report it and end traversal
 using dataset_function =
-  std::function<int(unsigned int,unsigned int,vtkDataSet*)>;
+  std::function<int(unsigned int,unsigned int,svtkDataSet*)>;
 
 // --------------------------------------------------------------------------
 // apply given function to each leaf in the data object.
-int apply(unsigned int doid, unsigned int dsid, vtkDataObject* dobj,
+int apply(unsigned int doid, unsigned int dsid, svtkDataObject* dobj,
   dataset_function &func, int skip_empty=1)
 {
-  if (vtkCompositeDataSet* cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  if (svtkCompositeDataSet* cd = dynamic_cast<svtkCompositeDataSet*>(dobj))
     {
-    vtkSmartPointer<vtkCompositeDataIterator> iter;
+    svtkSmartPointer<svtkCompositeDataIterator> iter;
     iter.TakeReference(cd->NewIterator());
     iter->SetSkipEmptyNodes(skip_empty);
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
@@ -252,7 +252,7 @@ int apply(unsigned int doid, unsigned int dsid, vtkDataObject* dobj,
         return ierr;
       }
     }
-  else if (vtkDataSet *ds = dynamic_cast<vtkDataSet*>(dobj))
+  else if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj))
     {
     int ierr = func(doid, dsid, ds);
 #ifdef ADIOSSchemaDEBUG
@@ -269,13 +269,13 @@ int apply(unsigned int doid, unsigned int dsid, vtkDataObject* dobj,
 // --------------------------------------------------------------------------
 // returns the number of datasets(on this process) with the given type
 template<typename dataset_t>
-unsigned int getNumberOfDatasets(vtkDataObject *dobj)
+unsigned int getNumberOfDatasets(svtkDataObject *dobj)
 {
   unsigned int number_of_datasets = 0;
-  if (vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj))
+  if (svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet*>(dobj))
     {
     // function to count number of datasets of the given type
-    dataset_function func = [&number_of_datasets](unsigned int, unsigned int, vtkDataSet *ds) -> int
+    dataset_function func = [&number_of_datasets](unsigned int, unsigned int, svtkDataSet *ds) -> int
     {
       if (dynamic_cast<dataset_t*>(ds))
         ++number_of_datasets;
@@ -294,12 +294,12 @@ unsigned int getNumberOfDatasets(vtkDataObject *dobj)
 }
 
 // --------------------------------------------------------------------------
-unsigned int getNumberOfDatasets(MPI_Comm comm, vtkDataObject *dobj,
+unsigned int getNumberOfDatasets(MPI_Comm comm, svtkDataObject *dobj,
   int local_only)
 {
   unsigned int number_of_datasets = 0;
   // function that counts number of datasets of any type
-  dataset_function func = [&number_of_datasets](unsigned int, unsigned int, vtkDataSet*) -> int
+  dataset_function func = [&number_of_datasets](unsigned int, unsigned int, svtkDataSet*) -> int
   {
     ++number_of_datasets;
     return 0;
@@ -588,23 +588,23 @@ struct ArraySchema
     const std::vector<int> &block_owner, std::vector<int64_t> &write_ids);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Write(MPI_Comm comm, int64_t fh, unsigned int i,
-    const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
+    const std::string &array_name, int array_cen, svtkCompositeDataSet *dobj,
     unsigned int num_blocks, const std::vector<int> &block_owner,
     const std::vector<int64_t> &writeIds);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
     const std::string &array_name, int centering,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
     unsigned int i, const std::string &array_name, int array_type,
     unsigned long long num_components, int array_cen, unsigned int num_blocks,
     const std::vector<long> &block_num_points,
     const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
-    vtkCompositeDataSet *dobj);
+    svtkCompositeDataSet *dobj);
 
   std::map<std::string,std::vector<int64_t>> WriteIds;
 };
@@ -625,7 +625,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
   MPI_Comm_rank(comm, &rank);
 
   // validate centering
-  if ((array_cen != vtkDataObject::POINT) && (array_cen != vtkDataObject::CELL))
+  if ((array_cen != svtkDataObject::POINT) && (array_cen != svtkDataObject::CELL))
     {
     SENSEI_ERROR("Invalid array centering at array " << i)
     return -1;
@@ -636,7 +636,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
   ans << ons << "data_array_" << i << "/";
 
   // select global size either point or cell data
-  unsigned long long num_elem_total = (array_cen == vtkDataObject::POINT ?
+  unsigned long long num_elem_total = (array_cen == svtkDataObject::POINT ?
     num_points_total : num_cells_total)*num_components;
 
   // global size as a string
@@ -651,7 +651,7 @@ int ArraySchema::DefineVariable(MPI_Comm comm, int64_t gh,
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     // get the block size
-    unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
+    unsigned long long num_elem_local = (array_cen == svtkDataObject::POINT ?
       block_num_points[j] : block_num_cells[j])*num_components;
 
     // define the variable for a local block
@@ -720,15 +720,15 @@ int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
   // define ghost arrays
   if (md->NumGhostCells)
     {
-    if (this->DefineVariable(comm, gh, ons, num_arrays, VTK_UNSIGNED_CHAR,
-      1, vtkDataObject::CELL, num_points_total, num_cells_total, num_blocks,
+    if (this->DefineVariable(comm, gh, ons, num_arrays, SVTK_UNSIGNED_CHAR,
+      1, svtkDataObject::CELL, num_points_total, num_cells_total, num_blocks,
       md->BlockNumPoints, md->BlockNumCells, md->BlockOwner, writeIds))
       return -1;
     num_arrays += 1;
     }
 
   if (md->NumGhostNodes && this->DefineVariable(comm, gh, ons, num_arrays,
-      VTK_UNSIGNED_CHAR, 1, vtkDataObject::POINT, num_points_total,
+      SVTK_UNSIGNED_CHAR, 1, svtkDataObject::POINT, num_points_total,
       num_cells_total, num_blocks, md->BlockNumPoints, md->BlockNumCells,
       md->BlockOwner, writeIds))
       return -1;
@@ -739,7 +739,7 @@ int ArraySchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
-  const std::string &array_name, int array_cen, vtkCompositeDataSet *dobj,
+  const std::string &array_name, int array_cen, svtkCompositeDataSet *dobj,
   unsigned int num_blocks, const std::vector<int> &block_owner,
   const std::vector<int64_t> &writeIds)
 {
@@ -749,7 +749,7 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
-  vtkCompositeDataIterator *it = dobj->NewIterator();
+  svtkCompositeDataIterator *it = dobj->NewIterator();
   it->SetSkipEmptyNodes(0);
   it->InitTraversal();
 
@@ -757,18 +757,18 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
     {
     if (block_owner[j] == rank)
       {
-      vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+      svtkDataSet *ds = dynamic_cast<svtkDataSet*>(it->GetCurrentDataObject());
       if (!ds)
         {
         SENSEI_ERROR("Failed to get block " << j)
         return -1;
         }
 
-      vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
-        dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
-        dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
+      svtkDataSetAttributes *dsa = array_cen == svtkDataObject::POINT ?
+        dynamic_cast<svtkDataSetAttributes*>(ds->GetPointData()) :
+        dynamic_cast<svtkDataSetAttributes*>(ds->GetCellData());
 
-      vtkDataArray *da = dsa->GetArray(array_name.c_str());
+      svtkDataArray *da = dsa->GetArray(array_name.c_str());
       if (!da)
         {
         SENSEI_ERROR("Failed to get array \"" << array_name << "\"")
@@ -778,7 +778,7 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
       adios_write_byid(fh, writeIds[i*num_blocks + j], da->GetVoidPointer(0));
 
       numBytes += da->GetNumberOfTuples()*
-        da->GetNumberOfComponents()*sensei::VTKUtils::Size(da->GetDataType());
+        da->GetNumberOfComponents()*sensei::SVTKUtils::Size(da->GetDataType());
       }
 
     it->GoToNextItem();
@@ -792,7 +792,7 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh, unsigned int i,
 
 // --------------------------------------------------------------------------
 int ArraySchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::ArraySchema::Write");
 
@@ -813,14 +813,14 @@ int ArraySchema::Write(MPI_Comm comm, int64_t fh,
   // write ghost arrays
   if (md->NumGhostCells)
     {
-    if (this->Write(comm, fh, num_arrays, "vtkGhostType", vtkDataObject::CELL,
+    if (this->Write(comm, fh, num_arrays, "svtkGhostType", svtkDataObject::CELL,
       dobj, md->NumBlocks, md->BlockOwner, writeIds))
       return -1;
     num_arrays += 1;
     }
 
   if (md->NumGhostNodes && this->Write(comm, fh, num_arrays,
-    "vtkGhostType", vtkDataObject::POINT, dobj, md->NumBlocks,
+    "svtkGhostType", svtkDataObject::POINT, dobj, md->NumBlocks,
      md->BlockOwner, writeIds))
     return -1;
 
@@ -833,7 +833,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   unsigned long long num_components, int array_cen, unsigned int num_blocks,
   const std::vector<long> &block_num_points,
   const std::vector<long> &block_num_cells, const std::vector<int> &block_owner,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
   sensei::Profiler::StartEvent("senseiADIOS1::ArraySchema::Read");
   long long numBytes = 0ll;
@@ -845,7 +845,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   std::ostringstream ans;
   ans << ons << "data_array_" << i << "/";
 
-  vtkCompositeDataIterator *it = dobj->NewIterator();
+  svtkCompositeDataIterator *it = dobj->NewIterator();
   it->SetSkipEmptyNodes(0);
   it->InitTraversal();
 
@@ -854,7 +854,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     // get the block size
-    unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
+    unsigned long long num_elem_local = (array_cen == svtkDataObject::POINT ?
       block_num_points[j] : block_num_cells[j])*num_components;
 
     // define the variable for a local block
@@ -864,7 +864,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
       uint64_t count = num_elem_local;;
       ADIOS_SELECTION *sel = adios_selection_boundingbox(1, &start, &count);
 
-      vtkDataArray *array = vtkDataArray::CreateDataArray(array_type);
+      svtkDataArray *array = svtkDataArray::CreateDataArray(array_type);
       array->SetNumberOfComponents(num_components);
       array->SetNumberOfTuples(num_elem_local);
       array->SetName(array_name.c_str());
@@ -882,22 +882,22 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 
       adios_selection_delete(sel);
 
-      // pass to vtk
-      vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+      // pass to svtk
+      svtkDataSet *ds = dynamic_cast<svtkDataSet*>(it->GetCurrentDataObject());
       if (!ds)
         {
         SENSEI_ERROR("Failed to get block " << j)
         return -1;
         }
 
-      vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
-        dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
-        dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
+      svtkDataSetAttributes *dsa = array_cen == svtkDataObject::POINT ?
+        dynamic_cast<svtkDataSetAttributes*>(ds->GetPointData()) :
+        dynamic_cast<svtkDataSetAttributes*>(ds->GetCellData());
 
       dsa->AddArray(array);
       array->Delete();
 
-      numBytes += num_elem_local*sensei::VTKUtils::Size(array_type);
+      numBytes += num_elem_local*sensei::SVTKUtils::Size(array_type);
       }
 
     // update the block offset
@@ -916,7 +916,7 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 // --------------------------------------------------------------------------
 int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   const std::string &name, int centering, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::ArraySchema::Read");
 
@@ -924,12 +924,12 @@ int ArraySchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
   unsigned int num_arrays = md->NumArrays;
 
   // read ghost arrays
-  if (name == "vtkGhostType")
+  if (name == "svtkGhostType")
     {
-    unsigned int i = centering == vtkDataObject::CELL ?
+    unsigned int i = centering == svtkDataObject::CELL ?
       num_arrays : num_arrays + 1;
 
-    return this->Read(comm, fh, ons, i, "vtkGhostType", VTK_UNSIGNED_CHAR,
+    return this->Read(comm, fh, ons, i, "svtkGhostType", SVTK_UNSIGNED_CHAR,
       1, centering, num_blocks, md->BlockNumPoints, md->BlockNumCells,
       md->BlockOwner, dobj);
     }
@@ -959,10 +959,10 @@ struct PointSchema
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   std::map<std::string, std::vector<int64_t>> WriteIds;
 };
@@ -971,8 +971,8 @@ struct PointSchema
 int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
-  if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
-    || sensei::VTKUtils::Polydata(md))
+  if (sensei::SVTKUtils::Unstructured(md) || sensei::SVTKUtils::Structured(md)
+    || sensei::SVTKUtils::Polydata(md))
     {
     sensei::TimeEvent<128> mark("senseiADIOS1::PointSchema::DefineVariables");
 
@@ -1036,10 +1036,10 @@ int PointSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int PointSchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
-    || sensei::VTKUtils::Polydata(md))
+  if (sensei::SVTKUtils::Unstructured(md) || sensei::SVTKUtils::Structured(md)
+    || sensei::SVTKUtils::Polydata(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::PointSchema::Write");
     long long numBytes = 0ll;
@@ -1049,7 +1049,7 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
 
     std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1058,18 +1058,18 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
       {
       if (md->BlockOwner[j] == rank)
         {
-        vtkPointSet *ds = dynamic_cast<vtkPointSet*>(it->GetCurrentDataObject());
+        svtkPointSet *ds = dynamic_cast<svtkPointSet*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j)
           return -1;
           }
 
-        vtkDataArray *da = ds->GetPoints()->GetData();
+        svtkDataArray *da = ds->GetPoints()->GetData();
         adios_write_byid(fh, writeIds[j], da->GetVoidPointer(0));
 
         numBytes += da->GetNumberOfTuples()*
-          da->GetNumberOfComponents()*sensei::VTKUtils::Size(da->GetDataType());
+          da->GetNumberOfComponents()*sensei::SVTKUtils::Size(da->GetDataType());
         }
 
       it->GoToNextItem();
@@ -1084,10 +1084,10 @@ int PointSchema::Write(MPI_Comm comm, int64_t fh,
 
 // --------------------------------------------------------------------------
 int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::Unstructured(md) || sensei::VTKUtils::Structured(md)
-    || sensei::VTKUtils::Polydata(md))
+  if (sensei::SVTKUtils::Unstructured(md) || sensei::SVTKUtils::Structured(md)
+    || sensei::SVTKUtils::Polydata(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::PointSchema::Read");
     long long numBytes = 0ll;
@@ -1095,7 +1095,7 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1114,7 +1114,7 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
         uint64_t count = 3*num_local;;
         ADIOS_SELECTION *sel = adios_selection_boundingbox(1, &start, &count);
 
-        vtkDataArray *points = vtkDataArray::CreateDataArray(md->CoordinateType);
+        svtkDataArray *points = svtkDataArray::CreateDataArray(md->CoordinateType);
         points->SetNumberOfComponents(3);
         points->SetNumberOfTuples(num_local);
         points->SetName("points");
@@ -1131,12 +1131,12 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
 
         adios_selection_delete(sel);
 
-        // pass into vtk
-        vtkPoints *pts = vtkPoints::New();
+        // pass into svtk
+        svtkPoints *pts = svtkPoints::New();
         pts->SetData(points);
         points->Delete();
 
-        vtkPointSet *ds = dynamic_cast<vtkPointSet*>(it->GetCurrentDataObject());
+        svtkPointSet *ds = dynamic_cast<svtkPointSet*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j)
@@ -1146,7 +1146,7 @@ int PointSchema::Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
         ds->SetPoints(pts);
         pts->Delete();
 
-        numBytes += count*sensei::VTKUtils::Size(md->CoordinateType);
+        numBytes += count*sensei::SVTKUtils::Size(md->CoordinateType);
         }
 
       // update the block offset
@@ -1172,10 +1172,10 @@ struct UnstructuredCellSchema
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   std::map<std::string, std::vector<int64_t>> TypeWriteIds;
   std::map<std::string, std::vector<int64_t>> ArrayWriteIds;
@@ -1185,7 +1185,7 @@ struct UnstructuredCellSchema
 int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
-  if (sensei::VTKUtils::Unstructured(md))
+  if (sensei::SVTKUtils::Unstructured(md))
     {
     sensei::TimeEvent<128> mark("senseiADIOS1::UnstructuredCellSchema::DefineVariables");
 
@@ -1280,9 +1280,9 @@ int UnstructuredCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::Unstructured(md))
+  if (sensei::SVTKUtils::Unstructured(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::UnstructuredCellSchema");
     long long numBytes = 0ll;
@@ -1293,7 +1293,7 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
     std::vector<int64_t> &arrayWriteIds = this->ArrayWriteIds[md->MeshName];
     std::vector<int64_t> &typeWriteIds = this->TypeWriteIds[md->MeshName];
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1303,22 +1303,22 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
       // read local block
       if (md->BlockOwner[j] ==  rank)
         {
-        vtkUnstructuredGrid *ds =
-          dynamic_cast<vtkUnstructuredGrid*>(it->GetCurrentDataObject());
+        svtkUnstructuredGrid *ds =
+          dynamic_cast<svtkUnstructuredGrid*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j)
           return -1;
           }
 
-        vtkDataArray *cta = ds->GetCellTypesArray();
-        vtkDataArray *ca = ds->GetCells()->GetData();
+        svtkDataArray *cta = ds->GetCellTypesArray();
+        svtkDataArray *ca = ds->GetCells()->GetData();
 
         adios_write_byid(fh, typeWriteIds[j], cta->GetVoidPointer(0));
         adios_write_byid(fh, arrayWriteIds[j], ca->GetVoidPointer(0));
 
-        numBytes += cta->GetNumberOfTuples()*sensei::VTKUtils::Size(cta->GetDataType()) +
-          ca->GetNumberOfTuples()*sensei::VTKUtils::Size(ca->GetDataType());
+        numBytes += cta->GetNumberOfTuples()*sensei::SVTKUtils::Size(cta->GetDataType()) +
+          ca->GetNumberOfTuples()*sensei::SVTKUtils::Size(ca->GetDataType());
         }
       it->GoToNextItem();
       }
@@ -1332,9 +1332,9 @@ int UnstructuredCellSchema::Write(MPI_Comm comm, int64_t fh,
 
 // --------------------------------------------------------------------------
 int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
-  const std::string &ons, const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const std::string &ons, const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::Unstructured(md))
+  if (sensei::SVTKUtils::Unstructured(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::UnstructuredCellSchema::Read");
     long long numBytes = 0ll;
@@ -1342,7 +1342,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1365,7 +1365,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         uint64_t ct_count = num_cells_local;;
         ADIOS_SELECTION *ct_sel = adios_selection_boundingbox(1, &ct_start, &ct_count);
 
-        vtkUnsignedCharArray *cell_types = vtkUnsignedCharArray::New();
+        svtkUnsignedCharArray *cell_types = svtkUnsignedCharArray::New();
         cell_types->SetNumberOfComponents(1);
         cell_types->SetNumberOfTuples(num_cells_local);
         cell_types->SetName("cell_types");
@@ -1387,7 +1387,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         uint64_t ca_count = cell_array_size_local;;
         ADIOS_SELECTION *ca_sel = adios_selection_boundingbox(1, &ca_start, &ca_count);
 
-        vtkIdTypeArray *cell_array = vtkIdTypeArray::New();
+        svtkIdTypeArray *cell_array = svtkIdTypeArray::New();
         cell_array->SetNumberOfComponents(1);
         cell_array->SetNumberOfTuples(cell_array_size_local);
         cell_array->SetName("cell_array");
@@ -1404,24 +1404,24 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         adios_selection_delete(ca_sel);
 
-        vtkUnstructuredGrid *ds =
-          dynamic_cast<vtkUnstructuredGrid*>(it->GetCurrentDataObject());
+        svtkUnstructuredGrid *ds =
+          dynamic_cast<svtkUnstructuredGrid*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j)
           return -1;
           }
         // build locations
-        vtkIdTypeArray *cell_locs = vtkIdTypeArray::New();
+        svtkIdTypeArray *cell_locs = svtkIdTypeArray::New();
         cell_locs->SetNumberOfTuples(num_cells_local);
-        vtkIdType *p_locs = cell_locs->GetPointer(0);
-        vtkIdType *p_cells = cell_array->GetPointer(0);
+        svtkIdType *p_locs = cell_locs->GetPointer(0);
+        svtkIdType *p_cells = cell_array->GetPointer(0);
         p_locs[0] = 0;
         for (unsigned long i = 1; i < num_cells_local; ++i)
           p_locs[i] = p_locs[i-1] + p_cells[p_locs[i-1]] + 1;
 
         // pass types, cell_locs, and cells
-        vtkCellArray *ca = vtkCellArray::New();
+        svtkCellArray *ca = svtkCellArray::New();
         ca->SetCells(num_cells_local, cell_array);
         cell_array->Delete();
 
@@ -1431,7 +1431,7 @@ int UnstructuredCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         cell_array->Delete();
         cell_types->Delete();
 
-        numBytes += ct_count*sizeof(unsigned char) + ca_count*sizeof(vtkIdType);
+        numBytes += ct_count*sizeof(unsigned char) + ca_count*sizeof(svtkIdType);
         }
 
       // update the block offset
@@ -1453,11 +1453,11 @@ struct PolydataCellSchema
     const std::string &ons, const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh,
     const std::string &ons, const sensei::MeshMetadataPtr &md,
-    vtkCompositeDataSet *dobj);
+    svtkCompositeDataSet *dobj);
 
   std::map<std::string, std::vector<int64_t>> TypeWriteIds;
   std::map<std::string, std::vector<int64_t>> ArrayWriteIds;
@@ -1467,7 +1467,7 @@ struct PolydataCellSchema
 int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
-  if (sensei::VTKUtils::Polydata(md))
+  if (sensei::SVTKUtils::Polydata(md))
     {
     sensei::TimeEvent<128> mark("senseiADIOS1::PolydataCellSchema::DefineVariables");
 
@@ -1562,9 +1562,9 @@ int PolydataCellSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::Polydata(md))
+  if (sensei::SVTKUtils::Polydata(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::PolydataCellSchema::Write");
     long long numBytes = 0ll;
@@ -1575,7 +1575,7 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
     std::vector<int64_t> &typeWriteIds = this->TypeWriteIds[md->MeshName];
     std::vector<int64_t> &arrayWriteIds = this->ArrayWriteIds[md->MeshName];
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1584,7 +1584,7 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
       {
       if (md->BlockOwner[j] == rank)
         {
-        vtkPolyData *pd = dynamic_cast<vtkPolyData*>(it->GetCurrentDataObject());
+        svtkPolyData *pd = dynamic_cast<svtkPolyData*>(it->GetCurrentDataObject());
         if (!pd)
           {
           SENSEI_ERROR("Failed to get block " << j << " not polydata")
@@ -1596,44 +1596,44 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
         // way simplifies the file format as we don't need to keep track
         // of all 4 cells arrays.
         std::vector<char> types;
-        std::vector<vtkIdType> cells;
+        std::vector<svtkIdType> cells;
 
-        vtkIdType nv = pd->GetNumberOfVerts();
+        svtkIdType nv = pd->GetNumberOfVerts();
         if (nv)
           {
-          types.insert(types.end(), nv, VTK_VERTEX);
-          vtkIdType *pv = pd->GetVerts()->GetData()->GetPointer(0);
+          types.insert(types.end(), nv, SVTK_VERTEX);
+          svtkIdType *pv = pd->GetVerts()->GetData()->GetPointer(0);
           cells.insert(cells.end(), pv, pv + pd->GetVerts()->GetData()->GetNumberOfTuples());
           }
 
-        vtkIdType nl = pd->GetNumberOfLines();
+        svtkIdType nl = pd->GetNumberOfLines();
         if (nl)
           {
-          types.insert(types.end(), nl, VTK_LINE);
-          vtkIdType *pl = pd->GetLines()->GetData()->GetPointer(0);
+          types.insert(types.end(), nl, SVTK_LINE);
+          svtkIdType *pl = pd->GetLines()->GetData()->GetPointer(0);
           cells.insert(cells.end(), pl, pl + pd->GetLines()->GetData()->GetNumberOfTuples());
           }
 
-        vtkIdType np = pd->GetNumberOfPolys();
+        svtkIdType np = pd->GetNumberOfPolys();
         if (np)
           {
-          types.insert(types.end(), np, VTK_POLYGON);
-          vtkIdType *pp = pd->GetPolys()->GetData()->GetPointer(0);
+          types.insert(types.end(), np, SVTK_POLYGON);
+          svtkIdType *pp = pd->GetPolys()->GetData()->GetPointer(0);
           cells.insert(cells.end(), pp, pp + pd->GetPolys()->GetData()->GetNumberOfTuples());
           }
 
-        vtkIdType ns = pd->GetNumberOfStrips();
+        svtkIdType ns = pd->GetNumberOfStrips();
         if (ns)
           {
-          types.insert(types.end(), ns, VTK_TRIANGLE_STRIP);
-          vtkIdType *ps = pd->GetStrips()->GetData()->GetPointer(0);
+          types.insert(types.end(), ns, SVTK_TRIANGLE_STRIP);
+          svtkIdType *ps = pd->GetStrips()->GetData()->GetPointer(0);
           cells.insert(cells.end(), ps, ps + pd->GetStrips()->GetData()->GetNumberOfTuples());
           }
 
         adios_write_byid(fh, typeWriteIds[j], types.data());
         adios_write_byid(fh, arrayWriteIds[j], cells.data());
 
-        numBytes += types.size()*sizeof(unsigned char) + cells.size()*sizeof(vtkIdType);
+        numBytes += types.size()*sizeof(unsigned char) + cells.size()*sizeof(svtkIdType);
         }
 
       // go to the next block
@@ -1650,9 +1650,9 @@ int PolydataCellSchema::Write(MPI_Comm comm, int64_t fh,
 // --------------------------------------------------------------------------
 int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
   const std::string &ons, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::Polydata(md))
+  if (sensei::SVTKUtils::Polydata(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::PolydataCellSchema::Read");
     long long numBytes = 0ll;
@@ -1660,7 +1660,7 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1677,7 +1677,7 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
       if (md->BlockOwner[j] == rank)
         {
-        std::vector<vtkIdType> cell_array(cell_array_size_local);
+        std::vector<svtkIdType> cell_array(cell_array_size_local);
         std::vector<unsigned char> cell_types(num_cells_local);
 
         uint64_t ct_start = cell_block_offset;
@@ -1715,7 +1715,7 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         adios_selection_delete(ca_sel);
 
         unsigned char *p_types = cell_types.data();
-        vtkIdType *p_cells = cell_array.data();
+        svtkIdType *p_cells = cell_array.data();
 
         // assumptions made here:
         // data is serialized in the order verts, lines, polys, strips
@@ -1723,50 +1723,50 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         // find first and last vert and number of verts
         unsigned long i = 0;
         unsigned long n_verts = 0;
-        vtkIdType *vert_begin = p_cells;
-        while ((i < num_cells_local) && (p_types[i] == VTK_VERTEX))
+        svtkIdType *vert_begin = p_cells;
+        while ((i < num_cells_local) && (p_types[i] == SVTK_VERTEX))
           {
           p_cells += p_cells[0] + 1;
           ++n_verts;
           ++i;
           }
-        vtkIdType *vert_end = p_cells;
+        svtkIdType *vert_end = p_cells;
 
         // find first and last line and number of lines
         unsigned long n_lines = 0;
-        vtkIdType *line_begin = p_cells;
-        while ((i < num_cells_local) && (p_types[i] == VTK_LINE))
+        svtkIdType *line_begin = p_cells;
+        while ((i < num_cells_local) && (p_types[i] == SVTK_LINE))
           {
           p_cells += p_cells[0] + 1;
           ++n_lines;
           ++i;
           }
-        vtkIdType *line_end = p_cells;
+        svtkIdType *line_end = p_cells;
 
         // find first and last poly and number of polys
         unsigned long n_polys = 0;
-        vtkIdType *poly_begin = p_cells;
-        while ((i < num_cells_local) && (p_types[i] == VTK_VERTEX))
+        svtkIdType *poly_begin = p_cells;
+        while ((i < num_cells_local) && (p_types[i] == SVTK_VERTEX))
           {
           p_cells += p_cells[0] + 1;
           ++n_polys;
           ++i;
           }
-        vtkIdType *poly_end = p_cells;
+        svtkIdType *poly_end = p_cells;
 
         // find first and last strip and number of strips
         unsigned long n_strips = 0;
-        vtkIdType *strip_begin = p_cells;
-        while ((i < num_cells_local) && (p_types[i] == VTK_VERTEX))
+        svtkIdType *strip_begin = p_cells;
+        while ((i < num_cells_local) && (p_types[i] == SVTK_VERTEX))
           {
           p_cells += p_cells[0] + 1;
           ++n_strips;
           ++i;
           }
-        vtkIdType *strip_end = p_cells;
+        svtkIdType *strip_end = p_cells;
 
-        // pass into vtk
-        vtkPolyData *pd = dynamic_cast<vtkPolyData*>(it->GetCurrentDataObject());
+        // pass into svtk
+        svtkPolyData *pd = dynamic_cast<svtkPolyData*>(it->GetCurrentDataObject());
         if (!pd)
           {
           SENSEI_ERROR("Failed to get block " << j)
@@ -1775,14 +1775,14 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         // pass verts
         unsigned long n_tups = vert_end - vert_begin;
-        vtkIdTypeArray *verts = vtkIdTypeArray::New();
+        svtkIdTypeArray *verts = svtkIdTypeArray::New();
         verts->SetNumberOfTuples(n_tups);
-        vtkIdType *p_verts = verts->GetPointer(0);
+        svtkIdType *p_verts = verts->GetPointer(0);
 
         for (unsigned long j = 0; j < n_tups; ++j)
           p_verts[j] = vert_begin[j];
 
-        vtkCellArray *ca = vtkCellArray::New();
+        svtkCellArray *ca = svtkCellArray::New();
         ca->SetCells(n_verts, verts);
         verts->Delete();
 
@@ -1791,14 +1791,14 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         // pass lines
         n_tups = line_end - line_begin;
-        vtkIdTypeArray *lines = vtkIdTypeArray::New();
+        svtkIdTypeArray *lines = svtkIdTypeArray::New();
         lines->SetNumberOfTuples(n_tups);
-        vtkIdType *p_lines = lines->GetPointer(0);
+        svtkIdType *p_lines = lines->GetPointer(0);
 
         for (unsigned long j = 0; j < n_tups; ++j)
           p_lines[j] = line_begin[j];
 
-        ca = vtkCellArray::New();
+        ca = svtkCellArray::New();
         ca->SetCells(n_lines, lines);
         lines->Delete();
 
@@ -1807,14 +1807,14 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         // pass polys
         n_tups = poly_end - poly_begin;
-        vtkIdTypeArray *polys = vtkIdTypeArray::New();
+        svtkIdTypeArray *polys = svtkIdTypeArray::New();
         polys->SetNumberOfTuples(n_tups);
-        vtkIdType *p_polys = polys->GetPointer(0);
+        svtkIdType *p_polys = polys->GetPointer(0);
 
         for (unsigned long j = 0; j < n_tups; ++j)
           p_polys[j] = poly_begin[j];
 
-        ca = vtkCellArray::New();
+        ca = svtkCellArray::New();
         ca->SetCells(n_polys, polys);
         polys->Delete();
 
@@ -1823,14 +1823,14 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         // pass strips
         n_tups = strip_end - strip_begin;
-        vtkIdTypeArray *strips = vtkIdTypeArray::New();
+        svtkIdTypeArray *strips = svtkIdTypeArray::New();
         strips->SetNumberOfTuples(n_tups);
-        vtkIdType *p_strips = strips->GetPointer(0);
+        svtkIdType *p_strips = strips->GetPointer(0);
 
         for (unsigned long j = 0; j < n_tups; ++j)
           p_strips[j] = strip_begin[j];
 
-        ca = vtkCellArray::New();
+        ca = svtkCellArray::New();
         ca->SetCells(n_strips, strips);
         strips->Delete();
 
@@ -1839,7 +1839,7 @@ int PolydataCellSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         pd->BuildCells();
 
-        numBytes += ct_count*sizeof(unsigned char) + ca_count*sizeof(vtkIdType);
+        numBytes += ct_count*sizeof(unsigned char) + ca_count*sizeof(svtkIdType);
         }
       // go to the next block
       it->GoToNextItem();
@@ -1865,11 +1865,11 @@ struct LogicallyCartesianSchema
     const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh,
     const std::string &ons, const sensei::MeshMetadataPtr &md,
-    vtkCompositeDataSet *dobj);
+    svtkCompositeDataSet *dobj);
 
   std::map<std::string, std::vector<int64_t>> WriteIds;
 };
@@ -1878,7 +1878,7 @@ struct LogicallyCartesianSchema
 int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
-  if (sensei::VTKUtils::LogicallyCartesian(md))
+  if (sensei::SVTKUtils::LogicallyCartesian(md))
     {
     sensei::TimeEvent<128> mark("senseiADIOS1::LogicallyCartesianSchema::DefineVariables");
 
@@ -1926,9 +1926,9 @@ int LogicallyCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::LogicallyCartesian(md))
+  if (sensei::SVTKUtils::LogicallyCartesian(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::LogicallyCartesianSchema::Write");
     long long numBytes = 0ll;
@@ -1938,7 +1938,7 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 
     std::vector<int64_t> &writeIds = this->WriteIds[md->MeshName];
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -1948,7 +1948,7 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
       // define the variable for a local block
       if (md->BlockOwner[j] ==  rank)
         {
-        vtkDataObject *dobj = it->GetCurrentDataObject();
+        svtkDataObject *dobj = it->GetCurrentDataObject();
         if (!dobj)
           {
           SENSEI_ERROR("Failed to get block " << j)
@@ -1956,18 +1956,18 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
           }
         switch (md->BlockType)
           {
-          case VTK_RECTILINEAR_GRID:
+          case SVTK_RECTILINEAR_GRID:
             adios_write_byid(fh, writeIds[j],
-              dynamic_cast<vtkRectilinearGrid*>(dobj)->GetExtent());
+              dynamic_cast<svtkRectilinearGrid*>(dobj)->GetExtent());
             break;
-          case VTK_IMAGE_DATA:
-          case VTK_UNIFORM_GRID:
+          case SVTK_IMAGE_DATA:
+          case SVTK_UNIFORM_GRID:
             adios_write_byid(fh, writeIds[j],
-              dynamic_cast<vtkImageData*>(dobj)->GetExtent());
+              dynamic_cast<svtkImageData*>(dobj)->GetExtent());
             break;
-          case VTK_STRUCTURED_GRID:
+          case SVTK_STRUCTURED_GRID:
             adios_write_byid(fh, writeIds[j],
-              dynamic_cast<vtkStructuredGrid*>(dobj)->GetExtent());
+              dynamic_cast<svtkStructuredGrid*>(dobj)->GetExtent());
             break;
           }
 
@@ -1986,9 +1986,9 @@ int LogicallyCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 // --------------------------------------------------------------------------
 int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
   const std::string &ons, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::LogicallyCartesian(md))
+  if (sensei::SVTKUtils::LogicallyCartesian(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::LogicallyCartesianSchema::Read");
     long long numBytes = 0ll;
@@ -1996,7 +1996,7 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -2025,8 +2025,8 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         adios_selection_delete(hexplet_sel);
 
-        // update the vtk object
-        vtkDataObject *dobj = it->GetCurrentDataObject();
+        // update the svtk object
+        svtkDataObject *dobj = it->GetCurrentDataObject();
         if (!dobj)
           {
           SENSEI_ERROR("Failed to get block " << j)
@@ -2034,15 +2034,15 @@ int LogicallyCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
           }
         switch (md->BlockType)
           {
-          case VTK_RECTILINEAR_GRID:
-            dynamic_cast<vtkRectilinearGrid*>(dobj)->SetExtent(ext);
+          case SVTK_RECTILINEAR_GRID:
+            dynamic_cast<svtkRectilinearGrid*>(dobj)->SetExtent(ext);
             break;
-          case VTK_IMAGE_DATA:
-          case VTK_UNIFORM_GRID:
-              dynamic_cast<vtkImageData*>(dobj)->SetExtent(ext);
+          case SVTK_IMAGE_DATA:
+          case SVTK_UNIFORM_GRID:
+              dynamic_cast<svtkImageData*>(dobj)->SetExtent(ext);
             break;
-          case VTK_STRUCTURED_GRID:
-              dynamic_cast<vtkStructuredGrid*>(dobj)->SetExtent(ext);
+          case SVTK_STRUCTURED_GRID:
+              dynamic_cast<svtkStructuredGrid*>(dobj)->SetExtent(ext);
             break;
           }
 
@@ -2067,10 +2067,10 @@ struct UniformCartesianSchema
     const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   std::map<std::string, std::vector<int64_t>> OriginWriteIds;
   std::map<std::string, std::vector<int64_t>> SpacingWriteIds;
@@ -2080,7 +2080,7 @@ struct UniformCartesianSchema
 int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
-  if (sensei::VTKUtils::UniformCartesian(md))
+  if (sensei::SVTKUtils::UniformCartesian(md))
     {
     sensei::TimeEvent<128> mark("senseiADIOS1::UniformCartesianSchema::DefineVariables");
 
@@ -2140,9 +2140,9 @@ int UniformCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::UniformCartesian(md))
+  if (sensei::SVTKUtils::UniformCartesian(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::UniformCartesianSchema::Write");
     long long numBytes = 0ll;
@@ -2153,7 +2153,7 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
     std::vector<int64_t> &originWriteIds = this->OriginWriteIds[md->MeshName];
     std::vector<int64_t> &spacingWriteIds = this->SpacingWriteIds[md->MeshName];
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -2163,7 +2163,7 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
       // define the variable for a local block
       if (md->BlockOwner[j] ==  rank)
         {
-        vtkImageData *ds = dynamic_cast<vtkImageData*>(it->GetCurrentDataObject());
+        svtkImageData *ds = dynamic_cast<svtkImageData*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j)
@@ -2189,9 +2189,9 @@ int UniformCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 // --------------------------------------------------------------------------
 int UniformCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
   const std::string &ons, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::UniformCartesian(md))
+  if (sensei::SVTKUtils::UniformCartesian(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::UniformCartesianSchema::Read");
     long long numBytes = 0ll;
@@ -2199,7 +2199,7 @@ int UniformCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -2233,8 +2233,8 @@ int UniformCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
 
         adios_selection_delete(triplet_sel);
 
-        // update the vtk object
-        vtkImageData *ds = dynamic_cast<vtkImageData*>(it->GetCurrentDataObject());
+        // update the svtk object
+        svtkImageData *ds = dynamic_cast<svtkImageData*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j << " not image data")
@@ -2265,10 +2265,10 @@ struct StretchedCartesianSchema
     const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int Read(MPI_Comm comm, ADIOS_FILE *fh, const std::string &ons,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   std::map<std::string, std::vector<int64_t>> XCoordWriteIds;
   std::map<std::string, std::vector<int64_t>> YCoordWriteIds;
@@ -2279,7 +2279,7 @@ struct StretchedCartesianSchema
 int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
   const std::string &ons, const sensei::MeshMetadataPtr &md)
 {
-  if (sensei::VTKUtils::StretchedCartesian(md))
+  if (sensei::SVTKUtils::StretchedCartesian(md))
     {
     sensei::TimeEvent<128> mark("senseiADIOS1::StretchedCartesianSchema::DefineVariables");
 
@@ -2399,9 +2399,9 @@ int StretchedCartesianSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::StretchedCartesian(md))
+  if (sensei::SVTKUtils::StretchedCartesian(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::StretchedCartesianSchema");
     long long numBytes = 0ll;
@@ -2413,7 +2413,7 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
     std::vector<int64_t> &yCoordWriteIds = this->YCoordWriteIds[md->MeshName];
     std::vector<int64_t> &zCoordWriteIds = this->ZCoordWriteIds[md->MeshName];
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -2422,22 +2422,22 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
       {
       if (md->BlockOwner[j] ==  rank)
         {
-        vtkRectilinearGrid *ds = dynamic_cast<vtkRectilinearGrid*>(it->GetCurrentDataObject());
+        svtkRectilinearGrid *ds = dynamic_cast<svtkRectilinearGrid*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j << " not unstructured")
           return -1;
           }
 
-        vtkDataArray *xda = ds->GetXCoordinates();
-        vtkDataArray *yda = ds->GetYCoordinates();
-        vtkDataArray *zda = ds->GetZCoordinates();
+        svtkDataArray *xda = ds->GetXCoordinates();
+        svtkDataArray *yda = ds->GetYCoordinates();
+        svtkDataArray *zda = ds->GetZCoordinates();
 
         adios_write_byid(fh, xCoordWriteIds[j], xda->GetVoidPointer(0));
         adios_write_byid(fh, yCoordWriteIds[j], yda->GetVoidPointer(0));
         adios_write_byid(fh, zCoordWriteIds[j], zda->GetVoidPointer(0));
 
-        long long cts = sensei::VTKUtils::Size(xda->GetDataType());
+        long long cts = sensei::SVTKUtils::Size(xda->GetDataType());
         numBytes += xda->GetNumberOfTuples()*cts +
           yda->GetNumberOfTuples()*cts + zda->GetNumberOfTuples()*cts;
         }
@@ -2454,9 +2454,9 @@ int StretchedCartesianSchema::Write(MPI_Comm comm, int64_t fh,
 // --------------------------------------------------------------------------
 int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
   const std::string &ons, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
-  if (sensei::VTKUtils::StretchedCartesian(md))
+  if (sensei::SVTKUtils::StretchedCartesian(md))
     {
     sensei::Profiler::StartEvent("senseiADIOS1::StretchedCartesianSchema::Read");
     long long numBytes = 0ll;
@@ -2464,7 +2464,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
-    vtkCompositeDataIterator *it = dobj->NewIterator();
+    svtkCompositeDataIterator *it = dobj->NewIterator();
     it->SetSkipEmptyNodes(0);
     it->InitTraversal();
 
@@ -2489,7 +2489,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         uint64_t x_count = nx_local;;
         ADIOS_SELECTION *xc_sel = adios_selection_boundingbox(1, &x_start, &x_count);
 
-        vtkDataArray *x_coords = vtkDataArray::CreateDataArray(md->CoordinateType);
+        svtkDataArray *x_coords = svtkDataArray::CreateDataArray(md->CoordinateType);
         x_coords->SetNumberOfComponents(1);
         x_coords->SetNumberOfTuples(nx_local);
         x_coords->SetName("x_coords");
@@ -2503,7 +2503,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         uint64_t y_count = ny_local;;
         ADIOS_SELECTION *yc_sel = adios_selection_boundingbox(1, &y_start, &y_count);
 
-        vtkDataArray *y_coords = vtkDataArray::CreateDataArray(md->CoordinateType);
+        svtkDataArray *y_coords = svtkDataArray::CreateDataArray(md->CoordinateType);
         y_coords->SetNumberOfComponents(1);
         y_coords->SetNumberOfTuples(ny_local);
         y_coords->SetName("y_coords");
@@ -2517,7 +2517,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         uint64_t z_count = nz_local;;
         ADIOS_SELECTION *zc_sel = adios_selection_boundingbox(1, &z_start, &z_count);
 
-        vtkDataArray *z_coords = vtkDataArray::CreateDataArray(md->CoordinateType);
+        svtkDataArray *z_coords = svtkDataArray::CreateDataArray(md->CoordinateType);
         z_coords->SetNumberOfComponents(1);
         z_coords->SetNumberOfTuples(nz_local);
         z_coords->SetName("z_coords");
@@ -2536,8 +2536,8 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         adios_selection_delete(yc_sel);
         adios_selection_delete(zc_sel);
 
-        // update the vtk object
-        vtkRectilinearGrid *ds = dynamic_cast<vtkRectilinearGrid*>(it->GetCurrentDataObject());
+        // update the svtk object
+        svtkRectilinearGrid *ds = dynamic_cast<svtkRectilinearGrid*>(it->GetCurrentDataObject());
         if (!ds)
           {
           SENSEI_ERROR("Failed to get block " << j)
@@ -2552,7 +2552,7 @@ int StretchedCartesianSchema::Read(MPI_Comm comm, ADIOS_FILE *fh,
         y_coords->Delete();
         z_coords->Delete();
 
-        long long cts = sensei::VTKUtils::Size(md->CoordinateType);
+        long long cts = sensei::SVTKUtils::Size(md->CoordinateType);
         numBytes += x_count*cts + y_count*cts + z_count*cts;
         }
 
@@ -2581,18 +2581,18 @@ struct DataObjectSchema
     unsigned int doid,  const sensei::MeshMetadataPtr &md);
 
   int Write(MPI_Comm comm, int64_t fh, unsigned int doid,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
     unsigned int doid, const sensei::MeshMetadataPtr &md,
-    vtkCompositeDataSet *&dobj, bool structure_only);
+    svtkCompositeDataSet *&dobj, bool structure_only);
 
   int ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
     unsigned int doid, const std::string &name, int association,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj);
 
   int InitializeDataObject(MPI_Comm comm,
-    const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *&dobj);
+    const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *&dobj);
 
   ArraySchema DataArrays;
   PointSchema Points;
@@ -2631,7 +2631,7 @@ int DataObjectSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 
 // --------------------------------------------------------------------------
 int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::DataObjectSchema::Write");
 
@@ -2654,7 +2654,7 @@ int DataObjectSchema::Write(MPI_Comm comm, int64_t fh, unsigned int doid,
 // --------------------------------------------------------------------------
 int DataObjectSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
   unsigned int doid, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *&dobj, bool structure_only)
+  svtkCompositeDataSet *&dobj, bool structure_only)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::DataObjectSchema::ReadMesh");
 
@@ -2688,7 +2688,7 @@ int DataObjectSchema::ReadMesh(MPI_Comm comm, ADIOS_FILE *fh,
 // --------------------------------------------------------------------------
 int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
   unsigned int doid, const std::string &name, int association,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *dobj)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::DataObjectSchema::ReadArray");
 
@@ -2707,7 +2707,7 @@ int DataObjectSchema::ReadArray(MPI_Comm comm, ADIOS_FILE *fh,
 
 // --------------------------------------------------------------------------
 int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
-  const sensei::MeshMetadataPtr &md, vtkCompositeDataSet *&dobj)
+  const sensei::MeshMetadataPtr &md, svtkCompositeDataSet *&dobj)
 {
   sensei::TimeEvent<128>("senseiADIOS1::DataObjectSchema::InitializeDataObject");
 
@@ -2717,13 +2717,13 @@ int DataObjectSchema::InitializeDataObject(MPI_Comm comm,
   MPI_Comm_rank(comm, &rank);
 
   // allocate the local dataset
-  vtkMultiBlockDataSet *mbds = vtkMultiBlockDataSet::New();
+  svtkMultiBlockDataSet *mbds = svtkMultiBlockDataSet::New();
   mbds->SetNumberOfBlocks(md->NumBlocks);
   for (int i = 0; i < md->NumBlocks; ++i)
     {
     if (md->BlockOwner[i] == rank)
       {
-      vtkDataObject *ds = sensei::VTKUtils::NewDataObject(md->BlockType);
+      svtkDataObject *ds = sensei::SVTKUtils::NewDataObject(md->BlockType);
       mbds->SetBlock(md->BlockIds[i], ds);
       ds->Delete();
       }
@@ -2810,14 +2810,14 @@ int DataObjectCollectionSchema::ReadMeshMetadata(MPI_Comm comm, InputStream &iSt
     if (this->Internals->BlockOwnerArrayMetadata)
       {
       md->ArrayName.push_back("SenderBlockOwner");
-      md->ArrayCentering.push_back(vtkDataObject::CELL);
+      md->ArrayCentering.push_back(svtkDataObject::CELL);
       md->ArrayComponents.push_back(1);
-      md->ArrayType.push_back(VTK_INT);
+      md->ArrayType.push_back(SVTK_INT);
 
       md->ArrayName.push_back("ReceiverBlockOwner");
-      md->ArrayCentering.push_back(vtkDataObject::CELL);
+      md->ArrayCentering.push_back(svtkDataObject::CELL);
       md->ArrayComponents.push_back(1);
-      md->ArrayType.push_back(VTK_INT);
+      md->ArrayType.push_back(SVTK_INT);
 
       md->NumArrays += 2;
       }
@@ -2950,7 +2950,7 @@ int DataObjectCollectionSchema::DefineVariables(MPI_Comm comm, int64_t gh,
 int DataObjectCollectionSchema::Write(MPI_Comm comm, int64_t fh,
   unsigned long time_step, double time,
   const std::vector<sensei::MeshMetadataPtr> &metadata,
-  const std::vector<vtkCompositeDataSet*> &objects)
+  const std::vector<svtkCompositeDataSet*> &objects)
 {
   sensei::Profiler::StartEvent("senseiADIOS1::DataObjectCollectionSchema::Write");
 
@@ -3010,7 +3010,7 @@ bool DataObjectCollectionSchema::CanRead(InputStream &iStream)
 // --------------------------------------------------------------------------
 int DataObjectCollectionSchema::ReadObject(MPI_Comm comm,
   InputStream &iStream, const std::string &object_name,
-  vtkDataObject *&dobj, bool structure_only)
+  svtkDataObject *&dobj, bool structure_only)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::DataObjectCollectionSchema::ReadObject");
 
@@ -3030,7 +3030,7 @@ int DataObjectCollectionSchema::ReadObject(MPI_Comm comm,
     return -1;
     }
 
-  vtkCompositeDataSet *cd = dynamic_cast<vtkCompositeDataSet*>(dobj);
+  svtkCompositeDataSet *cd = dynamic_cast<svtkCompositeDataSet*>(dobj);
   if (this->Internals->DataObject.ReadMesh(comm,
     iStream.File, doid, md, cd, structure_only))
     {
@@ -3046,7 +3046,7 @@ int DataObjectCollectionSchema::ReadObject(MPI_Comm comm,
 // --------------------------------------------------------------------------
 int DataObjectCollectionSchema::ReadArray(MPI_Comm comm,
   InputStream &iStream, const std::string &object_name, int association,
-  const std::string &array_name, vtkDataObject *dobj)
+  const std::string &array_name, svtkDataObject *dobj)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::DataObjectCollectionSchema::ReadArray");
 
@@ -3058,9 +3058,9 @@ int DataObjectCollectionSchema::ReadArray(MPI_Comm comm,
     return -1;
     }
 
-  // our factory will create vtkMultiBlock even if the sender has a legacy
+  // our factory will create svtkMultiBlock even if the sender has a legacy
   // dataset type. this enables block based re-partitioning.
-  vtkCompositeDataSet *cds = dynamic_cast<vtkCompositeDataSet*>(dobj);
+  svtkCompositeDataSet *cds = dynamic_cast<svtkCompositeDataSet*>(dobj);
   if (!cds)
     {
     SENSEI_ERROR("Composite data required")
@@ -3106,7 +3106,7 @@ int DataObjectCollectionSchema::ReadArray(MPI_Comm comm,
     iStream.File, doid, array_name, association, md, cds))
     {
     SENSEI_ERROR("Failed to read "
-      << sensei::VTKUtils::GetAttributesName(association)
+      << sensei::SVTKUtils::GetAttributesName(association)
       << " data array \"" << array_name << "\" from object \"" << object_name
       << "\"")
     return -1;
@@ -3135,7 +3135,7 @@ int DataObjectCollectionSchema::ReadTimeStep(MPI_Comm comm,
 // --------------------------------------------------------------------------
 int DataObjectCollectionSchema::AddBlockOwnerArray(MPI_Comm comm,
   const std::string &name, int centering, const sensei::MeshMetadataPtr &md,
-  vtkCompositeDataSet *dobj)
+  svtkCompositeDataSet *dobj)
 {
   sensei::TimeEvent<128> mark("senseiADIOS1::DataObjectCollectionSchema::AddBlockOwnerArray");
 
@@ -3145,7 +3145,7 @@ int DataObjectCollectionSchema::AddBlockOwnerArray(MPI_Comm comm,
   unsigned int num_blocks = md->NumBlocks;
   int array_cen = centering;
 
-  vtkCompositeDataIterator *it = dobj->NewIterator();
+  svtkCompositeDataIterator *it = dobj->NewIterator();
   it->SetSkipEmptyNodes(0);
   it->InitTraversal();
 
@@ -3153,22 +3153,22 @@ int DataObjectCollectionSchema::AddBlockOwnerArray(MPI_Comm comm,
   for (unsigned int j = 0; j < num_blocks; ++j)
     {
     // get the block size
-    unsigned long long num_elem_local = (array_cen == vtkDataObject::POINT ?
+    unsigned long long num_elem_local = (array_cen == svtkDataObject::POINT ?
       md->BlockNumPoints[j] : md->BlockNumCells[j]);
 
     // define the variable for a local block
-    vtkDataSet *ds = dynamic_cast<vtkDataSet*>(it->GetCurrentDataObject());
+    svtkDataSet *ds = dynamic_cast<svtkDataSet*>(it->GetCurrentDataObject());
     if (ds)
       {
       // create arrays filled with sender and receiver ranks
-      vtkDataArray *bo = vtkIntArray::New();
+      svtkDataArray *bo = svtkIntArray::New();
       bo->SetNumberOfTuples(num_elem_local);
       bo->SetName(name.c_str());
       bo->FillComponent(0, md->BlockOwner[j]);
 
-      vtkDataSetAttributes *dsa = array_cen == vtkDataObject::POINT ?
-        dynamic_cast<vtkDataSetAttributes*>(ds->GetPointData()) :
-        dynamic_cast<vtkDataSetAttributes*>(ds->GetCellData());
+      svtkDataSetAttributes *dsa = array_cen == svtkDataObject::POINT ?
+        dynamic_cast<svtkDataSetAttributes*>(ds->GetPointData()) :
+        dynamic_cast<svtkDataSetAttributes*>(ds->GetCellData());
 
       dsa->AddArray(bo);
       bo->Delete();

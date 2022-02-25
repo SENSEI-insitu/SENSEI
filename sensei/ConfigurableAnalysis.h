@@ -13,7 +13,7 @@ namespace pugi { class xml_node; }
 namespace sensei
 {
 /** An adaptor that creates and configures one or more adaptors from XML.  When
- * the ::Execute method is invoked the calls are forwarded to the active
+ * the Execute method is invoked the calls are forwarded to the active
  * instances. The supported adaptors include:
  *
  * | Class | Description |
@@ -25,13 +25,13 @@ namespace sensei
  * | sensei::CatalystAnalysisAdaptor | Processes simulation data using ParaView Catalyst |
  * | sensei::LibsimAnalysisAdaptor | Processes simulation data using VisIt Libsim |
  * | sensei::Autocorrelation | Compute autocorrelation of simulation data over time |
- * | sensei::VTKPosthocIO | Writes simulation data to disk in a VTK format |
- * | sensei::VTKAmrWriter | Writes simulation data to disk in a VTK format |
+ * | sensei::VTKPosthocIO | Writes simulation data to disk in a SVTK format |
+ * | sensei::VTKAmrWriter | Writes simulation data to disk in a SVTK format |
  * | sensei::PythonAnalysis | Invokes user provided Pythons scripts that process simulation data |
  * | sensei::SliceExtract | Computes planar slices and iso-surfaces on simulation data |
  *
  */
-class ConfigurableAnalysis : public AnalysisAdaptor
+class SENSEI_EXPORT ConfigurableAnalysis : public AnalysisAdaptor
 {
 public:
   /// creates a new instance.
@@ -40,7 +40,7 @@ public:
   senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
 
   /// Prints the current adaptor state
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /** Set the communicator used by the adaptor.
    * The default communicator is a duplicate of MPI_COMMM_WORLD, giving
@@ -57,7 +57,7 @@ public:
   int Initialize(const pugi::xml_node &root);
 
   /// Invokes the Execute method on the currently configured adaptors.
-  bool Execute(DataAdaptor *data) override;
+  bool Execute(DataAdaptor *data, DataAdaptor* &result) override;
 
   /// Invokes the Finalize method on the currently configured adaptors.
   int Finalize() override;

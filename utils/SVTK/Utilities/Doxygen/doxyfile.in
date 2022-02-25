@@ -1,0 +1,197 @@
+# -------------------------------------------------------------------------
+# doxyfile for SVTK
+# modified by S. Barre (Time-stamp: <2005-12-05 12:59:07 barre>
+# -------------------------------------------------------------------------
+
+PROJECT_NAME         = SVTK
+PROJECT_LOGO         = "@SVTK_SOURCE_DIR@/svtkLogo.ico"
+PROJECT_NUMBER       = "@SVTK_MAJOR_VERSION@.@SVTK_MINOR_VERSION@.@SVTK_BUILD_VERSION@"
+
+FULL_PATH_NAMES      = YES
+STRIP_FROM_PATH      = "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox"
+WARN_IF_UNDOCUMENTED = NO
+
+GENERATE_TREEVIEW    = NO
+GENERATE_TODOLIST    = YES
+GENERATE_BUGLIST     = YES
+GENERATE_HTML        = YES
+GENERATE_HTMLHELP    = @DOXYGEN_GENERATE_HTMLHELP@
+GENERATE_LATEX       = NO
+GENERATE_MAN         = NO
+GENERATE_RTF         = NO
+GENERATE_TAGFILE     = "@SVTK_BINARY_DIR@/Utilities/Doxygen/svtk@SVTK_MAJOR_VERSION@.@SVTK_MINOR_VERSION@.tag"
+
+PDF_HYPERLINKS       = YES
+
+SEARCHENGINE         = YES
+SERVER_BASED_SEARCH  = NO
+
+HAVE_DOT             = @HAVE_DOT_YESNO@
+DOT_PATH             = "@DOT_PATH@"
+DOT_IMAGE_FORMAT     = svg
+DOT_GRAPH_MAX_NODES  = 75
+CLASS_GRAPH          = YES
+COLLABORATION_GRAPH  = YES
+TEMPLATE_RELATIONS   = YES
+INCLUDE_GRAPH        = YES
+INCLUDED_BY_GRAPH    = YES
+CLASS_DIAGRAMS       = YES
+GENERATE_LEGEND      = YES
+GRAPHICAL_HIERARCHY  = NO        # would be too large for svtkObject
+MAX_DOT_GRAPH_DEPTH  = 3
+
+ALLEXTERNALS         = NO
+
+IMAGE_PATH           = "@SVTK_SOURCE_DIR@/Utilities/Doxygen" \
+                       "@SVTK_SOURCE_DIR@/Filters" \
+                       "@SVTK_SOURCE_DIR@/Geovis" \
+                       "@SVTK_SOURCE_DIR@/Rendering"
+
+OUTPUT_DIRECTORY     = "@SVTK_BINARY_DIR@/Utilities/Doxygen/doc"
+
+INPUT                = \
+          "@SVTK_SOURCE_DIR@/Documentation/Doxygen" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/doc_SVTK_version.dox" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/doc_SVTK_class2examples.dox" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/doc_SVTK_class2tests.dox" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/doc_SVTK_events2.dox" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/doc_SVTK_events.dox" \
+          "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/doc_SVTK_index.dox"
+
+EXCLUDE_PATTERNS     =
+EXCLUDE              = \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Common/Core/svtkSetGet.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Common/DataModel/svtkMarchingSquaresLineCases.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Common/DataModel/svtkMarchingCubesTriangleCases.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Common/Core/svtkWindows.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Parallel/MPI/svtkMPI.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/IO/Import/svtk3DS.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/IO/Import/svtkVRML.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/IO/PLY/svtkPLY.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Rendering/FreeType/fonts/svtkEmbeddedFonts.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Testing/Rendering/Testing/svtkRegressionTestImage.h" \
+    "@SVTK_BINARY_DIR@/Utilities/Doxygen/dox/Testing/Core/Testing/svtkTestDriver.h" \
+
+# TAGFILES           = "@SVTK_BINARY_DIR@/Utilities/Doxygen/svtk@SVTK_MAJOR_VERSION@-nightly.tag"=http://www.svtk.org/doc/nightly/html
+
+EXTRACT_ALL          = YES
+EXTRACT_PRIVATE      = NO
+EXTRACT_STATIC       = YES
+EXTRACT_LOCAL_CLASSES = NO
+HIDE_UNDOC_MEMBERS   = NO
+HIDE_UNDOC_CLASSES   = YES
+ALWAYS_DETAILED_SEC  = NO
+SOURCE_BROWSER       = YES
+INLINE_SOURCES       = NO
+CASE_SENSE_NAMES     = YES
+VERBATIM_HEADERS     = NO
+SHOW_INCLUDE_FILES   = YES
+JAVADOC_AUTOBRIEF    = YES
+SORT_MEMBER_DOCS     = NO
+DISTRIBUTE_GROUP_DOC = YES
+TAB_SIZE             = 3
+HTML_TIMESTAMP       = YES
+HTML_HEADER          = "@SVTK_SOURCE_DIR@/Utilities/Doxygen/dox_header.html"
+HTML_EXTRA_FILES     += "@SVTK_SOURCE_DIR@/Utilities/Doxygen/svtk_favicon.png"
+SHORT_NAMES          = @DOXYGEN_SHORT_NAMES@
+# PAPER_TYPE           = letter
+
+FILE_PATTERNS        = *.h *.md *.cmake
+EXTENSION_MAPPING    = cmake=c
+FILTER_PATTERNS      = *.cmake="@PERL_EXECUTABLE@ @SVTK_SOURCE_DIR@/Utilities/Doxygen/filters/cmake2c.pl"
+RECURSIVE            = YES
+
+ALPHABETICAL_INDEX   = YES
+COLS_IN_ALPHA_INDEX  = 3
+IGNORE_PREFIX        = svtk
+
+ENABLE_PREPROCESSING = YES
+MACRO_EXPANSION      = YES
+SEARCH_INCLUDES      = YES
+INCLUDE_PATH         =
+EXPAND_ONLY_PREDEF   = YES
+EXPAND_AS_DEFINED = svtkDataArray \
+                    svtkAllEventsMacro \
+                    svtkEventDeclarationMacro \
+                    _svtk_add_event
+PREDEFINED  = "svtkSetMacro(name,type)= \
+                 virtual void Set##name (type);" \
+              "svtkGetMacro(name,type)= \
+                 virtual type Get##name ();" \
+              "svtkSetStringMacro(name)= \
+                 virtual void Set##name (const char*);" \
+              "svtkGetStringMacro(name)= \
+                 virtual char* Get##name ();" \
+              "svtkSetClampMacro(name,type,min,max)= \
+                 virtual void Set##name (type);" \
+              "svtkSetObjectMacro(name,type)= \
+                 virtual void Set##name (type*);" \
+              "svtkGetObjectMacro(name,type)= \
+                 virtual type *Get##name ();" \
+              "svtkBooleanMacro(name,type)= \
+                 virtual void name##On (); \
+                 virtual void name##Off ();" \
+              "svtkSetVector2Macro(name,type)= \
+                 virtual void Set##name (type, type); \
+                 void Set##name (type [2]);" \
+              "svtkGetVector2Macro(name,type)= \
+                 virtual type *Get##name (); \
+                 virtual void Get##name (type &, type &); \
+                 virtual void Get##name (type [2]);" \
+              "svtkSetVector3Macro(name,type)= \
+                 virtual void Set##name (type, type, type); \
+                 virtual void Set##name (type [3]);" \
+              "svtkGetVector3Macro(name,type)= \
+                 virtual type *Get##name (); \
+                 virtual void Get##name (type &, type &, type &); \
+                 virtual void Get##name (type [3]);" \
+              "svtkSetVector4Macro(name,type)= \
+                 virtual void Set##name (type, type, type, type); \
+                 virtual void Set##name (type [4]);" \
+              "svtkGetVector4Macro(name,type)= \
+                 virtual type *Get##name (); \
+                 virtual void Get##name (type &, type &, type &, type &); \
+                 virtual void Get##name (type [4]);" \
+               "svtkSetVector6Macro(name,type)= \
+                 virtual void Set##name (type, type, type, type, \
+                                         type, type); \
+                 virtual void Set##name (type [6]);" \
+               "svtkGetVector6Macro(name,type)= \
+                  virtual type *Get##name (); \
+                  virtual void Get##name (type &, type &, type &, \
+                                          type &, type &, type &); \
+                  virtual void Get##name (type [6]);" \
+               "svtkSetVectorMacro(name,type,count)= \
+                  virtual void Set##name(type data[]);" \
+               "svtkGetVectorMacro(name,type,count)= \
+                   virtual type *Get##name (); \
+                   virtual void Get##name(type data[##count]);" \
+               "svtkWorldCoordinateMacro(name)= \
+                   virtual svtkCoordinate *Get##name##Coordinate (); \
+                   virtual void Set##name(float x[3]); \
+                   virtual void Set##name(float x, float y, float z); \
+                   virtual float *Get##name();" \
+               "svtkViewportCoordinateMacro(name)= \
+                   virtual svtkCoordinate *Get##name##Coordinate (); \
+                   virtual void Set##name(float x[2]); \
+                   virtual void Set##name(float x, float y); \
+                   virtual float *Get##name();" \
+               "svtkTypeMacro(thisClass,superclass)= \
+                   typedef superclass Superclass; \
+                   private: \
+                   virtual const char* GetClassNameInternal() const; \
+                   public: \
+                   static svtkTypeBool IsTypeOf(const char *type); \
+                   virtual svtkTypeBool IsA(const char *type); \
+                   static thisClass* SafeDownCast(svtkObjectBase *o); \
+                   protected: \
+                   virtual svtkObjectBase *NewInstanceInternal() const; \
+                   public: \
+                   thisClass *NewInstance() const;" \
+               "SVTK_LEGACY(x)= x" \
+               "SVTK_NEWINSTANCE=" \
+               "SVTK_ZEROCOPY=" \
+               "SVTK_EXPECTS(x)=" \
+               "SVTK_SIZEHINT(...)=" \
+               "DOXYGEN_SHOULD_SKIP_THIS"

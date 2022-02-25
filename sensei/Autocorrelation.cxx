@@ -3,21 +3,21 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Profiler.h"
 #include "Error.h"
 
-// VTK includes
-#include <vtkCompositeDataIterator.h>
-#include <vtkCellData.h>
-#include <vtkFieldData.h>
-#include <vtkFloatArray.h>
-#include <vtkImageData.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkStructuredData.h>
-#include <vtkUnsignedCharArray.h>
+// SVTK includes
+#include <svtkCompositeDataIterator.h>
+#include <svtkCellData.h>
+#include <svtkFieldData.h>
+#include <svtkFloatArray.h>
+#include <svtkImageData.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkStructuredData.h>
+#include <svtkUnsignedCharArray.h>
 
 #include <memory>
 #include <vector>
@@ -157,25 +157,25 @@ public:
   bool BlocksInitialized;
   size_t NumberOfBlocks;
 
-  AInternals() : KMax(3), Association(vtkDataObject::POINT),
+  AInternals() : KMax(3), Association(svtkDataObject::POINT),
     Window(10), BlocksInitialized(false), NumberOfBlocks(0) {}
 
-  void InitializeBlocks(vtkDataObject* dobj)
+  void InitializeBlocks(svtkDataObject* dobj)
     {
     if (this->BlocksInitialized)
       {
       return;
       }
-    if (vtkImageData* img = vtkImageData::SafeDownCast(dobj))
+    if (svtkImageData* img = svtkImageData::SafeDownCast(dobj))
       {
       int ext[6];
       img->GetExtent(ext);
-      if (this->Association == vtkDataObject::CELL)
+      if (this->Association == svtkDataObject::CELL)
         {
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-        vtkStructuredData::GetCellExtentFromNodeExtent(ext, ext);
+#if SVTK_MAJOR_VERSION == 6 && SVTK_MINOR_VERSION == 1
+        svtkStructuredData::GetCellExtentFromNodeExtent(ext, ext);
 #else
-        vtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
+        svtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
 #endif
         }
       Vertex from { ext[0], ext[2], ext[4] };
@@ -185,26 +185,26 @@ public:
       this->Master->add(bid, b, new sdiy::Link);
       this->NumberOfBlocks = this->Master->communicator().size();
       }
-    else if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(dobj))
+    else if (svtkCompositeDataSet* cd = svtkCompositeDataSet::SafeDownCast(dobj))
       {
       // add blocks
-      vtkSmartPointer<vtkCompositeDataIterator> iter;
+      svtkSmartPointer<svtkCompositeDataIterator> iter;
       iter.TakeReference(cd->NewIterator());
       iter->SkipEmptyNodesOff();
 
       int bid = 0;
       for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), ++bid)
         {
-        if (vtkImageData* id = vtkImageData::SafeDownCast(iter->GetCurrentDataObject()))
+        if (svtkImageData* id = svtkImageData::SafeDownCast(iter->GetCurrentDataObject()))
           {
           int ext[6];
           id->GetExtent(ext);
-          if (this->Association == vtkDataObject::CELL)
+          if (this->Association == svtkDataObject::CELL)
             {
-#if VTK_MAJOR_VERSION == 6 && VTK_MINOR_VERSION == 1
-            vtkStructuredData::GetCellExtentFromNodeExtent(ext, ext);
+#if SVTK_MAJOR_VERSION == 6 && SVTK_MINOR_VERSION == 1
+            svtkStructuredData::GetCellExtentFromNodeExtent(ext, ext);
 #else
-            vtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
+            svtkStructuredData::GetCellExtentFromPointExtent(ext, ext);
 #endif
             }
           Vertex from { ext[0], ext[2], ext[4] };
@@ -254,7 +254,7 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 }
 
 //-----------------------------------------------------------------------------
-bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
+bool Autocorrelation::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 {
   TimeEvent<128> mark("Autocorrelation::Execute");
 
@@ -277,7 +277,7 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
     }
 
   // mesh
-  vtkDataObject* mesh = nullptr;
+  svtkDataObject* mesh = nullptr;
   if (dataAdaptor->GetMesh(internals.MeshName, false, mesh))
     {
     SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
@@ -294,7 +294,7 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
     }
 
   // ghost cells
-  if ((mmd->NumGhostCells || VTKUtils::AMR(mmd)) &&
+  if ((mmd->NumGhostCells || SVTKUtils::AMR(mmd)) &&
     dataAdaptor->AddGhostCellsArray(mesh, internals.MeshName))
     {
     SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost cells.")
@@ -311,23 +311,23 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
   const int association = internals.Association;
   internals.InitializeBlocks(mesh);
 
-  if (vtkCompositeDataSet* cd = vtkCompositeDataSet::SafeDownCast(mesh))
+  if (svtkCompositeDataSet* cd = svtkCompositeDataSet::SafeDownCast(mesh))
     {
-    vtkSmartPointer<vtkCompositeDataIterator> iter;
+    svtkSmartPointer<svtkCompositeDataIterator> iter;
     iter.TakeReference(cd->NewIterator());
     iter->SkipEmptyNodesOff();
 
     int bid = 0;
     for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), ++bid)
       {
-      if (vtkDataSet* dataObj = vtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
+      if (svtkDataSet* dataObj = svtkDataSet::SafeDownCast(iter->GetCurrentDataObject()))
         {
         int lid = internals.Master->lid(static_cast<int>(bid));
         AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
-        vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
+        svtkFloatArray* fa = svtkFloatArray::SafeDownCast(
           dataObj->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
-        vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
-          dataObj->GetCellData()->GetArray("vtkGhostType"));
+        svtkUnsignedCharArray *gc = svtkUnsignedCharArray::SafeDownCast(
+          dataObj->GetCellData()->GetArray("svtkGhostType"));
         if (fa)
           {
           corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);
@@ -340,15 +340,15 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor)
         }
       }
     }
-  else if (vtkDataSet* ds = vtkDataSet::SafeDownCast(mesh))
+  else if (svtkDataSet* ds = svtkDataSet::SafeDownCast(mesh))
     {
     int bid = internals.Master->communicator().rank();
     int lid = internals.Master->lid(static_cast<int>(bid));
     AutocorrelationImpl* corr = internals.Master->block<AutocorrelationImpl>(lid);
-    vtkFloatArray* fa = vtkFloatArray::SafeDownCast(
+    svtkFloatArray* fa = svtkFloatArray::SafeDownCast(
       ds->GetAttributesAsFieldData(association)->GetArray(internals.ArrayName.c_str()));
-    vtkUnsignedCharArray *gc = vtkUnsignedCharArray::SafeDownCast(
-      ds->GetCellData()->GetArray("vtkGhostType"));
+    svtkUnsignedCharArray *gc = svtkUnsignedCharArray::SafeDownCast(
+      ds->GetCellData()->GetArray("svtkGhostType"));
     if (fa)
       {
       corr->process(fa->GetPointer(0), gc ? gc->GetPointer(0) : nullptr);

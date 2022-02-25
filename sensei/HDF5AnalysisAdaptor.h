@@ -12,13 +12,13 @@
 
 #include "HDF5Schema.h"
 
-class vtkDataObject;
-class vtkCompositeDataSet;
+class svtkDataObject;
+class svtkCompositeDataSet;
 
 namespace sensei {
 
 /// The write side of the HDF5 transport
-class HDF5AnalysisAdaptor : public AnalysisAdaptor {
+class SENSEI_EXPORT HDF5AnalysisAdaptor : public AnalysisAdaptor {
 public:
   /// creates a new instance.
   static HDF5AnalysisAdaptor *New();
@@ -26,8 +26,7 @@ public:
   senseiTypeMacro(HDF5AnalysisAdaptor, AnalysisAdaptor);
 
   /// prints the current object state.
-  void PrintSelf(ostream &os, vtkIndent indent) override;
-
+  void PrintSelf(ostream &os, svtkIndent indent) override;
 
   /// @name Run time configuration
   /// @{
@@ -59,7 +58,7 @@ public:
   ///@}
 
   /// Triggers I/O and processing on the receiving side.
-  bool Execute(DataAdaptor *data) override;
+  bool Execute(DataAdaptor *data, DataAdaptor*&) override;
 
   /// Flushes and closes all open streams and files.
   int Finalize() override;
@@ -76,7 +75,7 @@ protected:
   /*
   bool WriteTimestep(unsigned long timeStep, double time,
                      const std::vector<MeshMetadataPtr> &metadata,
-                     const std::vector<vtkCompositeDataSet*> &dobjects);
+                     const std::vector<svtkCompositeDataSet*> &dobjects);
   */
   unsigned int MaxBufferSize;
   sensei::DataRequirements Requirements;

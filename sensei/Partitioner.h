@@ -22,7 +22,7 @@ using PartitionerPtr = std::shared_ptr<sensei::Partitioner>;
 /// described by MeshMetadata. The partitioner is not responsible for moving
 /// data, only deciding how it should be layed out and distributed after the
 /// move.
-class Partitioner
+class SENSEI_EXPORT Partitioner
 {
 public:
   // return the name of the class

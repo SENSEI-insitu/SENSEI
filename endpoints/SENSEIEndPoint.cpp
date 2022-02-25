@@ -8,12 +8,12 @@
 
 #include <mpi.h>
 #include <iostream>
-#include <vtkNew.h>
-#include <vtkSmartPointer.h>
-#include <vtkDataSet.h>
+#include <svtkNew.h>
+#include <svtkSmartPointer.h>
+#include <svtkDataSet.h>
 
-using DataAdaptorPtr = vtkSmartPointer<sensei::ConfigurableInTransitDataAdaptor>;
-using AnalysisAdaptorPtr = vtkSmartPointer<sensei::ConfigurableAnalysis>;
+using DataAdaptorPtr = svtkSmartPointer<sensei::ConfigurableInTransitDataAdaptor>;
+using AnalysisAdaptorPtr = svtkSmartPointer<sensei::ConfigurableAnalysis>;
 
 int main(int argc, char **argv)
 {
@@ -94,7 +94,8 @@ int main(int argc, char **argv)
     SENSEI_STATUS("Processing time step " << timeStep << " time " << time)
 
     // execute the analysis
-    if (!analysisAdaptor->Execute(dataAdaptor.Get()))
+    sensei::DataAdaptor* reply = nullptr;
+    if (!analysisAdaptor->Execute(dataAdaptor.Get(), reply))
       {
       SENSEI_ERROR("Execute failed")
       MPI_Abort(MPI_COMM_WORLD, -1);

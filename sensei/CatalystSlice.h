@@ -1,12 +1,13 @@
 #ifndef sensei_CatalystSlice_h
 #define sensei_CatalystSlice_h
 
+#include "senseiConfig.h"
 #include "vtkCPPipeline.h"
 
 namespace sensei
 {
 
-class CatalystSlice : public vtkCPPipeline
+class SENSEI_EXPORT CatalystSlice : public vtkCPPipeline
 {
 public:
   static CatalystSlice* New();

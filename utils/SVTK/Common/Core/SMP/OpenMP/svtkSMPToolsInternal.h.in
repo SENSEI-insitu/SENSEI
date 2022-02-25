@@ -1,0 +1,98 @@
+/*=========================================================================
+
+  Program:   Visualization Toolkit
+  Module:    svtkSMPToolsInternal.h
+
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+  All rights reserved.
+  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
+
+=========================================================================*/
+
+#ifndef svtkSMPToolsInternal_h
+#define svtkSMPToolsInternal_h
+
+#include "svtkCommonCoreModule.h" // For export macro
+
+#include <algorithm> //for std::sort()
+
+#ifndef __SVTK_WRAP__
+namespace svtk
+{
+namespace detail
+{
+namespace smp
+{
+
+typedef void (*ExecuteFunctorPtrType)(void *, svtkIdType, svtkIdType, svtkIdType);
+
+int SVTKCOMMONCORE_EXPORT GetNumberOfThreads();
+void SVTKCOMMONCORE_EXPORT svtkSMPTools_Impl_For_OpenMP(svtkIdType first,
+  svtkIdType last, svtkIdType grain, ExecuteFunctorPtrType functorExecuter,
+  void *functor);
+
+
+template <typename FunctorInternal>
+void ExecuteFunctor(void *functor, svtkIdType from, svtkIdType grain,
+                    svtkIdType last)
+{
+  svtkIdType to = from + grain;
+  if (to > last)
+  {
+    to = last;
+  }
+
+  FunctorInternal &fi = *reinterpret_cast<FunctorInternal*>(functor);
+  fi.Execute(from, to);
+}
+
+template <typename FunctorInternal>
+void svtkSMPTools_Impl_For(svtkIdType first, svtkIdType last,
+                                 svtkIdType grain, FunctorInternal& fi)
+{
+  svtkIdType n = last - first;
+  if (n <= 0)
+  {
+    return;
+  }
+
+  if (grain >= n)
+  {
+    fi.Execute(first, last);
+  }
+  else
+  {
+    svtkSMPTools_Impl_For_OpenMP(first, last, grain,
+                                ExecuteFunctor<FunctorInternal>, &fi);
+  }
+}
+
+//--------------------------------------------------------------------------------
+template<typename RandomAccessIterator>
+void svtkSMPTools_Impl_Sort(RandomAccessIterator begin,
+                                  RandomAccessIterator end)
+{
+  std::sort(begin, end);
+}
+
+//--------------------------------------------------------------------------------
+template<typename RandomAccessIterator, typename Compare>
+void svtkSMPTools_Impl_Sort(RandomAccessIterator begin,
+                                  RandomAccessIterator end,
+                                  Compare comp)
+{
+  std::sort(begin, end, comp);
+}
+
+}//namespace smp
+}//namespace detail
+}//namespace svtk
+
+#endif // __SVTK_WRAP__
+
+#endif
+// SVTK-HeaderTest-Exclude: svtkSMPToolsInternal.h

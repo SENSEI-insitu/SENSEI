@@ -15,7 +15,7 @@ using PlanarPartitionerPtr = std::shared_ptr<sensei::PlanarPartitioner>;
 /// ranks in a round-robin fashion in chunks of length specified by
 /// the PlaneSize. The class looks for PlaneSize in the XML attribute
 /// `cycle_size`.
-class PlanarPartitioner : public sensei::Partitioner
+class SENSEI_EXPORT PlanarPartitioner : public sensei::Partitioner
 {
 public:
   static sensei::PlanarPartitionerPtr New()

@@ -8,7 +8,7 @@
 namespace sensei
 {
 /// Performs a temporal autocorrelation on the simulation data
-class Autocorrelation : public AnalysisAdaptor
+class SENSEI_EXPORT Autocorrelation : public AnalysisAdaptor
 {
 public:
   /// Allocate a new Autocorrelation instance
@@ -20,20 +20,20 @@ public:
    * adaptor with configuration parameters for the analysis to perform.
    *
    * @param window analysis window in timestep count.
-   * @param name of mesh containing the array to process
+   * @param meshName of mesh containing the array to process
    * @param association together with \c arrayname, identifies the array to
    *         compute autocorrelation for.
-   * @param arrayname together with \c association, identifies the array to
+   * @param arrayName together with \c association, identifies the array to
    *         compute autocorrelation for.
    * @param kMax number of strongest autocorrelations to report
    * @param numThreads number of threads in sdiy's thread pool
    */
   void Initialize(size_t window, const std::string &meshName,
-    int association, const std::string &arrayname, size_t kMax,
+    int association, const std::string &arrayName, size_t kMax,
     int numThreads = 1);
 
   /// Incrementally computes autocorrelation on the current simulation state
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// Finishes the calculation and dumps the results
   int Finalize() override;

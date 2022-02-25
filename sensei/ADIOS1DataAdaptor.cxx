@@ -6,15 +6,15 @@
 #include "Error.h"
 #include "Profiler.h"
 #include "ADIOS1Schema.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "XMLUtils.h"
 
-#include <vtkCompositeDataIterator.h>
-#include <vtkDataSetAttributes.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkDataSet.h>
+#include <svtkCompositeDataIterator.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkDataSet.h>
 
 #include <pugixml.hpp>
 
@@ -263,7 +263,7 @@ int ADIOS1DataAdaptor::GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadat
 
 //----------------------------------------------------------------------------
 int ADIOS1DataAdaptor::GetMesh(const std::string &meshName,
-   bool structureOnly, vtkDataObject *&mesh)
+   bool structureOnly, svtkDataObject *&mesh)
 {
   TimeEvent<128> mark("ADIOS1DataAdaptor::GetMesh");
 
@@ -281,23 +281,23 @@ int ADIOS1DataAdaptor::GetMesh(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1DataAdaptor::AddGhostNodesArray(vtkDataObject *mesh,
+int ADIOS1DataAdaptor::AddGhostNodesArray(svtkDataObject *mesh,
   const std::string &meshName)
 {
   TimeEvent<128> mark("ADIOS1DataAdaptor::AddGhostNodesArray");
-  return AddArray(mesh, meshName, vtkDataObject::POINT, "vtkGhostType");
+  return AddArray(mesh, meshName, svtkDataObject::POINT, "svtkGhostType");
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1DataAdaptor::AddGhostCellsArray(vtkDataObject *mesh,
+int ADIOS1DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh,
   const std::string &meshName)
 {
   TimeEvent<128> mark("ADIOS1DataAdaptor::AddGhostCellsArray");
-  return AddArray(mesh, meshName, vtkDataObject::CELL, "vtkGhostType");
+  return AddArray(mesh, meshName, svtkDataObject::CELL, "svtkGhostType");
 }
 
 //----------------------------------------------------------------------------
-int ADIOS1DataAdaptor::AddArray(vtkDataObject* mesh,
+int ADIOS1DataAdaptor::AddArray(svtkDataObject* mesh,
   const std::string &meshName, int association, const std::string& arrayName)
 {
   TimeEvent<128> mark("ADIOS1DataAdaptor::AddArray");
@@ -313,7 +313,7 @@ int ADIOS1DataAdaptor::AddArray(vtkDataObject* mesh,
   if (this->Internals->Schema.ReadArray(this->GetCommunicator(),
     this->Internals->Stream, meshName, association, arrayName, mesh))
     {
-    SENSEI_ERROR("Failed to read " << VTKUtils::GetAttributesName(association)
+    SENSEI_ERROR("Failed to read " << SVTKUtils::GetAttributesName(association)
       << " data array \"" << arrayName << "\" from mesh \"" << meshName << "\"")
     return -1;
     }

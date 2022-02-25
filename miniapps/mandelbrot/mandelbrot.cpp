@@ -13,8 +13,8 @@
 #include "simulation_data.h"
 #include "senseiConfig.h"
 #ifdef ENABLE_SENSEI
-#include <vtkNew.h>
-#include <vtkSmartPointer.h>
+#include <svtkNew.h>
+#include <svtkSmartPointer.h>
 #include <ConfigurableAnalysis.h>
 #include <Profiler.h>
 #include "MandelbrotDataAdaptor.h"
@@ -585,13 +585,13 @@ int main(int argc, char **argv)
     sensei::Profiler::Initialize();
 
     // Initialize in situ
-    vtkSmartPointer<MandelbrotDataAdaptor> dataAdaptor;
-    dataAdaptor = vtkSmartPointer<MandelbrotDataAdaptor>::New();
+    svtkSmartPointer<MandelbrotDataAdaptor> dataAdaptor;
+    dataAdaptor = svtkSmartPointer<MandelbrotDataAdaptor>::New();
     dataAdaptor->Initialize(&sim);
     dataAdaptor->SetDataTimeStep(-1);
 
-    vtkSmartPointer<sensei::ConfigurableAnalysis> analysisAdaptor;
-    analysisAdaptor = vtkSmartPointer<sensei::ConfigurableAnalysis>::New();
+    svtkSmartPointer<sensei::ConfigurableAnalysis> analysisAdaptor;
+    analysisAdaptor = svtkSmartPointer<sensei::ConfigurableAnalysis>::New();
     analysisAdaptor->SetCommunicator(MPI_COMM_WORLD);
     analysisAdaptor->Initialize(config_file);
 #endif
@@ -671,7 +671,12 @@ int main(int argc, char **argv)
         // Do in situ
         dataAdaptor->SetDataTime(sim.time);
         dataAdaptor->SetDataTimeStep(sim.cycle);
-        analysisAdaptor->Execute(dataAdaptor.GetPointer());
+        sensei::DataAdaptor* reply = nullptr;
+        analysisAdaptor->Execute(dataAdaptor.GetPointer(), reply);
+        if (reply)
+        {
+          reply->ReleaseData();
+        }
 
         dataAdaptor->ReleaseData();
 #endif

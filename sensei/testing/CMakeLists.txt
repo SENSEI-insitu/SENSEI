@@ -57,15 +57,23 @@ if (BUILD_TESTING)
 
   ##############################################################################
   senseiAddTest(testPythonAnalysis
-    SOURCES testPythonAnalysis.cpp LIBS sensei EXEC_NAME testPythonAnalysis
-    COMMAND
-      $<TARGET_FILE:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+    SOURCES simpleTestDriver.cpp LIBS sensei EXEC_NAME simpleTestDriver
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml)
+
+  senseiAddTest(testPythonAnalysisParallel PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml)
+
+  ##############################################################################
+  senseiAddTest(testVTKPosthocIO
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testVTKPosthocIO.xml
     FEATURES PYTHON VTK_IO)
 
-  senseiAddTest(testPythonAnalysisParallel
-    PARALLEL ${TEST_NP}
-    COMMAND
-      $<TARGET_FILE:testPythonAnalysis> ${CMAKE_CURRENT_SOURCE_DIR}/testPythonAnalysis.xml
+  senseiAddTest(testVTKPosthocIOParallel PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:simpleTestDriver>
+      ${CMAKE_CURRENT_SOURCE_DIR}/testVTKPosthocIO.xml
     FEATURES PYTHON VTK_IO)
 
   ##############################################################################
@@ -124,7 +132,7 @@ if (BUILD_TESTING)
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testADIOS2.sh
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
       ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}
-      testADIOS2BP4.bp BP4 BP4 3
+      testADIOS2BP4_%05d%.bp BP4 BP4 3
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
       PYTHON ADIOS2)

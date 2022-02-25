@@ -1,0 +1,11 @@
+NAME
+  SVTK::PythonInterpreter
+LIBRARY_NAME
+  svtkPythonInterpreter
+DEPENDS
+  SVTK::CommonCore
+  SVTK::Python
+  SVTK::svtksys
+PRIVATE_DEPENDS
+  SVTK::CommonMisc
+EXCLUDE_WRAP

@@ -11,52 +11,207 @@
 #include "PlanarSlicePartitioner.h"
 #include "IsoSurfacePartitioner.h"
 #include "ConfigurablePartitioner.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 #include "Error.h"
 #include "senseiPyString.h"
 #include <sstream>
 #include <string>
 #include <vector>
-using namespace std;
 %}
+
+#pragma SWIG nowarn=302
 
 %include "std_shared_ptr.i"
 
-%define SENSEI_DATA_ADAPTOR(DA)
-/* Modify the DataAdaptor API for Python. Python doesn't
-   support pass by reference. Hence, we need to wrap the
-   core API. Rather than return an error code we will ask
-   that Python codes raise and exception if there is an
-   error and return function results(or void for cases when
-   there are none) instead of using pass by reference/output
-   parameters */
-%ignore sensei::DA::GetNumberOfMeshes;
-%ignore sensei::DA::GetMeshMetadata;
-%ignore sensei::DA::GetMesh;
-%ignore sensei::DA::AddArray;
-%ignore sensei::DA::ReleaseData;
-/* memory management */
-VTK_DERIVED(DA)
+/* Python style constructor */
+%define SENSEI_CONSTRUCTOR(OBJ)
+OBJ##()
+{
+  using sensei::##OBJ;
+  OBJ *inst = dynamic_cast<OBJ*>(OBJ##::New());
+  return inst;
+}
 %enddef
 
-%define SENSEI_IN_TRANSIT_DATA_ADAPTOR(DA)
-/* Modify the DataAdaptor API for Python. Python doesn't
-   support pass by reference. Hence, we need to wrap the
-   core API. Rather than return an error code we will ask
-   that Python codes raise and exception if there is an
-   error and return function results(or void for cases when
-   there are none) instead of using pass by reference/output
-   parameters */
-%ignore sensei::DA::GetNumberOfMeshes;
-%ignore sensei::DA::GetMeshMetadata;
-%ignore sensei::DA::GetMesh;
-%ignore sensei::DA::AddArray;
-%ignore sensei::DA::ReleaseData;
-%ignore sensei::DA::GetSenderMeshMetadata;
-%ignore sensei::DA::GetReceiverMeshMetadata;
-%ignore sensei::DA::SetReceiverMeshMetadata;
-/* memory management */
-VTK_DERIVED(DA)
+/* wraps the passed class */
+%define SENSEI_WRAP_ADAPTOR(CLASS)
+%{
+#include <CLASS##.h>
+%}
+SVTK_OBJECT_FACTORY(sensei::##CLASS)
+SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
+%extend sensei::##CLASS
+{
+    SENSEI_CONSTRUCTOR(CLASS)
+    SVTK_OBJECT_STR(sensei::##CLASS)
+};
+%include <CLASS##.h>
+%enddef
+
+/* ignore the C++ implementation of the SENSEI DataAdaptor API */
+%define SENSEI_DATA_ADAPTOR_IGNORE_CPP_API(DA)
+%ignore DA::GetNumberOfMeshes;
+%ignore DA::GetMeshMetadata;
+%ignore DA::GetMesh;
+%ignore DA::AddArray;
+%ignore DA::ReleaseData;
+%enddef
+
+/* Python implementation of the SENSEI DataAdaptor API */
+%define SENSEI_DATA_ADAPTOR_PYTHON_API(DA)
+// ------------------------------------------------------------------------
+unsigned int GetNumberOfMeshes()
+{
+  unsigned int nMeshes = 0;
+  if (self->GetNumberOfMeshes(nMeshes))
+    {
+    PyErr_Format(PyExc_RuntimeError,
+      #DA " : Failed to get the number of meshes");
+    PyErr_Print();
+    }
+  return nMeshes;
+}
+
+// ------------------------------------------------------------------------
+sensei::MeshMetadataPtr GetMeshMetadata(unsigned int id,
+  sensei::MeshMetadataFlags flags = sensei::MeshMetadataFlags())
+{
+  sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New(flags);
+
+  if (self->GetMeshMetadata(id, pmd) || !pmd)
+    {
+    PyErr_Format(PyExc_RuntimeError,
+      #DA " : Failed to get metadata for mesh %d", id);
+    PyErr_Print();
+    }
+
+  return pmd;
+}
+
+// ------------------------------------------------------------------------
+svtkDataObject *GetMesh(const std::string &meshName, bool structureOnly)
+{
+  svtkDataObject *mesh = nullptr;
+  if (self->GetMesh(meshName, structureOnly, mesh))
+    {
+    PyErr_Format(PyExc_RuntimeError,
+      #DA " : Failed to get mesh \"%s\"", meshName.c_str());
+    PyErr_Print();
+    }
+  return mesh;
+}
+
+// ------------------------------------------------------------------------
+void AddArray(svtkDataObject* mesh, const std::string &meshName,
+  int association, const std::string &arrayName)
+{
+   if (self->AddArray(mesh, meshName, association, arrayName))
+     {
+     PyErr_Format(PyExc_RuntimeError,
+       #DA " : Failed to add %s data array \"%s\" to mesh \"%s\"",
+       sensei::SVTKUtils::GetAttributesName(association),
+       arrayName.c_str(), meshName.c_str());
+     PyErr_Print();
+     }
+}
+
+// ------------------------------------------------------------------------
+void ReleaseData()
+{
+  if (self->ReleaseData())
+    {
+    SENSEI_ERROR(#DA " : Failed to release data")
+    }
+}
+%enddef
+
+/* wraps the passed DataAdaptor class */
+%define SENSEI_WRAP_DATA_ADAPTOR(CLASS)
+%{
+#include <CLASS##.h>
+%}
+%newobject sensei::##CLASS::GetMesh;
+SVTK_OBJECT_FACTORY(sensei::##CLASS)
+%extend sensei::##CLASS
+{
+    SENSEI_CONSTRUCTOR(CLASS)
+    SVTK_OBJECT_STR(sensei::##CLASS)
+    SENSEI_DATA_ADAPTOR_PYTHON_API(sensei::##CLASS)
+};
+SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
+SENSEI_DATA_ADAPTOR_IGNORE_CPP_API(sensei::##CLASS)
+%include <CLASS##.h>
+%enddef
+
+
+/* Ignore the C++ implementation of the SENSEI InTransitDataAdaptor API */
+%define SENSEI_IN_TRANSIT_DATA_ADAPTOR_IGNORE_CPP_API(DA)
+%ignore DA::GetSenderMeshMetadata;
+%ignore DA::GetReceiverMeshMetadata;
+%ignore DA::SetReceiverMeshMetadata;
+%enddef
+
+/* Define the Python implementation of the SENSEI InTransitDataAdaptor API */
+%define SENSEI_IN_TRANSIT_DATA_ADAPTOR_PYTHON_API(DA)
+// ------------------------------------------------------------------------
+sensei::MeshMetadataPtr GetSenderMeshMetadata(unsigned int id)
+{
+  sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New();
+
+  if (self->GetSenderMeshMetadata(id, pmd) || !pmd)
+    {
+    PyErr_Format(PyExc_RuntimeError,
+      #DA " : Failed to get sender metadata for mesh %d", id);
+    PyErr_Print();
+    }
+
+  return pmd;
+}
+
+// ------------------------------------------------------------------------
+sensei::MeshMetadataPtr GetReceiverMeshMetadata(unsigned int id)
+{
+  sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New();
+
+  if (self->GetReceiverMeshMetadata(id, pmd) || !pmd)
+    {
+    PyErr_Format(PyExc_RuntimeError,
+      #DA " : Failed to get receiver metadata for mesh %d", id);
+    PyErr_Print();
+    }
+
+  return pmd;
+}
+
+// ------------------------------------------------------------------------
+void SetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md)
+{
+  if (self->SetReceiverMeshMetadata(id, md))
+    {
+    PyErr_Format(PyExc_RuntimeError,
+      #DA " : Failed to set receiver metadata for mesh %d", id);
+    PyErr_Print();
+    }
+}
+%enddef
+
+/* wraps the passed InTransitDataAdaptor class */
+%define SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(CLASS)
+%{
+#include <CLASS##.h>
+%}
+SVTK_OBJECT_FACTORY(sensei::##CLASS)
+%extend sensei::##CLASS
+{
+    SENSEI_CONSTRUCTOR(CLASS)
+    SENSEI_DATA_ADAPTOR_PYTHON_API(sensei::##CLASS)
+    SENSEI_IN_TRANSIT_DATA_ADAPTOR_PYTHON_API(sensei::##CLASS)
+    SVTK_OBJECT_STR(sensei::##CLASS)
+};
+SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
+SENSEI_DATA_ADAPTOR_IGNORE_CPP_API(sensei::##CLASS)
+SENSEI_IN_TRANSIT_DATA_ADAPTOR_IGNORE_CPP_API(sensei::##CLASS)
+%include <CLASS##.h>
 %enddef
 
 /****************************************************************************
@@ -135,81 +290,7 @@ VTK_DERIVED(DA)
 /****************************************************************************
  * DataAdaptor
  ***************************************************************************/
-%extend sensei::DataAdaptor
-{
-  /* Modify the DataAdaptor API for Python. Python doesn't
-     support pass by reference. Hence, we need to wrap the
-     core API. Rather than return an error code we will ask
-     that Python codes raise and exception if there is an
-     error and return function results(or void for cases when
-     there are none) instead of using pass by reference/output
-     parameters */
-  // ------------------------------------------------------------------------
-  unsigned int GetNumberOfMeshes()
-  {
-    unsigned int nMeshes = 0;
-    if (self->GetNumberOfMeshes(nMeshes))
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to get the number of meshes");
-      PyErr_Print();
-      }
-    return nMeshes;
-  }
-
-  // ------------------------------------------------------------------------
-  sensei::MeshMetadataPtr GetMeshMetadata(unsigned int id,
-    sensei::MeshMetadataFlags flags = sensei::MeshMetadataFlags())
-  {
-    sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New(flags);
-
-    if (self->GetMeshMetadata(id, pmd) || !pmd)
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to get metadata for mesh %d", id);
-      PyErr_Print();
-      }
-
-    return pmd;
-  }
-
-  // ------------------------------------------------------------------------
-  vtkDataObject *GetMesh(const std::string &meshName, bool structureOnly)
-  {
-    vtkDataObject *mesh = nullptr;
-    if (self->GetMesh(meshName, structureOnly, mesh))
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to get mesh \"%s\"", meshName.c_str());
-      PyErr_Print();
-      }
-    return mesh;
-  }
-
-  // ------------------------------------------------------------------------
-  void AddArray(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::string &arrayName)
-  {
-     if (self->AddArray(mesh, meshName, association, arrayName))
-       {
-       PyErr_Format(PyExc_RuntimeError,
-         "Failed to add %s data array \"%s\" to mesh \"%s\"",
-         sensei::VTKUtils::GetAttributesName(association),
-         arrayName.c_str(), meshName.c_str());
-       PyErr_Print();
-       }
-  }
-  // ------------------------------------------------------------------------
-  void ReleaseData()
-  {
-    if (self->ReleaseData())
-      {
-      SENSEI_ERROR("Failed to release data")
-      }
-  }
-}
-SENSEI_DATA_ADAPTOR(DataAdaptor)
-%include "DataAdaptor.h"
+SENSEI_WRAP_DATA_ADAPTOR(DataAdaptor)
 
 /****************************************************************************
  * Partitioners
@@ -258,52 +339,7 @@ PARTITIONER_API(ConfigurablePartitioner)
 /****************************************************************************
  * InTransitDataAdaptor
  ***************************************************************************/
-%extend sensei::InTransitDataAdaptor
-{
-  // ------------------------------------------------------------------------
-  sensei::MeshMetadataPtr GetSenderMeshMetadata(unsigned int id)
-  {
-    sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New();
-
-    if (self->GetSenderMeshMetadata(id, pmd) || !pmd)
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to get sender metadata for mesh %d", id);
-      PyErr_Print();
-      }
-
-    return pmd;
-  }
-
-  // ------------------------------------------------------------------------
-  sensei::MeshMetadataPtr GetReceiverMeshMetadata(unsigned int id)
-  {
-    sensei::MeshMetadataPtr pmd = sensei::MeshMetadata::New();
-
-    if (self->GetReceiverMeshMetadata(id, pmd) || !pmd)
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to get receiver metadata for mesh %d", id);
-      PyErr_Print();
-      }
-
-    return pmd;
-  }
-
-  // ------------------------------------------------------------------------
-  void SetReceiverMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &md)
-  {
-    if (self->SetReceiverMeshMetadata(id, md))
-      {
-      PyErr_Format(PyExc_RuntimeError,
-        "Failed to set receiver metadata for mesh %d", id);
-      PyErr_Print();
-      }
-  }
-}
-
-SENSEI_IN_TRANSIT_DATA_ADAPTOR(InTransitDataAdaptor)
-%include "InTransitDataAdaptor.h"
+SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(InTransitDataAdaptor)
 
 %inline
 %{
@@ -314,5 +350,7 @@ sensei::InTransitDataAdaptor *AsInTransitDataAdaptor(sensei::DataAdaptor *da)
 }
 %}
 
-SENSEI_IN_TRANSIT_DATA_ADAPTOR(ConfigurableInTransitDataAdaptor)
-%include "ConfigurableInTransitDataAdaptor.h"
+/****************************************************************************
+ * ConfigurableInTransitDataAdaptor
+ ***************************************************************************/
+SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(ConfigurableInTransitDataAdaptor)

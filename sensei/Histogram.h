@@ -5,16 +5,14 @@
 #include <mpi.h>
 #include <vector>
 
-class vtkDataObject;
-class vtkDataArray;
+class svtkDataObject;
+class svtkDataArray;
 
 namespace sensei
 {
 
-class HistogramInternals;
-
 /// Computes a histogram in parallel.
-class Histogram : public AnalysisAdaptor
+class SENSEI_EXPORT Histogram : public AnalysisAdaptor
 {
 public:
   /// allocates a new instance
@@ -28,24 +26,24 @@ public:
     const std::string &fileName);
 
   /// compute the histogram for this time step
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
   /// finalize the run
   int Finalize() override;
 
-  /// the computed hostgram may be accessed through the following data structure.
+  /// the computed histogram may be accessed through the following data structure.
   struct Data
   {
       Data() : NumberOfBins(1), BinMin(1.0), BinMax(0.0), BinWidth(1.0), Histogram() {}
 
-      int NumberOfBins; /// The number of bins in the histogram
-      double BinMin;    /// The left most bin edge
-      double BinMax;    /// The right most bin edge
-      double BinWidth;  /// The width of the equally spaced bins
-      std::vector<unsigned int> Histogram; /// The counts of each bin
+      int NumberOfBins; ///< The number of bins in the histogram
+      double BinMin;    ///< The left most bin edge
+      double BinMax;    ///< The right most bin edge
+      double BinWidth;  ///< The width of the equally spaced bins
+      std::vector<unsigned int> Histogram; ///< The counts of each bin
   };
 
-  /// return the histogram computed by the most recent call to ::Execute
+  /// return the histogram computed by the most recent call to Execute
   int GetHistogram(Histogram::Data &data);
 
 protected:
@@ -56,7 +54,7 @@ protected:
   void operator=(const Histogram&) = delete;
 
   static const char *GetGhostArrayName();
-  vtkDataArray* GetArray(vtkDataObject* dobj, const std::string& arrayname);
+  svtkDataArray* GetArray(svtkDataObject* dobj, const std::string& arrayname);
 
   int NumberOfBins;
   std::string MeshName;

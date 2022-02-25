@@ -2,22 +2,22 @@
 #include "MeshMetadata.h"
 #include "Error.h"
 
-#include <vtkCellArray.h>
-#include <vtkCellData.h>
-#include <vtkFloatArray.h>
-#include <vtkImageData.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkRectilinearGrid.h>
-#include <vtkSmartPointer.h>
-#include <vtkUnsignedCharArray.h>
+#include <svtkCellArray.h>
+#include <svtkCellData.h>
+#include <svtkFloatArray.h>
+#include <svtkImageData.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkObjectFactory.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkSmartPointer.h>
+#include <svtkUnsignedCharArray.h>
 
-#define REPRESENT_VTK_AMR
-#ifdef REPRESENT_VTK_AMR
-#include <vtkAMRBox.h>
-#include <vtkAMRInformation.h>
-#include <vtkOverlappingAMR.h>
-#include <vtkUniformGrid.h>
+#define REPRESENT_SVTK_AMR
+#ifdef REPRESENT_SVTK_AMR
+#include <svtkAMRBox.h>
+#include <svtkAMRInformation.h>
+#include <svtkOverlappingAMR.h>
+#include <svtkUniformGrid.h>
 #endif
 
 #include "simulation_data.h"
@@ -27,10 +27,10 @@ static const char *arrname = "vortex";
 
 struct VortexDataAdaptor::DInternals
 {
-#ifdef REPRESENT_VTK_AMR
-  vtkSmartPointer<vtkOverlappingAMR> Mesh;
+#ifdef REPRESENT_SVTK_AMR
+  svtkSmartPointer<svtkOverlappingAMR> Mesh;
 #else
-  vtkSmartPointer<vtkMultiBlockDataSet> Mesh;
+  svtkSmartPointer<svtkMultiBlockDataSet> Mesh;
 #endif
   simulation_data *sim;
 };
@@ -61,7 +61,7 @@ void VortexDataAdaptor::Initialize(simulation_data *sim)
 
 //-----------------------------------------------------------------------------
 int VortexDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly*/,
-    vtkDataObject *&mesh)
+    svtkDataObject *&mesh)
 {
   if (meshName != "AMR_mesh")
     {
@@ -87,7 +87,7 @@ int VortexDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly
 
     // Make the dataset, set the blocks per level. The blocks per level is the
     // global number of patches per level.
-    internals.Mesh = vtkSmartPointer<vtkOverlappingAMR>::New();
+    internals.Mesh = svtkSmartPointer<svtkOverlappingAMR>::New();
     internals.Mesh->Initialize(internals.sim->max_levels+1,
                                internals.sim->npatches_per_level);
 
@@ -185,8 +185,8 @@ int VortexDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly
           continue;
         }
 
-      // Make a vtkUniformGrid for the current patch.
-      vtkUniformGrid *p = vtkUniformGrid::New();
+      // Make a svtkUniformGrid for the current patch.
+      svtkUniformGrid *p = svtkUniformGrid::New();
       p->SetOrigin(origin);
       p->SetSpacing(spacing);
       int dims[3] = {0,0,1};
@@ -210,9 +210,9 @@ int VortexDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly
         }
 #endif
       // If the patch has children, and blank data then expose that data as
-      // vtkGhostType.
-      vtkUnsignedCharArray *arr = vtkUnsignedCharArray::New();
-      arr->SetName("vtkGhostType");
+      // svtkGhostType.
+      svtkUnsignedCharArray *arr = svtkUnsignedCharArray::New();
+      arr->SetName("svtkGhostType");
       int sz = patches_this_rank[i]->nx*patches_this_rank[i]->ny*patches_this_rank[i]->nz;
       if(patches_this_rank[i]->blank != nullptr)
         {
@@ -227,8 +227,8 @@ int VortexDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly
       p->GetCellData()->AddArray(arr);
       arr->FastDelete();
 
-      // Set the vtkUniformGrid into the AMR dataset.
-      vtkAMRBox box(low, high);
+      // Set the svtkUniformGrid into the AMR dataset.
+      svtkAMRBox box(low, high);
       internals.Mesh->SetAMRBox(mylevel, mypatch, box);
       internals.Mesh->SetDataSet(mylevel, mypatch, p);
       p->Delete();
@@ -259,11 +259,11 @@ int VortexDataAdaptor::GetMesh(const std::string &meshName, bool /*structureOnly
 }
 
 //-----------------------------------------------------------------------------
-int VortexDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName,
+int VortexDataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
 #ifndef NDEBUG
-  if ((association != vtkDataObject::FIELD_ASSOCIATION_CELLS) ||
+  if ((association != svtkDataObject::FIELD_ASSOCIATION_CELLS) ||
     (arrayName != arrname) || (meshName != "AMR_mesh"))
     {
     SENSEI_ERROR("the miniapp provides a cell centered array named \"vortex\" "
@@ -277,7 +277,7 @@ int VortexDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
 #endif
   int retVal = 1;
   DInternals& internals = (*this->Internals);
-  vtkOverlappingAMR *ds = vtkOverlappingAMR::SafeDownCast(mesh);
+  svtkOverlappingAMR *ds = svtkOverlappingAMR::SafeDownCast(mesh);
   // Set the arrays for the local domains.
   int np = 0;
   patch_t **patches_this_rank = patch_flat_array(&internals.sim->patch, &np);
@@ -295,13 +295,13 @@ int VortexDataAdaptor::AddArray(vtkDataObject* mesh, const std::string &meshName
     unsigned int mylevel, mypatch;
     ds->GetLevelAndIndex(domain, mylevel, mypatch);
 
-    vtkDataSet *block = vtkDataSet::SafeDownCast(ds->GetDataSet(mylevel, mypatch));
+    svtkDataSet *block = svtkDataSet::SafeDownCast(ds->GetDataSet(mylevel, mypatch));
     if(block)
       {
-      vtkDataArray *m = block->GetCellData()->GetArray(arrname);
+      svtkDataArray *m = block->GetCellData()->GetArray(arrname);
       if(m == nullptr)
         {
-        vtkFloatArray *arr = vtkFloatArray::New();
+        svtkFloatArray *arr = svtkFloatArray::New();
         arr->SetName(arrname);
         arr->SetArray(patches_this_rank[i]->data, 
                       patches_this_rank[i]->nx*patches_this_rank[i]->ny*patches_this_rank[i]->nz,
@@ -332,8 +332,8 @@ int VortexDataAdaptor::GetMeshMetadata(unsigned int id,
     {
     metadata->MeshName = "AMR_mesh";
     metadata->GlobalView = true;
-    metadata->MeshType = VTK_OVERLAPPING_AMR;
-    metadata->BlockType = VTK_IMAGE_DATA;
+    metadata->MeshType = SVTK_OVERLAPPING_AMR;
+    metadata->BlockType = SVTK_IMAGE_DATA;
 
     // TODO -- fill these in
     /*
@@ -371,8 +371,8 @@ int VortexDataAdaptor::GetMeshMetadata(unsigned int id,
 
     metadata->NumArrays = 1;
     metadata->ArrayName = {"mandelbrot"};
-    metadata->ArrayCentering = {vtkDataObject::CELL};
-    metadata->ArrayType = {VTK_UNSIGNED_CHAR};
+    metadata->ArrayCentering = {svtkDataObject::CELL};
+    metadata->ArrayType = {SVTK_UNSIGNED_CHAR};
     metadata->ArrayComponents = {1};
     return 0;
     }

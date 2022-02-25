@@ -4,15 +4,15 @@
 #include "InTransitDataAdaptor.h"
 #include "AnalysisAdaptor.h"
 
-#include <vtkSmartPointer.h>
+#include <svtkSmartPointer.h>
 
 /// @file
 
 namespace sensei
 {
 
-using InTransitDataAdaptorPtr = vtkSmartPointer<sensei::InTransitDataAdaptor>;
-using AnalysisAdaptorPtr = vtkSmartPointer<sensei::AnalysisAdaptor>;
+using InTransitDataAdaptorPtr = svtkSmartPointer<sensei::InTransitDataAdaptor>;
+using AnalysisAdaptorPtr = svtkSmartPointer<sensei::AnalysisAdaptor>;
 
 /// Factory methods for creating in transit adaptors from XML.
 namespace InTransitAdaptorFactory

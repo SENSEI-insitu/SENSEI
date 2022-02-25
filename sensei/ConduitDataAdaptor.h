@@ -2,7 +2,7 @@
 #define CONDUIT_DATAADAPTOR_H
 
 #include <vector>
-#include <vtkDataArray.h>
+#include <svtkDataArray.h>
 #include <conduit.hpp>
 
 #include "DataAdaptor.h"
@@ -11,12 +11,12 @@
 namespace sensei
 {
 
-class ConduitDataAdaptor : public sensei::DataAdaptor
+class SENSEI_EXPORT ConduitDataAdaptor : public sensei::DataAdaptor
 {
 public:
   static ConduitDataAdaptor* New();
   senseiTypeMacro(ConduitDataAdaptor, sensei::DataAdaptor);
-  void PrintSelf(ostream &os, vtkIndent indent) override;
+  void PrintSelf(ostream &os, svtkIndent indent) override;
 
   void SetNode(conduit::Node* node);
   void UpdateFields();
@@ -26,12 +26,12 @@ public:
 
   int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) override;
 
-  int GetMesh(const std::string &meshName, bool structureOnly, vtkDataObject *&mesh) override;
+  int GetMesh(const std::string &meshName, bool structureOnly, svtkDataObject *&mesh) override;
 
-  //int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName) override;
-  //int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName) override;
+  //int AddGhostNodesArray(svtkDataObject* mesh, const std::string &meshName) override;
+  //int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName) override;
 
-  int AddArray(vtkDataObject* mesh, const std::string &meshName, int association, const std::string &arrayName) override;
+  int AddArray(svtkDataObject* mesh, const std::string &meshName, int association, const std::string &arrayName) override;
 
   int ReleaseData() override;
 

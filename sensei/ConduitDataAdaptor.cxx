@@ -3,36 +3,36 @@
 
 #include <conduit_blueprint.hpp>
 
-#include <vtkCharArray.h>
-#include <vtkUnsignedCharArray.h>
-#include <vtkShortArray.h>
-#include <vtkUnsignedShortArray.h>
-#include <vtkIntArray.h>
-#include <vtkUnsignedIntArray.h>
-#include <vtkLongArray.h>
-#include <vtkUnsignedLongArray.h>
-#include <vtkLongLongArray.h>
-#include <vtkUnsignedLongLongArray.h>
-#include <vtkFloatArray.h>
-#include <vtkDoubleArray.h>
+#include <svtkCharArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkShortArray.h>
+#include <svtkUnsignedShortArray.h>
+#include <svtkIntArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkLongLongArray.h>
+#include <svtkUnsignedLongLongArray.h>
+#include <svtkFloatArray.h>
+#include <svtkDoubleArray.h>
 
-#include <vtkDataSetAttributes.h>
-#include <vtkImageData.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkSmartPointer.h>
-#include <vtkVector.h>
-#include <vtkVectorOperators.h>
-#include <vtkCellArray.h>
-#include <vtkCellType.h>
-#include <vtkCellData.h>
-#include <vtkIdTypeArray.h>
-#include <vtkPoints.h>
-#include <vtkPointData.h>
+#include <svtkDataSetAttributes.h>
+#include <svtkImageData.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkObjectFactory.h>
+#include <svtkSmartPointer.h>
+#include <svtkVector.h>
+#include <svtkVectorOperators.h>
+#include <svtkCellArray.h>
+#include <svtkCellType.h>
+#include <svtkCellData.h>
+#include <svtkIdTypeArray.h>
+#include <svtkPoints.h>
+#include <svtkPointData.h>
 
-#include <vtkRectilinearGrid.h>
-#include <vtkStructuredGrid.h>
-#include <vtkUnstructuredGrid.h>
+#include <svtkRectilinearGrid.h>
+#include <svtkStructuredGrid.h>
+#include <svtkUnstructuredGrid.h>
 
 #include "ConduitDataAdaptor.h"
 #include "Error.h"
@@ -57,36 +57,36 @@ ConduitDataAdaptor::~ConduitDataAdaptor()
 }
 
 //-----------------------------------------------------------------------------
-static inline int ElementShapeNameToVTKCellType( const std::string &shape_name )
+static inline int ElementShapeNameToSVTKCellType( const std::string &shape_name )
 {
-  if (shape_name == "point") return VTK_VERTEX;
-  if (shape_name == "line")  return VTK_LINE;
-  if (shape_name == "tri")   return VTK_TRIANGLE;
-  if (shape_name == "quad")  return VTK_QUAD;
-  if (shape_name == "hex")   return VTK_HEXAHEDRON;
-  if (shape_name == "tet")   return VTK_TETRA;
+  if (shape_name == "point") return SVTK_VERTEX;
+  if (shape_name == "line")  return SVTK_LINE;
+  if (shape_name == "tri")   return SVTK_TRIANGLE;
+  if (shape_name == "quad")  return SVTK_QUAD;
+  if (shape_name == "hex")   return SVTK_HEXAHEDRON;
+  if (shape_name == "tet")   return SVTK_TETRA;
 
   SENSEI_ERROR("Warning: Unsupported Element Shape: " << shape_name);
-  return( VTK_EMPTY_CELL );
+  return( SVTK_EMPTY_CELL );
 }
 
 //-----------------------------------------------------------------------------
-static inline int VTKCellTypeSize( int cell_type )
+static inline int SVTKCellTypeSize( int cell_type )
 {
-  if (cell_type == VTK_VERTEX)     return 1;
-  if (cell_type == VTK_LINE)       return 2;
-  if (cell_type == VTK_TRIANGLE)   return 3;
-  if (cell_type == VTK_QUAD)       return 4;
-  if (cell_type == VTK_HEXAHEDRON) return 8;
-  if (cell_type == VTK_TETRA)      return 4;
+  if (cell_type == SVTK_VERTEX)     return 1;
+  if (cell_type == SVTK_LINE)       return 2;
+  if (cell_type == SVTK_TRIANGLE)   return 3;
+  if (cell_type == SVTK_QUAD)       return 4;
+  if (cell_type == SVTK_HEXAHEDRON) return 8;
+  if (cell_type == SVTK_TETRA)      return 4;
 
   return 0;
 }
 
 //-----------------------------------------------------------------------------
-template<typename T> void Blueprint_MultiCompArray_To_VTKDataArray( const conduit::Node &n, int ncomps, int ntuples, vtkDataArray *darray )
+template<typename T> void Blueprint_MultiCompArray_To_SVTKDataArray( const conduit::Node &n, int ncomps, int ntuples, svtkDataArray *darray )
 {
-  // vtk reqs us to set number of comps before number of tuples
+  // svtk reqs us to set number of comps before number of tuples
   if( ncomps == 2 ) // we need 3 comps for vectors
     darray->SetNumberOfComponents( 3 );
   else
@@ -96,11 +96,11 @@ template<typename T> void Blueprint_MultiCompArray_To_VTKDataArray( const condui
   if( n.number_of_children() > 0 )
   {
     // handle multi-component case
-    for(vtkIdType c=0; c < ncomps ;++c)
+    for(svtkIdType c=0; c < ncomps ;++c)
     {
       conduit::DataArray<T> vals_array = n[c].value();
 
-      for(vtkIdType i = 0; i < ntuples ;++i)
+      for(svtkIdType i = 0; i < ntuples ;++i)
       {
         darray->SetComponent( i, c, (double)vals_array[i] );
 
@@ -116,7 +116,7 @@ template<typename T> void Blueprint_MultiCompArray_To_VTKDataArray( const condui
     // single array case
     conduit::DataArray<T> vals_array = n.value();
 
-    for(vtkIdType i = 0; i < ntuples ;++i)
+    for(svtkIdType i = 0; i < ntuples ;++i)
     {
       darray->SetComponent( i, 0, (double)vals_array[i] );
     }
@@ -124,9 +124,10 @@ template<typename T> void Blueprint_MultiCompArray_To_VTKDataArray( const condui
 }
 
 //-----------------------------------------------------------------------------
-vtkDataArray * ConduitArrayToVTKDataArray( const conduit::Node &n )
+svtkDataArray * ConduitArrayToSVTKDataArray( const conduit::Node &n )
 {
-  vtkDataArray *retval = NULL;
+  svtkDataArray *retval = NULL;
+  
   int nchildren = n.number_of_children();
   int ntuples = 0;
   int ncomps  = 1;
@@ -152,64 +153,64 @@ vtkDataArray * ConduitArrayToVTKDataArray( const conduit::Node &n )
   ntuples = (int) vals_dtype.number_of_elements();
   if( vals_dtype.is_unsigned_char() )
   {
-    retval = vtkUnsignedCharArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_UNSIGNED_CHAR>( n, ncomps, ntuples, retval );
+    retval = svtkUnsignedCharArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_UNSIGNED_CHAR>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_unsigned_short() )
   {
-    retval = vtkUnsignedShortArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_UNSIGNED_SHORT>( n, ncomps, ntuples, retval );
+    retval = svtkUnsignedShortArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_UNSIGNED_SHORT>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_unsigned_int() )
   {
-    retval = vtkUnsignedIntArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_UNSIGNED_INT>( n, ncomps, ntuples, retval );
+    retval = svtkUnsignedIntArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_UNSIGNED_INT>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_char() )
   {
-    retval = vtkCharArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_CHAR>( n, ncomps, ntuples, retval );
+    retval = svtkCharArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_CHAR>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_short() )
   {
-    retval = vtkShortArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_SHORT>( n, ncomps, ntuples, retval );
+    retval = svtkShortArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_SHORT>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_int() )
   {
-    retval = vtkIntArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_INT>( n, ncomps, ntuples, retval );
+    retval = svtkIntArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_INT>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_long() )
   {
-    retval = vtkLongArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_LONG>( n, ncomps, ntuples, retval );
+    retval = svtkLongArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_LONG>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_float() )
   {
-    retval = vtkFloatArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_FLOAT>( n, ncomps, ntuples, retval );
+    retval = svtkFloatArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_FLOAT>( n, ncomps, ntuples, retval );
   }
   else if( vals_dtype.is_double() )
   {
-    retval = vtkDoubleArray::New();
-    Blueprint_MultiCompArray_To_VTKDataArray<CONDUIT_NATIVE_DOUBLE>( n, ncomps, ntuples, retval );
+    retval = svtkDoubleArray::New();
+    Blueprint_MultiCompArray_To_SVTKDataArray<CONDUIT_NATIVE_DOUBLE>( n, ncomps, ntuples, retval );
   }
   else
   {
-    SENSEI_ERROR( "Conduit Array to VTK Data Array:  unsupported data type: " << n.dtype().name() );
+    SENSEI_ERROR( "Conduit Array to SVTK Data Array:  unsupported data type: " << n.dtype().name() );
   }
   return( retval );
 }
 
 //-----------------------------------------------------------------------------
-vtkCellArray * HomogeneousShapeTopologyToVTKCellArray( const conduit::Node &n_topo, int /*npts*/ )
+svtkCellArray * HomogeneousShapeTopologyToSVTKCellArray( const conduit::Node &n_topo, int /*npts*/ )
 {
-  vtkCellArray *ca = vtkCellArray::New();
-  vtkIdTypeArray *ida = vtkIdTypeArray::New();
+  svtkCellArray *ca = svtkCellArray::New();
+  svtkIdTypeArray *ida = svtkIdTypeArray::New();
 
-  int ctype = ElementShapeNameToVTKCellType(n_topo["elements/shape"].as_string());
-  int csize = VTKCellTypeSize(ctype);
+  int ctype = ElementShapeNameToSVTKCellType(n_topo["elements/shape"].as_string());
+  int csize = SVTKCellTypeSize(ctype);
   int ncells = n_topo["elements/connectivity"].dtype().number_of_elements() / csize;
 
     conduit::int_array topo_conn;
@@ -238,9 +239,9 @@ vtkCellArray * HomogeneousShapeTopologyToVTKCellArray( const conduit::Node &n_to
 }
 
 //-----------------------------------------------------------------------------
-vtkPoints * ExplicitCoordsToVTKPoints( const conduit::Node &coords )
+svtkPoints * ExplicitCoordsToSVTKPoints( const conduit::Node &coords )
 {
-  vtkPoints *points = vtkPoints::New();
+  svtkPoints *points = svtkPoints::New();
 
   const conduit::Node &vals = coords["values"];
 
@@ -298,9 +299,10 @@ vtkPoints * ExplicitCoordsToVTKPoints( const conduit::Node &coords )
   points->SetDataTypeToDouble();
   points->SetNumberOfPoints(npts);
 
-  //TODO: we could describe the VTK data array via
-  // and push the conversion directly into its memory.
-  for(vtkIdType i = 0; i < npts ;++i)
+  //TODO: we could describe the SVTK data array via 
+  // and push the conversion directly into its memory. 
+
+  for(svtkIdType i = 0; i < npts ;++i)
   {
     double x = x_vals[i];
     double y = have_y ? y_vals[i] : 0;
@@ -311,9 +313,9 @@ vtkPoints * ExplicitCoordsToVTKPoints( const conduit::Node &coords )
   return( points );
 }
 //-----------------------------------------------------------------------------
-vtkDataSet* StructuredMesh( const conduit::Node* node )
+svtkDataSet* StructuredMesh( const conduit::Node* node )
 {
-  vtkStructuredGrid *sgrid = vtkStructuredGrid::New();
+  svtkStructuredGrid *sgrid = svtkStructuredGrid::New();
   const conduit::Node &coords = (*node)["coordsets"][0];
   const conduit::Node &topo   = (*node)["topologies"][0];
 
@@ -323,7 +325,7 @@ vtkDataSet* StructuredMesh( const conduit::Node* node )
   dims[2] = topo.has_path("elements/dims/k") ? topo["elements/dims/k"].to_int()+1 : 1;
   sgrid->SetDimensions( dims );
 
-  vtkPoints *points = ExplicitCoordsToVTKPoints(coords);
+  svtkPoints *points = ExplicitCoordsToSVTKPoints(coords);
   sgrid->SetPoints( points );
   points->Delete();
 
@@ -331,30 +333,30 @@ vtkDataSet* StructuredMesh( const conduit::Node* node )
 }
 
 //-----------------------------------------------------------------------------
-vtkDataSet* UnstructuredMesh( const conduit::Node* node )
+svtkDataSet* UnstructuredMesh( const conduit::Node* node )
 {
   const conduit::Node &coords = (*node)["coordsets"][0];
   const conduit::Node &topo   = (*node)["topologies"][0];
 
-  vtkPoints *points = ExplicitCoordsToVTKPoints( coords );
+  svtkPoints *points = ExplicitCoordsToSVTKPoints( coords );
 
-  vtkUnstructuredGrid *ugrid = vtkUnstructuredGrid::New();
+  svtkUnstructuredGrid *ugrid = svtkUnstructuredGrid::New();
   ugrid->SetPoints( points );
   points->Delete();
 
   //
   // Now, add explicit topology
   //
-  vtkCellArray *ca = HomogeneousShapeTopologyToVTKCellArray( topo, points->GetNumberOfPoints() );
-  ugrid->SetCells( ElementShapeNameToVTKCellType(topo["elements/shape"].as_string()), ca );
+  svtkCellArray *ca = HomogeneousShapeTopologyToSVTKCellArray( topo, points->GetNumberOfPoints() );
+  ugrid->SetCells( ElementShapeNameToSVTKCellType(topo["elements/shape"].as_string()), ca );
   ca->Delete();
   return( ugrid );
 }
 
 //-----------------------------------------------------------------------------
-vtkDataSet* RectilinearMesh( const conduit::Node* node )
+svtkDataSet* RectilinearMesh( const conduit::Node* node )
 {
-  vtkRectilinearGrid *rectgrid = vtkRectilinearGrid::New();
+  svtkRectilinearGrid *rectgrid = svtkRectilinearGrid::New();
 
   const conduit::Node &coords         = (*node)["coordsets"][0];
   const conduit::Node &coords_values  = coords["values"];
@@ -368,41 +370,41 @@ vtkDataSet* RectilinearMesh( const conduit::Node* node )
     dims[2] = coords_values["z"].dtype().number_of_elements();
   rectgrid->SetDimensions( dims );
 
-  vtkDataArray *vtk_coords[3] = {0, 0, 0};
-  vtk_coords[0] = ConduitArrayToVTKDataArray( coords_values["x"] );
+  svtkDataArray *svtk_coords[3] = {0, 0, 0};
+  svtk_coords[0] = ConduitArrayToSVTKDataArray( coords_values["x"] );
   if( coords_values.has_child("y") )
-    vtk_coords[1] = ConduitArrayToVTKDataArray( coords_values["y"] );
+    svtk_coords[1] = ConduitArrayToSVTKDataArray( coords_values["y"] );
   else
   {
-    vtk_coords[1] = vtk_coords[0]->NewInstance();
-    vtk_coords[1]->SetNumberOfTuples( 1 );
-    vtk_coords[1]->SetComponent( 0, 0, 0 );
+    svtk_coords[1] = svtk_coords[0]->NewInstance();
+    svtk_coords[1]->SetNumberOfTuples( 1 );
+    svtk_coords[1]->SetComponent( 0, 0, 0 );
   }
   if( coords_values.has_child("z") )
-    vtk_coords[2] = ConduitArrayToVTKDataArray( coords_values["z"]) ;
+    svtk_coords[2] = ConduitArrayToSVTKDataArray( coords_values["z"]) ;
   else
   {
-    vtk_coords[2] = vtk_coords[0]->NewInstance();
-    vtk_coords[2]->SetNumberOfTuples( 1 );
-    vtk_coords[2]->SetComponent( 0, 0, 0 );
+    svtk_coords[2] = svtk_coords[0]->NewInstance();
+    svtk_coords[2]->SetNumberOfTuples( 1 );
+    svtk_coords[2]->SetComponent( 0, 0, 0 );
   }
 
-  rectgrid->SetXCoordinates( vtk_coords[0] );
-  rectgrid->SetYCoordinates( vtk_coords[1] );
-  rectgrid->SetZCoordinates( vtk_coords[2] );
+  rectgrid->SetXCoordinates( svtk_coords[0] );
+  rectgrid->SetYCoordinates( svtk_coords[1] );
+  rectgrid->SetZCoordinates( svtk_coords[2] );
 
-  vtk_coords[0]->Delete();
-  vtk_coords[1]->Delete();
-  vtk_coords[2]->Delete();
+  svtk_coords[0]->Delete();
+  svtk_coords[1]->Delete();
+  svtk_coords[2]->Delete();
 
   return( rectgrid );
 }
 
 //-----------------------------------------------------------------------------
 
-vtkDataSet* UniformMesh( const conduit::Node* node )
+svtkDataSet* UniformMesh( const conduit::Node* node )
 {
-  vtkRectilinearGrid *rectgrid = vtkRectilinearGrid::New();
+  svtkRectilinearGrid *rectgrid = svtkRectilinearGrid::New();
   const conduit::Node &coords = (*node)["coordsets"][0];
   int dims[3];
 
@@ -422,7 +424,7 @@ vtkDataSet* UniformMesh( const conduit::Node* node )
 
   for(int i = 0; i < 3 ;++i)
   {
-    vtkDataArray *da = NULL;
+    svtkDataArray *da = NULL;
     conduit::DataType dt = conduit::DataType::c_double();
     // we have we origin, we can infer type from it
     if( coords.has_path("origin/x") )
@@ -430,26 +432,26 @@ vtkDataSet* UniformMesh( const conduit::Node* node )
       dt = coords["origin"]["x"].dtype();
     }
 
-    // since vtk uses the c-native style types
+    // since svtk uses the c-native style types
     // only need to check for native types in conduit
     if( dt.is_unsigned_char() )
-      da = vtkUnsignedCharArray::New();
+      da = svtkUnsignedCharArray::New();
     else if( dt.is_unsigned_short() )
-      da = vtkUnsignedShortArray::New();
+      da = svtkUnsignedShortArray::New();
     else if( dt.is_unsigned_int() )
-      da = vtkUnsignedIntArray::New();
+      da = svtkUnsignedIntArray::New();
     else if( dt.is_char() )
-      da = vtkCharArray::New();
+      da = svtkCharArray::New();
     else if( dt.is_short() )
-      da = vtkShortArray::New();
+      da = svtkShortArray::New();
     else if( dt.is_int() )
-      da = vtkIntArray::New();
+      da = svtkIntArray::New();
     else if( dt.is_long() )
-      da = vtkLongArray::New();
+      da = svtkLongArray::New();
     else if( dt.is_float() )
-      da = vtkFloatArray::New();
+      da = svtkFloatArray::New();
     else if( dt.is_double() )
-      da = vtkDoubleArray::New();
+      da = svtkDoubleArray::New();
     else
     {
       SENSEI_ERROR( "Conduit Blueprint to Rectilinear Grid coordinates, unsupported data type: " << dt.name() );
@@ -599,8 +601,8 @@ void ConduitDataAdaptor::UpdateFields()
 }
 
 //-----------------------------------------------------------------------------
-int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOnly*/, vtkDataObject *&mesh )
-{
+int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOnly*/, svtkDataObject *&mesh )
+{   
   auto search = this->FieldNames.find( meshName );
   if( search == this->FieldNames.end() )
   {
@@ -608,7 +610,7 @@ int ConduitDataAdaptor::GetMesh( const std::string &meshName, bool /*structureOn
     return( -1 );
   }
 
-  vtkMultiBlockDataSet *mb_mesh = vtkMultiBlockDataSet::New();
+  svtkMultiBlockDataSet *mb_mesh = svtkMultiBlockDataSet::New();
 
   int start = 0, total_blocks = 0;
   int size, rank;
@@ -722,7 +724,7 @@ int ConduitDataAdaptor::GetMeshMetadata(unsigned int /*id*/, sensei::MeshMetadat
 }
 
 //-----------------------------------------------------------------------------
-int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshName, int /*association*/, const std::string &arrayname )
+int ConduitDataAdaptor::AddArray( svtkDataObject* mesh, const std::string &meshName, int /*association*/, const std::string &arrayname )
 {
   auto search = this->FieldNames.find( meshName );
   if( search == this->FieldNames.end() )
@@ -751,7 +753,7 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
   for(int i = 0; i < rank ;++i)
     start += this->GlobalBlockDistribution[i];
 
-  vtkMultiBlockDataSet *mb = dynamic_cast<vtkMultiBlockDataSet*>( mesh );
+  svtkMultiBlockDataSet *mb = dynamic_cast<svtkMultiBlockDataSet*>( mesh );
 
   if( !mb )
   {
@@ -768,9 +770,11 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       const conduit::Node& fields = d_node["fields"];
       const conduit::Node& field  = fields[arrayname];
       const conduit::Node& values = field["values"];
-      vtkSmartPointer<vtkDataArray> array = ConduitArrayToVTKDataArray( values );
+            
+      svtkSmartPointer<svtkDataArray> array = ConduitArrayToSVTKDataArray( values );
       array->SetName( arrayname.c_str() );
-      vtkDataObject *block = mb->GetBlock( start + domain );
+       
+      svtkDataObject *block = mb->GetBlock( start + domain );
 
       std::stringstream ss;
       ss << "fields/" << arrayname << "/association";
@@ -785,12 +789,12 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       {
         if( nchildren > 0 )
         {
-          vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::POINT );
+          svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::POINT );
           attr->AddArray( array );
         }
         else
         {
-          vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::POINT );
+          svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::POINT );
           attr->AddArray( array );
         }
       }
@@ -798,12 +802,12 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
       {
         if( nchildren > 0 )
         {
-          vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
+          svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::CELL );
           attr->AddArray( array );
         }
         else
         {
-          vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
+          svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::CELL );
           attr->AddArray( array );
         }
       }
@@ -820,10 +824,10 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
     const conduit::Node& fields  = (*this->Node)["fields"];
     const conduit::Node& field   = fields[arrayname];
     const conduit::Node& values  = field["values"];
-    vtkSmartPointer<vtkDataArray> array = ConduitArrayToVTKDataArray( values );
+    svtkSmartPointer<svtkDataArray> array = ConduitArrayToSVTKDataArray( values );
     array->SetName( arrayname.c_str() );
 
-    vtkDataObject *block = mb->GetBlock( start );
+    svtkDataObject *block = mb->GetBlock( start );
 
     std::stringstream ss;
     ss << "fields/" << arrayname << "/association";
@@ -839,12 +843,12 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
     {
       if( nchildren > 0 )
       {
-        vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::POINT );
+        svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::POINT );
         attr->AddArray( array );
       }
       else
       {
-        vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::POINT );
+        svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::POINT );
         attr->AddArray( array );
       }
     }
@@ -852,12 +856,12 @@ int ConduitDataAdaptor::AddArray( vtkDataObject* mesh, const std::string &meshNa
     {
       if( nchildren > 0 )
       {
-        vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
+        svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::CELL );
         attr->AddArray( array );
       }
       else
       {
-        vtkDataSetAttributes *attr = block->GetAttributes( vtkDataObject::CELL );
+        svtkDataSetAttributes *attr = block->GetAttributes( svtkDataObject::CELL );
         attr->AddArray( array );
       }
     }

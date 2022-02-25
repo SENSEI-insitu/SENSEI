@@ -15,7 +15,7 @@
 #include <pugixml.hpp>
 #include <string>
 
-#include <vtkObjectFactory.h>
+#include <svtkObjectFactory.h>
 
 namespace sensei
 {
@@ -319,7 +319,7 @@ int ConfigurableInTransitDataAdaptor::GetMeshMetadata(unsigned int id,
 
 // -------------------------------------------------------------------------------
 int ConfigurableInTransitDataAdaptor::GetMesh(const std::string &meshName,
-  bool structureOnly, vtkDataObject *&mesh)
+  bool structureOnly, svtkDataObject *&mesh)
 {
   if (!this->Internals->Adaptor)
     {
@@ -332,7 +332,7 @@ int ConfigurableInTransitDataAdaptor::GetMesh(const std::string &meshName,
 
 // -------------------------------------------------------------------------------
 int ConfigurableInTransitDataAdaptor::GetMesh(const std::string &meshName,
-  bool structureOnly, vtkCompositeDataSet *&mesh)
+  bool structureOnly, svtkCompositeDataSet *&mesh)
 {
   if (!this->Internals->Adaptor)
     {
@@ -344,7 +344,7 @@ int ConfigurableInTransitDataAdaptor::GetMesh(const std::string &meshName,
 }
 
 // -------------------------------------------------------------------------------
-int ConfigurableInTransitDataAdaptor::AddGhostNodesArray(vtkDataObject* mesh,
+int ConfigurableInTransitDataAdaptor::AddGhostNodesArray(svtkDataObject* mesh,
   const std::string &meshName)
 {
   if (!this->Internals->Adaptor)
@@ -357,7 +357,7 @@ int ConfigurableInTransitDataAdaptor::AddGhostNodesArray(vtkDataObject* mesh,
 }
 
 // -------------------------------------------------------------------------------
-int ConfigurableInTransitDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
+int ConfigurableInTransitDataAdaptor::AddGhostCellsArray(svtkDataObject* mesh,
   const std::string &meshName)
 {
   if (!this->Internals->Adaptor)
@@ -370,7 +370,7 @@ int ConfigurableInTransitDataAdaptor::AddGhostCellsArray(vtkDataObject* mesh,
 }
 
 // -------------------------------------------------------------------------------
-int ConfigurableInTransitDataAdaptor::AddArray(vtkDataObject* mesh,
+int ConfigurableInTransitDataAdaptor::AddArray(svtkDataObject* mesh,
   const std::string &meshName, int association, const std::string &arrayName)
 {
   if (!this->Internals->Adaptor)
@@ -383,7 +383,7 @@ int ConfigurableInTransitDataAdaptor::AddArray(vtkDataObject* mesh,
 }
 
 // -------------------------------------------------------------------------------
-int ConfigurableInTransitDataAdaptor::AddArrays(vtkDataObject* mesh,
+int ConfigurableInTransitDataAdaptor::AddArrays(svtkDataObject* mesh,
   const std::string &meshName, int association, const std::vector<std::string> &arrayName)
 {
   if (!this->Internals->Adaptor)

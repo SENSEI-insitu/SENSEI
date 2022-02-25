@@ -10,19 +10,19 @@
 #include <mpi.h>
 
 namespace senseiADIOS1 { class DataObjectCollectionSchema; }
-class vtkDataObject;
-class vtkCompositeDataSet;
+class svtkDataObject;
+class svtkCompositeDataSet;
 
 namespace sensei
 {
 
 /// The write side of the ADIOS 1 transport
-class ADIOS1AnalysisAdaptor : public AnalysisAdaptor
+class SENSEI_EXPORT ADIOS1AnalysisAdaptor : public AnalysisAdaptor
 {
 public:
   static ADIOS1AnalysisAdaptor* New();
   senseiTypeMacro(ADIOS1AnalysisAdaptor, AnalysisAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /// Sets the maximum buffer allocated by ADIOS1 in MB
   /// takes affect on first Execute
@@ -55,7 +55,7 @@ public:
     int association, const std::vector<std::string> &arrays);
 
   // SENSEI AnalysisAdaptor API
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor*& result) override;
   int Finalize() override;
 
 protected:
@@ -68,7 +68,7 @@ protected:
   // writes the data collection
   int WriteTimestep(unsigned long timeStep, double time,
     const std::vector<MeshMetadataPtr> &metadata,
-    const std::vector<vtkCompositeDataSet*> &dobjects);
+    const std::vector<svtkCompositeDataSet*> &dobjects);
 
   // shuts down ADIOS1
   int FinalizeADIOS1();

@@ -1,0 +1,59 @@
+/*=========================================================================
+
+  Program:   Visualization Toolkit
+  Module:    @_svtk_object_factory_library_name@ObjectFactory.cxx
+
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+  All rights reserved.
+  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
+
+     This software is distributed WITHOUT ANY WARRANTY; without even
+     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+     PURPOSE.  See the above copyright notice for more information.
+
+=========================================================================*/
+
+#include "@_svtk_object_factory_library_name@ObjectFactory.h"
+#include "svtkVersion.h"
+
+// Include all of the classes we want to create overrides for.
+@_svtk_object_factory_includes@
+
+svtkStandardNewMacro(@_svtk_object_factory_library_name@ObjectFactory);
+
+// Now create the functions to create overrides with.
+@_svtk_object_factory_functions@
+
+@_svtk_object_factory_library_name@ObjectFactory::@_svtk_object_factory_library_name@ObjectFactory()
+{
+@_svtk_object_factory_calls@
+}
+
+const char * @_svtk_object_factory_library_name@ObjectFactory::GetSVTKSourceVersion()
+{
+  return SVTK_SOURCE_VERSION;
+}
+
+void @_svtk_object_factory_library_name@ObjectFactory::PrintSelf(ostream &os, svtkIndent indent)
+{
+  this->Superclass::PrintSelf(os, indent);
+}
+
+// Registration of object factories.
+static unsigned int @_svtk_object_factory_library_name@Count = 0;
+
+@_svtk_object_factory_configure_EXPORT_MACRO@ void @_svtk_object_factory_library_name@_AutoInit_Construct()
+{
+  if(++@_svtk_object_factory_library_name@Count == 1)
+  {
+@_svtk_object_factory_configure_INITIAL_CODE@
+
+    @_svtk_object_factory_library_name@ObjectFactory* factory = @_svtk_object_factory_library_name@ObjectFactory::New();
+    if (factory)
+    {
+      // svtkObjectFactory keeps a reference to the "factory",
+      svtkObjectFactory::RegisterFactory(factory);
+      factory->Delete();
+    }
+  }
+}

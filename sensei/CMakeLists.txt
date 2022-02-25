@@ -10,9 +10,9 @@ if (ENABLE_SENSEI)
     IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx MemoryUtils.cxx
     MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx PlanarPartitioner.cxx
     PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
-    VTKDataAdaptor.cxx VTKUtils.cxx XMLUtils.cxx)
+    SVTKDataAdaptor.cxx SVTKUtils.cxx XMLUtils.cxx)
 
-  set(senseiCore_libs pugixml thread sDIY sVTK sMPI)
+  set(senseiCore_libs pugixml thread sDIY sSVTK sMPI)
 
   set(senseiCore_cuda_sources)
   if (ENABLE_CUDA)
@@ -78,6 +78,16 @@ if (ENABLE_ADIOS2)
     endif()
   endif()
 
+  if (ENABLE_VTK_FILTERS)
+    list(APPEND senseiCore_sources Calculator.cxx)
+  endif()
+
+  if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
+    ENABLE_VTK_RENDERING OR ENABLE_VTK_ACCELERATORS OR
+    ENABLE_VTK_FILTERS)
+    list(APPEND senseiCore_libs sVTK)
+  endif()
+
   add_library(senseiCore ${senseiCore_sources} ${senseiCore_cuda_sources})
 
   if (ENABLE_CUDA)
@@ -91,10 +101,10 @@ if (ENABLE_ADIOS2)
   target_link_libraries(senseiCore PUBLIC ${senseiCore_libs})
 
   install(TARGETS senseiCore EXPORT senseiCore
-    INCLUDES DESTINATION include ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib)
+    INCLUDES DESTINATION include ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-  install(EXPORT senseiCore DESTINATION lib/cmake
+  install(EXPORT senseiCore DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
     EXPORT_LINK_INTERFACE_LIBRARIES)
 
   set(sensei_sources ConfigurableAnalysis.cxx)
@@ -102,57 +112,61 @@ if (ENABLE_ADIOS2)
 
   # PythonAnalysis
   if (ENABLE_PYTHON)
-    depend_swig(PythonAnalysis.i PythonAnalysis.dep)
+    set_property(SOURCE PythonAnalysis.i PROPERTY CPLUSPLUS ON)
+    set_property(SOURCE PythonAnalysis.i PROPERTY SWIG_MODULE_NAME PythonAnalysis)
+    set_property(SOURCE PythonAnalysis.i PROPERTY DEPENDS DataAdaptor.i)
 
-    wrap_swig(PythonAnalysis.i _PythonAnalysis.cxx
-      PythonAnalysis.dep _PythonAnalysis)
+    swig_add_library(PythonAnalysis TYPE SHARED
+      LANGUAGE python SOURCES PythonAnalysis.i
+      OUTPUT_DIR "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}"
+      OUTFILE_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
-    include_directories(SYSTEM ${PYTHON_INCLUDE_PATH} ${NUMPY_INCLUDE_DIR})
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}
-      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR}/python)
+    set_target_properties(PythonAnalysis PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}"
+      SUFFIX .so)
 
-    add_library(_PythonAnalysis SHARED
-      ${CMAKE_CURRENT_BINARY_DIR}/_PythonAnalysis.cxx)
+    target_link_libraries(PythonAnalysis senseiCore pysvtk sPython)
 
-    # include the directory containing _PythonAnalysis in the rpath
-    # this enables one not to have to set (DY)LD_LIBRARY_PATH
-    # prior to importing teca.
+    target_include_directories(PythonAnalysis PUBLIC
+      "${CMAKE_SOURCE_DIR}/python" "${CMAKE_SOURCE_DIR}/utils/pysvtk"
+      "${NUMPY_INCLUDE_DIR}")
+
+    set_property(TARGET PythonAnalysis
+      PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON)
+
+    # install the Python module
+    install(TARGETS PythonAnalysis DESTINATION ${SENSEI_PYTHON_DIR})
+    install(FILES ${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/PythonAnalysis.py
+      DESTINATION ${SENSEI_PYTHON_DIR})
+
+    # include the directory containing _PythonAnalysis in the rpath this
+    # enables one not to have to set (DY)LD_LIBRARY_PATH prior to importing
+    # sensei.
     if (APPLE)
-      set_target_properties(_PythonAnalysis PROPERTIES SUFFIX .so)
-      set_target_properties(_PythonAnalysis PROPERTIES INSTALL_RPATH "@loader_path/./")
+      set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "@loader_path/./")
     elseif(UNIX)
-      set_target_properties(_PythonAnalysis PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
+      set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
     endif()
 
-    set_target_properties(_PythonAnalysis PROPERTIES PREFIX "")
-    target_link_libraries(_PythonAnalysis PUBLIC senseiCore sPython)
+    add_library(sPythonAnalysis UNKNOWN IMPORTED)
+    set_property(TARGET sPythonAnalysis
+      PROPERTY IMPORTED_LOCATION
+      "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/_PythonAnalysis.so")
+    add_dependencies(sPythonAnalysis PythonAnalysis)
 
-    add_custom_command(TARGET _PythonAnalysis POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_CURRENT_BINARY_DIR}/PythonAnalysis.py
-        ${CMAKE_CURRENT_BINARY_DIR}/../lib)
-
-    install(TARGETS _PythonAnalysis EXPORT _PythonAnalysis
-      LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-
-    install(EXPORT _PythonAnalysis DESTINATION lib/cmake
-      EXPORT_LINK_INTERFACE_LIBRARIES)
-
-    install(
-      FILES ${CMAKE_CURRENT_BINARY_DIR}/PythonAnalysis.py
-      DESTINATION lib
-    )
-
+    # Python implementations
     set(python_analyses Histogram.py)
     foreach(python_analysis ${python_analyses})
       configure_file(${python_analysis}
-        ${CMAKE_CURRENT_BINARY_DIR}/../lib/${python_analysis} COPYONLY)
+        "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/${python_analysis}"
+        COPYONLY)
     endforeach()
 
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
-      DESTINATION lib FILES_MATCHING PATTERN "*.py")
+      DESTINATION ${SENSEI_PYTHON_DIR} FILES_MATCHING PATTERN "*.py")
 
-    list(APPEND sensei_libs _PythonAnalysis)
+    # add to the sensei library so link info gets propagated
+    list(APPEND sensei_libs sPythonAnalysis)
   endif()
 
   # sensei
@@ -170,10 +184,10 @@ if (ENABLE_ADIOS2)
     DESTINATION include FILES_MATCHING PATTERN "*.h")
 
   install(TARGETS sensei EXPORT sensei
-    INCLUDES DESTINATION include ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib)
+    INCLUDES DESTINATION include ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-  install(EXPORT sensei DESTINATION lib/cmake
+  install(EXPORT sensei DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
     EXPORT_LINK_INTERFACE_LIBRARIES)
 
   add_subdirectory(testing)

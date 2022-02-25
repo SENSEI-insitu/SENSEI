@@ -4,13 +4,13 @@
 #include "InTransitDataAdaptor.h"
 
 #include "senseiConfig.h"
-#include "vtkObjectBase.h"
+#include "svtkObjectBase.h"
 
 #include <vector>
 #include <string>
 #include <memory>
 
-class vtkDataObject;
+class svtkDataObject;
 
 namespace sensei
 {
@@ -40,7 +40,7 @@ namespace sensei
 //   </transport>
 // <sensei>
 //
-class ConfigurableInTransitDataAdaptor : public sensei::InTransitDataAdaptor
+class SENSEI_EXPORT ConfigurableInTransitDataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
   static ConfigurableInTransitDataAdaptor *New();
@@ -77,21 +77,21 @@ public:
   int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 
   int GetMesh(const std::string &meshName,
-    bool structureOnly, vtkDataObject *&mesh) override;
+    bool structureOnly, svtkDataObject *&mesh) override;
 
   int GetMesh(const std::string &meshName,
-    bool structureOnly, vtkCompositeDataSet *&mesh) override;
+    bool structureOnly, svtkCompositeDataSet *&mesh) override;
 
-  int AddGhostNodesArray(vtkDataObject* mesh,
+  int AddGhostNodesArray(svtkDataObject* mesh,
     const std::string &meshName) override;
 
-  int AddGhostCellsArray(vtkDataObject* mesh,
+  int AddGhostCellsArray(svtkDataObject* mesh,
     const std::string &meshName) override;
 
-  int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
-  int AddArrays(vtkDataObject* mesh, const std::string &meshName,
+  int AddArrays(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::vector<std::string> &arrayName) override;
 
   int ReleaseData() override;

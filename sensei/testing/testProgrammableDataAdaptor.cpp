@@ -2,10 +2,10 @@
 #include "MeshMetadata.h"
 #include "Histogram.h"
 
-#include <vtkDataObject.h>
-#include <vtkImageData.h>
-#include <vtkPointData.h>
-#include <vtkDoubleArray.h>
+#include <svtkDataObject.h>
+#include <svtkImageData.h>
+#include <svtkPointData.h>
+#include <svtkDoubleArray.h>
 
 #include <vector>
 #include <iostream>
@@ -47,14 +47,14 @@ int main(int argc, char **argv)
     if (id == 0)
       {
       metadata->MeshName = "image";
-      metadata->MeshType = VTK_IMAGE_DATA;
-      metadata->BlockType = VTK_IMAGE_DATA;
+      metadata->MeshType = SVTK_IMAGE_DATA;
+      metadata->BlockType = SVTK_IMAGE_DATA;
       metadata->NumBlocks = 1;
       metadata->NumBlocksLocal = {1};
       metadata->NumArrays = 1;
       metadata->ArrayName = {"data"};
-      metadata->ArrayCentering = {vtkDataObject::POINT};
-      metadata->ArrayType = {VTK_DOUBLE};
+      metadata->ArrayCentering = {svtkDataObject::POINT};
+      metadata->ArrayType = {SVTK_DOUBLE};
       metadata->ArrayComponents = {1};
       return 0;
       }
@@ -63,12 +63,12 @@ int main(int argc, char **argv)
 
   // get mesh callback
   auto getMesh = [&data](const std::string &meshName,
-    bool, vtkDataObject *&mesh) -> int
+    bool, svtkDataObject *&mesh) -> int
     {
     cerr << "===getMesh" << endl;
     if (meshName == "image")
       {
-      vtkImageData *im = vtkImageData::New();
+      svtkImageData *im = svtkImageData::New();
       im->SetDimensions(data.size(), 1, 1);
       mesh = im;
       return 0;
@@ -77,17 +77,17 @@ int main(int argc, char **argv)
     };
 
   // add array callback
-  auto addArray = [&data](vtkDataObject *mesh,
+  auto addArray = [&data](svtkDataObject *mesh,
     const std::string &meshName, int assoc, const std::string &name) -> int
     {
     cerr << "===addArray" << endl;
-    if ((meshName == "image") && (assoc == vtkDataObject::POINT) && (name == "data"))
+    if ((meshName == "image") && (assoc == svtkDataObject::POINT) && (name == "data"))
       {
-      vtkDoubleArray *da = vtkDoubleArray::New();
+      svtkDoubleArray *da = svtkDoubleArray::New();
       da->SetName("data");
       da->SetArray(data.data(), data.size(), 1);
 
-      static_cast<vtkImageData*>(mesh)->GetPointData()->AddArray(da);
+      static_cast<svtkImageData*>(mesh)->GetPointData()->AddArray(da);
       da->Delete();
       return 0;
       }
@@ -113,8 +113,9 @@ int main(int argc, char **argv)
   pda->GetMeshMetadata(0, mmd);
 
   sensei::Histogram *ha = sensei::Histogram::New();
+  sensei::DataAdaptor *reply = nullptr;
   ha->Initialize(7, mmd->MeshName, mmd->ArrayCentering[0], mmd->ArrayName[0], "");
-  ha->Execute(pda);
+  ha->Execute(pda, reply);
 
   pda->ReleaseData();
 

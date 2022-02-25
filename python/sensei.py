@@ -1,1 +1,1 @@
-from senseiPython import *
+from sensei.senseiPython import *

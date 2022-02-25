@@ -15,7 +15,7 @@ namespace sensei
 /// @class PosthocIO
 /// brief sensei::PosthocIO is a AnalysisAdaptor that writes
 /// the data to disk for a posthoc analysis.
-class PosthocIO : public AnalysisAdaptor
+class SENSEI_EXPORT PosthocIO : public AnalysisAdaptor
 {
 public:
   static PosthocIO* New();

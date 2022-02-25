@@ -1,9 +1,9 @@
 from mpi4py import *
-from sensei import VTKDataAdaptor,ConfigurableInTransitDataAdaptor, \
+from sensei import SVTKDataAdaptor,ConfigurableInTransitDataAdaptor, \
   ConfigurableAnalysis,Profiler
 import sys,os
 import numpy as np
-import vtk, vtk.util.numpy_support as vtknp
+import svtk, svtk.numpy_support as svtknp
 from time import sleep
 
 comm = MPI.COMM_WORLD

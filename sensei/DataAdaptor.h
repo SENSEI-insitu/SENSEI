@@ -4,16 +4,16 @@
 #include "senseiConfig.h"
 #include "MeshMetadata.h"
 
-#include <vtkObjectBase.h>
+#include <svtkObjectBase.h>
 
 #include <vector>
 #include <string>
 #include <mpi.h>
 #include <memory>
 
-class vtkAbstractArray;
-class vtkDataObject;
-class vtkCompositeDataSet;
+class svtkAbstractArray;
+class svtkDataObject;
+class svtkCompositeDataSet;
 
 namespace sensei
 {
@@ -22,13 +22,13 @@ namespace sensei
  * Simulation codes provide an implementation of this interface which is used
  * by data consumers to fetch simulation data for processing, movement, or I/O.
  */
-class DataAdaptor : public vtkObjectBase
+class SENSEI_EXPORT DataAdaptor : public svtkObjectBase
 {
 public:
-  senseiBaseTypeMacro(DataAdaptor, vtkObjectBase);
+  senseiBaseTypeMacro(DataAdaptor, svtkObjectBase);
 
   /// Prints the current state of the adaptor.
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /** Set the communicator used by the adaptor. The default communicator is a
    * duplicate of MPI_COMMM_WORLD, giving each adaptor a unique communication
@@ -63,8 +63,8 @@ public:
   virtual int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) = 0;
 
   /** Fetches the requested data object from the simulation.  This method will
-   * return a vtkDataObject containing the simulation state. Implementors
-   * should prefer vtkMultiBlockData over vtkDataSet types. However, both
+   * return a svtkDataObject containing the simulation state. Implementors
+   * should prefer svtkMultiBlockData over svtkDataSet types. However, both
    * approaches are supported.  Callers should typically pass \c structureOnly
    * to false. Caller may set \c stuctureOnly to true when data arrays without
    * mesh geometry and connectivity are sufficient for processing.  If \c
@@ -79,10 +79,10 @@ public:
    * @returns zero if successful, non zero if an error occurred
    */
   virtual int GetMesh(const std::string &meshName, bool structureOnly,
-    vtkDataObject *&mesh) = 0;
+    svtkDataObject *&mesh) = 0;
 
   virtual int GetMesh(const std::string &meshName, bool structureOnly,
-    vtkCompositeDataSet *&mesh);
+    svtkCompositeDataSet *&mesh);
   /** Adds ghost nodes on the specified mesh. Implementors shouls set the name
    * of the array to "vtkGhostType".
    *
@@ -90,30 +90,30 @@ public:
    *  @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
    *  @returns zero if successful, non zero if an error occurred
    */
-  virtual int AddGhostNodesArray(vtkDataObject* mesh, const std::string &meshName);
+  virtual int AddGhostNodesArray(svtkDataObject* mesh, const std::string &meshName);
 
   /** Adds ghost cells on the specified mesh. Implementors should set the array name to
    * "vtkGhostType".
    *
-   *  @param[in] mesh the vtkDataObject returned from GetMesh
-   *  @param[in] meshName the name of the mesh to access (see ::GetMeshMetadata)
+   *  @param[in] mesh the svtkDataObject returned from GetMesh
+   *  @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
    *  @returns zero if successful, non zero if an error occurred
    */
-  virtual int AddGhostCellsArray(vtkDataObject* mesh, const std::string &meshName);
+  virtual int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName);
 
   /** Fetches the named array from the simulation and adds it to the passed
    * mesh. Implementors should pass the data by zero copy when possible. See
-   * vtkAOSDataArrayTemplate and vtkSOADataArrayTemplate for details of passing
+   * svtkAOSDataArrayTemplate and svtkSOADataArrayTemplate for details of passing
    * data zero copy.
    *
    * @param[in] mesh the VTK object returned from GetMesh
    * @param[in] meshName the name of the mesh on which the array is stored
    * @param[in] association field association; one of
-   *            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
+   *            svtkDataObject::FieldAssociations or svtkDataObject::AttributeTypes.
    * @param[in] arrayName name of the array
    * @returns zero if successful, non zero if an error occurred
    */
-  virtual int AddArray(vtkDataObject* mesh, const std::string &meshName,
+  virtual int AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName) = 0;
 
   /** Fetches multiple arrays from the simulation and adds them to the mesh.
@@ -122,18 +122,18 @@ public:
    * @param[in] mesh the VTK object returned from GetMesh
    * @param[in] meshName the name of the mesh on which the array is stored
    * @param[in] association field association; one of
-   *            vtkDataObject::FieldAssociations or vtkDataObject::AttributeTypes.
-   * @param[in] arrayNames a vector of array names to add
+   *            svtkDataObject::FieldAssociations or svtkDataObject::AttributeTypes.
+   * @param[in] arrayNames vector of array names to add
    * @returns zero if successful, non zero if an error occurred
    */
-  virtual int AddArrays(vtkDataObject* mesh, const std::string &meshName,
-    int association, const std::vector<std::string> &arrayName);
+  virtual int AddArrays(svtkDataObject* mesh, const std::string &meshName,
+    int association, const std::vector<std::string> &arrayNames);
 
   /** Release data allocated for the current timestep. Implementors typically
    * should not have to override this method. This method allows implementors to
    * free resources that were used in the conversion of the simulation data.
-   * However, note that callers of ::GetMesh must delete the returned
-   * vtkDataObject which typically obviates the need for the adaptor to hold
+   * However, note that callers of GetMesh must delete the returned
+   * svtkDataObject which typically obviates the need for the adaptor to hold
    * references to the returned data. Data consumers must call this method
    * when done processing the data to ensure that all resources are released.
    *
