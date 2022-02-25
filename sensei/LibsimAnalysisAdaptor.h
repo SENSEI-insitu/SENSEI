@@ -12,7 +12,7 @@ class LibsimImageProperties;
 /// @endcond
 
 /** An implementation that invokes VisIt libsim. Run time configuration is
- * specified using a VisIt session file (see ::AddRenderer or ::AddExtract).
+ * specified using a VisIt session file (see AddRenderer or AddExtract).
  */
 class SENSEI_EXPORT LibsimAnalysisAdaptor : public AnalysisAdaptor
 {
@@ -32,7 +32,7 @@ public:
   void SetOptions(const std::string &options);
 
   /** Set the path to the VisIt install. Note that it is recommened to set
-   * VisIt spoecific enviornment variables instead of ::SetVisItDirectory.
+   * VisIt spoecific enviornment variables instead of SetVisItDirectory.
    */
   void SetVisItDirectory(const std::string &dir);
 
@@ -58,16 +58,17 @@ public:
    *
    * @param[in] frequency sets how many steps in between libsim processing
    * @param[in] session the path to a VisIt generated session file
-   * @param[in] plots the name of a VisIt plot (do not use with session)
+   * @param[in] plot the name of a VisIt plot (do not use with session)
    * @param[in] plotVars the name of the variable to plot (do not use with session)
    * @param[in] slice if true a slice is taking (do not use with session)
    * @param[in] project2d if true the slice is projected in 2D (do not use with session)
    * @param[in] origin the point defining the slice plane (do not use with session)
-   * @param[in] normal the normal of the slice plane (no not use with session)
+   * @param[in] normal the normal of the slice plane (do no not use with session)
+   * @param[in] imgProps descibes the rendering parameters (do not use with session)
    */
   bool AddRender(int frequency,
             const std::string &session,
-            const std::string &plots,
+            const std::string &plot,
             const std::string &plotVars,
             bool slice, bool project2d,
             const double origin[3], const double normal[3],
@@ -78,12 +79,13 @@ public:
    *
    * @param[in] frequency sets how many steps in between libsim processing
    * @param[in] session the path to a VisIt generated session file
-   * @param[in] plots the name of a VisIt plot (do not use with session)
+   * @param[in] plot the name of a VisIt plot (do not use with session)
    * @param[in] plotVars the name of the variable to plot (do not use with session)
    * @param[in] slice if true a slice is taking (do not use with session)
    * @param[in] project2d if true the slice is projected in 2D (do not use with session)
    * @param[in] origin the point defining the slice plane (do not use with session)
    * @param[in] normal the normal of the slice plane (no not use with session)
+   * @param[in] filename the path to writre the data to
    */
   bool AddExport(int frequency,
                  const std::string &session,

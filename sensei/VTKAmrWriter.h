@@ -61,7 +61,7 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
-  /// Must be called before ::Execute to configure for the run.
+  /// Must be called before Execute to configure for the run.
   int Initialize();
   /// @}
 

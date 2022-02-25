@@ -13,7 +13,7 @@ namespace pugi { class xml_node; }
 namespace sensei
 {
 /** An adaptor that creates and configures one or more adaptors from XML.  When
- * the ::Execute method is invoked the calls are forwarded to the active
+ * the Execute method is invoked the calls are forwarded to the active
  * instances. The supported adaptors include:
  *
  * | Class | Description |

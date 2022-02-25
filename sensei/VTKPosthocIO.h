@@ -68,7 +68,7 @@ public:
   /// Get the name of the ghost cells array.
   std::string GetGhostArrayName();
 
-  /** Adds a set of ::DataRequirements, typically this will come from an XML
+  /** Adds a set of sensei::DataRequirements, typically this will come from an XML
    * configuratiopn file. Data requirements tell the adaptor what to fetch from
    * the simulation and write to disk. If none are given then all available
    * data is fetched and written.
@@ -88,15 +88,13 @@ public:
   int AddDataRequirement(const std::string &meshName,
     int association, const std::vector<std::string> &arrays);
 
-  /// Controls how many calls to ::Execute do nothing between actual I/O
+  /// Controls how many calls to Execute do nothing between actual I/O
   int SetFrequency(unsigned int frequency);
 
   /// @}
 
-  /// Invokes I/O
   bool Execute(DataAdaptor* data, DataAdaptor*&) override;
 
-  /// Closes and flushes all files and creates metadata files for VisIt or ParaView.
   int Finalize() override;
 
 protected:

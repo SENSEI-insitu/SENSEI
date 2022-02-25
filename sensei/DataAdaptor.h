@@ -96,7 +96,7 @@ public:
    * "vtkGhostType".
    *
    *  @param[in] mesh the svtkDataObject returned from GetMesh
-   *  @param[in] meshName the name of the mesh to access (see ::GetMeshMetadata)
+   *  @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
    *  @returns zero if successful, non zero if an error occurred
    */
   virtual int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName);
@@ -123,16 +123,16 @@ public:
    * @param[in] meshName the name of the mesh on which the array is stored
    * @param[in] association field association; one of
    *            svtkDataObject::FieldAssociations or svtkDataObject::AttributeTypes.
-   * @param[in] arrayNames a vector of array names to add
+   * @param[in] arrayNames vector of array names to add
    * @returns zero if successful, non zero if an error occurred
    */
   virtual int AddArrays(svtkDataObject* mesh, const std::string &meshName,
-    int association, const std::vector<std::string> &arrayName);
+    int association, const std::vector<std::string> &arrayNames);
 
   /** Release data allocated for the current timestep. Implementors typically
    * should not have to override this method. This method allows implementors to
    * free resources that were used in the conversion of the simulation data.
-   * However, note that callers of ::GetMesh must delete the returned
+   * However, note that callers of GetMesh must delete the returned
    * svtkDataObject which typically obviates the need for the adaptor to hold
    * references to the returned data. Data consumers must call this method
    * when done processing the data to ensure that all resources are released.

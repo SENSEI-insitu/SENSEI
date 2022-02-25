@@ -26,7 +26,7 @@ class DataAdaptor;
  *   return
  * ```
  *
- * Initialize and Finalize are optional, while Execute is required. The script
+ * "Initialize" and "Finalize" are optional, while "Execute" is required. The script
  * is specified at run time either as a module or a file. If a module is
  * specified (see SetScriptModule) the provided module is imported through
  * Python's built in import mechanism. This means that it must be in a
@@ -41,7 +41,7 @@ class DataAdaptor;
  * global variable `comm`.
  *
  * To fine tune run time behavior we provide "initialization source". The
- * initialization source (see ::SetInitializeSource) is provided in a string and
+ * initialization source (see SetInitializeSource) is provided in a string and
  * will be executed prior to your script functions. This lets you set global
  * variables that can modify the scripts run time behavior.
  *
@@ -71,7 +71,7 @@ public:
   /** Set a string containing Python source code that will be executed during
    * initialization. This can be used for instance to set global variables
    * controlling execution.  This source will be executed after loading or
-   * importing the script (see ::SetScriptFile and ::SetScriptModule) and
+   * importing the script (see SetScriptFile and SetScriptModule) and
    * before the script's functions.
    */
   void SetInitializeSource(const std::string &source);

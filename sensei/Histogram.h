@@ -36,14 +36,14 @@ public:
   {
       Data() : NumberOfBins(1), BinMin(1.0), BinMax(0.0), BinWidth(1.0), Histogram() {}
 
-      int NumberOfBins; /// The number of bins in the histogram
-      double BinMin;    /// The left most bin edge
-      double BinMax;    /// The right most bin edge
-      double BinWidth;  /// The width of the equally spaced bins
-      std::vector<unsigned int> Histogram; /// The counts of each bin
+      int NumberOfBins; ///< The number of bins in the histogram
+      double BinMin;    ///< The left most bin edge
+      double BinMax;    ///< The right most bin edge
+      double BinWidth;  ///< The width of the equally spaced bins
+      std::vector<unsigned int> Histogram; ///< The counts of each bin
   };
 
-  /// return the histogram computed by the most recent call to ::Execute
+  /// return the histogram computed by the most recent call to Execute
   int GetHistogram(Histogram::Data &data);
 
 protected:

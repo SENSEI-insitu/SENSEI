@@ -20,16 +20,16 @@ public:
    * adaptor with configuration parameters for the analysis to perform.
    *
    * @param window analysis window in timestep count.
-   * @param name of mesh containing the array to process
+   * @param meshName of mesh containing the array to process
    * @param association together with \c arrayname, identifies the array to
    *         compute autocorrelation for.
-   * @param arrayname together with \c association, identifies the array to
+   * @param arrayName together with \c association, identifies the array to
    *         compute autocorrelation for.
    * @param kMax number of strongest autocorrelations to report
    * @param numThreads number of threads in sdiy's thread pool
    */
   void Initialize(size_t window, const std::string &meshName,
-    int association, const std::string &arrayname, size_t kMax,
+    int association, const std::string &arrayName, size_t kMax,
     int numThreads = 1);
 
   /// Incrementally computes autocorrelation on the current simulation state
