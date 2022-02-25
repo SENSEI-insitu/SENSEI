@@ -2,12 +2,11 @@
 
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
-#include "SVTKUtils.h"
 #include "Error.h"
 #include "MeshMetadata.h"
 #include "Profiler.h"
-#include "VTKDataAdaptor.h"
-#include "VTKUtils.h"
+#include "SVTKDataAdaptor.h"
+#include "SVTKUtils.h"
 
 #include <svtkDataObject.h>
 #include <svtkImageData.h>
@@ -15,6 +14,8 @@
 #include <svtkRectilinearGrid.h>
 #include <svtkStructuredGrid.h>
 
+#include <vtkObjectFactory.h>
+#include <vtkDataObject.h>
 #include <vtkAlgorithm.h>
 #include <vtkCommunicator.h>
 #include <vtkCPAdaptorAPI.h>
@@ -108,8 +109,9 @@ protected:
     producer->UpdatePipeline(dataDescription->GetTime());
     if (auto result = vtkAlgorithm::SafeDownCast(producer->GetClientSideObject())->GetOutputDataObject(0))
     {
-      this->ResultData.TakeReference(result->NewInstance());
-      this->ResultData->ShallowCopy(result);
+      SENSEI_ERROR("TODO conversion from VTK to SVTK data object")
+      // TODO this->ResultData.TakeReference(result->NewInstance());
+      // TODO this->ResultData->ShallowCopy(result);
     }
     return 1;
   }
@@ -123,6 +125,7 @@ private:
   char* ResultMesh;
   vtkSmartPointer<vtkDataObject> ResultData;
 };
+
 vtkStandardNewMacro(CatalystScriptPipeline);
 #endif // ENABLE_CATALYST_PYTHON
 
@@ -414,8 +417,9 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
         auto data = sensei::CatalystScriptPipeline::GetResultData(proc);
         if (data.second != nullptr)
         {
-          VTKDataAdaptor* vtkresult = VTKDataAdaptor::New();
-          vtkresult->SetDataObject(data.first, data.second);
+          SVTKDataAdaptor* vtkresult = SVTKDataAdaptor::New();
+          SENSEI_ERROR("TODO VTK data object to SVTK data object conversion")
+          // TODO vtkresult->SetDataObject(data.first, data.second);
           result = vtkresult;
         }
       }
