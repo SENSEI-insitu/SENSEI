@@ -181,9 +181,10 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency) 
+int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency)
 {
   this->Frequency = frequency;
+  return 0;
 }
 
 //----------------------------------------------------------------------------
