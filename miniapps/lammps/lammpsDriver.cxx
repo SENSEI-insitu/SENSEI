@@ -37,6 +37,10 @@
 
 // SENSEI bridge 
 #include "lammpsBridge.h"   
+// SENSEI profiler
+#include "Profiler.h"
+
+
 
 using namespace LAMMPS_NS;
 
@@ -125,6 +129,9 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   MPI_Comm sim_comm = MPI_COMM_WORLD;
   MPI_Comm_rank(sim_comm, &globalInfo.me);
+
+  // Initialize SENSEI profiler
+  sensei::Profiler::Initialize();
 
   // Initialize SENSEI bridge 
   lammpsBridge::Initialize(sim_comm, sensei_xml );
