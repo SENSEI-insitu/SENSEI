@@ -331,19 +331,6 @@ int ConfigurableInTransitDataAdaptor::GetMesh(const std::string &meshName,
 }
 
 // -------------------------------------------------------------------------------
-int ConfigurableInTransitDataAdaptor::GetMesh(const std::string &meshName,
-  bool structureOnly, svtkCompositeDataSet *&mesh)
-{
-  if (!this->Internals->Adaptor)
-    {
-    SENSEI_ERROR("No InTransitDataAdaptor instance")
-    return -1;
-    }
-
-  return this->Internals->Adaptor->GetMesh(meshName, structureOnly, mesh);
-}
-
-// -------------------------------------------------------------------------------
 int ConfigurableInTransitDataAdaptor::AddGhostNodesArray(svtkDataObject* mesh,
   const std::string &meshName)
 {

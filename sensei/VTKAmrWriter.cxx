@@ -12,6 +12,7 @@
 #include <svtkSmartPointer.h>
 #include <svtkOverlappingAMR.h>
 
+#include <vtkDataObject.h>
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLPUniformGridAMRWriter.h>
 #include <vtkAlgorithm.h>
@@ -234,15 +235,25 @@ bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       }
 
     // write to disk
-    SENSEI_ERROR("TODO conversion from SVTK to VTK")
     std::string fileName =
       getFileName(this->OutputDir, meshName, this->FileId[meshName], ".vth");
 
+    // convert from SVTK to VTK
+    vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
+    if (!vdobj)
+      {
+      SENSEI_ERROR("Failed to convert " << dobj->GetClassName()
+        << " instance to VTK")
+      return false;
+      }
+
     vtkXMLPUniformGridAMRWriter *w = vtkXMLPUniformGridAMRWriter::New();
-    //TODO w->SetInputData(dobj);
+    w->SetInputData(vdobj);
     w->SetFileName(fileName.c_str());
     w->Write();
     w->Delete();
+
+    vdobj->Delete();
 
     // update file id
     this->FileId[meshName] += 1;

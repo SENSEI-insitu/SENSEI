@@ -35,6 +35,9 @@
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLDataSetWriter.h>
 #include <vtkDataSetWriter.h>
+#include <vtkDataSet.h>
+#include <vtkCellData.h>
+#include <vtkDataArray.h>
 
 #include <mpi.h>
 
@@ -400,18 +403,21 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
         getBlockFileName(this->OutputDir, meshName, blockId,
           this->FileId[meshName], this->BlockExt[meshName]);
 
-      svtkDataArray *ga = ds->GetCellData()->GetArray("svtkGhostType");
+
+      // convert from SVTK to VTK
+      vtkDataSet *vds = SVTKUtils::VTKObjectFactory::New(ds);
+
+      vtkDataArray *ga = vds->GetCellData()->GetArray("vtkGhostType");
       if (ga)
         {
         ga->SetName(this->GetGhostArrayName().c_str());
-        ds->UpdateCellGhostArrayCache();
+        vds->UpdateCellGhostArrayCache();
         }
 
-      SENSEI_ERROR("TODO : Conversion from SVTK to VTK data set")
       if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)
         {
         vtkDataSetWriter *writer = vtkDataSetWriter::New();
-        // TODO writer->SetInputData(ds);
+        writer->SetInputData(vds);
         writer->SetFileName(fileName.c_str());
         writer->SetFileTypeToBinary();
         writer->Write();
@@ -420,7 +426,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
       else
         {
         vtkXMLDataSetWriter *writer = vtkXMLDataSetWriter::New();
-        // TODO writer->SetInputData(ds);
+        writer->SetInputData(vds);
         writer->SetDataModeToAppended();
         writer->EncodeAppendedDataOff();
         writer->SetCompressorTypeToNone();
@@ -428,6 +434,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
         writer->Write();
         writer->Delete();
         }
+
+      vds->Delete();
       }
     it->Delete();
 
@@ -509,7 +517,7 @@ int VTKPosthocIO::Finalize()
         }
 
       pvdFile << "<?xml version=\"1.0\"?>" << endl
-        << "<SVTKFile type=\"Collection\" version=\"0.1\""
+        << "<VTKFile type=\"Collection\" version=\"0.1\""
            " byte_order=\"LittleEndian\" compressor=\"\">" << endl
         << "<Collection>" << endl;
 
@@ -532,7 +540,7 @@ int VTKPosthocIO::Finalize()
         }
 
       pvdFile << "</Collection>" << endl
-        << "</SVTKFile>" << endl;
+        << "</VTKFile>" << endl;
 
       return 0;
       }

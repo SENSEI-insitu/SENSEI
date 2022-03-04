@@ -1,6 +1,8 @@
 #ifndef sensei_XMLUtils_h
 #define sensei_XMLUtils_h
 
+/// @file
+
 #include "Error.h"
 
 #include <mpi.h>
@@ -11,26 +13,33 @@
 
 namespace sensei
 {
+
+/// a collection of functions for parsing XML.
 namespace XMLUtils
 {
 
-// check that an attribute of the passed in name exists
-// return of 0 indicates that it does. if not non-zero value
-// is returned and an error message is sent to stderr.
+/** check that an attribute of the passed in name exists return of 0 indicates
+ * that it does. if not non-zero value is returned and an error message is sent
+ * to stderr.
+ */
 int RequireAttribute(const pugi::xml_node &node, const char *attributeName);
 
-// check that a child element of the passed in name exists
-// return of 0 indicates that it does. if not non-zero value
-// is returned and an error message is sent to stderr.
+/** check that a child element of the passed in name exists return of 0
+ * indicates that it does. if not non-zero value is returned and an error
+ * message is sent to stderr.
+ */
 int RequireChild(const pugi::xml_node &node, const char *childName);
 
-// Parallel collective read, parse, and distribute the XML file. Rank 0 does
-// the I/O and parse and will broadcast to the other ranks in the communicator.
-// return of 0 indicates success.
+/** Parallel collective read, parse, and distribute the XML file. Rank 0 does
+ * the I/O and parse and will broadcast to the other ranks in the communicator.
+ * return of 0 indicates success.
+ */
 int Parse(MPI_Comm comm, const std::string &filename, pugi::xml_document &doc);
 
 
-// helper for string to numeric type conversions
+/// @cond
+
+/// helper for string to numeric type conversions
 template <typename num_t> struct numeric_traits;
 
 #define declare_numeric_traits(cpp_t, func) \
@@ -50,8 +59,11 @@ declare_numeric_traits(unsigned long long, std::stoul)
 declare_numeric_traits(float, std::stof)
 declare_numeric_traits(double, std::stod)
 
-// parse text data in the node of unkown length, retrun in the
-// vector. return 0 if successful
+/// @endcond
+
+/** parse text data in the node of unknown length, return in the vector. return
+ * 0 if successful
+ */
 template <typename num_t>
 int ParseNumeric(const pugi::xml_node &node, std::vector<num_t> &numData)
 {
@@ -72,7 +84,7 @@ int ParseNumeric(const pugi::xml_node &node, std::vector<num_t> &numData)
   return 0;
 }
 
-// parse text data in the node of specific length
+/// parse text data in the node of specific length
 template <typename num_t, unsigned long n>
 int ParseNumeric(const pugi::xml_node &node, std::array<num_t,n> &numData)
 {
@@ -102,7 +114,7 @@ int ParseNumeric(const pugi::xml_node &node, std::array<num_t,n> &numData)
   return 0;
 }
 
-// process a sequence of "name = value" pairs in a node's text.
+/// process a sequence of "name = value" pairs in a node's text.
 int ParseNameValuePairs(const pugi::xml_node &node,
   std::vector<std::string> &names, std::vector<std::string> &values);
 

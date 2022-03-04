@@ -1,16 +1,22 @@
 #ifndef MPIUtils_h
 #define MPIUtils_h
 
+/// @file
+
 #include <algorithm>
 #include <limits>
 
 namespace sensei
 {
+
+/// A collection of communication routines
 namespace MPIUtils
 {
 
-// type traits to help convert C++ type
-// to MPI enum
+
+/// @cond
+
+/// type traits to help convert a C++ type to an MPI enumeration for that type
 template<typename cpp_t> struct mpi_tt {};
 
 #define define_mpi_tt(CT, ME) \
@@ -25,10 +31,11 @@ define_mpi_tt(unsigned long, MPI_UNSIGNED_LONG)
 define_mpi_tt(float, MPI_FLOAT)
 define_mpi_tt(double, MPI_DOUBLE)
 
+/// @endcond
 
-// helper to recuce by summation elements in a vector
-// it's assumed that the vector is the same size on all
-// ranks.
+/** helper to recuce by summation elements in a vector it's assumed that the
+ * vector is the same size on all ranks.
+ */
 template<typename cpp_t>
 void GlobalCounts(MPI_Comm comm, std::vector<cpp_t> &vec)
 {
@@ -36,26 +43,25 @@ void GlobalCounts(MPI_Comm comm, std::vector<cpp_t> &vec)
       mpi_tt<cpp_t>::datatype(), MPI_SUM, comm);
 }
 
-// helper function to compute an axis aligned bounding box
-// that bounds a collection of distrubted axis aligned bounding
-// boxes
-//
-// these can be integer index space bounds (ie SVTK extents)
-// or floating point world cooridnate system bounds, but for
-// index space bounds a signed integer type is required.
-//
-// local bounds are expected in the layout:
-//
-//     bx_0_0, bx_1_0, by_0_0, by_1_0, bz_0_0, bz_1_0,
-//     ...
-//     bx_0_n, bx_1_n, by_0_n, by_1_n, bz_0_n, bz_1_n
-//
-// where n is the number of blocks minus 1
-//
-// global bounds are returned in the same layout:
-//
-//     bx_0, bx_1, by_0, by_1, bz_0, bz_1
-//
+/** helper function to compute an axis aligned bounding box that bounds a
+ * collection of distrubted axis aligned bounding boxes
+ *
+ * these can be integer index space bounds (ie SVTK extents) or floating point
+ * world cooridnate system bounds, but for index space bounds a signed integer
+ * type is required.
+ *
+ * local bounds are expected in the layout:
+ *
+ *     bx_0_0, bx_1_0, by_0_0, by_1_0, bz_0_0, bz_1_0,
+ *     ...
+ *     bx_0_n, bx_1_n, by_0_n, by_1_n, bz_0_n, bz_1_n
+ *
+ * where n is the number of blocks minus 1
+ *
+ * global bounds are returned in the same layout:
+ *
+ *     bx_0, bx_1, by_0, by_1, bz_0, bz_1
+ */
 template <typename cpp_t>
 void GlobalBounds(MPI_Comm comm, const std::vector<std::array<cpp_t,6>> &lbounds,
     std::array<cpp_t,6> &gbounds)
@@ -92,7 +98,7 @@ void GlobalBounds(MPI_Comm comm, const std::vector<std::array<cpp_t,6>> &lbounds
     gbounds[i] = -gbounds[i];
 }
 
-// helper function to compute glpbal array range
+/// helper function to compute glpbal array range
 template <typename cpp_t>
 void GlobalRange(MPI_Comm comm, const std::vector<std::array<cpp_t,2>> &lrange,
     std::array<cpp_t,2> &grange)
@@ -121,9 +127,10 @@ void GlobalRange(MPI_Comm comm, const std::vector<std::array<cpp_t,2>> &lrange,
   grange[0] = -grange[0];
 }
 
-// helper function to generate a global view from a local view.
-// here it is assumed that all ranks have the number of items
-// in local data. If that is not the case see GlobalViewV
+/* helper function to generate a global view from a local view.  here it is
+ * assumed that all ranks have the number of items in local data. If that is
+ * not the case see GlobalViewV
+ */
 template <typename cpp_t>
 void GlobalView(MPI_Comm comm, const std::vector<cpp_t> &ldata,
   std::vector<cpp_t> &gdata)
@@ -144,12 +151,13 @@ void GlobalView(MPI_Comm comm, const std::vector<cpp_t> &ldata,
     gdata.data(), nLocal, mpi_tt<cpp_t>::datatype(), comm);
 }
 
-// helper function to generate a global view from a local view. A vector of
-// local data items is passed in, this vector could be a different length on
-// each rank. a vector of the global data items is returned along with an array
-// of counts, and offsets that are used to index into the global data. counts
-// is indexed by rank and contains the number of items contributed by each
-// rank. offsets contains an offset of each ranks data.
+/* helper function to generate a global view from a local view. A vector of
+ * local data items is passed in, this vector could be a different length on
+ * each rank. a vector of the global data items is returned along with an array
+ * of counts, and offsets that are used to index into the global data. counts
+ * is indexed by rank and contains the number of items contributed by each
+ * rank. offsets contains an offset of each ranks data.
+ */
 template <typename cpp_t>
 void GlobalViewV(MPI_Comm comm, const std::vector<cpp_t> &ldata,
   std::vector<int> &gcounts, std::vector<int> &goffset,
@@ -194,7 +202,7 @@ void GlobalViewV(MPI_Comm comm, const std::vector<cpp_t> &ldata,
     gcounts.data(), goffset.data(), mpi_tt<cpp_t>::datatype(), comm);
 }
 
-// use this if you don't need counts & offsets
+/// use this if you don't need counts & offsets
 template <typename cpp_t>
 void GlobalViewV(MPI_Comm comm, const std::vector<cpp_t> &ldata,
   std::vector<cpp_t> &gdata)
@@ -203,8 +211,9 @@ void GlobalViewV(MPI_Comm comm, const std::vector<cpp_t> &ldata,
   GlobalViewV(comm, ldata, counts, offsets, gdata);
 }
 
-// use this if you don't need counts & offsets and want the result
-// to replace the input.
+/** use this if you don't need counts & offsets and want the result to replace
+ * the input.
+ */
 template <typename cpp_t>
 void GlobalViewV(MPI_Comm comm, std::vector<cpp_t> &ldata)
 {
@@ -214,12 +223,13 @@ void GlobalViewV(MPI_Comm comm, std::vector<cpp_t> &ldata)
   ldata = std::move(gdata);
 }
 
-// helper function to generate a global view from a local view. A vector of
-// local data items is passed in, this vector could be a different length on
-// each rank. a vector of the global data items is returned along with an array
-// of counts, and offsets that are used to index into the global data. counts
-// is indexed by rank and contains the number of items contributed by each
-// rank. offsets contains an offset of each ranks data.
+/** helper function to generate a global view from a local view. A vector of
+ * local data items is passed in, this vector could be a different length on
+ * each rank. a vector of the global data items is returned along with an array
+ * of counts, and offsets that are used to index into the global data. counts
+ * is indexed by rank and contains the number of items contributed by each
+ * rank. offsets contains an offset of each ranks data.
+ */
 template <typename cpp_t, std::size_t N>
 void GlobalViewV(MPI_Comm comm, const std::vector<std::array<cpp_t,N>> &ldata,
   std::vector<std::array<cpp_t,N>> &gdata)
@@ -254,8 +264,9 @@ void GlobalViewV(MPI_Comm comm, const std::vector<std::array<cpp_t,N>> &ldata,
     }
 }
 
-// use this if you don't need counts & offsets and want the result
-// to replace the input.
+/** use this if you don't need counts & offsets and want the result to replace
+ * the input.
+ */
 template <typename cpp_t, std::size_t N>
 void GlobalViewV(MPI_Comm comm, std::vector<std::array<cpp_t,N>> &ldata)
 {
@@ -264,8 +275,9 @@ void GlobalViewV(MPI_Comm comm, std::vector<std::array<cpp_t,N>> &ldata)
   ldata = std::move(gdata);
 }
 
-// use this if you don't need counts & offsets and want the result
-// to replace the input.
+/** use this if you don't need counts & offsets and want the result to replace
+ * the input.
+ */
 template <typename cpp_t>
 void GlobalViewV(MPI_Comm comm, std::vector<std::vector<cpp_t>> &ldata)
 {

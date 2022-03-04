@@ -63,14 +63,17 @@ public:
   virtual int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) = 0;
 
   /** Fetches the requested data object from the simulation.  This method will
-   * return a svtkDataObject containing the simulation state. Implementors
+   * return a svtkDataObject containing the simulation state. Implementers
    * should prefer svtkMultiBlockData over svtkDataSet types. However, both
    * approaches are supported.  Callers should typically pass \c structureOnly
    * to false. Caller may set \c stuctureOnly to true when data arrays without
    * mesh geometry and connectivity are sufficient for processing.  If \c
-   * structureOnly is set to true, then implementors should not populate the
+   * structureOnly is set to true, then implementers should not populate the
    * mesh geometry and connectivity information. This can result in large
    * savings in data transfer.
+   *
+   * @note Callers are to take ownership of the newly allocated mesh and must
+   * Delete the returned mesh when finished to prevent a memory leak.
    *
    * @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
    * @param[in] structureOnly When set to true the returned mesh
@@ -81,9 +84,7 @@ public:
   virtual int GetMesh(const std::string &meshName, bool structureOnly,
     svtkDataObject *&mesh) = 0;
 
-  virtual int GetMesh(const std::string &meshName, bool structureOnly,
-    svtkCompositeDataSet *&mesh);
-  /** Adds ghost nodes on the specified mesh. Implementors shouls set the name
+  /** Adds ghost nodes on the specified mesh. Implementers shouls set the name
    * of the array to "vtkGhostType".
    *
    *  @param[in] mesh the VTK object returned from GetMesh
@@ -92,7 +93,7 @@ public:
    */
   virtual int AddGhostNodesArray(svtkDataObject* mesh, const std::string &meshName);
 
-  /** Adds ghost cells on the specified mesh. Implementors should set the array name to
+  /** Adds ghost cells on the specified mesh. Implementers should set the array name to
    * "vtkGhostType".
    *
    *  @param[in] mesh the svtkDataObject returned from GetMesh
@@ -102,7 +103,7 @@ public:
   virtual int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName);
 
   /** Fetches the named array from the simulation and adds it to the passed
-   * mesh. Implementors should pass the data by zero copy when possible. See
+   * mesh. Implementers should pass the data by zero copy when possible. See
    * svtkAOSDataArrayTemplate and svtkSOADataArrayTemplate for details of passing
    * data zero copy.
    *
@@ -117,7 +118,7 @@ public:
     int association, const std::string &arrayName) = 0;
 
   /** Fetches multiple arrays from the simulation and adds them to the mesh.
-   * Implementors typically do not have to override this method.
+   * Implementers typically do not have to override this method.
    *
    * @param[in] mesh the VTK object returned from GetMesh
    * @param[in] meshName the name of the mesh on which the array is stored
@@ -129,13 +130,15 @@ public:
   virtual int AddArrays(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::vector<std::string> &arrayNames);
 
-  /** Release data allocated for the current timestep. Implementors typically
-   * should not have to override this method. This method allows implementors to
+  /** Release data allocated for the current timestep. This method allows implementers to
    * free resources that were used in the conversion of the simulation data.
-   * However, note that callers of GetMesh must delete the returned
-   * svtkDataObject which typically obviates the need for the adaptor to hold
-   * references to the returned data. Data consumers must call this method
-   * when done processing the data to ensure that all resources are released.
+   * However, note that callers of GetMesh must Delete the returned
+   * svtkDataObject which typically alleviates the need for the adaptor to hold
+   * references to the returned data. In most cases this method should not be overridden.
+   *
+   * @note  The instrumentation (or bridge) code must call this method when
+   * done processing a time step to ensure that all resources are released.
+   * Analysis adaptors should not call this method.
    *
    * @returns zero if successful, non zero if an error occurred
    */

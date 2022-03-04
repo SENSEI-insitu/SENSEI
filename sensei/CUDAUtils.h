@@ -1,5 +1,6 @@
 #ifndef CUDAUtils_h
 #define CUDAUtils_h
+
 /// @file
 
 #include "Error.h"
@@ -88,39 +89,33 @@ int IndexIsValid(unsigned long index, unsigned long maxIndex)
     return index < maxIndex;
 }
 
-// calculate CUDA launch paramters for an arbitrarily large flat array
-//
-// inputs:
-//      arraySize -- the length of the array being processed
-//      warpsPerBlock -- number of warps to use per block (your choice)
-//
-// outputs:
-//      blockGrid -- block dimension kernel launch control
-//      nBlocks -- number of blocks
-//      threadGrid -- thread dimension kernel launch control
-//
-// returns:
-//      non zero on error
+/** calculate CUDA launch paramters for an arbitrarily large flat array
+ *
+ * @param[in] arraySize     the length of the array being processed
+ * @param[in] warpsPerBlock number of warps to use per block (your choice)
+ * @param[out] blockGrid    block dimension kernel launch control
+ * @param[out] nBlocks      number of blocks
+ * @param[out] threadGrid   thread dimension kernel launch control
+ *
+ * @returns non zero on error
+ */
 SENSEI_EXPORT
 int PartitionThreadBlocks(int deviceId, size_t arraySize,
     int warpsPerBlock, dim3 &blockGrid, int &nBlocks,
     dim3 &threadGrid);
 
-// calculate CUDA launch paramters for an arbitrarily large flat array
-//
-// inputs:
-//      arraySize -- the length of the array being processed
-//      warpSize -- number of threads per warp supported on the device
-//      warpsPerBlock -- number of warps to use per block (your choice)
-//      blockGridMax -- maximum number of blocks supported by the device
-//
-// outputs:
-//      blockGrid -- block dimension kernel launch control
-//      nBlocks -- number of blocks
-//      threadGrid -- thread dimension kernel launch control
-//
-// returns:
-//      non zero on error
+/** calculate CUDA launch paramters for an arbitrarily large flat array
+ *
+ * @param[in] arraySize  the length of the array being processed
+ * @param[in] warpSize  number of threads per warp supported on the device
+ * @param[in] warpsPerBlock  number of warps to use per block (your choice)
+ * @param[out] blockGridMax  maximum number of blocks supported by the device
+ * @param[out] blockGrid  block dimension kernel launch control
+ * @param[out] nBlocks  number of blocks
+ * @param[out] threadGrid  thread dimension kernel launch control
+ *
+ * @returns non zero on error
+ */
 SENSEI_EXPORT
 int PartitionThreadBlocks(size_t arraySize,
     int warpsPerBlock, int warpSize, int *blockGridMax,

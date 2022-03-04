@@ -59,11 +59,11 @@ public:
   vtkGetStringMacro(ResultMesh);
   //@}
 
-  vtkDataObject* GetResultData() { return this->ResultData.GetPointer(); }
+  svtkDataObject* GetResultData() { return this->ResultData.GetPointer(); }
 
   /// helper function to find the first CatalystScriptPipeline know to the
   /// processor to return the result from.
-  static std::pair<std::string, vtkDataObject*> GetResultData(vtkCPProcessor* processor)
+  static std::pair<std::string, svtkDataObject*> GetResultData(vtkCPProcessor* processor)
   {
     for (int cc=0, max = processor->GetNumberOfPipelines(); cc < max; ++cc)
       {
@@ -73,11 +73,11 @@ public:
           return std::make_pair(std::string(csp->GetResultMesh()), csp->GetResultData());
         }
       }
-    return std::pair<std::string, vtkDataObject*>();
+    return std::pair<std::string, svtkDataObject*>();
   }
 
 protected:
-  CatalystScriptPipeline()  : ResultProducer(nullptr), ResultMesh(nullptr) {}
+  CatalystScriptPipeline() : ResultProducer(nullptr), ResultMesh(nullptr) {}
   ~CatalystScriptPipeline() override
   {
     this->SetResultProducer(nullptr);
@@ -107,11 +107,10 @@ protected:
       return 0;
     }
     producer->UpdatePipeline(dataDescription->GetTime());
-    if (auto result = vtkAlgorithm::SafeDownCast(producer->GetClientSideObject())->GetOutputDataObject(0))
+    if (vtkDataObject *result = vtkAlgorithm::SafeDownCast(producer->GetClientSideObject())->GetOutputDataObject(0))
     {
-      SENSEI_ERROR("TODO conversion from VTK to SVTK data object")
-      // TODO this->ResultData.TakeReference(result->NewInstance());
-      // TODO this->ResultData->ShallowCopy(result);
+      svtkDataObject *sResult = SVTKUtils::SVTKObjectFactory::New(result);
+      this->ResultData.TakeReference(sResult->NewInstance());
     }
     return 1;
   }
@@ -123,7 +122,7 @@ private:
 
   char* ResultProducer;
   char* ResultMesh;
-  vtkSmartPointer<vtkDataObject> ResultData;
+  svtkSmartPointer<svtkDataObject> ResultData;
 };
 
 vtkStandardNewMacro(CatalystScriptPipeline);
@@ -171,20 +170,11 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(const std::string &fileNam
   const std::string& resultProducer, const std::string& resultMesh)
 {
 #ifdef ENABLE_CATALYST_PYTHON
-#if PARAVIEW_VERSION_MAJOR > 5 || (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 9)
-  (void) resultMesh;
-  (void) resultProducer;
-  // TODO -- update the bi directional work for PV 5.9.0
-  this->AddPipeline(vtkCPPythonPipeline::CreateAndInitializePipeline(fileName.c_str()));
-#else
-  // 5.8.0 version of bi-directional work
-  vtkNew<vtkCPPythonScriptPipeline> pythonPipeline;
   vtkNew<sensei::CatalystScriptPipeline> pythonPipeline;
   pythonPipeline->SetResultProducer(!resultProducer.empty() ? resultProducer.c_str() : nullptr);
   pythonPipeline->SetResultMesh(!resultMesh.empty() ? resultMesh.c_str() : nullptr);
   pythonPipeline->Initialize(fileName.c_str());
   this->AddPipeline(pythonPipeline.GetPointer());
-#endif
 #else
   (void)fileName;
   (void)resultProducer;
@@ -296,15 +286,19 @@ int CatalystAnalysisAdaptor::SelectData(DataAdaptor *dataAdaptor,
           << meshName << "\"")
         }
 
-      SENSEI_ERROR("TODO conversion from SVTK data set to VTK data set")
-      // TODO inDesc->SetGrid(dobj);
+      // convert from VTK to VTK
+      vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
 
-      dobj->Delete();
+      inDesc->SetGrid(vdobj);
+
+      vdobj->Delete();
 
       // we could get this info from metadata, however if there
       // is not advantage to doing so we might as well get it
       // from the data itself
       this->SetWholeExtent(dobj, inDesc);
+
+      dobj->Delete();
       }
     }
 
@@ -404,7 +398,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
   vtkCPProcessor *proc = vtkCPAdaptorAPI::GetCoProcessor();
   if (proc->RequestDataDescription(dataDesc.GetPointer()))
     {
-    // Querry Catalyst for what data is required, fetch from the sim
+    // Query Catalyst for what data is required, fetch from the sim
     if (this->SelectData(dataAdaptor, metadata, dataDesc.GetPointer()))
       {
       SENSEI_ERROR("Failed to selct data")
@@ -414,13 +408,12 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
     // transfer control to Catalyst
     if (proc->CoProcess(dataDesc.GetPointer()))
       {
-        auto data = sensei::CatalystScriptPipeline::GetResultData(proc);
-        if (data.second != nullptr)
+      auto data = sensei::CatalystScriptPipeline::GetResultData(proc);
+      if (data.second != nullptr)
         {
-          SVTKDataAdaptor* vtkresult = SVTKDataAdaptor::New();
-          SENSEI_ERROR("TODO VTK data object to SVTK data object conversion")
-          // TODO vtkresult->SetDataObject(data.first, data.second);
-          result = vtkresult;
+        SVTKDataAdaptor* vtkresult = SVTKDataAdaptor::New();
+        vtkresult->SetDataObject(data.first, data.second);
+        result = vtkresult;
         }
       }
     }
