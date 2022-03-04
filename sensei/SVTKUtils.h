@@ -1,14 +1,45 @@
 #ifndef SVTKUtils_h
 #define SVTKUtils_h
 
+/// @file
+
 #include "MeshMetadata.h"
 #include "Error.h"
 
 class svtkDataSet;
 class svtkDataObject;
 class svtkFieldData;
+class svtkCellData;
+class svtkPointData;
+class svtkDataArray;
+class svtkCellArray;
+class svtkImageData;
+class svtkUniformGrid;
+class svtkRectilinearGrid;
+class svtkStructuredGrid;
+class svtkPolyData;
+class svtkUnstructuredGrid;
+class svtkMultiBlockDataSet;
+class svtkOverlappingAMR;
 class svtkDataSetAttributes;
 class svtkCompositeDataSet;
+
+class vtkDataArray;
+class vtkCellArray;
+class vtkFieldData;
+class vtkPointData;
+class vtkCellData;
+class vtkPoints;
+class vtkImageData;
+class vtkUniformGrid;
+class vtkRectilinearGrid;
+class vtkStructuredGrid;
+class vtkPolyData;
+class vtkUnstructuredGrid;
+class vtkMultiBlockDataSet;
+class vtkOverlappingAMR;
+class vtkDataObject;
+class vtkDataSet;
 
 #include <svtkDataArray.h>
 #include <svtkAOSDataArrayTemplate.h>
@@ -31,17 +62,38 @@ class svtkCompositeDataSet;
   svtkTemplateMacroCase(SVTK_INT, int, code);                               \
   svtkTemplateMacroCase(SVTK_UNSIGNED_INT, unsigned int, code);
 
-using svtkCompositeDataSetPtr = svtkSmartPointer<svtkCompositeDataSet>;
-
 #define svtkTemplateMacroFP(call)                   \
   svtkTemplateMacroCase(SVTK_DOUBLE, double, call); \
-  svtkTemplateMacroCase(SVTK_FLOAT, float, call);   \
+  svtkTemplateMacroCase(SVTK_FLOAT, float, call);
+
+
+#if defined(ENABLE_VTK_CORE)
+
+#include <vtkSetGet.h>
+
+#define vtkCellTemplateMacro(code)                                        \
+  vtkTemplateMacroCase(VTK_LONG_LONG, long long, code);                   \
+  vtkTemplateMacroCase(VTK_UNSIGNED_LONG_LONG, unsigned long long, code); \
+  vtkTemplateMacroCase(VTK_ID_TYPE, vtkIdType, code);                     \
+  vtkTemplateMacroCase(VTK_LONG, long, code);                             \
+  vtkTemplateMacroCase(VTK_UNSIGNED_LONG, unsigned long, code);           \
+  vtkTemplateMacroCase(VTK_INT, int, code);                               \
+  vtkTemplateMacroCase(VTK_UNSIGNED_INT, unsigned int, code);
+
+#define vtkTemplateMacroFP(call)                  \
+  vtkTemplateMacroCase(VTK_DOUBLE, double, call); \
+  vtkTemplateMacroCase(VTK_FLOAT, float, call);
+#endif
+
+
+using svtkCompositeDataSetPtr = svtkSmartPointer<svtkCompositeDataSet>;
 
 namespace sensei
 {
 
-/// A collection of generally useful funcitons implementing
-/// common access patterns or operations on SVTK data structures
+/** A collection of generally useful funcitons implementing common access
+ * patterns or operations on SVTK data structures.
+ */
 namespace SVTKUtils
 {
 /** given a svtkDataArray get a pointer to underlying data
@@ -268,6 +320,148 @@ void UnpackCells(size_t nc, ARRAY_TT *coIn, ARRAY_TT *ccIn,
   coOut->Delete();
   ccOut->Delete();
 }
+
+/** Constructs VTK objects from SVTK objects enabling the use of VTK filters
+ * and ParaView Catalyst on SVTK data. The factory currently supports a
+ * limitted number of VTK objects but can be expanded as needed.
+ * See sensei::SVTKUtils::SVTKObjectFactory for conversions from VTK to SVTK.
+ */
+class VTKObjectFactory
+{
+public:
+    /** Construct a new VTK vtkDataArray from the passsed SVTK svtkDataArray.
+     * Returns a newly allocated instance of the corresponding VTK data array.
+     * Data is zero-copy transfered. A references to the passed SVTK
+     * svtkDataArray held by the newly cretaed VTK vtkDataArray ensuring
+     * propper life time. It is the callers responsibility to Delete the
+     * returned vtkDataArray instance when finished.
+     */
+    static vtkDataArray *New(svtkDataArray *daIn);
+
+    /** Construct a new VTK vtkDataObject from the passsed SVTK svtkDataObject.
+     * Returns a newly allocated instance of the corresponding VTK object.
+     * Embedded svtkDataArray instances are zero-copy transfered. References to
+     * vtkDataArray transfered are held by the VTK object ensuring propper life
+     * time. It is the callers responsibility to Delete the returned
+     * vtkDataObject when finished. See the overloaded New methods for a list of
+     * implemented data objects.
+     */
+    static vtkDataObject *New(svtkDataObject *objIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkDataSet *New(svtkDataSet *dsIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkCellArray *New(svtkCellArray *caIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkFieldData *New(svtkFieldData *fdIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkPointData *New(svtkPointData *fdIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkCellData *New(svtkCellData *fdIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkPoints *New(svtkPoints *ptsIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkImageData *New(svtkImageData *idIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkUniformGrid *New(svtkUniformGrid *idIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkRectilinearGrid *New(svtkRectilinearGrid *rgIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkStructuredGrid *New(svtkStructuredGrid *sgIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkPolyData *New(svtkPolyData *pdIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkUnstructuredGrid *New(svtkUnstructuredGrid *ugIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkMultiBlockDataSet *New(svtkMultiBlockDataSet *mbIn);
+
+    /// @copydoc New(svtkDataObject*)
+    static vtkOverlappingAMR *New(svtkOverlappingAMR *amrIn);
+};
+
+
+
+/** Constructs SVTK objects from VTK objects enabling the consumption of the
+ * output of VTK filters and ParaView Catalyst. The factory currently supports
+ * a limitted number of SVTK objects but can be expanded as needed.
+ * See sensei::SVTKUtils::VTKObjectFactory for conversions from SVTK to VTK.
+ */
+class SVTKObjectFactory
+{
+public:
+    /** Construct a new SVTK svtkDataArray from the passsed VTK vtkDataArray.
+     * Returns a newly allocated instance of the corresponding SVTK data array.
+     * Data is zero-copy transfered. A references to the passed VTK
+     * vtkDataArray held by the newly cretaed SVTK svtkDataArray ensuring
+     * propper life time. It is the callers responsibility to Delete the
+     * returned svtkDataArray instance when finished.
+     */
+    static svtkDataArray *New(vtkDataArray *daIn);
+
+    /** Construct a new SVTK svtkDataObject from the passsed VTK vtkDataObject.
+     * Returns a newly allocated instance of the corresponding SVTK object.
+     * Embedded vtkDataArray instances are zero-copy transfered. References to
+     * svtkDataArray transfered are held by the SVTK object ensuring propper life
+     * time. It is the callers responsibility to Delete the returned
+     * svtkDataObject when finished. See the overloaded New methods for a list of
+     * implemented data objects.
+     */
+    static svtkDataObject *New(vtkDataObject *objIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkDataSet *New(vtkDataSet *dsIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkCellArray *New(vtkCellArray *caIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkFieldData *New(vtkFieldData *fdIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkPointData *New(vtkPointData *fdIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkCellData *New(vtkCellData *fdIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkPoints *New(vtkPoints *ptsIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkImageData *New(vtkImageData *idIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkUniformGrid *New(vtkUniformGrid *idIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkRectilinearGrid *New(vtkRectilinearGrid *rgIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkStructuredGrid *New(vtkStructuredGrid *sgIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkPolyData *New(vtkPolyData *pdIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkUnstructuredGrid *New(vtkUnstructuredGrid *ugIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkMultiBlockDataSet *New(vtkMultiBlockDataSet *mbIn);
+
+    /// @copydoc New(vtkDataObject*)
+    static svtkOverlappingAMR *New(vtkOverlappingAMR *amrIn);
+};
 
 }
 }

@@ -82,9 +82,7 @@ if (ENABLE_ADIOS2)
     list(APPEND senseiCore_sources Calculator.cxx)
   endif()
 
-  if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
-    ENABLE_VTK_RENDERING OR ENABLE_VTK_ACCELERATORS OR
-    ENABLE_VTK_FILTERS)
+  if (ENABLE_VTK_CORE)
     list(APPEND senseiCore_libs sVTK)
   endif()
 

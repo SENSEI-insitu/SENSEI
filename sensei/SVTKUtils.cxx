@@ -62,6 +62,12 @@
 #endif
 #if defined(ENABLE_VTK_IO)
 #include <vtkXMLUnstructuredGridWriter.h>
+#endif
+#if defined(ENABLE_VTK_CORE)
+#include <vtkCommand.h>
+#include <vtkCallbackCommand.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkSOADataArrayTemplate.h>
 #include <vtkDoubleArray.h>
 #include <vtkIntArray.h>
 #include <vtkIdTypeArray.h>
@@ -71,6 +77,32 @@
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkPointData.h>
+#include <vtkCompositeDataIterator.h>
+#include <vtkCompositeDataSet.h>
+#include <vtkDataArray.h>
+#include <vtkAbstractArray.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkPoints.h>
+#include <vtkPolyData.h>
+#include <vtkStructuredGrid.h>
+#include <vtkRectilinearGrid.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkImageData.h>
+#include <vtkUniformGrid.h>
+#include <vtkMultiBlockDataSet.h>
+#include <vtkOverlappingAMR.h>
+#include <vtkNonOverlappingAMR.h>
+#include <vtkUniformGridAMR.h>
+#include <vtkDataObject.h>
+#include <vtkDataSet.h>
+#include <vtkPointSet.h>
+#include <vtkDataSetAttributes.h>
+#include <vtkFieldData.h>
+#include <vtkCellData.h>
+#include <vtkPointData.h>
+#include <vtkPoints.h>
+#include <vtkCellArray.h>
+#include <vtkAMRBox.h>
 #endif
 
 #include <sstream>
@@ -1321,6 +1353,1663 @@ int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   ug->Delete();
 
   return 0;
+#endif
+}
+
+
+#if defined(ENABLE_VTK_CORE)
+/** this will be called when the vtkDataArray is deleted. we release the held
+ * reference to the corrsponding svtkDataArray
+ */
+void svtkObjectDelete(vtkObject *, unsigned long, void *clientData, void *)
+{
+    svtkObject *heldRef = (svtkObject*)clientData;
+    heldRef->Delete();
+}
+#endif
+
+// --------------------------------------------------------------------------
+vtkDataArray *VTKObjectFactory::New(svtkDataArray *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a vtkDataArray from nullptr")
+    return nullptr;
+  }
+
+  vtkDataArray *daOut = nullptr;
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  switch (daIn->GetDataType())
+  {
+    svtkTemplateMacro(
+    svtkAOSDataArrayTemplate<SVTK_TT> *aosIn =
+      dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(daIn);
+
+    svtkSOADataArrayTemplate<SVTK_TT> *soaIn =
+      dynamic_cast<svtkSOADataArrayTemplate<SVTK_TT>*>(daIn);
+
+    if (aosIn)
+    {
+      // AOS
+      vtkAOSDataArrayTemplate<SVTK_TT> *aosOut = vtkAOSDataArrayTemplate<SVTK_TT>::New();
+      aosOut->SetNumberOfComponents(nComps);
+      aosOut->SetArray(aosIn->GetPointer(0), nTups*nComps, 1);
+      daOut = static_cast<vtkDataArray*>(aosOut);
+    }
+    else if (soaIn)
+    {
+      // SOA
+      vtkSOADataArrayTemplate<SVTK_TT> *soaOut = vtkSOADataArrayTemplate<SVTK_TT>::New();
+      soaOut->SetNumberOfComponents(nComps);
+      for (size_t j = 0; j < nComps; ++j)
+      {
+        soaOut->SetArray(j, soaIn->GetComponentArrayPointer(j), nTups, true, true);
+      }
+      daOut = static_cast<vtkDataArray*>(soaOut);
+    }
+    );
+  }
+
+  if (!daOut)
+  {
+    SENSEI_ERROR("Failed to create a vtkDataArray from the given "
+      << daIn->GetClassName() << " instance")
+    return nullptr;
+  }
+
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the SVTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the VTK array signals it is finished
+  vtkCallbackCommand *cc = vtkCallbackCommand::New();
+  cc->SetCallback(svtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(vtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkCellArray *VTKObjectFactory::New(svtkCellArray *caIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)caIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!caIn)
+  {
+    SENSEI_ERROR("Can't create a vtkCellArray from nullptr")
+    return nullptr;
+  }
+
+  vtkCellArray *caOut = vtkCellArray::New();
+
+  vtkDataArray *offs = VTKObjectFactory::New(caIn->GetOffsetsArray());
+  vtkDataArray *conn = VTKObjectFactory::New(caIn->GetConnectivityArray());
+
+  switch (offs->GetDataType())
+  {
+    vtkCellTemplateMacro(
+      caOut->SetData(dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(offs),
+        dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(conn));
+      )
+
+    default:
+    {
+      SENSEI_ERROR("Can't copy cell offsets/connectivity of type "
+        << offs->GetClassName())
+      caOut->Delete();
+      return nullptr;
+    }
+  }
+
+  offs->Delete();
+  conn->Delete();
+
+  return caOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkCellData *VTKObjectFactory::New(svtkCellData *cdIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)cdIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  return static_cast<vtkCellData*>
+    (VTKObjectFactory::New(static_cast<svtkFieldData*>(cdIn)));
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkPointData *VTKObjectFactory::New(svtkPointData *pdIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)pdIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  return static_cast<vtkPointData*>
+    (VTKObjectFactory::New(static_cast<svtkFieldData*>(pdIn)));
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkFieldData *VTKObjectFactory::New(svtkFieldData *fdIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)fdIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!fdIn)
+  {
+    SENSEI_ERROR("Can't create a vtkFieldData from nullptr")
+    return nullptr;
+  }
+
+  vtkDataSetAttributes *fdOut = nullptr;
+  if (dynamic_cast<svtkCellData*>(fdIn))
+  {
+    fdOut = vtkCellData::New();
+  }
+  else if (dynamic_cast<svtkPointData*>(fdIn))
+  {
+    fdOut = vtkPointData::New();
+  }
+  else
+  {
+    SENSEI_ERROR("Failed to create a vtkFieldData from the give "
+      << fdIn->GetClassName() << " instance")
+    return nullptr;
+  }
+
+  int nArrays = fdIn->GetNumberOfArrays();
+  for (int i = 0; i < nArrays; ++i)
+  {
+    vtkDataArray *ai = VTKObjectFactory::New(fdIn->GetArray(i));
+    if (!ai)
+    {
+      SENSEI_ERROR("Array " << i << " was not transfered")
+    }
+    else
+    {
+      fdOut->AddArray(ai);
+      ai->Delete();
+    }
+  }
+
+  return fdOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkPoints *VTKObjectFactory::New(svtkPoints *ptsIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)ptsIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!ptsIn)
+  {
+    SENSEI_ERROR("Can't create a vtkPoints from nullptr")
+    return nullptr;
+  }
+
+  vtkDataArray *pts = VTKObjectFactory::New(ptsIn->GetData());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to create a vtkPoints from the give "
+      << ptsIn->GetClassName() << " instance")
+    return nullptr;
+  }
+
+  vtkPoints *ptsOut = vtkPoints::New();
+  ptsOut->SetData(pts);
+  pts->Delete();
+
+  return ptsOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkImageData *VTKObjectFactory::New(svtkImageData *idIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)idIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!idIn)
+  {
+    SENSEI_ERROR("Can't create a vtkImageData from nullptr")
+    return nullptr;
+  }
+
+  vtkImageData *idOut = vtkImageData::New();
+
+  // metadata
+  idOut->SetExtent(idIn->GetExtent());
+  idOut->SetSpacing(idIn->GetSpacing());
+  idOut->SetOrigin(idIn->GetOrigin());
+
+  // point data arrays
+  vtkPointData *pd = VTKObjectFactory::New(idIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkPointData")
+    idOut->Delete();
+    return nullptr;
+  }
+  idOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  vtkCellData *cd = VTKObjectFactory::New(idIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkCellData")
+    idOut->Delete();
+    return nullptr;
+  }
+  idOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return idOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkUniformGrid *VTKObjectFactory::New(svtkUniformGrid *ugIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)ugIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!ugIn)
+  {
+    SENSEI_ERROR("Can't create a vtkUniformGrid from nullptr")
+    return nullptr;
+  }
+
+  vtkUniformGrid *ugOut = vtkUniformGrid::New();
+
+  // metadata
+  ugOut->SetExtent(ugIn->GetExtent());
+  ugOut->SetSpacing(ugIn->GetSpacing());
+  ugOut->SetOrigin(ugIn->GetOrigin());
+
+  // point data arrays
+  vtkPointData *pd = VTKObjectFactory::New(ugIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkPointData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  vtkCellData *cd = VTKObjectFactory::New(ugIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkCellData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return ugOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkRectilinearGrid *VTKObjectFactory::New(svtkRectilinearGrid *rgIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)rgIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!rgIn)
+  {
+    SENSEI_ERROR("Can't create a vtkRectilinearGrid from nullptr")
+    return nullptr;
+  }
+
+  vtkRectilinearGrid *rgOut = vtkRectilinearGrid::New();
+
+  // metadata
+  rgOut->SetExtent(rgIn->GetExtent());
+
+  // x coordinates
+  vtkDataArray *x = VTKObjectFactory::New(rgIn->GetXCoordinates());
+  if (!x)
+  {
+    SENSEI_ERROR("Failed to transfer x coordinates")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->SetXCoordinates(x);
+  x->Delete();
+
+  // y coordinates
+  vtkDataArray *y = VTKObjectFactory::New(rgIn->GetYCoordinates());
+  if (!y)
+  {
+    SENSEI_ERROR("Failed to transfer y coordinates")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->SetYCoordinates(y);
+  y->Delete();
+
+  // z coordinates
+  vtkDataArray *z = VTKObjectFactory::New(rgIn->GetZCoordinates());
+  if (!z)
+  {
+    SENSEI_ERROR("Failed to transfer z coordinates")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->SetZCoordinates(z);
+  z->Delete();
+
+  // point data arrays
+  vtkPointData *pd = VTKObjectFactory::New(rgIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkPointData")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  vtkCellData *cd = VTKObjectFactory::New(rgIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkCellData")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return rgOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkStructuredGrid *VTKObjectFactory::New(svtkStructuredGrid *sgIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)sgIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!sgIn)
+  {
+    SENSEI_ERROR("Can't create a vtkStructuredGrid from nullptr")
+    return nullptr;
+  }
+
+  vtkStructuredGrid *sgOut = vtkStructuredGrid::New();
+
+  // metadata
+  sgOut->SetExtent(sgIn->GetExtent());
+
+  // points
+  vtkPoints *pts = VTKObjectFactory::New(sgIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the svtkStructuredGrid")
+    sgOut->Delete();
+    return nullptr;
+  }
+
+  // point data arrays
+  vtkPointData *pd = VTKObjectFactory::New(sgIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkPointData")
+    sgOut->Delete();
+    return nullptr;
+  }
+  sgOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  vtkCellData *cd = VTKObjectFactory::New(sgIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkCellData")
+    sgOut->Delete();
+    return nullptr;
+  }
+  sgOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return sgOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)pdIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!pdIn)
+  {
+    SENSEI_ERROR("Can't create a vtkPolyData from nullptr")
+    return nullptr;
+  }
+
+  vtkPolyData *pdOut = vtkPolyData::New();
+
+  // points
+  vtkPoints *pts = VTKObjectFactory::New(pdIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the svtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+
+  // vert cells
+  vtkCellArray *verts = VTKObjectFactory::New(pdIn->GetVerts());
+  if (!verts)
+  {
+    SENSEI_ERROR("Failed to transfer verts of the svtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(verts);
+  verts->Delete();
+
+  // line cells
+  vtkCellArray *lines = VTKObjectFactory::New(pdIn->GetLines());
+  if (!lines)
+  {
+    SENSEI_ERROR("Failed to transfer lines of the svtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(lines);
+  lines->Delete();
+
+  // poly cells
+  vtkCellArray *polys = VTKObjectFactory::New(pdIn->GetPolys());
+  if (!polys)
+  {
+    SENSEI_ERROR("Failed to transfer polys of the svtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(polys);
+  polys->Delete();
+
+  // strip cells
+  vtkCellArray *strips = VTKObjectFactory::New(pdIn->GetStrips());
+  if (!strips)
+  {
+    SENSEI_ERROR("Failed to transfer strips of the svtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(strips);
+  strips->Delete();
+
+  // point data arrays
+  vtkPointData *pd = VTKObjectFactory::New(pdIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkPointData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  vtkCellData *cd = VTKObjectFactory::New(pdIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkCellData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return pdOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkUnstructuredGrid *VTKObjectFactory::New(svtkUnstructuredGrid *ugIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)ugIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!ugIn)
+  {
+    SENSEI_ERROR("Can't create a vtkUnstructuredGrid from nullptr")
+    return nullptr;
+  }
+
+  vtkUnstructuredGrid *ugOut = vtkUnstructuredGrid::New();
+
+  // cell types
+  vtkUnsignedCharArray *ct =
+    dynamic_cast<vtkUnsignedCharArray*>(VTKObjectFactory::New(ugIn->GetCellTypesArray()));
+
+  if (!ct)
+  {
+    SENSEI_ERROR("Failed to transfer cell types from svtkUnstructuredGrid")
+    ugOut->Delete();
+    return nullptr;
+  }
+
+  // cells
+  vtkCellArray *cells = VTKObjectFactory::New(ugIn->GetCells());
+  if (!cells)
+  {
+    SENSEI_ERROR("Failed to transfer cells from svtkUnstructuredGrid")
+    ugOut->Delete();
+    return nullptr;
+  }
+
+  ugOut->SetCells(ct, cells);
+  ct->Delete();
+  cells->Delete();
+
+  // point data arrays
+  vtkPointData *pd = VTKObjectFactory::New(ugIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkPointData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  vtkCellData *cd = VTKObjectFactory::New(ugIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer vtkCellData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return ugOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkMultiBlockDataSet *VTKObjectFactory::New(svtkMultiBlockDataSet *mbIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)mbIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!mbIn)
+  {
+    SENSEI_ERROR("Can't create a vtkMultiBlockDataSet from nullptr")
+    return nullptr;
+  }
+
+  vtkMultiBlockDataSet *mbOut = vtkMultiBlockDataSet::New();
+
+  // metadata
+  int nBlocks = mbIn->GetNumberOfBlocks();
+
+  mbOut->SetNumberOfBlocks(nBlocks);
+
+  for (int i = 0; i < nBlocks; ++i)
+  {
+    svtkDataSet *dsIn = dynamic_cast<svtkDataSet*>(mbIn->GetBlock(i));
+    if (dsIn)
+    {
+      vtkDataSet *dsOut = VTKObjectFactory::New(dsIn);
+      if (!dsOut)
+      {
+        SENSEI_ERROR("Failed to transfer block "
+          << i << " of the svtkMultiBlockDataSet")
+        mbOut->Delete();
+        return nullptr;
+      }
+      mbOut->SetBlock(i, dsOut);
+      dsOut->Delete();
+    }
+  }
+
+  return mbOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkOverlappingAMR *VTKObjectFactory::New(svtkOverlappingAMR *amrIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)amrIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!amrIn)
+  {
+    SENSEI_ERROR("Can't create a vtkOverlappingAMR from nullptr")
+    return nullptr;
+  }
+
+  vtkOverlappingAMR *amrOut = vtkOverlappingAMR::New();
+
+  // num levels and block
+  int nLevels = amrIn->GetNumberOfLevels();
+
+  std::vector<int> nBlocks(nLevels);
+  for (int i = 0; i < nLevels; ++i)
+    nBlocks[i] = amrIn->GetNumberOfDataSets(i);
+
+  amrOut->Initialize(nLevels, nBlocks.data());
+
+  // origin
+  amrOut->SetOrigin(amrIn->GetOrigin());
+
+  // level data
+  for (int i = 0; i < nLevels; ++i)
+  {
+    // level spacing
+    double dx[3] = {0.0};
+    amrIn->GetSpacing(i, dx);
+    amrOut->SetSpacing(i, dx);
+
+    // refinement
+    amrOut->SetRefinementRatio(i, amrIn->GetRefinementRatio(i));
+
+    for (int j = 0; j < nBlocks[i]; ++j)
+    {
+      // origin
+      /*double x0[3] = {0.0};
+      amrIn->GetOrigin(i, j, x0);
+      amrOut->SetOrigin(i, j, x0);*/
+
+      // box
+      svtkAMRBox abIn = amrIn->GetAMRBox(i, j);
+      vtkAMRBox abOut(abIn.GetLoCorner(), abIn.GetHiCorner());
+      amrOut->SetAMRBox(i, j, abOut);
+
+      // gid
+      amrOut->SetAMRBlockSourceIndex(i, j, amrIn->GetAMRBlockSourceIndex(i, j));
+
+      // data
+      svtkUniformGrid *ugIn = amrIn->GetDataSet(i, j);
+      if (ugIn)
+      {
+        vtkUniformGrid *ugOut = VTKObjectFactory::New(ugIn);
+        if (!ugOut)
+        {
+          SENSEI_ERROR("Failed to convert AMR block at level "
+            << i << " block " << j)
+          amrOut->Delete();
+          return nullptr;
+        }
+        amrOut->SetDataSet(i, j, ugOut);
+        ugOut->Delete();
+      }
+    }
+  }
+
+  return amrOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkDataObject *VTKObjectFactory::New(svtkDataObject *objIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)objIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!objIn)
+  {
+    SENSEI_ERROR("Can't create a vtkDataObject from nullptr")
+    return nullptr;
+  }
+
+  svtkDataSet *dsIn = nullptr;
+  svtkMultiBlockDataSet *mbIn = nullptr;
+  svtkOverlappingAMR *amrIn = nullptr;
+
+  if ((dsIn = dynamic_cast<svtkDataSet*>(objIn)))
+  {
+    return static_cast<vtkDataObject*>(VTKObjectFactory::New(dsIn));
+  }
+  else if ((mbIn = dynamic_cast<svtkMultiBlockDataSet*>(objIn)))
+  {
+    return static_cast<vtkDataObject*>(VTKObjectFactory::New(mbIn));
+  }
+  else if ((amrIn = dynamic_cast<svtkOverlappingAMR*>(objIn)))
+  {
+    return static_cast<vtkDataObject*>(VTKObjectFactory::New(amrIn));
+  }
+
+  SENSEI_ERROR("Failed to construct a VTK object from the given "
+    << objIn->GetClassName() << " instance. Conversion not yet implemented.")
+
+  return nullptr;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkDataSet *VTKObjectFactory::New(svtkDataSet *dsIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)dsIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!dsIn)
+  {
+    SENSEI_ERROR("Can't create a vtkDataSet from nullptr")
+    return nullptr;
+  }
+
+  svtkImageData *idIn = nullptr;
+  svtkUniformGrid *ungIn = nullptr;
+  svtkRectilinearGrid *rgIn = nullptr;
+  svtkStructuredGrid *sgIn = nullptr;
+  svtkPolyData *pdIn = nullptr;
+  svtkUnstructuredGrid *ugIn = nullptr;
+
+  if ((idIn = dynamic_cast<svtkImageData*>(dsIn)))
+  {
+    return VTKObjectFactory::New(idIn);
+  }
+  else if ((ungIn = dynamic_cast<svtkUniformGrid*>(dsIn)))
+  {
+    return VTKObjectFactory::New(ungIn);
+  }
+  else if ((rgIn = dynamic_cast<svtkRectilinearGrid*>(dsIn)))
+  {
+    return VTKObjectFactory::New(rgIn);
+  }
+  else if ((sgIn = dynamic_cast<svtkStructuredGrid*>(dsIn)))
+  {
+    return VTKObjectFactory::New(sgIn);
+  }
+  else if ((pdIn = dynamic_cast<svtkPolyData*>(dsIn)))
+  {
+    return VTKObjectFactory::New(pdIn);
+  }
+  else if ((ugIn = dynamic_cast<svtkUnstructuredGrid*>(dsIn)))
+  {
+    return VTKObjectFactory::New(ugIn);
+  }
+
+  SENSEI_ERROR("Failed to construct a VTK object from the given "
+    << dsIn->GetClassName() << " instance. Conversion not yet implemented.")
+
+  return nullptr;
+#endif
+}
+
+
+
+#if defined(ENABLE_VTK_CORE)
+/** this will be called when the svtkDataArray is deleted. we release the held
+ * reference to the corrsponding vtkDataArray
+ */
+void vtkObjectDelete(svtkObject *, unsigned long, void *clientData, void *)
+{
+    vtkObject *heldRef = (vtkObject*)clientData;
+    heldRef->Delete();
+}
+#endif
+
+// --------------------------------------------------------------------------
+svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a svtkDataArray from nullptr")
+    return nullptr;
+  }
+
+  svtkDataArray *daOut = nullptr;
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  switch (daIn->GetDataType())
+  {
+    vtkTemplateMacro(
+    vtkAOSDataArrayTemplate<VTK_TT> *aosIn =
+      dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(daIn);
+
+    vtkSOADataArrayTemplate<VTK_TT> *soaIn =
+      dynamic_cast<vtkSOADataArrayTemplate<VTK_TT>*>(daIn);
+
+    if (aosIn)
+    {
+      // AOS
+      svtkAOSDataArrayTemplate<VTK_TT> *aosOut = svtkAOSDataArrayTemplate<VTK_TT>::New();
+      aosOut->SetNumberOfComponents(nComps);
+      aosOut->SetArray(aosIn->GetPointer(0), nTups*nComps, 1);
+      daOut = static_cast<svtkDataArray*>(aosOut);
+    }
+    else if (soaIn)
+    {
+      // SOA
+      svtkSOADataArrayTemplate<VTK_TT> *soaOut = svtkSOADataArrayTemplate<VTK_TT>::New();
+      soaOut->SetNumberOfComponents(nComps);
+      for (size_t j = 0; j < nComps; ++j)
+      {
+        soaOut->SetArray(j, soaIn->GetComponentArrayPointer(j), nTups, true, true);
+      }
+      daOut = static_cast<svtkDataArray*>(soaOut);
+    }
+    );
+  }
+
+  if (!daOut)
+  {
+    SENSEI_ERROR("Failed to create a svtkDataArray from the given "
+      << daIn->GetClassName() << " instance")
+    return nullptr;
+  }
+
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  svtkCallbackCommand *cc = svtkCallbackCommand::New();
+  cc->SetCallback(vtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(svtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkCellArray *SVTKObjectFactory::New(vtkCellArray *caIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)caIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!caIn)
+  {
+    SENSEI_ERROR("Can't create a svtkCellArray from nullptr")
+    return nullptr;
+  }
+
+  svtkCellArray *caOut = svtkCellArray::New();
+
+  svtkDataArray *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray());
+  svtkDataArray *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray());
+
+  switch (offs->GetDataType())
+  {
+    svtkCellTemplateMacro(
+      caOut->SetData(dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(offs),
+        dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(conn));
+      )
+
+    default:
+    {
+      SENSEI_ERROR("Can't copy cell offsets/connectivity of type "
+        << offs->GetClassName())
+      caOut->Delete();
+      return nullptr;
+    }
+  }
+
+  offs->Delete();
+  conn->Delete();
+
+  return caOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkCellData *SVTKObjectFactory::New(vtkCellData *cdIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)cdIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  return static_cast<svtkCellData*>
+    (SVTKObjectFactory::New(static_cast<vtkFieldData*>(cdIn)));
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkPointData *SVTKObjectFactory::New(vtkPointData *pdIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)pdIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  return static_cast<svtkPointData*>
+    (SVTKObjectFactory::New(static_cast<vtkFieldData*>(pdIn)));
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkFieldData *SVTKObjectFactory::New(vtkFieldData *fdIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)fdIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!fdIn)
+  {
+    SENSEI_ERROR("Can't create a svtkFieldData from nullptr")
+    return nullptr;
+  }
+
+  svtkDataSetAttributes *fdOut = nullptr;
+  if (dynamic_cast<vtkCellData*>(fdIn))
+  {
+    fdOut = svtkCellData::New();
+  }
+  else if (dynamic_cast<vtkPointData*>(fdIn))
+  {
+    fdOut = svtkPointData::New();
+  }
+  else
+  {
+    SENSEI_ERROR("Failed to create a svtkFieldData from the give "
+      << fdIn->GetClassName() << " instance")
+    return nullptr;
+  }
+
+  int nArrays = fdIn->GetNumberOfArrays();
+  for (int i = 0; i < nArrays; ++i)
+  {
+    svtkDataArray *ai = SVTKObjectFactory::New(fdIn->GetArray(i));
+    if (!ai)
+    {
+      SENSEI_ERROR("Array " << i << " was not transfered")
+    }
+    else
+    {
+      fdOut->AddArray(ai);
+      ai->Delete();
+    }
+  }
+
+  return fdOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkPoints *SVTKObjectFactory::New(vtkPoints *ptsIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)ptsIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!ptsIn)
+  {
+    SENSEI_ERROR("Can't create a svtkPoints from nullptr")
+    return nullptr;
+  }
+
+  svtkDataArray *pts = SVTKObjectFactory::New(ptsIn->GetData());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to create a svtkPoints from the give "
+      << ptsIn->GetClassName() << " instance")
+    return nullptr;
+  }
+
+  svtkPoints *ptsOut = svtkPoints::New();
+  ptsOut->SetData(pts);
+  pts->Delete();
+
+  return ptsOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkImageData *SVTKObjectFactory::New(vtkImageData *idIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)idIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!idIn)
+  {
+    SENSEI_ERROR("Can't create a svtkImageData from nullptr")
+    return nullptr;
+  }
+
+  svtkImageData *idOut = svtkImageData::New();
+
+  // metadata
+  idOut->SetExtent(idIn->GetExtent());
+  idOut->SetSpacing(idIn->GetSpacing());
+  idOut->SetOrigin(idIn->GetOrigin());
+
+  // point data arrays
+  svtkPointData *pd = SVTKObjectFactory::New(idIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkPointData")
+    idOut->Delete();
+    return nullptr;
+  }
+  idOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  svtkCellData *cd = SVTKObjectFactory::New(idIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkCellData")
+    idOut->Delete();
+    return nullptr;
+  }
+  idOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return idOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkUniformGrid *SVTKObjectFactory::New(vtkUniformGrid *ugIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)ugIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!ugIn)
+  {
+    SENSEI_ERROR("Can't create a svtkUniformGrid from nullptr")
+    return nullptr;
+  }
+
+  svtkUniformGrid *ugOut = svtkUniformGrid::New();
+
+  // metadata
+  ugOut->SetExtent(ugIn->GetExtent());
+  ugOut->SetSpacing(ugIn->GetSpacing());
+  ugOut->SetOrigin(ugIn->GetOrigin());
+
+  // point data arrays
+  svtkPointData *pd = SVTKObjectFactory::New(ugIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkPointData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  svtkCellData *cd = SVTKObjectFactory::New(ugIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkCellData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return ugOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkRectilinearGrid *SVTKObjectFactory::New(vtkRectilinearGrid *rgIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)rgIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!rgIn)
+  {
+    SENSEI_ERROR("Can't create a svtkRectilinearGrid from nullptr")
+    return nullptr;
+  }
+
+  svtkRectilinearGrid *rgOut = svtkRectilinearGrid::New();
+
+  // metadata
+  rgOut->SetExtent(rgIn->GetExtent());
+
+  // x coordinates
+  svtkDataArray *x = SVTKObjectFactory::New(rgIn->GetXCoordinates());
+  if (!x)
+  {
+    SENSEI_ERROR("Failed to transfer x coordinates")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->SetXCoordinates(x);
+  x->Delete();
+
+  // y coordinates
+  svtkDataArray *y = SVTKObjectFactory::New(rgIn->GetYCoordinates());
+  if (!y)
+  {
+    SENSEI_ERROR("Failed to transfer y coordinates")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->SetYCoordinates(y);
+  y->Delete();
+
+  // z coordinates
+  svtkDataArray *z = SVTKObjectFactory::New(rgIn->GetZCoordinates());
+  if (!z)
+  {
+    SENSEI_ERROR("Failed to transfer z coordinates")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->SetZCoordinates(z);
+  z->Delete();
+
+  // point data arrays
+  svtkPointData *pd = SVTKObjectFactory::New(rgIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkPointData")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  svtkCellData *cd = SVTKObjectFactory::New(rgIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkCellData")
+    rgOut->Delete();
+    return nullptr;
+  }
+  rgOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return rgOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkStructuredGrid *SVTKObjectFactory::New(vtkStructuredGrid *sgIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)sgIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!sgIn)
+  {
+    SENSEI_ERROR("Can't create a svtkStructuredGrid from nullptr")
+    return nullptr;
+  }
+
+  svtkStructuredGrid *sgOut = svtkStructuredGrid::New();
+
+  // metadata
+  sgOut->SetExtent(sgIn->GetExtent());
+
+  // points
+  svtkPoints *pts = SVTKObjectFactory::New(sgIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the vtkStructuredGrid")
+    sgOut->Delete();
+    return nullptr;
+  }
+
+  // point data arrays
+  svtkPointData *pd = SVTKObjectFactory::New(sgIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkPointData")
+    sgOut->Delete();
+    return nullptr;
+  }
+  sgOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  svtkCellData *cd = SVTKObjectFactory::New(sgIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkCellData")
+    sgOut->Delete();
+    return nullptr;
+  }
+  sgOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return sgOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)pdIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!pdIn)
+  {
+    SENSEI_ERROR("Can't create a svtkPolyData from nullptr")
+    return nullptr;
+  }
+
+  svtkPolyData *pdOut = svtkPolyData::New();
+
+  // points
+  svtkPoints *pts = SVTKObjectFactory::New(pdIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the vtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+
+  // vert cells
+  svtkCellArray *verts = SVTKObjectFactory::New(pdIn->GetVerts());
+  if (!verts)
+  {
+    SENSEI_ERROR("Failed to transfer verts of the vtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(verts);
+  verts->Delete();
+
+  // line cells
+  svtkCellArray *lines = SVTKObjectFactory::New(pdIn->GetLines());
+  if (!lines)
+  {
+    SENSEI_ERROR("Failed to transfer lines of the vtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(lines);
+  lines->Delete();
+
+  // poly cells
+  svtkCellArray *polys = SVTKObjectFactory::New(pdIn->GetPolys());
+  if (!polys)
+  {
+    SENSEI_ERROR("Failed to transfer polys of the vtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(polys);
+  polys->Delete();
+
+  // strip cells
+  svtkCellArray *strips = SVTKObjectFactory::New(pdIn->GetStrips());
+  if (!strips)
+  {
+    SENSEI_ERROR("Failed to transfer strips of the vtkPolyData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->SetVerts(strips);
+  strips->Delete();
+
+  // point data arrays
+  svtkPointData *pd = SVTKObjectFactory::New(pdIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkPointData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  svtkCellData *cd = SVTKObjectFactory::New(pdIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkCellData")
+    pdOut->Delete();
+    return nullptr;
+  }
+  pdOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return pdOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkUnstructuredGrid *SVTKObjectFactory::New(vtkUnstructuredGrid *ugIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)ugIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!ugIn)
+  {
+    SENSEI_ERROR("Can't create a svtkUnstructuredGrid from nullptr")
+    return nullptr;
+  }
+
+  svtkUnstructuredGrid *ugOut = svtkUnstructuredGrid::New();
+
+  // cell types
+  svtkUnsignedCharArray *ct =
+    dynamic_cast<svtkUnsignedCharArray*>(SVTKObjectFactory::New(ugIn->GetCellTypesArray()));
+
+  if (!ct)
+  {
+    SENSEI_ERROR("Failed to transfer cell types from vtkUnstructuredGrid")
+    ugOut->Delete();
+    return nullptr;
+  }
+
+  // cells
+  svtkCellArray *cells = SVTKObjectFactory::New(ugIn->GetCells());
+  if (!cells)
+  {
+    SENSEI_ERROR("Failed to transfer cells from vtkUnstructuredGrid")
+    ugOut->Delete();
+    return nullptr;
+  }
+
+  ugOut->SetCells(ct, cells);
+  ct->Delete();
+  cells->Delete();
+
+  // point data arrays
+  svtkPointData *pd = SVTKObjectFactory::New(ugIn->GetPointData());
+  if (!pd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkPointData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetPointData()->ShallowCopy(pd);
+  pd->Delete();
+
+  // cell data arrays
+  svtkCellData *cd = SVTKObjectFactory::New(ugIn->GetCellData());
+  if (!cd)
+  {
+    SENSEI_ERROR("Failed to transfer svtkCellData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->GetCellData()->ShallowCopy(cd);
+  cd->Delete();
+
+  return ugOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkMultiBlockDataSet *SVTKObjectFactory::New(vtkMultiBlockDataSet *mbIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)mbIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!mbIn)
+  {
+    SENSEI_ERROR("Can't create a svtkMultiBlockDataSet from nullptr")
+    return nullptr;
+  }
+
+  svtkMultiBlockDataSet *mbOut = svtkMultiBlockDataSet::New();
+
+  // metadata
+  int nBlocks = mbIn->GetNumberOfBlocks();
+
+  mbOut->SetNumberOfBlocks(nBlocks);
+
+  for (int i = 0; i < nBlocks; ++i)
+  {
+    vtkDataSet *dsIn = dynamic_cast<vtkDataSet*>(mbIn->GetBlock(i));
+    if (dsIn)
+    {
+      svtkDataSet *dsOut = SVTKObjectFactory::New(dsIn);
+      if (!dsOut)
+      {
+        SENSEI_ERROR("Failed to transfer block "
+          << i << " of the vtkMultiBlockDataSet")
+        mbOut->Delete();
+        return nullptr;
+      }
+      mbOut->SetBlock(i, dsOut);
+      dsOut->Delete();
+    }
+  }
+
+  return mbOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkOverlappingAMR *SVTKObjectFactory::New(vtkOverlappingAMR *amrIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)amrIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!amrIn)
+  {
+    SENSEI_ERROR("Can't create a svtkOverlappingAMR from nullptr")
+    return nullptr;
+  }
+
+  svtkOverlappingAMR *amrOut = svtkOverlappingAMR::New();
+
+  // num levels and block
+  int nLevels = amrIn->GetNumberOfLevels();
+
+  std::vector<int> nBlocks(nLevels);
+  for (int i = 0; i < nLevels; ++i)
+    nBlocks[i] = amrIn->GetNumberOfDataSets(i);
+
+  amrOut->Initialize(nLevels, nBlocks.data());
+
+  // origin
+  amrOut->SetOrigin(amrIn->GetOrigin());
+
+  // level data
+  for (int i = 0; i < nLevels; ++i)
+  {
+    // level origin
+    /*double x0[3] = {0.0};
+    amrIn->GetOrigin(i, x0);
+    amrOut->SetOrigin(i, x0);*/
+
+    // level spacing
+    double dx[3] = {0.0};
+    amrIn->GetSpacing(i, dx);
+    amrOut->SetSpacing(i, dx);
+
+    // refinement
+    amrOut->SetRefinementRatio(i, amrIn->GetRefinementRatio(i));
+
+    for (int j = 0; j < nBlocks[i]; ++j)
+    {
+      // box
+      vtkAMRBox abIn = amrIn->GetAMRBox(i, j);
+      svtkAMRBox abOut(abIn.GetLoCorner(), abIn.GetHiCorner());
+      amrOut->SetAMRBox(i, j, abOut);
+
+      // gid
+      amrOut->SetAMRBlockSourceIndex(i, j, amrIn->GetAMRBlockSourceIndex(i, j));
+
+      // data
+      vtkUniformGrid *ugIn = amrIn->GetDataSet(i, j);
+      if (ugIn)
+      {
+        svtkUniformGrid *ugOut = SVTKObjectFactory::New(ugIn);
+        if (!ugOut)
+        {
+          SENSEI_ERROR("Failed to convert AMR block at level "
+            << i << " block " << j)
+          amrOut->Delete();
+          return nullptr;
+        }
+        amrOut->SetDataSet(i, j, ugOut);
+        ugOut->Delete();
+      }
+    }
+  }
+
+  return amrOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkDataObject *SVTKObjectFactory::New(vtkDataObject *objIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)objIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!objIn)
+  {
+    SENSEI_ERROR("Can't create a svtkDataObject from nullptr")
+    return nullptr;
+  }
+
+  vtkDataSet *dsIn = nullptr;
+  vtkMultiBlockDataSet *mbIn = nullptr;
+  vtkOverlappingAMR *amrIn = nullptr;
+
+  if ((dsIn = dynamic_cast<vtkDataSet*>(objIn)))
+  {
+    return static_cast<svtkDataObject*>(SVTKObjectFactory(dsIn));
+  }
+  else if ((mbIn = dynamic_cast<vtkMultiBlockDataSet*>(objIn)))
+  {
+    return static_cast<svtkDataObject*>(SVTKObjectFactory(mbIn));
+  }
+  else if ((amrIn = dynamic_cast<vtkOverlappingAMR*>(objIn)))
+  {
+    return static_cast<svtkDataObject*>(SVTKObjectFactory(amrIn));
+  }
+
+  SENSEI_ERROR("Failed to construct a SVTK object from the given "
+    << objIn->GetClassName() << " instance. Conversion not yet implemented.")
+
+  return nullptr;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkDataSet *SVTKObjectFactory::New(vtkDataSet *dsIn)
+{
+#if !defined(ENABLE_SVTK_CORE)
+  (void)dsIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!dsIn)
+  {
+    SENSEI_ERROR("Can't create a svtkDataSet from nullptr")
+    return nullptr;
+  }
+
+  vtkImageData *idIn = nullptr;
+  vtkUniformGrid *idIn = nullptr;
+  vtkRectilinearGrid *rgIn = nullptr;
+  vtkStructuredGrid *sgIn = nullptr;
+  vtkPolyData *pdIn = nullptr;
+  vtkUnstructuredGrid *ugIn = nullptr;
+
+  if ((idIn = dynamic_cast<vtkImageData*>(dsIn)))
+  {
+    return SVTKObjectFactory::New(idIn);
+  }
+  else if ((rgIn = dynamic_cast<vtkRectilinearGrid*>(dsIn)))
+  {
+    return SVTKObjectFactory::New(rgIn);
+  }
+  else if ((sgIn = dynamic_cast<vtkStructuredGrid*>(dsIn)))
+  {
+    return SVTKObjectFactory::New(sgIn);
+  }
+  else if ((pdIn = dynamic_cast<vtkPolyData*>(dsIn)))
+  {
+    return SVTKObjectFactory::New(pdIn);
+  }
+  else if ((ugIn = dynamic_cast<vtkUnstructuredGrid*>(dsIn)))
+  {
+    return SVTKObjectFactory::New(ugIn);
+  }
+
+  SENSEI_ERROR("Failed to construct a SVTK object from the given "
+    << dsIn->GetClassName() << " instance. Conversion not yet implemented.")
+
+  return nullptr;
 #endif
 }
 
