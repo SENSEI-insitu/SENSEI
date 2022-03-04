@@ -77,9 +77,6 @@ public:
   int GetMesh(const std::string &meshName,
     bool structureOnly, svtkDataObject *&mesh) override;
 
-  int GetMesh(const std::string &meshName,
-    bool structureOnly, svtkCompositeDataSet *&mesh) override;
-
   int AddGhostNodesArray(svtkDataObject* mesh,
     const std::string &meshName) override;
 

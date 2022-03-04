@@ -73,29 +73,6 @@ void DataAdaptor::SetDataTimeStep(long index)
 }
 
 //----------------------------------------------------------------------------
-int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
-    svtkCompositeDataSet *&mesh)
-{
-  mesh = nullptr;
-
-  // get the object from the simulation
-  svtkDataObject *dobj = nullptr;
-  if (this->GetMesh(meshName, structureOnly, dobj))
-    {
-    SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
-    return -1;
-    }
-
-  svtkCompositeDataSetPtr meshptr = SVTKUtils::AsCompositeData(
-    this->GetCommunicator(), dobj, true);
-
-  mesh = meshptr.GetPointer();
-  mesh->Register(nullptr);
-
-  return 0;
-}
-
-//----------------------------------------------------------------------------
 int DataAdaptor::AddArrays(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::vector<std::string> &arrayNames)
 {

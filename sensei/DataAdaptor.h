@@ -84,8 +84,6 @@ public:
   virtual int GetMesh(const std::string &meshName, bool structureOnly,
     svtkDataObject *&mesh) = 0;
 
-  virtual int GetMesh(const std::string &meshName, bool structureOnly,
-    svtkCompositeDataSet *&mesh);
   /** Adds ghost nodes on the specified mesh. Implementers shouls set the name
    * of the array to "vtkGhostType".
    *

@@ -258,7 +258,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   // get the mesh
-  svtkCompositeDataSet *dobj = nullptr;
+  svtkDataObject *dobj = nullptr;
   if (dataAdaptor->GetMesh(meshName, false, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -290,9 +290,13 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     return false;
     }
 
+  // ensure a composite dataset, the smart pointer takes ownership
+  svtkCompositeDataSetPtr cdo =
+    SVTKUtils::AsCompositeData(this->GetCommunicator(), dobj, true);
+
   // compute the iso-surfaces
   svtkCompositeDataSet *isoMesh = nullptr;
-  if (this->IsoSurface(dobj, arrayName, arrayCentering, isoVals, isoMesh))
+  if (this->IsoSurface(cdo.Get(), arrayName, arrayCentering, isoVals, isoMesh))
     {
     SENSEI_ERROR("Failed to extract slice")
     return false;
@@ -309,7 +313,6 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     }
 
   isoMesh->Delete();
-  dobj->Delete();
 
   dataAdaptor->ReleaseData();
 
@@ -364,7 +367,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       }
 
     // get the mesh
-    svtkCompositeDataSet *dobj = nullptr;
+    svtkDataObject *dobj = nullptr;
     if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -403,12 +406,16 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       ++ait;
       }
 
+    // ensure a composite dataset, the smart pointer takes ownership
+    svtkCompositeDataSetPtr cdo =
+      SVTKUtils::AsCompositeData(this->GetCommunicator(), dobj, true);
+
     // compute the slice
     svtkCompositeDataSet *sliceMesh = nullptr;
     std::array<double,3> point, normal;
     this->Internals->SlicePartitioner->GetPoint(point);
     this->Internals->SlicePartitioner->GetNormal(normal);
-    if (this->Slice(dobj, point, normal, sliceMesh))
+    if (this->Slice(cdo.Get(), point, normal, sliceMesh))
       {
       SENSEI_ERROR("Failed to extract slice")
       return false;
@@ -425,7 +432,6 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       }
 
     sliceMesh->Delete();
-    dobj->Delete();
 
     ++mit;
     }
