@@ -15,31 +15,31 @@ class svtkDataObject;
 namespace sensei
 {
 
-// @class ConfigurableInTransitDataAdaptor
-// The ConfigurableInTransitDataAdaptor implements the InTransitDataAdaptor
-// inteface, provides a factory for creating a concrete instance of the
-// InTransitDataAdpator from an XML configuration, and delagtes in coming calls
-// through the InTransitDataAdapotor/DataAdaptor API to the instance.  The
-// puprose of this class is to provide run-time configurablility of the
-// concrete InTransitDataAdaptors.
-//
-// @section XML
-// Configurartion shold be placed in an element of type `transport`, the
-// `type` attribute names the concrete class to create and initialize.
-// Each concrete class will have a number of attributes used for configuration.
-//
-// The supported transport types are:
-//
-//   adios_1, adios_2, hdf5, libis
-//
-// Illustrative example of the XML:
-//
-// <sensei>
-//   <transport type="adios_1" file_name="test.bp" read_method="FLEXPATH">
-//     <paritioner type="block"/>
-//   </transport>
-// <sensei>
-//
+/** The ConfigurableInTransitDataAdaptor implements the InTransitDataAdaptor
+ * interface, provides a factory for creating a concrete instance of the
+ * InTransitDataAdpator from an XML configuration, and delegates in coming calls
+ * through the InTransitDataAdapotor/DataAdaptor API to the instance.  The
+ * purpose of this class is to provide run-time configurability of the
+ * concrete InTransitDataAdaptors.
+ *
+ * Configurartion shold be placed in an element of type `transport`, the
+ * `type` attribute names the concrete class to create and initialize.
+ * Each concrete class will have a number of attributes used for configuration.
+ *
+ * The supported transport types are:
+ *
+ *   adios_1, adios_2, hdf5, libis
+ *
+ * Illustrative example of the XML:
+ *
+ * ```xml
+ * <sensei>
+ *   <transport type="adios_1" file_name="test.bp" read_method="FLEXPATH">
+ *     <paritioner type="block"/>
+ *   </transport>
+ * <sensei>
+ * ```
+ */
 class SENSEI_EXPORT ConfigurableInTransitDataAdaptor : public sensei::InTransitDataAdaptor
 {
 public:
@@ -48,7 +48,6 @@ public:
 
   int Initialize(const std::string &fileName);
 
-  // sensei::InTransitDataAdaptor API
   int SetConnectionInfo(const std::string &info) override;
   const std::string &GetConnectionInfo() const override;
 
@@ -72,7 +71,6 @@ public:
   int StreamGood() override;
   int Finalize() override;
 
-  // sensei::DataAdaptor API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
   int GetMeshMetadata(unsigned int id, MeshMetadataPtr &metadata) override;
 

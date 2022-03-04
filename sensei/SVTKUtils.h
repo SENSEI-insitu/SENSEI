@@ -135,8 +135,9 @@ int IsLegacyDataObject(int code);
 SENSEI_EXPORT
 svtkDataObject *NewDataObject(int code);
 
-/// returns the enum value given an association name. where name
-/// can be one of: point, cell or, field
+/** returns the enum value given an association name. where name can be one of:
+ * point, cell or, field
+ */
 SENSEI_EXPORT
 int GetAssociation(std::string assocStr, int &assoc);
 
@@ -144,27 +145,32 @@ int GetAssociation(std::string assocStr, int &assoc);
 SENSEI_EXPORT
 const char *GetAttributesName(int association);
 
-/// returns the container for the associations: svtkPointData,
-/// svtkCellData, or svtkFieldData
+/** returns the container for the associations: svtkPointData, svtkCellData, or
+ * svtkFieldData
+ */
 SENSEI_EXPORT
 svtkFieldData *GetAttributes(svtkDataSet *dobj, int association);
 
-/// callback that processes input and output datasets
-/// return 0 for success, > zero to stop without error, < zero to stop with error
+/** A callback that processes input and output datasets.
+ * return 0 for success, > zero to stop without error, < zero to stop with error
+ */
 using BinaryDatasetFunction = std::function<int(svtkDataSet*, svtkDataSet*)>;
 
-/// Applies the function to leaves of the structurally equivalent
-/// input and output data objects.
+/** Applies the function to leaves of the structurally equivalent
+ * input and output data objects.
+ */
 SENSEI_EXPORT
 int Apply(svtkDataObject *input, svtkDataObject *output,
   BinaryDatasetFunction &func);
 
-/// callback that processes input and output datasets
-/// return 0 for success, > zero to stop without error, < zero to stop with error
+/** A callback that processes input and output datasets
+ * return 0 for success, > zero to stop without error, < zero to stop with error
+ */
 using DatasetFunction = std::function<int(svtkDataSet*)>;
 
-/// Applies the function to the data object
-/// The function is called once for each leaf dataset
+/** Applies the function to the data object.  The function is called once for
+ * each leaf dataset
+ */
 SENSEI_EXPORT
 int Apply(svtkDataObject *dobj, DatasetFunction &func);
 
@@ -173,23 +179,26 @@ SENSEI_EXPORT
 int SetGhostLayerMetadata(svtkDataObject *mesh,
   int nGhostCellLayers, int nGhostNodeLayers);
 
-/// Retreive ghost layer metadata from the mesh. returns non-zero if
-/// no such metadata is found.
+/** Retreive ghost layer metadata from the mesh. returns non-zero if no such
+* metadata is found.
+*/
 SENSEI_EXPORT
 int GetGhostLayerMetadata(svtkDataObject *mesh,
   int &nGhostCellLayers, int &nGhostNodeLayers);
 
-/// Get  metadata, note that data set variant is not meant to
-/// be used on blocks of a multi-block
+/*** Get  metadata, note that data set variant is not meant to be used on blocks
+ * of a multi-block
+ */
 SENSEI_EXPORT
 int GetMetadata(MPI_Comm comm, svtkDataSet *ds, MeshMetadataPtr);
 SENSEI_EXPORT
 int GetMetadata(MPI_Comm comm, svtkCompositeDataSet *cd, MeshMetadataPtr);
 
-/// Given a data object ensure that it is a composite data set
-/// If it already is, then the call is a no-op, if it is not
-/// then it is converted to a multiblock. The flag take determines
-/// if the smart pointer takes ownership or adds a reference.
+/** Given a data object ensure that it is a composite data set If it already is,
+ * then the call is a no-op, if it is not then it is converted to a multiblock.
+ * The flag take determines if the smart pointer takes ownership or adds a
+ * reference.
+ */
 SENSEI_EXPORT
 svtkCompositeDataSetPtr AsCompositeData(MPI_Comm comm,
   svtkDataObject *dobj, bool take = true);
