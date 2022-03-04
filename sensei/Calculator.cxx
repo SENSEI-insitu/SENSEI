@@ -6,8 +6,13 @@
 #include "MeshMetadata.h"
 #include "MeshMetadataMap.h"
 #include "Profiler.h"
-#include "VTKDataAdaptor.h"
 
+#include "SVTKDataAdaptor.h"
+#include "SVTKUtils.h"
+
+#include <svtkDataObject.h>
+
+#include <vtkSmartPointer.h>
 #include <vtkArrayCalculator.h>
 #include <vtkObjectFactory.h>
 
@@ -76,8 +81,8 @@ bool Calculator::Execute(DataAdaptor* data, DataAdaptor*& result)
     }
 
   // get the mesh object
-  vtkDataObject* mesh = nullptr;
-  if (data->GetMesh(this->MeshName, false, mesh))
+  svtkDataObject *meshIn = nullptr;
+  if (data->GetMesh(this->MeshName, false, meshIn))
     {
     SENSEI_ERROR("Failed to get mesh \"" << this->MeshName << "\"")
     return false;
@@ -93,9 +98,9 @@ bool Calculator::Execute(DataAdaptor* data, DataAdaptor*& result)
   DataRequirements requirements;
   requirements.Initialize(data, /*structureOnly=*/false);
 
-  for (auto ait = requirements.GetArrayRequirementsIterator(this->MeshName); mesh && ait; ++ait)
+  for (auto ait = requirements.GetArrayRequirementsIterator(this->MeshName); meshIn && ait; ++ait)
   {
-    data->AddArray(mesh, this->MeshName, ait.Association(), ait.Array());
+    data->AddArray(meshIn, this->MeshName, ait.Association(), ait.Array());
     if (ait.Association() == this->Association)
     {
       // fixme: handle multicomponent arrays.
@@ -108,17 +113,33 @@ bool Calculator::Execute(DataAdaptor* data, DataAdaptor*& result)
   replace_all(function, "data_time", std::to_string(time));
   replace_all(function, "data_time_step", std::to_string(step));
 
-  calculator->SetInputDataObject(mesh);
+  // convert input to VTK
+  vtkDataObject *vmeshIn = SVTKUtils::VTKObjectFactory::New(meshIn);
+  if (!vmeshIn)
+  {
+    SENSEI_ERROR("Conversion from " << meshIn->GetClassName() << " to VTK failed")
+    return false;
+  }
+
+  calculator->SetInputDataObject(vmeshIn);
   calculator->SetFunction(function.c_str());
   calculator->SetCoordinateResults(this->Result == "coords"? 1:0);
   calculator->SetResultArrayName(this->Result.c_str());
   calculator->Update();
 
-  VTKDataAdaptor* vtkresult = VTKDataAdaptor::New();
-  vtkresult->SetDataObject(this->MeshName, calculator->GetOutputDataObject(0));
-  result = vtkresult;
+  vtkDataObject *vmeshOut = calculator->GetOutputDataObject(0);
 
-  mesh->Delete();
+  // convert the output to SVTK
+  svtkDataObject *meshOut = SVTKUtils::SVTKObjectFactory::New(vmeshOut);
+
+  // configure the return adaptor
+  SVTKDataAdaptor *ra = SVTKDataAdaptor::New();
+  ra->SetDataObject(this->MeshName, meshOut);
+  result = ra;
+
+  vmeshIn->Delete();
+  meshIn->Delete();
+
   return true;
 }
 

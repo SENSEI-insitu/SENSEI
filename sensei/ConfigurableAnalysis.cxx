@@ -1146,7 +1146,7 @@ int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
 
   int association = 0;
   std::string assocStr = node.attribute("association").as_string("point");
-  if (VTKUtils::GetAssociation(assocStr, association))
+  if (SVTKUtils::GetAssociation(assocStr, association))
     {
     SENSEI_ERROR("Failed to initialize Calculator");
     return -1;
@@ -1156,7 +1156,7 @@ int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
   std::string expression = node.attribute("expression").value();
   std::string result = node.attribute("result").value();
 
-  auto calculator = vtkSmartPointer<Calculator>::New();
+  auto calculator = svtkSmartPointer<Calculator>::New();
 
   if (this->Comm != MPI_COMM_NULL)
     calculator->SetCommunicator(this->Comm);
