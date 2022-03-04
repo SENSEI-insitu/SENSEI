@@ -23,6 +23,7 @@
 #include <vtkContourFilter.h>
 #include <vtkCutter.h>
 #include <vtkPlane.h>
+#include <vtkDataObject.h>
 
 using vtkDataObjectAlgorithmPtr = vtkSmartPointer<vtkDataObjectAlgorithm>;
 using vtkCellDataToPointDataPtr = vtkSmartPointer<vtkCellDataToPointData>;
@@ -459,7 +460,7 @@ int SliceExtract::IsoSurface(svtkCompositeDataSet *input,
     cdpd = vtkCellDataToPointDataPtr::New();
     cdpd->SetPassCellData(1);
     /* in newer VTK one can select specific arrays to convert
-     * it is important not to convert svtkGhostType.
+     * it is important not to convert vtkGhostType.
     cdpd->SetProcessAllArrays(0);
     cdpd->AddCellDataArray(arrayName.c_str());*/
     contour->SetInputConnection(cdpd->GetOutputPort());
@@ -476,7 +477,7 @@ int SliceExtract::IsoSurface(svtkCompositeDataSet *input,
   svtkMultiBlockDataSet *mbds = svtkMultiBlockDataSet::New();
   mbds->SetNumberOfBlocks(nBlocks);
 
-  // SVTK's iterators for AMR datasets behave differently than for multiblock
+  // VTK's iterators for AMR datasets behave differently than for multiblock
   // datasets.  we are going to have to handle AMR data as a special case for
   // now.
   svtkUniformGridAMRDataIterator *amrIt = dynamic_cast<svtkUniformGridAMRDataIterator*>(it);
@@ -503,20 +504,28 @@ int SliceExtract::IsoSurface(svtkCompositeDataSet *input,
 
     svtkDataObject *dobjIn = it->GetCurrentDataObject();
 
+    // convert to VTK
+    vtkDataObject *vdobjIn = SVTKUtils::VTKObjectFactory::New(dobjIn);
+
     // run the pipeline on the block
-    SENSEI_ERROR("TODO conversion from SVTK to VTK data set")
-    /* TODO if (arrayCen == svtkDataObject::CELL)
-      cdpd->SetInputData(dobjIn);
+    if (arrayCen == svtkDataObject::CELL)
+      cdpd->SetInputData(vdobjIn);
     else
-      contour->SetInputData(dobjIn);*/
+      contour->SetInputData(vdobjIn);
     contour->SetOutput(nullptr);
     contour->Update();
 
+    // get the contour
+    vtkDataObject *vdobjOut = contour->GetOutput();
+
+    // convert to SVTK
+    svtkDataObject *dobjOut = SVTKUtils::SVTKObjectFactory::New(vdobjOut);
+
     // save the extract
-    SENSEI_ERROR("TODO conversion from VTK to SVTK data set")
-    // TODO svtkDataObject *dobjOut = contour->GetOutput();
-    svtkDataObject *dobjOut = nullptr;
     mbds->SetBlock(bid, dobjOut);
+
+    dobjOut->Delete();
+    vdobjIn->Delete();
     }
 
   it->Delete();
@@ -561,17 +570,25 @@ int SliceExtract::Slice(svtkCompositeDataSet *input,
     unsigned int bid = it->GetCurrentFlatIndex() - 1;
     svtkDataObject *dobjIn = it->GetCurrentDataObject();
 
+    // convert to VTK
+    vtkDataObject *vdobjIn = SVTKUtils::VTKObjectFactory::New(dobjIn);
+
     // set up and run the pipeline
-    SENSEI_ERROR("TODO conversion from SVTK to VTK data set")
-    // TODO slice->SetInputData(dobjIn);
+    slice->SetInputData(vdobjIn);
     slice->SetOutput(nullptr);
     slice->Update();
 
+    // get the slice
+    vtkDataObject *vdobjOut = slice->GetOutput();
+
+    // convert to SVTK
+    svtkDataObject *dobjOut = SVTKUtils::SVTKObjectFactory::New(vdobjOut);
+
     // save the extract
-    SENSEI_ERROR("TODO conversion from VTK to SVTK data set")
-    // TODO svtkDataObject *dobjOut = slice->GetOutput();
-    svtkDataObject *dobjOut = nullptr;
     mbds->SetBlock(bid, dobjOut);
+
+    dobjOut->Delete();
+    vdobjIn->Delete();
     }
 
   it->Delete();
