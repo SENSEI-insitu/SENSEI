@@ -57,7 +57,7 @@ public:
   int Initialize(const pugi::xml_node &root);
 
   /// Invokes the Execute method on the currently configured adaptors.
-  bool Execute(DataAdaptor *data, DataAdaptor* &result) override;
+  bool Execute(DataAdaptor *data, DataAdaptor **result) override;
 
   /// Invokes the Finalize method on the currently configured adaptors.
   int Finalize() override;

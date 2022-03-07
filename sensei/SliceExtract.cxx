@@ -195,9 +195,16 @@ int SliceExtract::AddDataRequirement(const std::string &meshName,
 }
 
 // --------------------------------------------------------------------------
-bool SliceExtract::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool SliceExtract::Execute(DataAdaptor* dataAdaptor, DataAdaptor** dataOut)
 {
   TimeEvent<128> mark("SliceExtract::Execute");
+
+  // we currently do not return anything
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
+
   if (this->Internals->Operation == OP_PLANAR_SLICE)
     {
     return this->ExecuteSlice(dataAdaptor);
@@ -616,8 +623,7 @@ int SliceExtract::WriteExtract(long timeStep, double time,
   dataAdaptor->SetDataTimeStep(timeStep);
   dataAdaptor->SetDataTime(time);
 
-  sensei::DataAdaptor *ret = nullptr;
-  if (!this->Internals->Writer->Execute(dataAdaptor, ret))
+  if (!this->Internals->Writer->Execute(dataAdaptor, nullptr))
     {
     SENSEI_ERROR("Failed to write time step " << timeStep)
     return -1;

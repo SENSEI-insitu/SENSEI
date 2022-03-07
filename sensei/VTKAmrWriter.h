@@ -66,7 +66,7 @@ public:
   /// @}
 
   /// Invokes the write.
-  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
+  bool Execute(DataAdaptor* data, DataAdaptor**) override;
 
   /** Finalizes output, flushes buffers, creates metadata files, and closes all
    * streams.

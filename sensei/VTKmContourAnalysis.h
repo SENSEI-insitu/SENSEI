@@ -22,7 +22,7 @@ public:
   void Initialize(const std::string& meshName, const std::string& arrayname,
     double value, bool writeOutput);
 
-  bool Execute(sensei::DataAdaptor* data, sensei::DataAdaptor*& ) override;
+  bool Execute(sensei::DataAdaptor* data, sensei::DataAdaptor**) override;
 
   int Finalize() override;
 

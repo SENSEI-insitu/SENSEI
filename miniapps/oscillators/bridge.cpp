@@ -59,8 +59,7 @@ void execute(long step, float time)
   DataAdaptor->SetDataTimeStep(step);
   DataAdaptor->SetDataTime(time);
 
-  sensei::DataAdaptor* reply = nullptr;
-  AnalysisAdaptor->Execute(DataAdaptor.GetPointer(), reply);
+  AnalysisAdaptor->Execute(DataAdaptor.GetPointer(), nullptr);
 
   DataAdaptor->ReleaseData();
 

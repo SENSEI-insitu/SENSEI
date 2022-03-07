@@ -119,9 +119,15 @@ const char *Histogram::GetGhostArrayName()
 }
 
 //-----------------------------------------------------------------------------
-bool Histogram::Execute(DataAdaptor* data, DataAdaptor*&)
+bool Histogram::Execute(DataAdaptor* data, DataAdaptor** dataOut)
 {
   TimeEvent<128> mark("Histogram::Execute");
+
+  // we do not return anything
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;

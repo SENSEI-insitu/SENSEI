@@ -254,15 +254,21 @@ void Autocorrelation::Initialize(size_t window, const std::string &meshName,
 }
 
 //-----------------------------------------------------------------------------
-bool Autocorrelation::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool Autocorrelation::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 {
   TimeEvent<128> mark("Autocorrelation::Execute");
+
+  // we do not return anything
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
 
   AInternals& internals = (*this->Internals);
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;
-  if (mdMap.Initialize(dataAdaptor))
+  if (mdMap.Initialize(dataIn))
     {
     SENSEI_ERROR("Failed to get metadata")
     return false;
@@ -278,14 +284,14 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 
   // mesh
   svtkDataObject* mesh = nullptr;
-  if (dataAdaptor->GetMesh(internals.MeshName, false, mesh))
+  if (dataIn->GetMesh(internals.MeshName, false, mesh))
     {
     SENSEI_ERROR("Failed to get mesh \"" << internals.MeshName << "\"")
     return false;
     }
 
   // array
-  if (dataAdaptor->AddArray(mesh, internals.MeshName,
+  if (dataIn->AddArray(mesh, internals.MeshName,
     internals.Association, internals.ArrayName))
     {
     SENSEI_ERROR("Failed to add array \"" << internals.ArrayName
@@ -295,16 +301,16 @@ bool Autocorrelation::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 
   // ghost cells
   if ((mmd->NumGhostCells || SVTKUtils::AMR(mmd)) &&
-    dataAdaptor->AddGhostCellsArray(mesh, internals.MeshName))
+    dataIn->AddGhostCellsArray(mesh, internals.MeshName))
     {
-    SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost cells.")
+    SENSEI_ERROR(<< dataIn->GetClassName() << " failed to add ghost cells.")
     return false;
     }
 
   if ((mmd->NumGhostNodes > 0) &&
-    dataAdaptor->AddGhostNodesArray(mesh, internals.MeshName))
+    dataIn->AddGhostNodesArray(mesh, internals.MeshName))
     {
-    SENSEI_ERROR(<< dataAdaptor->GetClassName() << " failed to add ghost nodes.")
+    SENSEI_ERROR(<< dataIn->GetClassName() << " failed to add ghost nodes.")
     return false;
     }
 

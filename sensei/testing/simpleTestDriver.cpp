@@ -183,9 +183,7 @@ int main(int argc, char **argv)
     {
     da->SetDataTimeStep(i);
     da->SetDataTime(i);
-
-    sensei::DataAdaptor *ret = nullptr;
-    aa->Execute(da, ret);
+    aa->Execute(da, nullptr);
     }
 
   aa->Finalize();

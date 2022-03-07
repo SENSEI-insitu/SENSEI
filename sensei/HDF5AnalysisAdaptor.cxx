@@ -71,9 +71,15 @@ int HDF5AnalysisAdaptor::AddDataRequirement(
 }
 
 //----------------------------------------------------------------------------
-bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
 {
   TimeEvent<128> mark("HDF5AnalysisAdaptor::Execute");
+
+  // we currently do not return anything
+  if (daOut)
+    {
+    daOut = nullptr;
+    }
 
   // figure out what the simulation can provide
   MeshMetadataFlags flags;

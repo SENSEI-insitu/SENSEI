@@ -94,8 +94,7 @@ int main(int argc, char **argv)
     SENSEI_STATUS("Processing time step " << timeStep << " time " << time)
 
     // execute the analysis
-    sensei::DataAdaptor* reply = nullptr;
-    if (!analysisAdaptor->Execute(dataAdaptor.Get(), reply))
+    if (!analysisAdaptor->Execute(dataAdaptor.Get(), nullptr))
       {
       SENSEI_ERROR("Execute failed")
       MPI_Abort(MPI_COMM_WORLD, -1);

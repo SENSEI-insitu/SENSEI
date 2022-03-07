@@ -16,8 +16,8 @@ class DataAdaptor;
  * Simulations invoke in situ processing by calling the Execute method.
  * Typically simulations will make use of the ConfigurableAnalysis.
  *
- * An analysis adaptor can optionally generate an "output" in Execute, and
- * return it via a DataAdaptor.  Such an output may be used for further
+ * An analysis adaptor can optionally generate output data in Execute, and
+ * return it via a DataAdaptor instance. Such an output may be used for further
  * analysis or provide feedback and other control information  back to the
  * simulation itself.
  */
@@ -48,19 +48,33 @@ public:
 
   /** Invokes in situ processing, data movement or I/O. The simulation will
    * call this method when data is ready to be processed. Callers will pass a
-   * simulation specific sensei::DataAdaptor that can be used to fetch the needed
-   * simulation data for processing.
+   * simulation specific sensei::DataAdaptor that can be used to fetch the
+   * needed simulation data for processing. Callers pass a non-null address to
+   * a pointer to a sensei::DataAdaptor to signal that output is desired if it
+   * is available. In that case a newly allocated data adaptor instance is
+   * returned in the pointer. This data adaptor can be used to fetch the
+   * output. The caller trakes ownership of the returned data adaptor instance
+   * and must call Delete on it when finished. Callers that do not want the
+   * output data should pass nullptr to signal that it is not needed.
    *
-   * @param [in] data the simulation provided data adaptor used to fetch data
-   *                  for processing
-   * @param [out] result an optional data adaptor that could be used to fetch
-   *                     data from the analysis
+   * @param [in] dataIn the simulation provided data adaptor used to fetch data
+   *                    for processing
+   * @param [out] dataOut the address of a pointer to a data adaptor that could
+   *                      be used to fetch data from the analysis. This should
+   *                      be null if the caller does not want to access the
+   *                      output data. If it is not null and if the
+   *                      implementation can provide output a data, a data
+   *                      adaptor is allocated and returned via this pointer.
+   *                      In that case the caller can use the adaptor to fetch
+   *                      the data. The caller takes ownership of the returned
+   *                      data adaptor and must call Delete on it when
+   *                      finished.
    * @returns false if an error has occurred. Typically this means that in
    *          situ processing is not possible due to misconfiguration or communication
    *          error. In that case callers should abort so as not to waste compute
    *          resources.
    */
-  virtual bool Execute(DataAdaptor* data, DataAdaptor*& result) = 0;
+  virtual bool Execute(DataAdaptor* dataIn, DataAdaptor** dataOut) = 0;
 
   /** Clean up and shut down the data consuming library if needed.  This method
    * is called when the run is finsihed clean up and shut down should occur

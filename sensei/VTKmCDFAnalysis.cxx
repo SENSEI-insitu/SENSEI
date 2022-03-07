@@ -97,9 +97,16 @@ void VTKmCDFAnalysis::Initialize(
 }
 
 //-----------------------------------------------------------------------------
-bool VTKmCDFAnalysis::Execute(DataAdaptor* data, DataAdaptor*&)
+bool VTKmCDFAnalysis::Execute(DataAdaptor* data, DataAdaptor** dataOut)
 {
   TimeEvent<128> mark("VTKmCDFAnalysis::execute");
+
+  // we do not return anything
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
+
   this->Helper->AddTimeEntry();
 
   // Get the mesh from the simulation:

@@ -24,7 +24,7 @@ public:
     int requestSize,
     MPI_Comm comm);
 
-  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
+  bool Execute(DataAdaptor* data, DataAdaptor**) override;
 
   int Finalize() override { return 0; }
 

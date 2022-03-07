@@ -68,9 +68,14 @@ int ADIOS1AnalysisAdaptor::AddDataRequirement(const std::string &meshName,
 }
 
 //----------------------------------------------------------------------------
-bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor *&)
+bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataIn, DataAdaptor **dataOut)
 {
   TimeEvent<128> mark("ADIOS1AnalysisAdaptor::Execute");
+
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
 
   // figure out what the simulation can provide. include the full
   // suite of metadata for the end-point partitioners
@@ -82,19 +87,19 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor *&)
   flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
-  if (mdm.Initialize(dataAdaptor, flags))
+  if (mdm.Initialize(dataIn, flags))
     {
     SENSEI_ERROR("Failed to get metadata")
     return false;
     }
 
-  // if no dataAdaptor requirements are given, push all the data
+  // if no dataIn requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
     {
-    if (this->Requirements.Initialize(dataAdaptor, false))
+    if (this->Requirements.Initialize(dataIn, false))
       {
-      SENSEI_ERROR("Failed to initialze dataAdaptor description")
+      SENSEI_ERROR("Failed to initialze dataIn description")
       return false;
       }
     SENSEI_WARNING("No subset specified. Writing all available data")
@@ -120,7 +125,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor *&)
 
     // get the mesh
     svtkCompositeDataSet *dobj = nullptr;
-    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+    if (dataIn->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -128,14 +133,14 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor *&)
 
     // add the ghost cell arrays to the mesh
     if ((md->NumGhostCells || SVTKUtils::AMR(md)) &&
-      dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+      dataIn->AddGhostCellsArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if (md->NumGhostNodes && dataIn->AddGhostNodesArray(dobj, mit.MeshName()))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -147,7 +152,7 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor *&)
 
     while (ait)
       {
-      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+      if (dataIn->AddArray(dobj, mit.MeshName(),
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
@@ -171,8 +176,8 @@ bool ADIOS1AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor *&)
     ++mit;
     }
 
-  unsigned long timeStep = dataAdaptor->GetDataTimeStep();
-  double time = dataAdaptor->GetDataTime();
+  unsigned long timeStep = dataIn->GetDataTimeStep();
+  double time = dataIn->GetDataTime();
 
   if (this->InitializeADIOS1(metadata) ||
     this->WriteTimestep(timeStep, time, metadata, objects))

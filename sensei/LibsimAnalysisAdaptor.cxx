@@ -2135,10 +2135,17 @@ void LibsimAnalysisAdaptor::Initialize()
 }
 
 //-----------------------------------------------------------------------------
-bool LibsimAnalysisAdaptor::Execute(sensei::DataAdaptor* da, sensei::DataAdaptor *&)
+bool LibsimAnalysisAdaptor::Execute(DataAdaptor* daIn, DataAdaptor **dataOut)
 {
     TimeEvent<128> mark("LibsimAnalysisAdaptor::Execute");
-    return internals->Execute(da);
+
+    // we currently do not return anything
+    if (dataOut)
+    {
+      dataOut = nullptr;
+    }
+
+    return internals->Execute(daIn);
 }
 
 //-----------------------------------------------------------------------------

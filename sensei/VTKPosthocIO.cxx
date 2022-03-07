@@ -253,11 +253,17 @@ int VTKPosthocIO::AddDataRequirement(const std::string &meshName,
 
 
 //-----------------------------------------------------------------------------
-bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 {
-  long step = dataAdaptor->GetDataTimeStep();
+  // we do not return anything
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
 
-  if(this->Frequency > 0 && step % this->Frequency != 0) 
+  long step = dataIn->GetDataTimeStep();
+
+  if(this->Frequency > 0 && step % this->Frequency != 0)
     {
     return true;
     }
@@ -268,19 +274,19 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
   flags.SetBlockSize();
 
   MeshMetadataMap mdMap;
-  if (mdMap.Initialize(dataAdaptor, flags))
+  if (mdMap.Initialize(dataIn, flags))
     {
     SENSEI_ERROR("Failed to get metadata")
     return false;
     }
 
-  // if no dataAdaptor requirements are given, push all the data
+  // if no dataIn requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
     {
-    if (this->Requirements.Initialize(dataAdaptor, false))
+    if (this->Requirements.Initialize(dataIn, false))
       {
-      SENSEI_ERROR("Failed to initialze dataAdaptor description")
+      SENSEI_ERROR("Failed to initialze dataIn description")
       return false;
       }
 
@@ -309,7 +315,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 
     // get the mesh
     svtkDataObject* dobj = nullptr;
-    if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
+    if (dataIn->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
       return false;
@@ -317,14 +323,14 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 
     // add the ghost cell arrays to the mesh
     if ((mmd->NumGhostCells || SVTKUtils::AMR(mmd)) &&
-      dataAdaptor->AddGhostCellsArray(dobj, meshName))
+      dataIn->AddGhostCellsArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if (mmd->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, meshName))
+    if (mmd->NumGhostNodes && dataIn->AddGhostNodesArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"")
       return false;
@@ -336,7 +342,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 
     while (ait)
       {
-      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+      if (dataIn->AddArray(dobj, mit.MeshName(),
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
@@ -452,10 +458,10 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
 
     if (rank == 0)
       {
-      double time = dataAdaptor->GetDataTime();
+      double time = dataIn->GetDataTime();
       this->Time[meshName].push_back(time);
 
-      long step = dataAdaptor->GetDataTimeStep();
+      long step = dataIn->GetDataTimeStep();
       this->TimeStep[meshName].push_back(step);
 
       this->Metadata[meshName].push_back(mmd);
@@ -466,7 +472,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
     ++mit;
     }
 
-  dataAdaptor->ReleaseData();
+  dataIn->ReleaseData();
 
   return true;
 }

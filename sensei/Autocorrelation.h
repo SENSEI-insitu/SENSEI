@@ -33,7 +33,7 @@ public:
     int numThreads = 1);
 
   /// Incrementally computes autocorrelation on the current simulation state
-  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
+  bool Execute(DataAdaptor* data, DataAdaptor**) override;
 
   /// Finishes the calculation and dumps the results
   int Finalize() override;

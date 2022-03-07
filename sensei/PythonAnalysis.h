@@ -82,7 +82,7 @@ public:
   int Initialize();
 
   /// Invoke in situ processing by calling the user provided Python function.
-  bool Execute(DataAdaptor* data, DataAdaptor*&) override;
+  bool Execute(DataAdaptor* data, DataAdaptor**) override;
 
   /// Shut down and clean up the embedded interpreter.
   int Finalize() override;
