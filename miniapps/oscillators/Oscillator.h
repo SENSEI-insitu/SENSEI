@@ -1,11 +1,15 @@
 #ifndef Oscillator_h
 #define Oscillator_h
 
+#include <memory>
 #include <string>
 #include <cmath>
 #include <sdiy/point.hpp>
 #include <sdiy/mpi.hpp>
 
+namespace sensei { class DataAdaptor; }
+
+/// a perdiodic, decaying, or damped oscillator
 struct Oscillator
 {
     using Vertex = sdiy::Point<float,3>;
@@ -70,30 +74,44 @@ struct Oscillator
 
     enum Type { damped, decaying, periodic };
     Type type;
-
-    bool operator==(const Oscillator& other) const
-    {
-      return this->center == other.center &&
-              this->radius == other.radius &&
-              this->omega0 == other.omega0 &&
-              this->zeta == other.zeta &&
-              this->type == other.type;
-    }
 };
 
-std::vector<Oscillator> read_oscillators(std::string fn);
-
-namespace sensei
+/// holds an array of oscillators and its size
+class OscillatorArray
 {
-  class DataAdaptor;
+public:
+    /// initialize the array from a file
+    void Initialize(const sdiy::mpi::communicator &comm,
+      const std::string &fn);
+
+    /// initialize the array from a data adaptor
+    void Initialize(const sdiy::mpi::communicator &comm,
+      sensei::DataAdaptor *da);
+
+    /// releases the array
+    void Clear();
+
+    /// allocate n Oscillators
+    void Allocate(unsigned long n);
+
+    /// access the array
+    Oscillator *Data() { return mData.get(); }
+    const Oscillator *Data() const { return mData.get(); }
+
+    /// access the ith element
+    Oscillator &operator[](unsigned long i) { return mData.get()[i]; }
+    const Oscillator &operator[](unsigned long i) const { return mData.get()[i]; }
+
+    /// the size of the array
+    unsigned long Size() const { return mSize; }
+
+    /// Print the oscillators
+    void Print(std::ostream &os) const;
+
+private:
+    unsigned long mSize;
+    std::shared_ptr<Oscillator> mData;
 };
 
-/// Generate a new `sensei::DataAdaptor` that provides a "mesh" that represents
-/// the oscillators provided.
-sensei::DataAdaptor* new_adaptor(sdiy::mpi::communicator& world, const std::vector<Oscillator>& oscillators);
-
-/// Generate a vector of Oscillators given the `sensei::DataAdaptor`. This
-/// expects an "oscillators" mesh with appropriate arrays.
-std::vector<Oscillator> read_oscillators(sensei::DataAdaptor* data);
 
 #endif

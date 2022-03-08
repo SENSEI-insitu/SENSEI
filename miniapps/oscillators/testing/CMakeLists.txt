@@ -50,14 +50,14 @@ if (BUILD_TESTING)
     COMMAND oscillator -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_calculator.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
-    FEATURES ENABLE_VTK_FILTERS)
+    FEATURES VTK_FILTERS)
 
   senseiAddTest(testOscillatorCalculatorPar
     COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
      oscillator -t 1 -b ${TEST_NP} -g 1
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_calculator.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
-    FEATURES ENABLE_VTK_FILTERS)
+    FEATURES VTK_FILTERS)
 
   if (ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml.in

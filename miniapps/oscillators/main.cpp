@@ -1,6 +1,7 @@
 #include <vector>
 #include <chrono>
 #include <ctime>
+#include <memory>
 
 #include <opts/opts.h>
 
@@ -23,37 +24,12 @@
 #else
 #include "analysis.h"
 #endif
+
 #include <Profiler.h>
 #include <DataAdaptor.h>
 
-/// Helper function to synchronize Oscillators between ranks.
-static void sync_oscillators(sdiy::mpi::communicator& world, std::vector<Oscillator>& oscillators)
-{
-  if (world.rank() == 0)
-  {
-    sdiy::MemoryBuffer bb;
-    sdiy::save(bb, oscillators);
-    sdiy::mpi::broadcast(world, bb.buffer, 0);
-  }
-  else
-  {
-    oscillators.clear();
-    sdiy::MemoryBuffer bb;
-    sdiy::mpi::broadcast(world, bb.buffer, 0);
-    sdiy::load(bb, oscillators);
-  }
-}
-
-/// Helper function to print information about oscillators.
-static void print_oscillators(sdiy::mpi::communicator& world, std::vector<Oscillator>& oscillators)
-{
-  if (world.rank() == 0)
-    for (auto& o : oscillators)
-      std::cerr << world.rank() << " center = " << o.center
-        << " radius = " << o.radius << " omega0 = " << o.omega0
-        << " zeta = " << o.zeta << std::endl;
-
-}
+using sensei::Profiler;
+using sensei::TimeEvent;
 
 using Grid   = sdiy::Grid<float,3>;
 using Vertex = Grid::Vertex;
@@ -75,12 +51,16 @@ int main(int argc, char** argv)
     auto start = Time::now();
 
     //sdiy::mpi::environment     env(argc, argv);
-    sdiy::mpi::communicator    world;
+    sdiy::mpi::communicator comm;
+
+    Profiler::SetCommunicator(comm);
+    Profiler::Initialize();
+    Profiler::StartEvent("oscillators::initialize");
 
     using namespace opts;
 
     Vertex                      shape     = { 64, 64, 64 };
-    int                         nblocks   = world.size();
+    int                         nblocks   = comm.size();
     float                       t_end     = 10;
     float                       dt        = .01;
     float                       velocity_scale = 50.0f;
@@ -127,14 +107,14 @@ int main(int argc, char** argv)
 #endif
         )
     {
-        if (world.rank() == 0)
+        if (comm.rank() == 0)
             std::cerr << "Usage: " << argv[0] << " [OPTIONS] OSCILLATORS.txt\n\n" << ops << std::endl;
         return 1;
     }
 
-    if (nblocks < world.size())
+    if (nblocks < comm.size())
     {
-        if (world.rank() == 0)
+        if (comm.rank() == 0)
         {
             std::cerr << "Error: too few blocks\n";
             std::cerr << "Usage: " << argv[0] << " [OPTIONS] OSCILLATORS.txt\n\n" << ops << std::endl;
@@ -147,93 +127,45 @@ int main(int argc, char** argv)
 
     int particlesPerBlock = numberOfParticles / nblocks;
 
-    if (verbose && (world.rank() == 0))
+    if (verbose && (comm.rank() == 0))
     {
-        std::cerr << world.rank() << " numberOfParticles = " << numberOfParticles << std::endl
-            << world.rank() << " particlesPerBlock = " << particlesPerBlock << std::endl;
+        std::cerr << comm.rank() << " numberOfParticles = " << numberOfParticles << std::endl
+            << comm.rank() << " particlesPerBlock = " << particlesPerBlock << std::endl;
     }
 
     if (seed == -1)
     {
-        if (world.rank() == 0)
+        if (comm.rank() == 0)
         {
             seed = static_cast<int>(std::time(nullptr));
             if (verbose)
-                std::cerr << world.rank() << " seed = " << seed << std::endl;
+                std::cerr << comm.rank() << " seed = " << seed << std::endl;
         }
 
-        sdiy::mpi::broadcast(world, seed, 0);
+        sdiy::mpi::broadcast(comm, seed, 0);
     }
 
     std::default_random_engine rng(static_cast<RandomSeedType>(seed));
-    for (int i = 0; i < world.rank(); ++i)
+    for (int i = 0; i < comm.rank(); ++i)
         rng(); // different seed for each rank
 
-    sensei::Profiler::StartEvent("oscillators::initialize");
 
-    std::shared_ptr<Oscillator> oscillators;
-    unsigned long nOscillators = 0;
-    if (world.rank() == 0)
+    // read the oscillators from disk
+    OscillatorArray oscillators;
+    oscillators.Initialize(comm, infn);
+
+    if (verbose && (comm.rank() == 0))
     {
-        // read the oscillators
-        std::vector<Oscillator> tmp = read_oscillators(infn);
-
-        // distribute
-        nOscillators = tmp.size();
-        MPI_Bcast(&nOscillators, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
-
-        // allocate the buffer for the oscillator array
-        unsigned long nBytes = nOscillators*sizeof(Oscillator);
-#if defined(OSCILLATOR_CUDA)
-        Oscillator *pTmpOsc = nullptr;
-        cudaMallocManaged(&pTmpOsc, nBytes);
-        oscillators = std::shared_ptr<Oscillator>(pTmpOsc, cudaFree);
-#else
-        oscillators = std::shared_ptr<Oscillator>((Oscillator*)malloc(nBytes), free);
-#endif
-        memcpy(oscillators.get(), tmp.data(), nBytes);
-
-        // send the list of oscillators
-        MPI_Bcast(oscillators.get(), nBytes, MPI_BYTE, 0, MPI_COMM_WORLD);
-    }
-    else
-    {
-        // recieve the number of oscillators
-        MPI_Bcast(&nOscillators, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
-
-        // allocate the buffer for the oscillator array
-        unsigned long nBytes = nOscillators*sizeof(Oscillator);
-
-#if defined(OSCILLATOR_CUDA)
-        Oscillator *pTmpOsc = nullptr;
-        cudaMallocManaged(&pTmpOsc, nBytes);
-        oscillators = std::shared_ptr<Oscillator>(pTmpOsc, cudaFree);
-#else
-        oscillators = std::shared_ptr<Oscillator>((Oscillator*)malloc(nBytes), free);
-#endif
-
-        // recieve the list of oscillators
-        MPI_Bcast(oscillators.get(), nBytes, MPI_BYTE, 0, MPI_COMM_WORLD);
+      std::cerr << "oscillators read from disk" << std::endl;
+      oscillators.Print(std::cerr);
     }
 
-    // dump the list of oscillators
-    if (verbose && (world.rank() == 0))
-    {
-        const Oscillator *pOsc = oscillators.get();
-        for (unsigned long q = 0; q < nOscillators; ++q)
-        {
-            std::cerr << world.rank() << " center = " << pOsc[q].center_x << ", "
-              << pOsc[q].center_y << ", " << pOsc[q].center_z
-              << " radius = " << pOsc[q].radius << " omega0 = " << pOsc[q].omega0
-              << " zeta = " << pOsc[q].zeta << std::endl;
-        }
-    }
-
-    sdiy::Master master(world, threads, -1,
+    // initialize diy
+    sdiy::Master master(comm, threads, -1,
                        &Block::create,
                        &Block::destroy);
 
-    sdiy::ContiguousAssigner assigner(world.size(), nblocks);
+    sdiy::ContiguousAssigner assigner(comm.size(), nblocks);
 
     sdiy::DiscreteBounds domain;
     domain.min[0] = domain.min[1] = domain.min[2] = 0;
@@ -243,7 +175,7 @@ int main(int argc, char** argv)
     SpPoint origin{0.,0.,0.};
     SpPoint spacing{1.,1.,1.};
     if (bounds[1] >= bounds[0])
-      {
+    {
       // valid bounds specififed on the command line, calculate the
       // global origin and spacing.
       for (int i = 0; i < 3; ++i)
@@ -251,16 +183,16 @@ int main(int argc, char** argv)
 
       for (int i = 0; i < 3; ++i)
         spacing[i] = (bounds[2*i+1] - bounds[2*i])/shape[i];
-      }
+    }
 
-    if (verbose && (world.rank() == 0))
-      {
-      std::cerr << world.rank() << " domain = " << domain.min
+    if (verbose && (comm.rank() == 0))
+    {
+      std::cerr << comm.rank() << " domain = " << domain.min
          << ", " << domain.max << std::endl
-         << world.rank() << "bounds = " << bounds << std::endl
-         << world.rank() << "origin = " << origin << std::endl
-         << world.rank() << "spacing = " << spacing << std::endl;
-      }
+         << comm.rank() << "bounds = " << bounds << std::endl
+         << comm.rank() << "origin = " << origin << std::endl
+         << comm.rank() << "spacing = " << spacing << std::endl;
+    }
 
     // record various parameters to initialize analysis
     std::vector<int> gids,
@@ -272,13 +204,12 @@ int main(int argc, char** argv)
     sdiy::RegularDecomposer<sdiy::DiscreteBounds>::CoordinateVector ghosts = {ghostCells, ghostCells, ghostCells};
 
     // decompose the domain
-    sdiy::decompose(3, world.rank(), domain, assigner,
+    sdiy::decompose(3, comm.rank(), domain, assigner,
                    [&](int gid, const sdiy::DiscreteBounds &, const sdiy::DiscreteBounds &bounds,
                        const sdiy::DiscreteBounds &domain, const Link& link)
                    {
                       Block *b = new Block(gid, bounds, domain, origin,
-                        spacing, ghostCells, oscillators, nOscillators,
-                        velocity_scale);
+                        spacing, ghostCells, velocity_scale);
 
                       // generate particles
                       int start = particlesPerBlock * gid;
@@ -303,14 +234,15 @@ int main(int argc, char** argv)
                       to_z.push_back(bounds.max[2]);
 
                       if (verbose)
-                          std::cerr << world.rank() << " Block " << *b << std::endl;
+                          std::cerr << comm.rank() << " Block " << *b << std::endl;
                    },
                    share_face, wrap, ghosts);
 
-    sensei::Profiler::EndEvent("oscillators::initialize");
+    Profiler::EndEvent("oscillators::initialize");
 
-    sensei::Profiler::StartEvent("oscillators::analysis::initialize");
 #ifdef ENABLE_SENSEI
+    {
+    TimeEvent<128>("oscillators::initialize_in_situ");
     bridge::initialize(nblocks, gids.size(), origin.data(), spacing.data(),
                        domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
                        &gids[0],
@@ -318,138 +250,107 @@ int main(int argc, char** argv)
                        &to_x[0],   &to_y[0],   &to_z[0],
                        &shape[0], ghostCells,
                        config_file);
-#else
-    init_analysis(world, window, gids.size(),
-                  domain.max[0] + 1, domain.max[1] + 1, domain.max[2] + 1,
-                  &gids[0],
-                  &from_x[0], &from_y[0], &from_z[0],
-                  &to_x[0],   &to_y[0],   &to_z[0]);
+    }
 #endif
-    sensei::Profiler::EndEvent("oscillators::analysis::initialize");
 
     int t_count = 0;
     float t = 0.;
     while (t < t_end)
     {
-        if (verbose && (world.rank() == 0))
+        if (verbose && (comm.rank() == 0))
             std::cerr << "started step = " << t_count << " t = " << t << std::endl;
 
-        sensei::Profiler::StartEvent("oscillators::update_fields");
-        master.foreach([=](Block* b, const Proxy&)
-                              {
-                                b->update_fields(t);
-                              });
-        sensei::Profiler::EndEvent("oscillators::update_fields");
+        {
+        TimeEvent<128>("oscillators::solve");
 
-        sensei::Profiler::StartEvent("oscillators::update_particles");
-        master.foreach([=](Block* b, const Proxy&)
+        master.foreach([&](Block* b, const Proxy&)
                               {
-                                b->update_particles(t);
+                                b->update_fields(t, oscillators);
                               });
-        sensei::Profiler::EndEvent("oscillators::update_particles");
 
-        sensei::Profiler::StartEvent("oscillators::move_particles");
-        master.foreach([=](Block* b, const Proxy& p)
+        master.foreach([&](Block* b, const Proxy&)
+                              {
+                                b->update_particles(t, oscillators);
+                              });
+
+        master.foreach([&](Block* b, const Proxy& p)
                               {
                                 b->move_particles(dt, p);
                               });
-        sensei::Profiler::EndEvent("oscillators::move_particles");
 
-        sensei::Profiler::StartEvent("oscillators::master.exchange");
         master.exchange();
-        sensei::Profiler::EndEvent("oscillators::master.exchange");
 
-        sensei::Profiler::StartEvent("oscillators::handle_incoming_particles");
         master.foreach([=](Block* b, const Proxy& p)
                               {
                                 b->handle_incoming_particles(p);
                               });
-        sensei::Profiler::EndEvent("oscillators::handle_incoming_particles");
-
-        sensei::Profiler::StartEvent("oscillators::analysis");
+        }
 #ifdef ENABLE_SENSEI
+        {
+        TimeEvent<128> event("oscillators::invoke_in_situ");
         // do the analysis using sensei
         // update data adaptor with new data
+        bridge::set_oscillators(oscillators);
         master.foreach([=](Block* b, const Proxy&)
                               {
                               bridge::set_data(b->gid, b->grid.data());
                               bridge::set_particles(b->gid, b->particles);
                               });
-        auto oscAdaptor = new_adaptor(world, oscillators);
-        bridge::set_oscillators(oscAdaptor);
 
-        // push data to sensei
-        sensei::DataAdaptor* reply = nullptr;
-        bridge::execute(t_count, t, reply);
-        if (reply != nullptr)
+        // invoke in situ processing
+        sensei::DataAdaptor *daOut = nullptr;
+        bridge::execute(t_count, t, &daOut);
+
+        // If the analysis modified the oscillators, process the updates.
+        if (daOut)
         {
-          // If the analysis modified the oscillators, let's process the
-          // updates.
-          auto new_oscillators = read_oscillators(reply);
-          sync_oscillators(world, new_oscillators);
-          if (new_oscillators != oscillators)
+          oscillators.Initialize(comm, daOut);
+          daOut->ReleaseData();
+          daOut->Delete();
+
+          if (verbose && (comm.rank() == 0))
           {
-            oscillators = new_oscillators;
-            if (verbose)
-              print_oscillators(world, oscillators);
+            std::cerr << "oscillators returned from in situ analysis" << std::endl;
+            oscillators.Print(std::cerr);
           }
-          reply->ReleaseData();
-          reply->Delete();
         }
-
-        oscAdaptor->ReleaseData();
-        oscAdaptor->Delete();
-
-#else
-        // do the analysis without using sensei
-        // call the analysis function for each block
-        master.foreach([=](Block* b, const Proxy&)
-                              {
-                              analyze(b->gid, b->grid.data());
-                              });
+        }
 #endif
-        sensei::Profiler::EndEvent("oscillators::analysis");
-
         if (!out_prefix.empty())
         {
-            auto out_start = Time::now();
+            TimeEvent<128> event("oscillators::write");
 
             // Save the corr buffer for debugging
             std::ostringstream outfn;
             outfn << out_prefix << "-" << t << ".bin";
 
-            sdiy::mpi::io::file out(world, outfn.str(), sdiy::mpi::io::file::wronly | sdiy::mpi::io::file::create);
+            sdiy::mpi::io::file out(comm, outfn.str(), sdiy::mpi::io::file::wronly | sdiy::mpi::io::file::create);
             sdiy::io::BOV writer(out, shape);
             master.foreach([&writer](Block* b, const sdiy::Master::ProxyWithLink& cp)
                                            {
                                              auto link = static_cast<Link*>(cp.link());
                                              writer.write(link->bounds(), b->grid.data(), true);
                                            });
-            if (verbose && (world.rank() == 0))
-            {
-                auto out_duration = std::chrono::duration_cast<ms>(Time::now() - out_start);
-                std::cerr << "Output time for " << outfn.str() << ":" << out_duration.count() / 1000
-                    << "." << out_duration.count() % 1000 << " s" << std::endl;
-            }
         }
 
         if (sync)
-            world.barrier();
+            comm.barrier();
 
         t += dt;
         ++t_count;
     }
 
-    sensei::Profiler::StartEvent("oscillators::finalize");
 #ifdef ENABLE_SENSEI
+    {
+    TimeEvent<128> event("oscillators::in_situ_finalize");
     bridge::finalize();
-#else
-    analysis_final(k_max, nblocks);
+    }
 #endif
-    sensei::Profiler::EndEvent("oscillators::finalize");
 
-    world.barrier();
-    if (world.rank() == 0)
+    Profiler::Finalize();
+
+    comm.barrier();
+    if (comm.rank() == 0)
     {
         auto duration = std::chrono::duration_cast<ms>(Time::now() - start);
         std::cerr << "Total run time: " << duration.count() / 1000

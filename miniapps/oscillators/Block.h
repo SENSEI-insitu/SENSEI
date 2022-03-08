@@ -20,19 +20,17 @@ struct Block
 
      Block(int gid_, const sdiy::DiscreteBounds& bounds_, const sdiy::DiscreteBounds& domain_,
          const sdiy::Point<float,3> &origin_, const sdiy::Point<float,3> &spacing_,
-         int nghost_, const std::shared_ptr<const Oscillator> &oscillators_, unsigned long nOscillators_,
-         float velocity_scale_) :
+         int nghost_, float velocity_scale_) :
                 gid(gid_), velocity_scale(velocity_scale_), bounds(bounds_),
                 domain(domain_), origin(origin_), spacing(spacing_), nghost(nghost_),
-                grid(Vertex(&bounds.max[0]) - Vertex(&bounds.min[0]) + Vertex::one()),
-                oscillators(oscillators_), nOscillators(nOscillators_)
+                grid(Vertex(&bounds.max[0]) - Vertex(&bounds.min[0]) + Vertex::one())
     {}
 
     // update mesh based scalar and vector fields
-    void update_fields(float t);
+    void update_fields(float t, const OscillatorArray &oscillators);
 
     // update particle based scalar and vector fields
-    void update_particles(float t);
+    void update_particles(float t, const OscillatorArray &oscillators);
 
     // update pareticle positions
     void move_particles(float dt, const sdiy::Master::ProxyWithLink& cp);
@@ -41,10 +39,7 @@ struct Block
     void handle_incoming_particles(const sdiy::Master::ProxyWithLink& cp);
 
     // sdiy memory management hooks
-    static void *create(){
-      static std::vector<Oscillator> empty;
-      return new Block(empty);
-    }
+    static void *create(){ return new Block; }
     static void destroy(void* b){ delete static_cast<Block*>(b); }
 
     int                               gid;    // block id
@@ -57,20 +52,16 @@ struct Block
     oscillator::Grid<float,3>         grid;   // container for the gridded data arrays
     std::vector<Particle>             particles;
 
-    std::shared_ptr<const Oscillator> oscillators; // a pointer to the list of oscillators
-    unsigned long                     nOscillators; // number of oscillators
-
  private:
     // for create; to let Master manage the blocks
-    Block(const std::vector<Oscillator>& oscillators_) : gid(-1), velocity_scale(1.0f), nghost(0),
-      oscillators(oscillators_)
+    Block() : gid(-1), velocity_scale(1.0f), nghost(0)
     {
         origin[0] = origin[1] = origin[2] = 0.0f;
         spacing[0] = spacing[1] = spacing[2] = 1.0f;
     }
 };
 
-// send to stream in human readbale format
+// send to stream in human readable format
 std::ostream &operator<<(std::ostream &os, const Block &b);
 
 #endif

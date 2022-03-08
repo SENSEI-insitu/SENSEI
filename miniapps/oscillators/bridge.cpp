@@ -1,10 +1,12 @@
 #include "bridge.h"
-
+#include "Oscillator.h"
 #include "DataAdaptor.h"
 
-#include <vector>
 #include <ConfigurableAnalysis.h>
+
 #include <Profiler.h>
+using sensei::TimeEvent;
+
 #include <svtkDataObject.h>
 #include <svtkNew.h>
 #include <svtkSmartPointer.h>
@@ -21,7 +23,7 @@ int initialize(size_t nblocks, size_t n_local_blocks,
   int *to_x, int *to_y, int *to_z, int *shape, int ghostLevels,
   const std::string &config_file)
 {
-  sensei::TimeEvent<128> mark("oscillators::bridge::initialize");
+  TimeEvent<128> event("bridge::initialize");
 
   DataAdaptor = svtkSmartPointer<oscillators::DataAdaptor>::New();
 
@@ -52,38 +54,33 @@ void set_particles(int gid, const std::vector<Particle> &particles)
 }
 
 //-----------------------------------------------------------------------------
-void set_oscillators(sensei::DataAdaptor* oscillators)
+void set_oscillators(const OscillatorArray &oscillators)
 {
   DataAdaptor->SetOscillators(oscillators);
 }
 
 //-----------------------------------------------------------------------------
-void execute(long step, float time, sensei::DataAdaptor** reply)
+void execute(long step, float time, sensei::DataAdaptor **dataOut)
 {
-  sensei::Profiler::StartEvent("oscillators::bridge::Execute");
+  TimeEvent<128> event("bridge::Execute");
 
   DataAdaptor->SetDataTimeStep(step);
   DataAdaptor->SetDataTime(time);
 
-  *reply = nullptr;
-  AnalysisAdaptor->Execute(DataAdaptor.GetPointer(), reply);
+  AnalysisAdaptor->Execute(DataAdaptor.GetPointer(), dataOut);
 
   DataAdaptor->ReleaseData();
-
-  sensei::Profiler::EndEvent("oscillators::bridge::Execute");
 }
 
 //-----------------------------------------------------------------------------
 void finalize()
 {
-  sensei::Profiler::StartEvent("oscillators::bridge::finalize");
+  TimeEvent<128> event("bridge::finalize");
 
   AnalysisAdaptor->Finalize();
 
   AnalysisAdaptor = nullptr;
   DataAdaptor = nullptr;
-
-  sensei::Profiler::EndEvent("oscillators::bridge::finalize");
 }
 
 }

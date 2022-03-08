@@ -4,6 +4,7 @@
 
 #include <svtkCellArray.h>
 #include <svtkCellData.h>
+#include <svtkPointData.h>
 #include <svtkFloatArray.h>
 #include <svtkIdTypeArray.h>
 #include <svtkIntArray.h>
@@ -353,14 +354,13 @@ struct DataAdaptor::InternalsType
   BlockExtentMap BlockExtents;                       // local block extents, indexed by global block id
   BlockDataMap BlockData;                            // local data array, indexed by block id
   std::map<long, const std::vector<Particle>*> ParticleData;
+  OscillatorArray Oscillators;                       // global list of oscillators
 
   double Origin[3];                                  // lower left corner of simulation domain
   double Spacing[3];                                 // mesh spacing
 
   int Shape[3];
   int NumGhostCells;                                 // number of ghost cells
-
-  vtkSmartPointer<sensei::DataAdaptor> Oscillators;
 };
 
 //-----------------------------------------------------------------------------
@@ -447,7 +447,7 @@ void DataAdaptor::SetParticleData(int gid, const std::vector<Particle> &particle
 }
 
 //-----------------------------------------------------------------------------
-void DataAdaptor::SetOscillators(sensei::DataAdaptor* oscillators)
+void DataAdaptor::SetOscillators(const OscillatorArray &oscillators)
 {
   this->Internals->Oscillators = oscillators;
 }
@@ -456,58 +456,86 @@ void DataAdaptor::SetOscillators(sensei::DataAdaptor* oscillators)
 int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
     svtkDataObject *&mesh)
 {
-  if (meshName == "oscillators")
-  {
-    return this->Internals->Oscillators->GetMesh(meshName, structureOnly, mesh);
-  }
-
   mesh = nullptr;
 
-  if ((meshName != "mesh") && (meshName != "ucdmesh") && (meshName != "particles"))
+  if ((meshName != "mesh") && (meshName != "ucdmesh") &&
+    (meshName != "particles") && (meshName != "oscillators"))
     {
     SENSEI_ERROR("the miniapp provides meshes named \"mesh\", \"ucdmesh\","
-      " and \"particles\". you requested \"" << meshName << "\"")
+      ", \"particles\", and \"oscillators\". you requested \"" << meshName << "\"")
     return -1;
     }
 
-  int particleBlocks = meshName == "particles";
-  int unstructuredBlocks = particleBlocks ? 0 : meshName == "ucdmesh";
-
   svtkMultiBlockDataSet *mb = svtkMultiBlockDataSet::New();
-  mb->SetNumberOfBlocks(this->Internals->NumBlocks);
+  mesh = mb;
 
-  auto it = this->Internals->BlockExtents.begin();
-  auto end = this->Internals->BlockExtents.end();
-  for (; it != end; ++it)
+  if (meshName == "oscillators")
     {
-    if (particleBlocks)
-      {
-      svtkPolyData *pd =
-        newParticleBlock(this->Internals->ParticleData[it->first],
-        structureOnly);
+    // the oscillators only send on rank 0
+    mb->SetNumberOfBlocks(1);
 
-      mb->SetBlock(it->first, pd);
+    int rank = 0;
+    MPI_Comm_rank(this->GetCommunicator(), &rank);
+    if (rank == 0)
+      {
+      size_t numPts = this->Internals->Oscillators.Size();
+
+      svtkPolyData *pd = svtkPolyData::New();
+
+      svtkPoints *pts = svtkPoints::New();
+      pts->SetDataTypeToFloat();
+      pts->SetNumberOfPoints(numPts);
+      for (size_t cc=0; cc < numPts; ++cc)
+      {
+        const Oscillator &o = this->Internals->Oscillators[cc];
+        pts->SetPoint(cc, o.center_x, o.center_y, o.center_z);
+      }
+      pd->SetPoints(pts);
+      pts->Delete();
+
+      mb->SetBlock(0, pd);
       pd->Delete();
       }
-    else if (unstructuredBlocks)
-      {
-      svtkUnstructuredGrid *ug = newUnstructuredBlock(this->Internals->Origin,
-        this->Internals->Spacing, it->second, structureOnly);
+    }
+  else
+    {
+    // the other meshes that have data per block
+    int particleBlocks = meshName == "particles";
+    int unstructuredBlocks = particleBlocks ? 0 : meshName == "ucdmesh";
 
-      mb->SetBlock(it->first, ug);
-      ug->Delete();
-      }
-    else
-      {
-      svtkImageData *id = newCartesianBlock(this->Internals->Origin,
-        this->Internals->Spacing, it->second, structureOnly);
+    mb->SetNumberOfBlocks(this->Internals->NumBlocks);
 
-      mb->SetBlock(it->first, id);
-      id->Delete();
+    auto it = this->Internals->BlockExtents.begin();
+    auto end = this->Internals->BlockExtents.end();
+    for (; it != end; ++it)
+      {
+      if (particleBlocks)
+        {
+        svtkPolyData *pd =
+          newParticleBlock(this->Internals->ParticleData[it->first],
+          structureOnly);
+
+        mb->SetBlock(it->first, pd);
+        pd->Delete();
+        }
+      else if (unstructuredBlocks)
+        {
+        svtkUnstructuredGrid *ug = newUnstructuredBlock(this->Internals->Origin,
+          this->Internals->Spacing, it->second, structureOnly);
+
+        mb->SetBlock(it->first, ug);
+        ug->Delete();
+        }
+      else
+        {
+        svtkImageData *id = newCartesianBlock(this->Internals->Origin,
+          this->Internals->Spacing, it->second, structureOnly);
+
+        mb->SetBlock(it->first, id);
+        id->Delete();
+        }
       }
     }
-
-  mesh = mb;
 
   return 0;
 }
@@ -516,11 +544,6 @@ int DataAdaptor::GetMesh(const std::string &meshName, bool structureOnly,
 int DataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
     int association, const std::string &arrayName)
 {
-  if (meshName == "oscillators")
-    {
-    return this->Internals->Oscillators->AddArray(mesh, meshName, association, arrayName);
-    }
-
   svtkMultiBlockDataSet *mb = dynamic_cast<svtkMultiBlockDataSet*>(mesh);
   if (!mb)
     {
@@ -529,91 +552,156 @@ int DataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
     return -1;
     }
 
-  enum {BLOCK, PARTICLE};
-  int meshId = BLOCK;
-  if ((meshName == "mesh") || (meshName == "ucdmesh"))
+  if (meshName == "oscillators")
     {
-    meshId = BLOCK;
-    if ((arrayName != "data") || (association != svtkDataObject::CELL))
+    int rank = 0;
+    MPI_Comm_rank(this->GetCommunicator(), &rank);
+    if (rank == 0)
       {
-      SENSEI_ERROR("mesh \"" << meshName
-        << "\" only has cell data array named \"data\"")
-      return -1;
-      }
-    }
-  else if (meshName == "particles")
-    {
-    meshId = PARTICLE;
-    if (association != svtkDataObject::POINT)
-      {
-      SENSEI_ERROR("mesh \"particles\" only has point data")
-      return -1;
-      }
-    if ((arrayName != "velocity") && (arrayName != "velocityMagnitude") &&
-      (arrayName != "id"))
-      {
-      SENSEI_ERROR("Invalid particle mesh array \"" << arrayName << "\"")
-      return -1;
+      svtkPolyData *pd = dynamic_cast<svtkPolyData*>(mb->GetBlock(0));
+      size_t numPts = this->Internals->Oscillators.Size();
+
+      if (arrayName == "radius")
+        {
+        svtkFloatArray *radius = svtkFloatArray::New();
+        radius->SetNumberOfTuples(numPts);
+        radius->SetName("radius");
+        pd->GetPointData()->AddArray(radius);
+        radius->Delete();
+        for (size_t i = 0; i < numPts; ++i)
+          {
+          const Oscillator &o = this->Internals->Oscillators[i];
+          radius->SetTypedComponent(i, 0, o.radius);
+          }
+        }
+
+      if (arrayName == "omega0")
+        {
+        svtkFloatArray *omega0 = svtkFloatArray::New();
+        omega0->SetNumberOfTuples(numPts);
+        omega0->SetName("omega0");
+        pd->GetPointData()->AddArray(omega0);
+        omega0->Delete();
+        for (size_t i = 0; i < numPts; ++i)
+          {
+          const Oscillator &o = this->Internals->Oscillators[i];
+          omega0->SetTypedComponent(i, 0, o.omega0);
+          }
+        }
+
+      if (arrayName == "zeta")
+        {
+        svtkFloatArray *zeta = svtkFloatArray::New();
+        zeta->SetNumberOfTuples(numPts);
+        zeta->SetName("zeta");
+        pd->GetPointData()->AddArray(zeta);
+        zeta->Delete();
+        for (size_t i = 0; i < numPts; ++i)
+          {
+          const Oscillator &o = this->Internals->Oscillators[i];
+          zeta->SetTypedComponent(i, 0, o.zeta);
+          }
+        }
+
+      if (arrayName == "type")
+        {
+        svtkIntArray *type = svtkIntArray::New();
+        type->SetNumberOfTuples(numPts);
+        type->SetName("type");
+        pd->GetPointData()->AddArray(type);
+        type->Delete();
+        for (size_t i = 0; i < numPts; ++i)
+          {
+          const Oscillator &o = this->Internals->Oscillators[i];
+          type->SetTypedComponent(i, 0, static_cast<int>(o.type));
+          }
+        }
       }
     }
   else
     {
-    SENSEI_ERROR("Invalid mesh name \"" << meshName << "\"")
-    return -1;
-    }
-
-  auto it = this->Internals->BlockData.begin();
-  auto end = this->Internals->BlockData.end();
-  for (; it != end; ++it)
-    {
-    // this code is the same for the Cartesian and unstructured blocks
-    // because they both have the same number of cells and are in the
-    // same order
-    svtkDataObject *blk = mb->GetBlock(it->first);
-    if (!blk)
+    enum {BLOCK, PARTICLE};
+    int meshId = BLOCK;
+    if ((meshName == "mesh") || (meshName == "ucdmesh"))
       {
-      SENSEI_ERROR("encountered empty block at index " << it->first)
-      return -1;
+      meshId = BLOCK;
+      if ((arrayName != "data") || (association != svtkDataObject::CELL))
+        {
+        SENSEI_ERROR("mesh \"" << meshName
+          << "\" only has cell data array named \"data\"")
+        return -1;
+        }
       }
-
-    svtkFloatArray *fa = nullptr;
-    svtkDataSetAttributes *dsa = nullptr;
-
-    if (meshId == BLOCK)
+    else if (meshName == "particles")
       {
-      dsa = blk->GetAttributes(svtkDataObject::CELL);
-      svtkIdType nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
-
-      // zero coopy the array
-      fa = svtkFloatArray::New();
-      fa->SetName("data");
-      fa->SetArray(it->second, nCells, 1);
+      meshId = PARTICLE;
+      if (association != svtkDataObject::POINT)
+        {
+        SENSEI_ERROR("mesh \"particles\" only has point data")
+        return -1;
+        }
+      if ((arrayName != "velocity") && (arrayName != "velocityMagnitude") &&
+        (arrayName != "id"))
+        {
+        SENSEI_ERROR("Invalid particle mesh array \"" << arrayName << "\"")
+        return -1;
+        }
       }
     else
       {
-      dsa = blk->GetAttributes(svtkDataObject::POINT);
-      newParticleArray(*this->Internals->ParticleData[it->first], arrayName, fa);
+      SENSEI_ERROR("Invalid mesh name \"" << meshName << "\"")
+      return -1;
       }
 
-    dsa->AddArray(fa);
-    fa->Delete();
+    auto it = this->Internals->BlockData.begin();
+    auto end = this->Internals->BlockData.end();
+    for (; it != end; ++it)
+      {
+      // this code is the same for the Cartesian and unstructured blocks
+      // because they both have the same number of cells and are in the
+      // same order
+      svtkDataObject *blk = mb->GetBlock(it->first);
+      if (!blk)
+        {
+        SENSEI_ERROR("encountered empty block at index " << it->first)
+        return -1;
+        }
+
+      svtkFloatArray *fa = nullptr;
+      svtkDataSetAttributes *dsa = nullptr;
+
+      if (meshId == BLOCK)
+        {
+        dsa = blk->GetAttributes(svtkDataObject::CELL);
+        svtkIdType nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
+
+        // zero coopy the array
+        fa = svtkFloatArray::New();
+        fa->SetName("data");
+        fa->SetArray(it->second, nCells, 1);
+        }
+      else
+        {
+        dsa = blk->GetAttributes(svtkDataObject::POINT);
+        newParticleArray(*this->Internals->ParticleData[it->first], arrayName, fa);
+        }
+
+      dsa->AddArray(fa);
+      fa->Delete();
+      }
     }
 
   return 0;
 }
 
-
 //----------------------------------------------------------------------------
 int DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh, const std::string &meshName)
 {
-  if (meshName == "oscillators")
-  {
-    return this->Internals->Oscillators->AddGhostCellsArray(mesh, meshName);
-  }
-
-  if ((meshName != "mesh") && (meshName != "ucdmesh"))
+  if ((meshName != "mesh") && (meshName != "ucdmesh") &&
+    (meshName != "particles") && (meshName != "oscillators"))
     {
-    SENSEI_ERROR("the miniapp provides meshes \"mesh\" and \"ucdmesh\".")
+    SENSEI_ERROR("the miniapp provides meshes named \"mesh\", \"ucdmesh\","
+      ", \"particles\", and \"oscillators\". you requested \"" << meshName << "\"")
     return -1;
     }
 
@@ -625,27 +713,42 @@ int DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh, const std::string &mes
     return -1;
     }
 
-  auto it = this->Internals->BlockExtents.begin();
-  auto end = this->Internals->BlockExtents.end();
-  for (; it != end; ++it)
+  if (meshName == "oscillators")
     {
-    // this code is the same for the Cartesian and unstructured blocks
-    // because they both have the same number of cells and are in the
-    // same order
-    svtkDataObject *blk = mb->GetBlock(it->first);
-    if (!blk)
-      {
-      SENSEI_ERROR("encountered empty block at index " << it->first)
-      return -1;
-      }
+    svtkUnsignedCharArray *gh = svtkUnsignedCharArray::New();
+    gh->SetNumberOfTuples(Internals->Oscillators.Size());
+    gh->Fill(0);
+    gh->SetName("vtkGhostType");
 
+    svtkDataObject *blk = mb->GetBlock(0);
     svtkDataSetAttributes *dsa = blk->GetAttributes(svtkDataObject::CELL);
+    dsa->AddArray(gh);
+    gh->Delete();
+    }
+  else
+    {
+    auto it = this->Internals->BlockExtents.begin();
+    auto end = this->Internals->BlockExtents.end();
+    for (; it != end; ++it)
+      {
+      // this code is the same for the Cartesian and unstructured blocks
+      // because they both have the same number of cells and are in the
+      // same order
+      svtkDataObject *blk = mb->GetBlock(it->first);
+      if (!blk)
+        {
+        SENSEI_ERROR("encountered empty block at index " << it->first)
+        return -1;
+        }
 
-    svtkUnsignedCharArray *ga = newGhostCellsArray(this->Internals->Shape,
-      it->second, this->Internals->NumGhostCells);
+      svtkDataSetAttributes *dsa = blk->GetAttributes(svtkDataObject::CELL);
 
-    dsa->AddArray(ga);
-    ga->Delete();
+      svtkUnsignedCharArray *ga = newGhostCellsArray(this->Internals->Shape,
+        it->second, this->Internals->NumGhostCells);
+
+      dsa->AddArray(ga);
+      ga->Delete();
+      }
     }
 
   return 0;
@@ -667,131 +770,203 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
     return -1;
     }
 
-  if (id == 2)
-  {
-    return this->Internals->Oscillators->GetMeshMetadata(0, metadata);
-  }
-
   int rank = 0;
   int nRanks = 1;
 
   MPI_Comm_rank(this->GetCommunicator(), &rank);
   MPI_Comm_size(this->GetCommunicator(), &nRanks);
 
-  // this exercises the multimesh api
-  // mesh 0 is a multiblock with uniform Cartesian blocks
-  // mesh 1 is a multiblock with unstructured blocks
-  // otherwise the meshes are identical
-  int nBlocks = this->Internals->BlockData.size();
-
-  metadata->MeshName = (id == 0 ? "mesh" : "ucdmesh");
-
-  metadata->MeshType = SVTK_MULTIBLOCK_DATA_SET;
-  metadata->BlockType = (id == 0 ? SVTK_IMAGE_DATA : SVTK_UNSTRUCTURED_GRID);
-  metadata->CoordinateType = SVTK_DOUBLE;
-  metadata->NumBlocks = this->Internals->NumBlocks;
-  metadata->NumBlocksLocal = {nBlocks};
-  metadata->NumGhostCells = this->Internals->NumGhostCells;
-  metadata->NumArrays = 1;
-  metadata->ArrayName = {"data"};
-  metadata->ArrayCentering = {svtkDataObject::CELL};
-  metadata->ArrayComponents = {1};
-  metadata->ArrayType = {SVTK_FLOAT};
-  metadata->StaticMesh = 1;
-
-  using ExtentIterator = InternalsType::BlockExtentMap::iterator;
-
-  if ((id == 0) && metadata->Flags.BlockExtentsSet())
+  if (id == 2)
     {
-    std::array<int,6> ext;
-    getBlockExtent(this->Internals->DomainExtent, ext.data());
-    metadata->Extent = std::move(ext);
+    metadata->GlobalView = 1;
+    metadata->MeshName = "oscillators";
+    metadata->MeshType = SVTK_MULTIBLOCK_DATA_SET;
+    metadata->BlockType = SVTK_POLY_DATA;
+    metadata->CoordinateType = SVTK_FLOAT;
+    metadata->NumBlocks = 1;
+    metadata->NumBlocksLocal = {(rank ? 0 : 1)};
+    metadata->NumGhostCells = 0;
+    metadata->NumArrays = 4;
+    metadata->ArrayName = {"radius", "omega0", "zeta", "type"};
+    metadata->ArrayCentering = {svtkDataObject::POINT, svtkDataObject::POINT, svtkDataObject::POINT, svtkDataObject::POINT};
+    metadata->ArrayComponents = {1, 1, 1, 1};
+    metadata->ArrayType = {SVTK_FLOAT, SVTK_FLOAT, SVTK_FLOAT, SVTK_INT};
+    metadata->StaticMesh = 1;
 
-    metadata->BlockExtents.reserve(nBlocks);
-
-
-    ExtentIterator it = this->Internals->BlockExtents.begin();
-    ExtentIterator end = this->Internals->BlockExtents.end();
-    for (; it != end; ++it)
+    if (metadata->Flags.BlockBoundsSet())
       {
-      getBlockExtent(it->second, ext.data());
-      metadata->BlockExtents.emplace_back(std::move(ext));
-      }
-    }
+      std::array<double,6> bds = {
+        std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest()};
 
-  if (metadata->Flags.BlockBoundsSet())
-    {
-    std::array<double,6> bounds;
-    getBlockBounds(this->Internals->DomainExtent,
-      this->Internals->Origin, this->Internals->Spacing,
-      bounds.data());
-    metadata->Bounds = std::move(bounds);
-
-    metadata->BlockBounds.reserve(nBlocks);
-
-    ExtentIterator it = this->Internals->BlockExtents.begin();
-    ExtentIterator end = this->Internals->BlockExtents.end();
-    for (; it != end; ++it)
-      {
-      getBlockBounds(it->second, this->Internals->Origin,
-        this->Internals->Spacing, bounds.data());
-      metadata->BlockBounds.emplace_back(std::move(bounds));
-      }
-    }
-
-  if (metadata->Flags.BlockSizeSet())
-    {
-    ExtentIterator it = this->Internals->BlockExtents.begin();
-    ExtentIterator end = this->Internals->BlockExtents.end();
-    for (; it != end; ++it)
-      {
-      long nCells = getBlockNumCells(it->second);
-      long nPts = getBlockNumPoints(it->second);
-
-      metadata->BlockNumCells.push_back(nCells);
-      metadata->BlockNumPoints.push_back(nPts);
-
-      if (id == 1) // unctructured only
-        metadata->BlockCellArraySize.push_back(8*nCells);
-      }
-    }
-
-  if (metadata->Flags.BlockDecompSet())
-    {
-    auto it = this->Internals->BlockExtents.begin();
-    auto end = this->Internals->BlockExtents.end();
-    for (; it != end; ++it)
-      {
-      metadata->BlockOwner.push_back(rank);
-      metadata->BlockIds.push_back(it->first);
-      }
-    }
-
-  if (metadata->Flags.BlockArrayRangeSet())
-    {
-    float gmin = std::numeric_limits<float>::max();
-    float gmax = std::numeric_limits<float>::lowest();
-    std::map<long, float*>::iterator it = this->Internals->BlockData.begin();
-    std::map<long, float*>::iterator end = this->Internals->BlockData.end();
-    for (; it != end; ++it)
-      {
-      unsigned long nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
-
-      float *pdata = it->second;
-      float bmin = std::numeric_limits<float>::max();
-      float bmax = std::numeric_limits<float>::lowest();
-
-      for (unsigned long i = 0; i < nCells; ++i)
+      for (unsigned long i = 0; i < Internals->Oscillators.Size(); ++i)
         {
-        bmin = std::min(bmin, pdata[i]);
-        bmax = std::max(bmax, pdata[i]);
+        const Oscillator &o = this->Internals->Oscillators[i];
+        bds[0] = std::min(bds[0], (double)o.center_x);
+        bds[1] = std::max(bds[1], (double)o.center_x);
+        bds[2] = std::min(bds[2], (double)o.center_y);
+        bds[3] = std::max(bds[3], (double)o.center_y);
+        bds[4] = std::min(bds[4], (double)o.center_z);
+        bds[5] = std::max(bds[5], (double)o.center_z);
         }
-      gmin = std::min(gmin, bmin);
-      gmax = std::max(gmax, bmax);
-      std::vector<std::array<double,2>> blkRange{{bmin,bmax}};
-      metadata->BlockArrayRange.push_back(blkRange);
+
+      metadata->Bounds = bds;
+      metadata->BlockBounds.push_back(bds);
       }
-    metadata->ArrayRange.push_back({gmin, gmax});
+
+    if (metadata->Flags.BlockSizeSet())
+      {
+      unsigned long nOsc = Internals->Oscillators.Size();
+      metadata->BlockNumCells.push_back(nOsc);
+      metadata->BlockNumPoints.push_back(nOsc);
+      metadata->BlockCellArraySize.push_back(nOsc);
+      }
+
+    if (metadata->Flags.BlockDecompSet())
+      {
+      metadata->BlockOwner.push_back(0);
+      metadata->BlockIds.push_back(0);
+      }
+
+    if (metadata->Flags.BlockArrayRangeSet())
+      {
+      std::vector<std::array<double,2>> bar(4,
+        {std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest()});
+
+      for (unsigned long i = 0; i < Internals->Oscillators.Size(); ++i)
+        {
+        const Oscillator &o = this->Internals->Oscillators[i];
+        bar[0][0] = std::min(bar[0][0], (double)o.radius);
+        bar[0][1] = std::max(bar[0][1], (double)o.radius);
+        bar[1][0] = std::min(bar[1][0], (double)o.omega0);
+        bar[1][1] = std::max(bar[1][1], (double)o.omega0);
+        bar[2][0] = std::min(bar[2][0], (double)o.zeta);
+        bar[2][1] = std::max(bar[2][1], (double)o.zeta);
+        bar[3][0] = std::min(bar[3][0], (double)o.type);
+        bar[3][1] = std::max(bar[3][1], (double)o.type);
+        }
+
+      metadata->ArrayRange = bar;
+      metadata->BlockArrayRange.push_back(bar);
+      }
+    }
+  else
+    {
+    // this exercises the multimesh api
+    // mesh 0 is a multiblock with uniform Cartesian blocks
+    // mesh 1 is a multiblock with unstructured blocks
+    // otherwise the meshes are identical
+    int nBlocks = this->Internals->BlockData.size();
+
+    metadata->MeshName = (id == 0 ? "mesh" : "ucdmesh");
+
+    metadata->MeshType = SVTK_MULTIBLOCK_DATA_SET;
+    metadata->BlockType = (id == 0 ? SVTK_IMAGE_DATA : SVTK_UNSTRUCTURED_GRID);
+    metadata->CoordinateType = SVTK_DOUBLE;
+    metadata->NumBlocks = this->Internals->NumBlocks;
+    metadata->NumBlocksLocal = {nBlocks};
+    metadata->NumGhostCells = this->Internals->NumGhostCells;
+    metadata->NumArrays = 1;
+    metadata->ArrayName = {"data"};
+    metadata->ArrayCentering = {svtkDataObject::CELL};
+    metadata->ArrayComponents = {1};
+    metadata->ArrayType = {SVTK_FLOAT};
+    metadata->StaticMesh = 1;
+
+    using ExtentIterator = InternalsType::BlockExtentMap::iterator;
+
+    if ((id == 0) && metadata->Flags.BlockExtentsSet())
+      {
+      std::array<int,6> ext;
+      getBlockExtent(this->Internals->DomainExtent, ext.data());
+      metadata->Extent = std::move(ext);
+
+      metadata->BlockExtents.reserve(nBlocks);
+
+      ExtentIterator it = this->Internals->BlockExtents.begin();
+      ExtentIterator end = this->Internals->BlockExtents.end();
+      for (; it != end; ++it)
+        {
+        getBlockExtent(it->second, ext.data());
+        metadata->BlockExtents.emplace_back(std::move(ext));
+        }
+      }
+
+    if (metadata->Flags.BlockBoundsSet())
+      {
+      std::array<double,6> bounds;
+      getBlockBounds(this->Internals->DomainExtent,
+        this->Internals->Origin, this->Internals->Spacing,
+        bounds.data());
+      metadata->Bounds = std::move(bounds);
+
+      metadata->BlockBounds.reserve(nBlocks);
+
+      ExtentIterator it = this->Internals->BlockExtents.begin();
+      ExtentIterator end = this->Internals->BlockExtents.end();
+      for (; it != end; ++it)
+        {
+        getBlockBounds(it->second, this->Internals->Origin,
+          this->Internals->Spacing, bounds.data());
+        metadata->BlockBounds.emplace_back(std::move(bounds));
+        }
+      }
+
+    if (metadata->Flags.BlockSizeSet())
+      {
+      ExtentIterator it = this->Internals->BlockExtents.begin();
+      ExtentIterator end = this->Internals->BlockExtents.end();
+      for (; it != end; ++it)
+        {
+        long nCells = getBlockNumCells(it->second);
+        long nPts = getBlockNumPoints(it->second);
+
+        metadata->BlockNumCells.push_back(nCells);
+        metadata->BlockNumPoints.push_back(nPts);
+
+        if (id == 1) // unctructured only
+          metadata->BlockCellArraySize.push_back(8*nCells);
+        }
+      }
+
+    if (metadata->Flags.BlockDecompSet())
+      {
+      auto it = this->Internals->BlockExtents.begin();
+      auto end = this->Internals->BlockExtents.end();
+      for (; it != end; ++it)
+        {
+        metadata->BlockOwner.push_back(rank);
+        metadata->BlockIds.push_back(it->first);
+        }
+      }
+
+    if (metadata->Flags.BlockArrayRangeSet())
+      {
+      float gmin = std::numeric_limits<float>::max();
+      float gmax = std::numeric_limits<float>::lowest();
+      std::map<long, float*>::iterator it = this->Internals->BlockData.begin();
+      std::map<long, float*>::iterator end = this->Internals->BlockData.end();
+      for (; it != end; ++it)
+        {
+        unsigned long nCells = getBlockNumCells(this->Internals->BlockExtents[it->first]);
+
+        float *pdata = it->second;
+        float bmin = std::numeric_limits<float>::max();
+        float bmax = std::numeric_limits<float>::lowest();
+
+        for (unsigned long i = 0; i < nCells; ++i)
+          {
+          bmin = std::min(bmin, pdata[i]);
+          bmax = std::max(bmax, pdata[i]);
+          }
+        gmin = std::min(gmin, bmin);
+        gmax = std::max(gmax, bmax);
+        std::vector<std::array<double,2>> blkRange{{bmin,bmax}};
+        metadata->BlockArrayRange.push_back(blkRange);
+        }
+      metadata->ArrayRange.push_back({gmin, gmax});
+      }
     }
 
   return 0;
@@ -800,7 +975,6 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 //-----------------------------------------------------------------------------
 int DataAdaptor::ReleaseData()
 {
-  this->Internals->Oscillators = nullptr;
   return 0;
 }
 

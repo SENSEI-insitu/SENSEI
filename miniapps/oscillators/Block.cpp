@@ -2,7 +2,7 @@
 #include "BlockInternals.h"
 
 // --------------------------------------------------------------------------
-void Block::update_fields(float t)
+void Block::update_fields(float t, const OscillatorArray &oscillators)
 {
     // update the scalar oscillator field
     const Vertex &shape = grid.shape();
@@ -26,20 +26,20 @@ void Block::update_fields(float t)
 #else
     int deviceId = -1;
 #endif
-    BlockInternals::UpdateFields(deviceId, t, oscillators.get(),
-        nOscillators, ni,nj,nk, i0,j0,k0, x0,y0,z0, dx,dy,dz,
+    BlockInternals::UpdateFields(deviceId, t, oscillators.Data(),
+        oscillators.Size(), ni,nj,nk, i0,j0,k0, x0,y0,z0, dx,dy,dz,
         pdata);
 }
 
 // --------------------------------------------------------------------------
-void Block::update_particles(float t)
+void Block::update_particles(float t, const OscillatorArray &oscillators)
 {
     // update the velocity field on the particle mesh
-    const Oscillator *pOsc = oscillators.get();
+    const Oscillator *pOsc = oscillators.Data();
     for (auto& particle : particles)
     {
         particle.velocity = { 0, 0, 0 };
-        for (unsigned long q = 0; q < nOscillators; ++q)
+        for (unsigned long q = 0; q < oscillators.Size(); ++q)
         {
             particle.velocity += pOsc[q].evaluateGradient(particle.position, t);
         }

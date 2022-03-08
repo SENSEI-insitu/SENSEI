@@ -1,9 +1,11 @@
 #ifndef OSCILLATORS_DATAADAPTOR_H
 #define OSCILLATORS_DATAADAPTOR_H
 
+#include <memory>
 #include <DataAdaptor.h>
 
 #include "Particles.h"
+#include "Oscillator.h"
 
 class svtkDataArray;
 
@@ -39,6 +41,9 @@ public:
   /// Set particles for a specific block
   void SetParticleData(int gid, const std::vector<Particle> &particles);
 
+  /// Set the list of oscillators
+  void SetOscillators(const OscillatorArray &oscillators);
+
   // SENSEI API
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
 
@@ -47,14 +52,13 @@ public:
   int GetMesh(const std::string &meshName, bool structureOnly,
     svtkDataObject *&mesh) override;
 
-  int AddArray(svtkDataObject* mesh, const std::string &meshName,
+  int AddArray(svtkDataObject *mesh, const std::string &meshName,
     int association, const std::string &arrayName) override;
 
-  int AddGhostCellsArray(svtkDataObject* mesh, const std::string &meshName) override;
+  int AddGhostCellsArray(svtkDataObject *mesh, const std::string &meshName) override;
 
   int ReleaseData() override;
 
-  void SetOscillators(sensei::DataAdaptor* oscillators);
 protected:
   DataAdaptor();
   ~DataAdaptor();
