@@ -24,6 +24,9 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 %}
 
+/* SWIG does not understand attributes */
+#define __attribute__(x)
+
 %init %{
 #if PY_VERSION_HEX < 0x03070000
 PyEval_InitThreads();

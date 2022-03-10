@@ -8,7 +8,7 @@ namespace sensei
 {
 // detect if we are writing to a tty, if not then
 // we should not use ansi color codes
-int haveTty();
+SENSEI_EXPORT int haveTty();
 
 // a helper class for debug and error
 // messages
@@ -16,9 +16,10 @@ class parallelId {};
 
 // print the callers rank and thread id
 // to the given stream
+SENSEI_EXPORT
 std::ostream &operator<<(std::ostream &os, const parallelId &id);
 
-int ioEnabled(int active_rank);
+SENSEI_EXPORT int ioEnabled(int active_rank);
 }
 
 #define ANSI_RED "\033[1;31m"

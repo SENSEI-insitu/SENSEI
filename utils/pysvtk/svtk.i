@@ -22,6 +22,9 @@
 #define KWIML_INT_NO_VERIFY
 #define KWIML_ABI_NO_VERIFY
 
+/* SWIG does not understand attributes */
+#define __attribute__(x)
+
 /* automatically convert to the derived type */
 %typemap(out) svtkDataArray*
 {

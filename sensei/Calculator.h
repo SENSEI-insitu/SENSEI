@@ -6,7 +6,7 @@
 namespace sensei
 {
 
-class Calculator : public AnalysisAdaptor
+class SENSEI_EXPORT Calculator : public AnalysisAdaptor
 {
 public:
   static Calculator* New();

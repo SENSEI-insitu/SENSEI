@@ -1,12 +1,14 @@
 #ifndef sensei_CatalystParticle_h
 #define sensei_CatalystParticle_h
 
-#include "vtkCPPipeline.h"
+#include "senseiConfig.h"
+
+#include <vtkCPPipeline.h>
 
 namespace sensei
 {
 
-class CatalystParticle : public vtkCPPipeline
+class SENSEI_EXPORT CatalystParticle : public vtkCPPipeline
 {
 public:
   static CatalystParticle* New();
