@@ -22,18 +22,21 @@ namespace XMLUtils
  * that it does. if not non-zero value is returned and an error message is sent
  * to stderr.
  */
+SENSEI_EXPORT
 int RequireAttribute(const pugi::xml_node &node, const char *attributeName);
 
 /** check that a child element of the passed in name exists return of 0
  * indicates that it does. if not non-zero value is returned and an error
  * message is sent to stderr.
  */
+SENSEI_EXPORT
 int RequireChild(const pugi::xml_node &node, const char *childName);
 
 /** Parallel collective read, parse, and distribute the XML file. Rank 0 does
  * the I/O and parse and will broadcast to the other ranks in the communicator.
  * return of 0 indicates success.
  */
+SENSEI_EXPORT
 int Parse(MPI_Comm comm, const std::string &filename, pugi::xml_document &doc);
 
 

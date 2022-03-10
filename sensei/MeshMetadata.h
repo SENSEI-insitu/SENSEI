@@ -104,7 +104,7 @@ struct MeshMetadata;
 using MeshMetadataPtr = std::shared_ptr<sensei::MeshMetadata>;
 
 /// A container for capturing metadata describing a mesh.
-struct MeshMetadata
+struct SENSEI_EXPORT MeshMetadata
 {
   /// allocate a new instance
   static
