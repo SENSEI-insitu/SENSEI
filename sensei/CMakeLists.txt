@@ -146,10 +146,14 @@ if (ENABLE_ADIOS2)
       set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
     endif()
 
-    add_library(sPythonAnalysis UNKNOWN IMPORTED)
+    add_library(sPythonAnalysis SHARED IMPORTED)
     set_property(TARGET sPythonAnalysis
       PROPERTY IMPORTED_LOCATION
       "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/_PythonAnalysis.so")
+    if (APPLE)
+      set_property(TARGET sPythonAnalysis
+      PROPERTY IMPORTED_SONAME "@rpath/_PythonAnalysis.so")
+    endif()
     add_dependencies(sPythonAnalysis PythonAnalysis)
 
     # Python implementations
