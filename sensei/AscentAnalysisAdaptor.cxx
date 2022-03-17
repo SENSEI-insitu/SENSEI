@@ -950,8 +950,14 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 }
 
 //------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 {
+    // we do not return anything
+    if (dataOut)
+      {
+      *dataOut = nullptr;
+      }
+
     // return AscentAnalysisAdaptor::Execute_original(dataAdaptor);
     return AscentAnalysisAdaptor::Execute_new(dataAdaptor);
 }

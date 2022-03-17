@@ -56,9 +56,15 @@ void Calculator::Initialize(const std::string& meshName, int association, const 
 }
 
 //-----------------------------------------------------------------------------
-bool Calculator::Execute(DataAdaptor* data, DataAdaptor*& result)
+bool Calculator::Execute(DataAdaptor* data, DataAdaptor** result)
 {
   TimeEvent<128> mark("Calculator::Execute");
+
+  if (!result)
+    {
+    SENSEI_ERROR("An output data adaptor pointer was not provided")
+    return false;
+    }
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;
@@ -135,7 +141,7 @@ bool Calculator::Execute(DataAdaptor* data, DataAdaptor*& result)
   // configure the return adaptor
   SVTKDataAdaptor *ra = SVTKDataAdaptor::New();
   ra->SetDataObject(this->MeshName, meshOut);
-  result = ra;
+  *result = ra;
 
   vmeshIn->Delete();
   meshIn->Delete();

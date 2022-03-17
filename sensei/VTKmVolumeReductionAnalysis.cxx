@@ -230,9 +230,16 @@ void VTKmVolumeReductionAnalysis::Initialize(
 }
 
 //-----------------------------------------------------------------------------
-bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data, DataAdaptor*&)
+bool VTKmVolumeReductionAnalysis::Execute(DataAdaptor* data, DataAdaptor** dataOut)
 {
   TimeEvent<128> mark("VTKmVolumeReductionAnalysis::Execute");
+
+  // we currently do not return anything
+  if (dataOut)
+  {
+    *dataOut = nullptr;
+  }
+
   this->Helper->AddTimeEntry();
 
   vtkDataObject* mesh = nullptr;

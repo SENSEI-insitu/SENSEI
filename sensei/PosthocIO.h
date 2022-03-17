@@ -30,7 +30,7 @@ public:
     const std::string &meshName, const std::vector<std::string> &cellArrays,
     const std::vector<std::string> &pointArrays, int mode, int period);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor** data) override;
 
   int WriteBOVHeader(vtkInformation *info);
 

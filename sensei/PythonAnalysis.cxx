@@ -351,8 +351,14 @@ int PythonAnalysis::Initialize()
 }
 
 //-----------------------------------------------------------------------------
-bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor, DataAdaptor*&)
+bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor, DataAdaptor **dataOut)
 {
+  // we currently do not return anything
+  if (dataOut)
+    {
+    *dataOut = nullptr;
+    }
+
   if (!this->Internals->Execute)
     {
     SENSEI_ERROR("Missing an Execute function")

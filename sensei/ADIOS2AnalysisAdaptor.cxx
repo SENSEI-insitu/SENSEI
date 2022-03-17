@@ -188,16 +188,22 @@ int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency)
 }
 
 //----------------------------------------------------------------------------
-bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**daOut)
 {
+  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
+
+  // we currently do not return anything
+  if (daOut)
+    {
+    daOut = nullptr;
+    }
+
   long step = dataAdaptor->GetDataTimeStep();
 
   if(this->Frequency > 0 && step % this->Frequency != 0)
     {
     return true;
     }
-
-  TimeEvent<128> mark("ADIOS2AnalysisAdaptor::Execute");
 
   // if no dataAdaptor requirements are given, push all the data
   // fill in the requirements with every thing

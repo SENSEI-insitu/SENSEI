@@ -348,9 +348,9 @@ int CatalystAnalysisAdaptor::SetFrequency(unsigned int frequency)
 }
 
 //----------------------------------------------------------------------------
-bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& result)
+bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 {
-  long step = dataAdaptor->GetDataTimeStep();
+  long step = dataIn->GetDataTimeStep();
 
   if(this->Frequency > 0 && step % this->Frequency != 0)
     {
@@ -360,7 +360,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
 
   // Get a description of the simulation metadata
   unsigned int nMeshes = 0;
-  if (dataAdaptor->GetNumberOfMeshes(nMeshes))
+  if (dataIn->GetNumberOfMeshes(nMeshes))
     {
     SENSEI_ERROR("Failed to get the number of meshes")
     return false;
@@ -375,7 +375,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
     // use data object itself
     //mmd->Flags.SetBlockExtents();
 
-    if (dataAdaptor->GetMeshMetadata(i, mmd))
+    if (dataIn->GetMeshMetadata(i, mmd))
       {
       SENSEI_ERROR("Failed to get metadata for mesh " << i << " of " << nMeshes)
       return false;
@@ -383,8 +383,8 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
     metadata[i] = mmd;
     }
 
-  double time = dataAdaptor->GetDataTime();
-  int timeStep = dataAdaptor->GetDataTimeStep();
+  double time = dataIn->GetDataTime();
+  int timeStep = dataIn->GetDataTimeStep();
 
   vtkSmartPointer<vtkCPDataDescription> dataDesc =
     vtkSmartPointer<vtkCPDataDescription>::New();
@@ -399,7 +399,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
   if (proc->RequestDataDescription(dataDesc.GetPointer()))
     {
     // Query Catalyst for what data is required, fetch from the sim
-    if (this->SelectData(dataAdaptor, metadata, dataDesc.GetPointer()))
+    if (this->SelectData(dataIn, metadata, dataDesc.GetPointer()))
       {
       SENSEI_ERROR("Failed to selct data")
       return false;
@@ -411,9 +411,12 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor*& re
       auto data = sensei::CatalystScriptPipeline::GetResultData(proc);
       if (data.second != nullptr)
         {
-        SVTKDataAdaptor* vtkresult = SVTKDataAdaptor::New();
-        vtkresult->SetDataObject(data.first, data.second);
-        result = vtkresult;
+        if (dataOut)
+          {
+          SVTKDataAdaptor* result = SVTKDataAdaptor::New();
+          result->SetDataObject(data.first, data.second);
+          *dataOut = result;
+          }
         }
       }
     }

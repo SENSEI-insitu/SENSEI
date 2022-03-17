@@ -139,8 +139,14 @@ int VTKAmrWriter::AddDataRequirement(const std::string &meshName,
 }
 
 //-----------------------------------------------------------------------------
-bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor*&)
+bool VTKAmrWriter::Execute(DataAdaptor* dataAdaptor, DataAdaptor** dataOut)
 {
+  // we currently do not return anything
+  if (dataOut)
+    {
+    dataOut = nullptr;
+    }
+
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 

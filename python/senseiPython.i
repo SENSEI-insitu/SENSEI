@@ -53,7 +53,7 @@ import_array();
 %}
 SVTK_OBJECT_FACTORY(sensei::##CLASS)
 SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
-%ignore sensei::##CLASS::Execute(DataAdaptor*, DataAdaptor*&);
+%ignore sensei::##CLASS::Execute(DataAdaptor*, DataAdaptor**);
 %extend sensei::##CLASS
 {
     SENSEI_CONSTRUCTOR(CLASS)
@@ -63,7 +63,7 @@ SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
     {
         // invoke the analysis
         sensei::DataAdaptor *daOut = nullptr;
-        int status = self->Execute(daIn, daOut);
+        int status = self->Execute(daIn, &daOut);
 
         // package the return. first is the status, second is the
         // optional data adaptor.

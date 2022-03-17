@@ -1,10 +1,15 @@
 #ifndef Oscillator_h
 #define Oscillator_h
 
+#include <memory>
 #include <string>
 #include <cmath>
 #include <sdiy/point.hpp>
+#include <sdiy/mpi.hpp>
 
+namespace sensei { class DataAdaptor; }
+
+/// a perdiodic, decaying, or damped oscillator
 struct Oscillator
 {
     using Vertex = sdiy::Point<float,3>;
@@ -67,9 +72,46 @@ struct Oscillator
     float   omega0;
     float   zeta;
 
-    enum { damped, decaying, periodic } type;
+    enum Type { damped, decaying, periodic };
+    Type type;
 };
 
-std::vector<Oscillator> read_oscillators(std::string fn);
+/// holds an array of oscillators and its size
+class OscillatorArray
+{
+public:
+    /// initialize the array from a file
+    void Initialize(const sdiy::mpi::communicator &comm,
+      const std::string &fn);
+
+    /// initialize the array from a data adaptor
+    void Initialize(const sdiy::mpi::communicator &comm,
+      sensei::DataAdaptor *da);
+
+    /// releases the array
+    void Clear();
+
+    /// allocate n Oscillators
+    void Allocate(unsigned long n);
+
+    /// access the array
+    Oscillator *Data() { return mData.get(); }
+    const Oscillator *Data() const { return mData.get(); }
+
+    /// access the ith element
+    Oscillator &operator[](unsigned long i) { return mData.get()[i]; }
+    const Oscillator &operator[](unsigned long i) const { return mData.get()[i]; }
+
+    /// the size of the array
+    unsigned long Size() const { return mSize; }
+
+    /// Print the oscillators
+    void Print(std::ostream &os) const;
+
+private:
+    unsigned long mSize;
+    std::shared_ptr<Oscillator> mData;
+};
+
 
 #endif

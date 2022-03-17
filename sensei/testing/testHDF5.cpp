@@ -257,7 +257,7 @@ int readMe(TimedAdaptorWrap* daWrap, MPI_Comm& comm)
       n_steps += 1;
 
 #ifdef DBCK
-      aw->Execute(da);
+      aw->Execute(da, nullptr);
 #endif
       da->ReleaseData();
       if (daWrap->Advance())
@@ -536,7 +536,7 @@ void writeMe(sensei::AnalysisAdaptor* aw, int n_its, MPI_Comm& comm)
       da->SetDataObject(meshNames[0], meshObj[0]);
       da->SetDataObject(meshNames[1], meshObj[1]);
 
-      aw->Execute(da);
+      aw->Execute(da, nullptr);
       da->ReleaseData();
       da->Delete();
       da = NULL;

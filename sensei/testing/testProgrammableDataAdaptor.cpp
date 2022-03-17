@@ -113,9 +113,8 @@ int main(int argc, char **argv)
   pda->GetMeshMetadata(0, mmd);
 
   sensei::Histogram *ha = sensei::Histogram::New();
-  sensei::DataAdaptor *reply = nullptr;
   ha->Initialize(7, mmd->MeshName, mmd->ArrayCentering[0], mmd->ArrayName[0], "");
-  ha->Execute(pda, reply);
+  ha->Execute(pda, nullptr);
 
   pda->ReleaseData();
 
