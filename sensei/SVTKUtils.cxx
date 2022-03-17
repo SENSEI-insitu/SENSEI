@@ -55,6 +55,7 @@
 #include <svtkCellTypes.h>
 #include <svtkSmartPointer.h>
 #include <svtkIntArray.h>
+#include <svtkCallbackCommand.h>
 #include <svtkVersionMacros.h>
 #if ((SVTK_VERSION_MAJOR >= 8) && (SVTK_VERSION_MINOR >= 2))
 #include <svtkAOSDataArrayTemplate.h>
@@ -1839,6 +1840,8 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
+  pdOut->SetPoints(pts);
+  pts->Delete();
 
   // vert cells
   vtkCellArray *verts = VTKObjectFactory::New(pdIn->GetVerts());
@@ -2202,7 +2205,7 @@ void vtkObjectDelete(svtkObject *, unsigned long, void *clientData, void *)
 // --------------------------------------------------------------------------
 svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)daIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2276,7 +2279,7 @@ svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
 // --------------------------------------------------------------------------
 svtkCellArray *SVTKObjectFactory::New(vtkCellArray *caIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)caIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2318,7 +2321,7 @@ svtkCellArray *SVTKObjectFactory::New(vtkCellArray *caIn)
 // --------------------------------------------------------------------------
 svtkCellData *SVTKObjectFactory::New(vtkCellData *cdIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)cdIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2331,7 +2334,7 @@ svtkCellData *SVTKObjectFactory::New(vtkCellData *cdIn)
 // --------------------------------------------------------------------------
 svtkPointData *SVTKObjectFactory::New(vtkPointData *pdIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)pdIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2344,7 +2347,7 @@ svtkPointData *SVTKObjectFactory::New(vtkPointData *pdIn)
 // --------------------------------------------------------------------------
 svtkFieldData *SVTKObjectFactory::New(vtkFieldData *fdIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)fdIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2393,7 +2396,7 @@ svtkFieldData *SVTKObjectFactory::New(vtkFieldData *fdIn)
 // --------------------------------------------------------------------------
 svtkPoints *SVTKObjectFactory::New(vtkPoints *ptsIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)ptsIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2423,7 +2426,7 @@ svtkPoints *SVTKObjectFactory::New(vtkPoints *ptsIn)
 // --------------------------------------------------------------------------
 svtkImageData *SVTKObjectFactory::New(vtkImageData *idIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)idIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2470,7 +2473,7 @@ svtkImageData *SVTKObjectFactory::New(vtkImageData *idIn)
 // --------------------------------------------------------------------------
 svtkUniformGrid *SVTKObjectFactory::New(vtkUniformGrid *ugIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)ugIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2517,7 +2520,7 @@ svtkUniformGrid *SVTKObjectFactory::New(vtkUniformGrid *ugIn)
 // --------------------------------------------------------------------------
 svtkRectilinearGrid *SVTKObjectFactory::New(vtkRectilinearGrid *rgIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)rgIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2595,7 +2598,7 @@ svtkRectilinearGrid *SVTKObjectFactory::New(vtkRectilinearGrid *rgIn)
 // --------------------------------------------------------------------------
 svtkStructuredGrid *SVTKObjectFactory::New(vtkStructuredGrid *sgIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)sgIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2649,7 +2652,7 @@ svtkStructuredGrid *SVTKObjectFactory::New(vtkStructuredGrid *sgIn)
 // --------------------------------------------------------------------------
 svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)pdIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2670,6 +2673,8 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
+  pdOut->SetPoints(pts);
+  pts->Delete();
 
   // vert cells
   svtkCellArray *verts = SVTKObjectFactory::New(pdIn->GetVerts());
@@ -2744,7 +2749,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
 // --------------------------------------------------------------------------
 svtkUnstructuredGrid *SVTKObjectFactory::New(vtkUnstructuredGrid *ugIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)ugIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2810,7 +2815,7 @@ svtkUnstructuredGrid *SVTKObjectFactory::New(vtkUnstructuredGrid *ugIn)
 // --------------------------------------------------------------------------
 svtkMultiBlockDataSet *SVTKObjectFactory::New(vtkMultiBlockDataSet *mbIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)mbIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2853,7 +2858,7 @@ svtkMultiBlockDataSet *SVTKObjectFactory::New(vtkMultiBlockDataSet *mbIn)
 // --------------------------------------------------------------------------
 svtkOverlappingAMR *SVTKObjectFactory::New(vtkOverlappingAMR *amrIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)amrIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2929,7 +2934,7 @@ svtkOverlappingAMR *SVTKObjectFactory::New(vtkOverlappingAMR *amrIn)
 // --------------------------------------------------------------------------
 svtkDataObject *SVTKObjectFactory::New(vtkDataObject *objIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)objIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2946,15 +2951,15 @@ svtkDataObject *SVTKObjectFactory::New(vtkDataObject *objIn)
 
   if ((dsIn = dynamic_cast<vtkDataSet*>(objIn)))
   {
-    return static_cast<svtkDataObject*>(SVTKObjectFactory(dsIn));
+    return SVTKObjectFactory::New(dsIn);
   }
   else if ((mbIn = dynamic_cast<vtkMultiBlockDataSet*>(objIn)))
   {
-    return static_cast<svtkDataObject*>(SVTKObjectFactory(mbIn));
+    return SVTKObjectFactory::New(mbIn);
   }
   else if ((amrIn = dynamic_cast<vtkOverlappingAMR*>(objIn)))
   {
-    return static_cast<svtkDataObject*>(SVTKObjectFactory(amrIn));
+    return SVTKObjectFactory::New(amrIn);
   }
 
   SENSEI_ERROR("Failed to construct a SVTK object from the given "
@@ -2967,7 +2972,7 @@ svtkDataObject *SVTKObjectFactory::New(vtkDataObject *objIn)
 // --------------------------------------------------------------------------
 svtkDataSet *SVTKObjectFactory::New(vtkDataSet *dsIn)
 {
-#if !defined(ENABLE_SVTK_CORE)
+#if !defined(ENABLE_VTK_CORE)
   (void)dsIn;
   SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
   return nullptr;
@@ -2979,7 +2984,7 @@ svtkDataSet *SVTKObjectFactory::New(vtkDataSet *dsIn)
   }
 
   vtkImageData *idIn = nullptr;
-  vtkUniformGrid *idIn = nullptr;
+  vtkUniformGrid *ungIn = nullptr;
   vtkRectilinearGrid *rgIn = nullptr;
   vtkStructuredGrid *sgIn = nullptr;
   vtkPolyData *pdIn = nullptr;
@@ -2988,6 +2993,10 @@ svtkDataSet *SVTKObjectFactory::New(vtkDataSet *dsIn)
   if ((idIn = dynamic_cast<vtkImageData*>(dsIn)))
   {
     return SVTKObjectFactory::New(idIn);
+  }
+  else if ((ungIn = dynamic_cast<vtkUniformGrid*>(dsIn)))
+  {
+    return SVTKObjectFactory::New(ungIn);
   }
   else if ((rgIn = dynamic_cast<vtkRectilinearGrid*>(dsIn)))
   {
