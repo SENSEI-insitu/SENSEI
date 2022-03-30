@@ -63,7 +63,7 @@ void svtkInformationIntegerVectorKey::Append(svtkInformation* info, int value)
 //----------------------------------------------------------------------------
 void svtkInformationIntegerVectorKey::Set(svtkInformation* info)
 {
-  int someVal;
+  int someVal = -1;
   this->Set(info, &someVal, 0);
 }
 
