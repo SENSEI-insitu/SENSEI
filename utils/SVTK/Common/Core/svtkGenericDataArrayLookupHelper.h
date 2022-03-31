@@ -27,6 +27,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <vector>
+#include <limits>
 
 namespace svtk
 {
