@@ -23,7 +23,7 @@ if (ENABLE_CATALYST)
   else()
     set (SENSEI_PV_COMPONENTS ${sensei_pv_components_5_8})
   endif()
-  find_package(ParaView CONFIG COMPONENTS ${SENSEI_PV_COMPONENTS})
+  find_package(ParaView CONFIG OPTIONAL_COMPONENTS ${SENSEI_PV_COMPONENTS})
 
   # avoid leaking these internal variables
   unset(sensei_pv_components_legacy)
