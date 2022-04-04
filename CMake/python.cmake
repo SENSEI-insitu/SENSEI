@@ -30,8 +30,11 @@ if (ENABLE_PYTHON)
   include(UseSWIG)
 
   # the destination of all SENSEI Python codes
-  set(SENSEI_PYTHON_DIR
-    "${CMAKE_INSTALL_LIBDIR}/python-${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/sensei/"
+  set(SENSEI_PYTHON_SITE
+    "${CMAKE_INSTALL_LIBDIR}/python-${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/"
+    CACHE STRING "Where Python modules are compiled and installed.")
+
+  set(SENSEI_PYTHON_DIR "${SENSEI_PYTHON_SITE}/sensei/"
     CACHE STRING "Where SENSEI Python bindings are compiled and installed")
 
   message(STATUS "SENSEI Python modules will be installed at \"${SENSEI_PYTHON_DIR}\"")
