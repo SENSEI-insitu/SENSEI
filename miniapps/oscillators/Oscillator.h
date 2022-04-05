@@ -21,32 +21,36 @@ struct Oscillator
 #endif
     float evaluate(float vx, float vy, float vz, float t) const
     {
-        t *= 2*pi;
+        t *= 2.f*pi;
 
         float dist_x = center_x - vx;
         float dist_y = center_y - vy;
         float dist_z = center_z - vz;
-        float dist2 = sqrt( dist_x*dist_x + dist_y*dist_y + dist_z*dist_z );
-
-        float dist_damp = exp(-dist2/(2*radius*radius));
+        float dist2 = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
+        float dist_damp = exp(-dist2/(2.f*radius*radius));
 
         if (type == damped)
         {
             float phi   = acos(zeta);
-            float val   = 1. - exp(-zeta*omega0*t) * (sin(sqrt(1-zeta*zeta)*omega0*t + phi) / sin(phi));
+            float val   = 1.f - exp(-zeta*omega0*t) * (sin(sqrt(1.f-zeta*zeta)*omega0*t + phi) / sin(phi));
             return val * dist_damp;
         }
         else if (type == decaying)
         {
-            t += 1. / omega0;
+            t += 1.f / omega0;
             float val = sin(t / omega0) / (omega0 * t);
             return val * dist_damp;
         }
         else if (type == periodic)
         {
-            t += 1. / omega0;
+            t += 1.f / omega0;
             float val = sin(t / omega0);
             return val * dist_damp;
+        }
+        else
+        {
+            std::cerr << "ERROR: inavid oscillator type" << std::endl;
+            abort();
         }
 
         return 0.0f; // impossible

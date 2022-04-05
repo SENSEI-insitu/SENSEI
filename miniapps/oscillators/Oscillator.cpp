@@ -24,6 +24,15 @@
 namespace
 {
 // **************************************************************************
+const char *name(Oscillator::Type type)
+{
+  if (type == Oscillator::Type::damped) return "damped";
+  else if (type == Oscillator::Type::decaying) return "decaying";
+  else if (type == Oscillator::Type::periodic) return "periodic";
+  return "unknown";
+}
+
+// **************************************************************************
 static inline std::string &ltrim(std::string &s)
 {
     s.erase(s.begin(),
@@ -61,11 +70,24 @@ std::vector<Oscillator> read(const std::string &fn)
         std::string stype;
         iss >> stype;
 
-        auto type = Oscillator::periodic;
+        Oscillator::Type type;
         if (stype == "damped")
+        {
             type = Oscillator::damped;
+        }
         else if (stype == "decaying")
+        {
             type = Oscillator::decaying;
+        }
+        else if (stype == "periodic")
+        {
+            type = Oscillator::periodic;
+        }
+        else
+        {
+            std::cerr << "ERROR: invalid oscillator type \"" << stype << "\"" << std::endl;
+            abort();
+        }
 
         float x,y,z;
         iss >> x >> y >> z;
@@ -229,7 +251,8 @@ void OscillatorArray::Print(std::ostream &os) const
     Oscillator &o = (mData.get())[i];
     os << i << " center = " << o.center_x << ", " << o.center_y << ", "
       << o.center_z << " radius = " << o.radius << " omega0 = "
-      << o.omega0 << " zeta = " << o.zeta << std::endl;
+      << o.omega0 << " zeta = " << o.zeta << " type = " << ::name(o.type)
+      << std::endl;
   }
 }
 
