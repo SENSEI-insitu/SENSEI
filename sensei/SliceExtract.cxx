@@ -37,7 +37,7 @@ namespace sensei
 struct SliceExtract::InternalsType
 {
   InternalsType() : Operation(OP_PLANAR_SLICE), NumIsoValues(0),
-    EnablePartitioner(1)
+    EnablePartitioner(1), EnableWriter(1)
   {
     this->SlicePartitioner = PlanarSlicePartitioner::New();
     this->IsoValPartitioner = IsoSurfacePartitioner::New();
@@ -53,6 +53,7 @@ struct SliceExtract::InternalsType
   int EnablePartitioner;
   IsoSurfacePartitionerPtr IsoValPartitioner;
   PlanarSlicePartitionerPtr SlicePartitioner;
+  int EnableWriter;
   VTKPosthocIOPtr Writer;
 };
 
@@ -80,9 +81,15 @@ void SliceExtract::EnablePartitioner(int val)
 }
 
 // --------------------------------------------------------------------------
+void SliceExtract::EnableWriter(int val)
+{
+  this->Internals->EnableWriter = val;
+}
+
+// --------------------------------------------------------------------------
 int SliceExtract::SetOperation(int op)
 {
-  if ((op != OP_PLANAR_SLICE) || (op != OP_ISO_SURFACE))
+  if ((op != OP_PLANAR_SLICE) && (op != OP_ISO_SURFACE))
     {
     SENSEI_ERROR("Invalid operation " << op)
     return -1;
@@ -195,23 +202,20 @@ int SliceExtract::AddDataRequirement(const std::string &meshName,
 }
 
 // --------------------------------------------------------------------------
-bool SliceExtract::Execute(DataAdaptor* dataAdaptor, DataAdaptor** dataOut)
+bool SliceExtract::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
 {
   TimeEvent<128> mark("SliceExtract::Execute");
 
-  // we currently do not return anything
-  if (dataOut)
-    {
-    *dataOut = nullptr;
-    }
+  if (daOut)
+    *daOut = nullptr;
 
   if (this->Internals->Operation == OP_PLANAR_SLICE)
     {
-    return this->ExecuteSlice(dataAdaptor);
+    return this->ExecuteSlice(daIn, daOut);
     }
   else if (this->Internals->Operation == OP_ISO_SURFACE)
     {
-    return this->ExecuteIsoSurface(dataAdaptor);
+    return this->ExecuteIsoSurface(daIn, daOut);
     }
 
   SENSEI_ERROR("Invalid operation " << this->Internals->Operation)
@@ -219,7 +223,7 @@ bool SliceExtract::Execute(DataAdaptor* dataAdaptor, DataAdaptor** dataOut)
 }
 
 // --------------------------------------------------------------------------
-bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
+bool SliceExtract::ExecuteIsoSurface(DataAdaptor* daIn, DataAdaptor **daOut)
 {
   TimeEvent<128> mark("SliceExtract::ExecuteIsoSurface");
 
@@ -239,7 +243,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
   // if we are runnigng in transit, set the partitioner that will pull
   // only the blocks that intersect the slice plane
   InTransitDataAdaptor *itDataAdaptor =
-    dynamic_cast<InTransitDataAdaptor*>(dataAdaptor);
+    dynamic_cast<InTransitDataAdaptor*>(daIn);
 
   if (this->Internals->EnablePartitioner && itDataAdaptor)
     itDataAdaptor->SetPartitioner(this->Internals->IsoValPartitioner);
@@ -250,7 +254,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
   flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
-  if (mdm.Initialize(dataAdaptor, flags))
+  if (mdm.Initialize(daIn, flags))
     {
     SENSEI_ERROR("Failed to get metadata")
     return false;
@@ -266,7 +270,7 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 
   // get the mesh
   svtkDataObject *dobj = nullptr;
-  if (dataAdaptor->GetMesh(meshName, false, dobj))
+  if (daIn->GetMesh(meshName, false, dobj))
     {
     SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
     return false;
@@ -274,21 +278,21 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
 
   // add the ghost cell arrays to the mesh
   if ((md->NumGhostCells || SVTKUtils::AMR(md)) &&
-    dataAdaptor->AddGhostCellsArray(dobj, meshName))
+    daIn->AddGhostCellsArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
     return false;
     }
 
   // add the ghost node arrays to the mesh
-  if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, meshName))
+  if (md->NumGhostNodes && daIn->AddGhostNodesArray(dobj, meshName))
     {
     SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"")
     return false;
     }
 
   // add the required arrays
-  if (dataAdaptor->AddArray(dobj, meshName, arrayCentering, arrayName))
+  if (daIn->AddArray(dobj, meshName, arrayCentering, arrayName))
     {
     SENSEI_ERROR("Failed to add "
       << SVTKUtils::GetAttributesName(arrayCentering)
@@ -309,25 +313,39 @@ bool SliceExtract::ExecuteIsoSurface(DataAdaptor* dataAdaptor)
     return false;
     }
 
+  long timeStep = daIn->GetDataTimeStep();
+  double time = daIn->GetDataTime();
+
   // write it to disk
-  std::string isoMeshName  = meshName + "_" + arrayName + "_isos";
-  long timeStep = dataAdaptor->GetDataTimeStep();
-  double time = dataAdaptor->GetDataTime();
-  if (this->WriteExtract(timeStep, time, isoMeshName, isoMesh))
+  if (this->Internals->EnableWriter)
     {
-    SENSEI_ERROR("Failed to write the extract")
-    return false;
+    std::string isoMeshName  = meshName + "_" + arrayName + "_isos";
+    if (this->WriteExtract(timeStep, time, isoMeshName, isoMesh))
+      {
+      SENSEI_ERROR("Failed to write the extract")
+      return false;
+      }
+    }
+
+  // return  the iso-surface
+  if (daOut)
+    {
+    SVTKDataAdaptor *da = SVTKDataAdaptor::New();
+    da->SetDataObject(meshName, isoMesh);
+    da->SetDataTimeStep(timeStep);
+    da->SetDataTime(time);
+    *daOut = da;
     }
 
   isoMesh->Delete();
 
-  dataAdaptor->ReleaseData();
+  daIn->ReleaseData();
 
   return true;
 }
 
 // --------------------------------------------------------------------------
-bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
+bool SliceExtract::ExecuteSlice(DataAdaptor *daIn, DataAdaptor **daOut)
 {
   TimeEvent<128> mark("SliceExtract::ExecuteSlice");
 
@@ -341,7 +359,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
   // if we are runnigng in transit, set the partitioner that will pull
   // only the blocks that intersect the slice plane
   InTransitDataAdaptor *itDataAdaptor =
-    dynamic_cast<InTransitDataAdaptor*>(dataAdaptor);
+    dynamic_cast<InTransitDataAdaptor*>(daIn);
 
   if (this->Internals->EnablePartitioner && itDataAdaptor)
     itDataAdaptor->SetPartitioner(this->Internals->SlicePartitioner);
@@ -351,7 +369,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
   flags.SetBlockDecomp();
 
   MeshMetadataMap mdm;
-  if (mdm.Initialize(dataAdaptor, flags))
+  if (mdm.Initialize(daIn, flags))
     {
     SENSEI_ERROR("Failed to get metadata")
     return false;
@@ -375,21 +393,21 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 
     // get the mesh
     svtkDataObject *dobj = nullptr;
-    if (dataAdaptor->GetMesh(meshName, mit.StructureOnly(), dobj))
+    if (daIn->GetMesh(meshName, mit.StructureOnly(), dobj))
       {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
       return false;
       }
 
     // add the ghost cell arrays to the mesh
-    if (md->NumGhostCells && dataAdaptor->AddGhostCellsArray(dobj, meshName))
+    if (md->NumGhostCells && daIn->AddGhostCellsArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"")
       return false;
       }
 
     // add the ghost node arrays to the mesh
-    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, meshName))
+    if (md->NumGhostNodes && daIn->AddGhostNodesArray(dobj, meshName))
       {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"")
       return false;
@@ -401,7 +419,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
 
     while (ait)
       {
-      if (dataAdaptor->AddArray(dobj, meshName,
+      if (daIn->AddArray(dobj, meshName,
          ait.Association(), ait.Array()))
         {
         SENSEI_ERROR("Failed to add "
@@ -428,14 +446,28 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
       return false;
       }
 
+    long timeStep = daIn->GetDataTimeStep();
+    double time = daIn->GetDataTime();
+
     // write it to disk
-    std::string sliceMeshName  = meshName + "_slice";
-    long timeStep = dataAdaptor->GetDataTimeStep();
-    double time = dataAdaptor->GetDataTime();
-    if (this->WriteExtract(timeStep, time, sliceMeshName, sliceMesh))
+    if (this->Internals->EnableWriter)
       {
-      SENSEI_ERROR("Failed to write the extract")
-      return false;
+      std::string sliceMeshName  = meshName + "_slice";
+      if (this->WriteExtract(timeStep, time, sliceMeshName, sliceMesh))
+        {
+        SENSEI_ERROR("Failed to write the extract")
+        return false;
+        }
+      }
+
+    // return the slice
+    if (daOut)
+      {
+      SVTKDataAdaptor *da = SVTKDataAdaptor::New();
+      da->SetDataObject(meshName, sliceMesh);
+      da->SetDataTimeStep(timeStep);
+      da->SetDataTime(time);
+      *daOut = da;
       }
 
     sliceMesh->Delete();
@@ -443,7 +475,7 @@ bool SliceExtract::ExecuteSlice(DataAdaptor* dataAdaptor)
     ++mit;
     }
 
-  dataAdaptor->ReleaseData();
+  daIn->ReleaseData();
 
   return true;
 }

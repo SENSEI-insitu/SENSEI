@@ -29,6 +29,9 @@ public:
   /// @name Run time configuration
   /// @{
 
+  /// Enable writing the results to disk
+  void EnableWriter(int val);
+
   /// Enable the use of an optimized partitioner
   void EnablePartitioner(int val);
 
@@ -112,8 +115,8 @@ public:
 
 private:
 
-    bool ExecuteSlice(DataAdaptor* dataAdaptor);
-    bool ExecuteIsoSurface(DataAdaptor* dataAdaptor);
+    bool ExecuteSlice(DataAdaptor *daIn, DataAdaptor **daOut);
+    bool ExecuteIsoSurface(DataAdaptor *daIn, DataAdaptor **daOut);
 
     int Slice(svtkCompositeDataSet *input, const std::array<double,3> &point,
       const std::array<double,3> &normal, svtkCompositeDataSet *&output);
