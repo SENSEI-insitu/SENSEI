@@ -173,12 +173,6 @@ int main(int argc, char **argv)
     return -1;
     }
 
-  /*sensei::PythonAnalysis *aa = sensei::PythonAnalysis::New();
-  //aa->SetModuleName("anal");
-  aa->SetScriptFile("anal.py");
-  aa->SetInitializeSource("numBins=10; meshName='mesh'; arrayName='values'; arrayCen=1");
-  aa->Initialize();*/
-
   for (int i = 0; i < 5; ++i)
     {
     da->SetDataTimeStep(i);
