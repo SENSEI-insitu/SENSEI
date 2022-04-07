@@ -1409,6 +1409,80 @@ declareVtkAOSDataArrayTT(double, vtkDoubleArray)
 #endif
 
 // --------------------------------------------------------------------------
+vtkTypeInt64Array *VTKObjectFactory::New(svtkTypeInt64Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a vtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  vtkTypeInt64Array *daOut = vtkTypeInt64Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  vtkCallbackCommand *cc = vtkCallbackCommand::New();
+  cc->SetCallback(svtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(vtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkTypeInt32Array *VTKObjectFactory::New(svtkTypeInt32Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a vtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  vtkTypeInt32Array *daOut = vtkTypeInt32Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  vtkCallbackCommand *cc = vtkCallbackCommand::New();
+  cc->SetCallback(svtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(vtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
 vtkDataArray *VTKObjectFactory::New(svtkDataArray *daIn)
 {
 #if !defined(ENABLE_VTK_CORE)
@@ -1498,27 +1572,51 @@ vtkCellArray *VTKObjectFactory::New(svtkCellArray *caIn)
 
   vtkCellArray *caOut = vtkCellArray::New();
 
-  vtkDataArray *offs = VTKObjectFactory::New(caIn->GetOffsetsArray());
-  vtkDataArray *conn = VTKObjectFactory::New(caIn->GetConnectivityArray());
-
-  switch (offs->GetDataType())
+  // zero-copy only works if the array types exactly match, the svtkCellArray
+  // has overloads for the common types that will silenlty make copies and not
+  // hold a reference to the passed array
+  if (caIn->IsStorage64Bit())
   {
-    vtkCellTemplateMacro(
-      caOut->SetData(dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(offs),
-        dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(conn));
-      )
-
-    default:
+    vtkTypeInt64Array *offs = VTKObjectFactory::New(caIn->GetOffsetsArray64());
+    if (!offs)
     {
-      SENSEI_ERROR("Can't copy cell offsets/connectivity of type "
-        << offs->GetClassName())
-      caOut->Delete();
+      SENSEI_ERROR("Failed to create the offsets array")
       return nullptr;
     }
-  }
 
-  offs->Delete();
-  conn->Delete();
+    vtkTypeInt64Array *conn = VTKObjectFactory::New(caIn->GetConnectivityArray64());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
+  else
+  {
+    vtkTypeInt32Array *offs = VTKObjectFactory::New(caIn->GetOffsetsArray32());
+    if (!offs)
+    {
+      SENSEI_ERROR("Failed to create the offsets array")
+      return nullptr;
+    }
+
+    vtkTypeInt32Array *conn = VTKObjectFactory::New(caIn->GetConnectivityArray32());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
 
   return caOut;
 #endif
@@ -2269,6 +2367,80 @@ declareSvtkAOSDataArrayTT(double, svtkDoubleArray)
 #endif
 
 // --------------------------------------------------------------------------
+svtkTypeInt64Array *SVTKObjectFactory::New(vtkTypeInt64Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a svtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  svtkTypeInt64Array *daOut = svtkTypeInt64Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  svtkCallbackCommand *cc = svtkCallbackCommand::New();
+  cc->SetCallback(vtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(svtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkTypeInt32Array *SVTKObjectFactory::New(vtkTypeInt32Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a svtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  svtkTypeInt32Array *daOut = svtkTypeInt32Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  svtkCallbackCommand *cc = svtkCallbackCommand::New();
+  cc->SetCallback(vtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(svtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
 svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
 {
 #if !defined(ENABLE_VTK_CORE)
@@ -2358,27 +2530,51 @@ svtkCellArray *SVTKObjectFactory::New(vtkCellArray *caIn)
 
   svtkCellArray *caOut = svtkCellArray::New();
 
-  svtkDataArray *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray());
-  svtkDataArray *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray());
-
-  switch (offs->GetDataType())
+  // zero-copy only works if the array types exactly match, the vtkCellArray
+  // has overloads for the common types that will silenlty make copies and not
+  // hold a reference to the passed array
+  if (caIn->IsStorage64Bit())
   {
-    svtkCellTemplateMacro(
-      caOut->SetData(dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(offs),
-        dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(conn));
-      )
-
-    default:
+    svtkTypeInt64Array *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray64());
+    if (!offs)
     {
-      SENSEI_ERROR("Can't copy cell offsets/connectivity of type "
-        << offs->GetClassName())
-      caOut->Delete();
+      SENSEI_ERROR("Failed to create the offsets array")
       return nullptr;
     }
-  }
 
-  offs->Delete();
-  conn->Delete();
+    svtkTypeInt64Array *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray64());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
+  else
+  {
+    svtkTypeInt32Array *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray32());
+    if (!offs)
+    {
+      SENSEI_ERROR("Failed to create the offsets array")
+      return nullptr;
+    }
+
+    svtkTypeInt32Array *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray32());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
 
   return caOut;
 #endif
