@@ -12,6 +12,8 @@ class svtkFieldData;
 class svtkCellData;
 class svtkPointData;
 class svtkDataArray;
+class svtkTypeInt64Array;
+class svtkTypeInt32Array;
 class svtkCellArray;
 class svtkImageData;
 class svtkUniformGrid;
@@ -25,6 +27,8 @@ class svtkDataSetAttributes;
 class svtkCompositeDataSet;
 
 class vtkDataArray;
+class vtkTypeInt64Array;
+class vtkTypeInt32Array;
 class vtkCellArray;
 class vtkFieldData;
 class vtkPointData;
@@ -347,6 +351,12 @@ public:
      */
     static vtkDataArray *New(svtkDataArray *daIn);
 
+    /// overload for 64 bit cell arrays
+    static vtkTypeInt64Array *New(svtkTypeInt64Array *daIn);
+
+    /// overload for 32 bit cell arrays
+    static vtkTypeInt32Array *New(svtkTypeInt32Array *daIn);
+
     /** Construct a new VTK vtkDataObject from the passsed SVTK svtkDataObject.
      * Returns a newly allocated instance of the corresponding VTK object.
      * Embedded svtkDataArray instances are zero-copy transfered. References to
@@ -418,6 +428,12 @@ public:
      * returned svtkDataArray instance when finished.
      */
     static svtkDataArray *New(vtkDataArray *daIn);
+
+    /// overload for 64 bit cell arrays
+    static svtkTypeInt64Array *New(vtkTypeInt64Array *daIn);
+
+    /// overload for 32 bit cell arrays
+    static svtkTypeInt32Array *New(vtkTypeInt32Array *daIn);
 
     /** Construct a new SVTK svtkDataObject from the passsed VTK vtkDataObject.
      * Returns a newly allocated instance of the corresponding SVTK object.

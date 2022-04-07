@@ -106,6 +106,7 @@ protected:
 
 private:
 #if !defined(SWIG)
+  unsigned int Frequency;
   std::string OutputDir;
   DataRequirements Requirements;
   int Mode;
@@ -115,7 +116,6 @@ private:
   template<typename T>
   using NameMap = std::map<std::string, T>;
 
-  unsigned int Frequency;
   NameMap<std::vector<double>> Time;
   NameMap<std::vector<long>> TimeStep;
   NameMap<std::vector<MeshMetadataPtr>> Metadata;

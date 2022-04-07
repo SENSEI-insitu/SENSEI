@@ -5,22 +5,29 @@
 #include "Error.h"
 
 
+#include <svtkDataArray.h>
+#include <svtkAbstractArray.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
+#include <svtkIdTypeArray.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkCharArray.h>
+#include <svtkShortArray.h>
+#include <svtkIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkLongLongArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkUnsignedShortArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkUnsignedLongLongArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
 #include <svtkCompositeDataIterator.h>
 #include <svtkCompositeDataSet.h>
 #include <svtkDataSetAttributes.h>
-#include <svtkDataArray.h>
-#include <svtkAbstractArray.h>
-#include <svtkDoubleArray.h>
-#include <svtkFloatArray.h>
-#include <svtkIntArray.h>
-#include <svtkUnsignedIntArray.h>
-#include <svtkLongArray.h>
-#include <svtkUnsignedLongArray.h>
-#include <svtkLongLongArray.h>
-#include <svtkUnsignedLongLongArray.h>
-#include <svtkCharArray.h>
-#include <svtkUnsignedCharArray.h>
-#include <svtkIdTypeArray.h>
 #include <svtkPoints.h>
 #include <svtkPolyData.h>
 #include <svtkStructuredPoints.h>
@@ -54,25 +61,15 @@
 #include <svtkCellArray.h>
 #include <svtkCellTypes.h>
 #include <svtkSmartPointer.h>
-#include <svtkIntArray.h>
 #include <svtkCallbackCommand.h>
 #include <svtkVersionMacros.h>
-#if ((SVTK_VERSION_MAJOR >= 8) && (SVTK_VERSION_MINOR >= 2))
-#include <svtkAOSDataArrayTemplate.h>
-#include <svtkSOADataArrayTemplate.h>
-#endif
+#include <svtkType.h>
 #if defined(ENABLE_VTK_IO)
 #include <vtkXMLUnstructuredGridWriter.h>
 #endif
 #if defined(ENABLE_VTK_CORE)
 #include <vtkCommand.h>
 #include <vtkCallbackCommand.h>
-#include <vtkAOSDataArrayTemplate.h>
-#include <vtkSOADataArrayTemplate.h>
-#include <vtkDoubleArray.h>
-#include <vtkIntArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPoints.h>
 #include <vtkCellArray.h>
@@ -80,14 +77,10 @@
 #include <vtkPointData.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
-#include <vtkDataArray.h>
-#include <vtkAbstractArray.h>
-#include <vtkUnsignedCharArray.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkStructuredGrid.h>
 #include <vtkRectilinearGrid.h>
-#include <vtkUnstructuredGrid.h>
 #include <vtkImageData.h>
 #include <vtkUniformGrid.h>
 #include <vtkMultiBlockDataSet.h>
@@ -104,6 +97,25 @@
 #include <vtkPoints.h>
 #include <vtkCellArray.h>
 #include <vtkAMRBox.h>
+#include <vtkDataArray.h>
+#include <vtkAbstractArray.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkSOADataArrayTemplate.h>
+#include <vtkIdTypeArray.h>
+#include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
+#include <vtkCharArray.h>
+#include <vtkShortArray.h>
+#include <vtkIntArray.h>
+#include <vtkLongArray.h>
+#include <vtkLongLongArray.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkUnsignedShortArray.h>
+#include <vtkUnsignedIntArray.h>
+#include <vtkUnsignedLongArray.h>
+#include <vtkUnsignedLongLongArray.h>
+#include <vtkIdTypeArray.h>
+#include <vtkType.h>
 #endif
 
 #include <sstream>
@@ -1367,7 +1379,108 @@ void svtkObjectDelete(vtkObject *, unsigned long, void *clientData, void *)
     svtkObject *heldRef = (svtkObject*)clientData;
     heldRef->Delete();
 }
+
+/// type traits for VTK AOS Data Arrays
+template <typename T>
+struct vtkAOSDataArrayTT
+{
+    using Type = vtkAOSDataArrayTemplate<T>;
+};
+
+#define declareVtkAOSDataArrayTT(_CPP_T, _VTK_T)    \
+template<>                                          \
+struct vtkAOSDataArrayTT<_CPP_T>                    \
+{                                                   \
+    using Type = _VTK_T;                            \
+};
+
+declareVtkAOSDataArrayTT(char, vtkCharArray)
+declareVtkAOSDataArrayTT(short, vtkShortArray)
+declareVtkAOSDataArrayTT(int, vtkIntArray)
+declareVtkAOSDataArrayTT(long, vtkLongArray)
+declareVtkAOSDataArrayTT(long long, vtkLongLongArray)
+declareVtkAOSDataArrayTT(unsigned char, vtkUnsignedCharArray)
+declareVtkAOSDataArrayTT(unsigned short, vtkUnsignedShortArray)
+declareVtkAOSDataArrayTT(unsigned int, vtkUnsignedIntArray)
+declareVtkAOSDataArrayTT(unsigned long, vtkUnsignedLongArray)
+declareVtkAOSDataArrayTT(unsigned long long, vtkUnsignedLongLongArray)
+declareVtkAOSDataArrayTT(float, vtkFloatArray)
+declareVtkAOSDataArrayTT(double, vtkDoubleArray)
 #endif
+
+// --------------------------------------------------------------------------
+vtkTypeInt64Array *VTKObjectFactory::New(svtkTypeInt64Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a vtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  vtkTypeInt64Array *daOut = vtkTypeInt64Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  vtkCallbackCommand *cc = vtkCallbackCommand::New();
+  cc->SetCallback(svtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(vtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+vtkTypeInt32Array *VTKObjectFactory::New(svtkTypeInt32Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from SVTK to VTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a vtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  vtkTypeInt32Array *daOut = vtkTypeInt32Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  vtkCallbackCommand *cc = vtkCallbackCommand::New();
+  cc->SetCallback(svtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(vtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
 
 // --------------------------------------------------------------------------
 vtkDataArray *VTKObjectFactory::New(svtkDataArray *daIn)
@@ -1400,7 +1513,7 @@ vtkDataArray *VTKObjectFactory::New(svtkDataArray *daIn)
     if (aosIn)
     {
       // AOS
-      vtkAOSDataArrayTemplate<SVTK_TT> *aosOut = vtkAOSDataArrayTemplate<SVTK_TT>::New();
+      vtkAOSDataArrayTT<SVTK_TT>::Type *aosOut = vtkAOSDataArrayTT<SVTK_TT>::Type::New();
       aosOut->SetNumberOfComponents(nComps);
       aosOut->SetArray(aosIn->GetPointer(0), nTups*nComps, 1);
       daOut = static_cast<vtkDataArray*>(aosOut);
@@ -1459,27 +1572,51 @@ vtkCellArray *VTKObjectFactory::New(svtkCellArray *caIn)
 
   vtkCellArray *caOut = vtkCellArray::New();
 
-  vtkDataArray *offs = VTKObjectFactory::New(caIn->GetOffsetsArray());
-  vtkDataArray *conn = VTKObjectFactory::New(caIn->GetConnectivityArray());
-
-  switch (offs->GetDataType())
+  // zero-copy only works if the array types exactly match, the svtkCellArray
+  // has overloads for the common types that will silenlty make copies and not
+  // hold a reference to the passed array
+  if (caIn->IsStorage64Bit())
   {
-    vtkCellTemplateMacro(
-      caOut->SetData(dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(offs),
-        dynamic_cast<vtkAOSDataArrayTemplate<VTK_TT>*>(conn));
-      )
-
-    default:
+    vtkTypeInt64Array *offs = VTKObjectFactory::New(caIn->GetOffsetsArray64());
+    if (!offs)
     {
-      SENSEI_ERROR("Can't copy cell offsets/connectivity of type "
-        << offs->GetClassName())
-      caOut->Delete();
+      SENSEI_ERROR("Failed to create the offsets array")
       return nullptr;
     }
-  }
 
-  offs->Delete();
-  conn->Delete();
+    vtkTypeInt64Array *conn = VTKObjectFactory::New(caIn->GetConnectivityArray64());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
+  else
+  {
+    vtkTypeInt32Array *offs = VTKObjectFactory::New(caIn->GetOffsetsArray32());
+    if (!offs)
+    {
+      SENSEI_ERROR("Failed to create the offsets array")
+      return nullptr;
+    }
+
+    vtkTypeInt32Array *conn = VTKObjectFactory::New(caIn->GetConnectivityArray32());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
 
   return caOut;
 #endif
@@ -1862,7 +1999,7 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(lines);
+  pdOut->SetLines(lines);
   lines->Delete();
 
   // poly cells
@@ -1873,7 +2010,7 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(polys);
+  pdOut->SetPolys(polys);
   polys->Delete();
 
   // strip cells
@@ -1884,7 +2021,7 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(strips);
+  pdOut->SetStrips(strips);
   strips->Delete();
 
   // point data arrays
@@ -1952,6 +2089,17 @@ vtkUnstructuredGrid *VTKObjectFactory::New(svtkUnstructuredGrid *ugIn)
   ugOut->SetCells(ct, cells);
   ct->Delete();
   cells->Delete();
+
+  // points
+  vtkPoints *pts = VTKObjectFactory::New(ugIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the svtkPolyData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->SetPoints(pts);
+  pts->Delete();
 
   // point data arrays
   vtkPointData *pd = VTKObjectFactory::New(ugIn->GetPointData());
@@ -2200,7 +2348,108 @@ void vtkObjectDelete(svtkObject *, unsigned long, void *clientData, void *)
     vtkObject *heldRef = (vtkObject*)clientData;
     heldRef->Delete();
 }
+
+/// type traits for SVTK AOS Data Arrays
+template <typename T>
+struct svtkAOSDataArrayTT
+{
+    using Type = svtkAOSDataArrayTemplate<T>;
+};
+
+#define declareSvtkAOSDataArrayTT(_CPP_T, _SVTK_T)  \
+template<>                                          \
+struct svtkAOSDataArrayTT<_CPP_T>                   \
+{                                                   \
+    using Type = _SVTK_T;                           \
+};
+
+declareSvtkAOSDataArrayTT(char, svtkCharArray)
+declareSvtkAOSDataArrayTT(short, svtkShortArray)
+declareSvtkAOSDataArrayTT(int, svtkIntArray)
+declareSvtkAOSDataArrayTT(long, svtkLongArray)
+declareSvtkAOSDataArrayTT(long long, svtkLongLongArray)
+declareSvtkAOSDataArrayTT(unsigned char, svtkUnsignedCharArray)
+declareSvtkAOSDataArrayTT(unsigned short, svtkUnsignedShortArray)
+declareSvtkAOSDataArrayTT(unsigned int, svtkUnsignedIntArray)
+declareSvtkAOSDataArrayTT(unsigned long, svtkUnsignedLongArray)
+declareSvtkAOSDataArrayTT(unsigned long long, svtkUnsignedLongLongArray)
+declareSvtkAOSDataArrayTT(float, svtkFloatArray)
+declareSvtkAOSDataArrayTT(double, svtkDoubleArray)
 #endif
+
+// --------------------------------------------------------------------------
+svtkTypeInt64Array *SVTKObjectFactory::New(vtkTypeInt64Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a svtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  svtkTypeInt64Array *daOut = svtkTypeInt64Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  svtkCallbackCommand *cc = svtkCallbackCommand::New();
+  cc->SetCallback(vtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(svtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
+
+// --------------------------------------------------------------------------
+svtkTypeInt32Array *SVTKObjectFactory::New(vtkTypeInt32Array *daIn)
+{
+#if !defined(ENABLE_VTK_CORE)
+  (void)daIn;
+  SENSEI_ERROR("Conversion from VTK to SVTK is not available in this build")
+  return nullptr;
+#else
+  if (!daIn)
+  {
+    SENSEI_ERROR("Can't create a svtkTypeInt64Array from nullptr")
+    return nullptr;
+  }
+
+  size_t nTups = daIn->GetNumberOfTuples();
+  size_t nComps = daIn->GetNumberOfComponents();
+
+  svtkTypeInt32Array *daOut = svtkTypeInt32Array::New();
+  daOut->SetNumberOfComponents(nComps);
+  daOut->SetArray(daIn->GetPointer(0), nTups*nComps, 1);
+  daOut->SetName(daIn->GetName());
+
+  // hold a reference to the VTK array.
+  daIn->Register(nullptr);
+
+  // release the held reference when the SVTK array signals it is finished
+  svtkCallbackCommand *cc = svtkCallbackCommand::New();
+  cc->SetCallback(vtkObjectDelete);
+  cc->SetClientData(daIn);
+
+  daOut->AddObserver(svtkCommand::DeleteEvent, cc);
+  cc->Delete();
+
+  return daOut;
+#endif
+}
 
 // --------------------------------------------------------------------------
 svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
@@ -2233,7 +2482,7 @@ svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
     if (aosIn)
     {
       // AOS
-      svtkAOSDataArrayTemplate<VTK_TT> *aosOut = svtkAOSDataArrayTemplate<VTK_TT>::New();
+      svtkAOSDataArrayTT<VTK_TT>::Type *aosOut = svtkAOSDataArrayTT<VTK_TT>::Type::New();
       aosOut->SetNumberOfComponents(nComps);
       aosOut->SetArray(aosIn->GetPointer(0), nTups*nComps, 1);
       daOut = static_cast<svtkDataArray*>(aosOut);
@@ -2292,27 +2541,51 @@ svtkCellArray *SVTKObjectFactory::New(vtkCellArray *caIn)
 
   svtkCellArray *caOut = svtkCellArray::New();
 
-  svtkDataArray *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray());
-  svtkDataArray *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray());
-
-  switch (offs->GetDataType())
+  // zero-copy only works if the array types exactly match, the vtkCellArray
+  // has overloads for the common types that will silenlty make copies and not
+  // hold a reference to the passed array
+  if (caIn->IsStorage64Bit())
   {
-    svtkCellTemplateMacro(
-      caOut->SetData(dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(offs),
-        dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(conn));
-      )
-
-    default:
+    svtkTypeInt64Array *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray64());
+    if (!offs)
     {
-      SENSEI_ERROR("Can't copy cell offsets/connectivity of type "
-        << offs->GetClassName())
-      caOut->Delete();
+      SENSEI_ERROR("Failed to create the offsets array")
       return nullptr;
     }
-  }
 
-  offs->Delete();
-  conn->Delete();
+    svtkTypeInt64Array *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray64());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
+  else
+  {
+    svtkTypeInt32Array *offs = SVTKObjectFactory::New(caIn->GetOffsetsArray32());
+    if (!offs)
+    {
+      SENSEI_ERROR("Failed to create the offsets array")
+      return nullptr;
+    }
+
+    svtkTypeInt32Array *conn = SVTKObjectFactory::New(caIn->GetConnectivityArray32());
+    if (!conn)
+    {
+      SENSEI_ERROR("Failed to create the connectivity array")
+      return nullptr;
+    }
+
+    caOut->SetData(offs, conn);
+
+    offs->Delete();
+    conn->Delete();
+  }
 
   return caOut;
 #endif
@@ -2695,7 +2968,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(lines);
+  pdOut->SetLines(lines);
   lines->Delete();
 
   // poly cells
@@ -2706,7 +2979,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(polys);
+  pdOut->SetPolys(polys);
   polys->Delete();
 
   // strip cells
@@ -2717,7 +2990,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(strips);
+  pdOut->SetStrips(strips);
   strips->Delete();
 
   // point data arrays
@@ -2785,6 +3058,17 @@ svtkUnstructuredGrid *SVTKObjectFactory::New(vtkUnstructuredGrid *ugIn)
   ugOut->SetCells(ct, cells);
   ct->Delete();
   cells->Delete();
+
+  // points
+  svtkPoints *pts = SVTKObjectFactory::New(ugIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the vtkPolyData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->SetPoints(pts);
+  pts->Delete();
 
   // point data arrays
   svtkPointData *pd = SVTKObjectFactory::New(ugIn->GetPointData());
