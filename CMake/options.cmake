@@ -46,16 +46,22 @@ cmake_dependent_option(ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
   "ENABLE_SENSEI" OFF)
 
+# enable VTK by default if Catalyst is present.
+set(VTK_DEFAULT OFF)
+if (ENABLE_CATALYST)
+  set(VTK_DEFAULT ON)
+endif()
+
 cmake_dependent_option(ENABLE_VTK_IO
-  "Enable use of vtk I/O" OFF
+  "Enable use of vtk I/O" ${VTK_DEFAULT}
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_MPI
-  "Enable use of parallel vtk" OFF
+  "Enable use of parallel vtk" ${VTK_DEFAULT}
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_RENDERING
-  "Enable use of VTK's rendering libraries" OFF
+  "Enable use of VTK's rendering libraries" ${VTK_DEFAULT}
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_ACCELERATORS
@@ -63,7 +69,7 @@ cmake_dependent_option(ENABLE_VTK_ACCELERATORS
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTK_FILTERS
-  "Enable use of VTK's generic filters library" OFF
+  "Enable use of VTK's generic filters library" ${VTK_DEFAULT}
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTKM
