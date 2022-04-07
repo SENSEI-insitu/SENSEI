@@ -2090,6 +2090,17 @@ vtkUnstructuredGrid *VTKObjectFactory::New(svtkUnstructuredGrid *ugIn)
   ct->Delete();
   cells->Delete();
 
+  // points
+  vtkPoints *pts = VTKObjectFactory::New(ugIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the svtkPolyData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->SetPoints(pts);
+  pts->Delete();
+
   // point data arrays
   vtkPointData *pd = VTKObjectFactory::New(ugIn->GetPointData());
   if (!pd)
@@ -3047,6 +3058,17 @@ svtkUnstructuredGrid *SVTKObjectFactory::New(vtkUnstructuredGrid *ugIn)
   ugOut->SetCells(ct, cells);
   ct->Delete();
   cells->Delete();
+
+  // points
+  svtkPoints *pts = SVTKObjectFactory::New(ugIn->GetPoints());
+  if (!pts)
+  {
+    SENSEI_ERROR("Failed to transfer points of the vtkPolyData")
+    ugOut->Delete();
+    return nullptr;
+  }
+  ugOut->SetPoints(pts);
+  pts->Delete();
 
   // point data arrays
   svtkPointData *pd = SVTKObjectFactory::New(ugIn->GetPointData());
