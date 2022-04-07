@@ -1999,7 +1999,7 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(lines);
+  pdOut->SetLines(lines);
   lines->Delete();
 
   // poly cells
@@ -2010,7 +2010,7 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(polys);
+  pdOut->SetPolys(polys);
   polys->Delete();
 
   // strip cells
@@ -2021,7 +2021,7 @@ vtkPolyData *VTKObjectFactory::New(svtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(strips);
+  pdOut->SetStrips(strips);
   strips->Delete();
 
   // point data arrays
@@ -2957,7 +2957,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(lines);
+  pdOut->SetLines(lines);
   lines->Delete();
 
   // poly cells
@@ -2968,7 +2968,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(polys);
+  pdOut->SetPolys(polys);
   polys->Delete();
 
   // strip cells
@@ -2979,7 +2979,7 @@ svtkPolyData *SVTKObjectFactory::New(vtkPolyData *pdIn)
     pdOut->Delete();
     return nullptr;
   }
-  pdOut->SetVerts(strips);
+  pdOut->SetStrips(strips);
   strips->Delete();
 
   // point data arrays
