@@ -5,22 +5,29 @@
 #include "Error.h"
 
 
+#include <svtkDataArray.h>
+#include <svtkAbstractArray.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
+#include <svtkIdTypeArray.h>
+#include <svtkDoubleArray.h>
+#include <svtkFloatArray.h>
+#include <svtkCharArray.h>
+#include <svtkShortArray.h>
+#include <svtkIntArray.h>
+#include <svtkLongArray.h>
+#include <svtkLongLongArray.h>
+#include <svtkUnsignedCharArray.h>
+#include <svtkUnsignedShortArray.h>
+#include <svtkUnsignedIntArray.h>
+#include <svtkUnsignedLongArray.h>
+#include <svtkUnsignedLongLongArray.h>
+#include <svtkIdTypeArray.h>
+#include <svtkAOSDataArrayTemplate.h>
+#include <svtkSOADataArrayTemplate.h>
 #include <svtkCompositeDataIterator.h>
 #include <svtkCompositeDataSet.h>
 #include <svtkDataSetAttributes.h>
-#include <svtkDataArray.h>
-#include <svtkAbstractArray.h>
-#include <svtkDoubleArray.h>
-#include <svtkFloatArray.h>
-#include <svtkIntArray.h>
-#include <svtkUnsignedIntArray.h>
-#include <svtkLongArray.h>
-#include <svtkUnsignedLongArray.h>
-#include <svtkLongLongArray.h>
-#include <svtkUnsignedLongLongArray.h>
-#include <svtkCharArray.h>
-#include <svtkUnsignedCharArray.h>
-#include <svtkIdTypeArray.h>
 #include <svtkPoints.h>
 #include <svtkPolyData.h>
 #include <svtkStructuredPoints.h>
@@ -54,25 +61,15 @@
 #include <svtkCellArray.h>
 #include <svtkCellTypes.h>
 #include <svtkSmartPointer.h>
-#include <svtkIntArray.h>
 #include <svtkCallbackCommand.h>
 #include <svtkVersionMacros.h>
-#if ((SVTK_VERSION_MAJOR >= 8) && (SVTK_VERSION_MINOR >= 2))
-#include <svtkAOSDataArrayTemplate.h>
-#include <svtkSOADataArrayTemplate.h>
-#endif
+#include <svtkType.h>
 #if defined(ENABLE_VTK_IO)
 #include <vtkXMLUnstructuredGridWriter.h>
 #endif
 #if defined(ENABLE_VTK_CORE)
 #include <vtkCommand.h>
 #include <vtkCallbackCommand.h>
-#include <vtkAOSDataArrayTemplate.h>
-#include <vtkSOADataArrayTemplate.h>
-#include <vtkDoubleArray.h>
-#include <vtkIntArray.h>
-#include <vtkIdTypeArray.h>
-#include <vtkUnsignedCharArray.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPoints.h>
 #include <vtkCellArray.h>
@@ -80,14 +77,10 @@
 #include <vtkPointData.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkCompositeDataSet.h>
-#include <vtkDataArray.h>
-#include <vtkAbstractArray.h>
-#include <vtkUnsignedCharArray.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkStructuredGrid.h>
 #include <vtkRectilinearGrid.h>
-#include <vtkUnstructuredGrid.h>
 #include <vtkImageData.h>
 #include <vtkUniformGrid.h>
 #include <vtkMultiBlockDataSet.h>
@@ -104,6 +97,25 @@
 #include <vtkPoints.h>
 #include <vtkCellArray.h>
 #include <vtkAMRBox.h>
+#include <vtkDataArray.h>
+#include <vtkAbstractArray.h>
+#include <vtkAOSDataArrayTemplate.h>
+#include <vtkSOADataArrayTemplate.h>
+#include <vtkIdTypeArray.h>
+#include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
+#include <vtkCharArray.h>
+#include <vtkShortArray.h>
+#include <vtkIntArray.h>
+#include <vtkLongArray.h>
+#include <vtkLongLongArray.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkUnsignedShortArray.h>
+#include <vtkUnsignedIntArray.h>
+#include <vtkUnsignedLongArray.h>
+#include <vtkUnsignedLongLongArray.h>
+#include <vtkIdTypeArray.h>
+#include <vtkType.h>
 #endif
 
 #include <sstream>
@@ -1367,6 +1379,33 @@ void svtkObjectDelete(vtkObject *, unsigned long, void *clientData, void *)
     svtkObject *heldRef = (svtkObject*)clientData;
     heldRef->Delete();
 }
+
+/// type traits for VTK AOS Data Arrays
+template <typename T>
+struct vtkAOSDataArrayTT
+{
+    using Type = vtkAOSDataArrayTemplate<T>;
+};
+
+#define declareVtkAOSDataArrayTT(_CPP_T, _VTK_T)    \
+template<>                                          \
+struct vtkAOSDataArrayTT<_CPP_T>                    \
+{                                                   \
+    using Type = _VTK_T;                            \
+};
+
+declareVtkAOSDataArrayTT(char, vtkCharArray)
+declareVtkAOSDataArrayTT(short, vtkShortArray)
+declareVtkAOSDataArrayTT(int, vtkIntArray)
+declareVtkAOSDataArrayTT(long, vtkLongArray)
+declareVtkAOSDataArrayTT(long long, vtkLongLongArray)
+declareVtkAOSDataArrayTT(unsigned char, vtkUnsignedCharArray)
+declareVtkAOSDataArrayTT(unsigned short, vtkUnsignedShortArray)
+declareVtkAOSDataArrayTT(unsigned int, vtkUnsignedIntArray)
+declareVtkAOSDataArrayTT(unsigned long, vtkUnsignedLongArray)
+declareVtkAOSDataArrayTT(unsigned long long, vtkUnsignedLongLongArray)
+declareVtkAOSDataArrayTT(float, vtkFloatArray)
+declareVtkAOSDataArrayTT(double, vtkDoubleArray)
 #endif
 
 // --------------------------------------------------------------------------
@@ -1400,7 +1439,7 @@ vtkDataArray *VTKObjectFactory::New(svtkDataArray *daIn)
     if (aosIn)
     {
       // AOS
-      vtkAOSDataArrayTemplate<SVTK_TT> *aosOut = vtkAOSDataArrayTemplate<SVTK_TT>::New();
+      vtkAOSDataArrayTT<SVTK_TT>::Type *aosOut = vtkAOSDataArrayTT<SVTK_TT>::Type::New();
       aosOut->SetNumberOfComponents(nComps);
       aosOut->SetArray(aosIn->GetPointer(0), nTups*nComps, 1);
       daOut = static_cast<vtkDataArray*>(aosOut);
@@ -2200,6 +2239,33 @@ void vtkObjectDelete(svtkObject *, unsigned long, void *clientData, void *)
     vtkObject *heldRef = (vtkObject*)clientData;
     heldRef->Delete();
 }
+
+/// type traits for SVTK AOS Data Arrays
+template <typename T>
+struct svtkAOSDataArrayTT
+{
+    using Type = svtkAOSDataArrayTemplate<T>;
+};
+
+#define declareSvtkAOSDataArrayTT(_CPP_T, _SVTK_T)  \
+template<>                                          \
+struct svtkAOSDataArrayTT<_CPP_T>                   \
+{                                                   \
+    using Type = _SVTK_T;                           \
+};
+
+declareSvtkAOSDataArrayTT(char, svtkCharArray)
+declareSvtkAOSDataArrayTT(short, svtkShortArray)
+declareSvtkAOSDataArrayTT(int, svtkIntArray)
+declareSvtkAOSDataArrayTT(long, svtkLongArray)
+declareSvtkAOSDataArrayTT(long long, svtkLongLongArray)
+declareSvtkAOSDataArrayTT(unsigned char, svtkUnsignedCharArray)
+declareSvtkAOSDataArrayTT(unsigned short, svtkUnsignedShortArray)
+declareSvtkAOSDataArrayTT(unsigned int, svtkUnsignedIntArray)
+declareSvtkAOSDataArrayTT(unsigned long, svtkUnsignedLongArray)
+declareSvtkAOSDataArrayTT(unsigned long long, svtkUnsignedLongLongArray)
+declareSvtkAOSDataArrayTT(float, svtkFloatArray)
+declareSvtkAOSDataArrayTT(double, svtkDoubleArray)
 #endif
 
 // --------------------------------------------------------------------------
@@ -2233,7 +2299,7 @@ svtkDataArray *SVTKObjectFactory::New(vtkDataArray *daIn)
     if (aosIn)
     {
       // AOS
-      svtkAOSDataArrayTemplate<VTK_TT> *aosOut = svtkAOSDataArrayTemplate<VTK_TT>::New();
+      svtkAOSDataArrayTT<VTK_TT>::Type *aosOut = svtkAOSDataArrayTT<VTK_TT>::Type::New();
       aosOut->SetNumberOfComponents(nComps);
       aosOut->SetArray(aosIn->GetPointer(0), nTups*nComps, 1);
       daOut = static_cast<svtkDataArray*>(aosOut);
