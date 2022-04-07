@@ -98,7 +98,7 @@ senseiNewMacro(VTKPosthocIO);
 
 //-----------------------------------------------------------------------------
 VTKPosthocIO::VTKPosthocIO() :
-  OutputDir("./"), Mode(MODE_PARAVIEW), Writer(WRITER_VTK_XML)
+  Frequency(1), OutputDir("./"), Mode(MODE_PARAVIEW), Writer(WRITER_VTK_XML)
 {}
 
 //-----------------------------------------------------------------------------
@@ -170,8 +170,8 @@ int VTKPosthocIO::SetMode(std::string modeStr)
 //-----------------------------------------------------------------------------
 int VTKPosthocIO::SetWriter(int writer)
 {
-  if (!(writer == VTKPosthocIO::WRITER_VTK_LEGACY) ||
-    (writer == VTKPosthocIO::WRITER_VTK_XML))
+  if ((writer != VTKPosthocIO::WRITER_VTK_LEGACY) &&
+    (writer != VTKPosthocIO::WRITER_VTK_XML))
     {
     SENSEI_ERROR("Invalid writer " << writer)
     return -1;
@@ -263,7 +263,7 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 
   long step = dataIn->GetDataTimeStep();
 
-  if(this->Frequency > 0 && step % this->Frequency != 0)
+  if ((this->Frequency > 0) && (step % this->Frequency != 0))
     {
     return true;
     }
