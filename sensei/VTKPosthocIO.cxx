@@ -222,7 +222,7 @@ std::string VTKPosthocIO::GetGhostArrayName()
       return "avtGhostZones";
 
     if (this->Mode == VTKPosthocIO::MODE_PARAVIEW)
-      return "svtkGhostType";
+      return "vtkGhostType";
     }
 
   return this->GhostArrayName;

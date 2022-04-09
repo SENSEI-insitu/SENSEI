@@ -60,7 +60,7 @@ public:
    */
   int SetWriter(std::string writer);
 
-  /**  if set this overrrides the default of vtkGhostType for ParaView and
+  /**  if set this overrides the default of vtkGhostType for ParaView and
    * avtGhostZones for VisIt
    */
   void SetGhostArrayName(const std::string &name);

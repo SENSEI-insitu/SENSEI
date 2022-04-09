@@ -303,7 +303,7 @@ Ghost zone and AMR mask array conventions
 -----------------------------------------
 SENSEI uses the conventions defined by VisIt and recently adopted by VTK and
 ParaView for masking ghost zones and covered cells in overlapping AMR data.
-In accordance with VTK convention these arrays must by named vtkGhostType.
+In accordance with VTK convention these arrays must by named svtkGhostType.
 
 Mask values for cells and cell centered data:
 
