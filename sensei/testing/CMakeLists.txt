@@ -79,7 +79,7 @@ if (BUILD_TESTING)
   ##############################################################################
   senseiAddTest(testPartitionerPy
     COMMAND
-      ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioner.py 13
+      ${PYTHON_EXECUTABLE} -m mpi4py ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioner.py 13
     FEATURES PYTHON)
 
   ##############################################################################

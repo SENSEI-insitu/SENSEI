@@ -35,12 +35,12 @@ fi
 
 trap 'eval echo $BASH_COMMAND' DEBUG
 
-rm -rf ${file}
+rm -rfv ${file}
 
 echo "testing ${writeMethod} -> ${readMethod}"
 echo "M=${nproc_write} x N=${nproc_read}"
 
-${mpiexec} ${@} ${npflag} ${nproc_write} ${pyexec} ${srcdir}/testADIOS2Write.py ${writeMethod} ${file} ${stepsPerFile} ${nits} &
+${mpiexec} ${@} ${npflag} ${nproc_write} ${pyexec} -m mpi4py ${srcdir}/testADIOS2Write.py ${writeMethod} ${file} ${stepsPerFile} ${nits} &
 writePid=$!
 
 if [[ "${readMethod}" == "BP4" ]]
@@ -50,5 +50,8 @@ then
   wait ${writePid}
 fi
 
-${mpiexec} ${@} ${npflag} ${nproc_read} ${pyexec} ${srcdir}/testADIOS2Read.py ${readMethod} ${file}
+${mpiexec} ${@} ${npflag} ${nproc_read} ${pyexec} -m mpi4py ${srcdir}/testADIOS2Read.py ${readMethod} ${file}
+
+rm -rfv ${file}
+
 exit 0

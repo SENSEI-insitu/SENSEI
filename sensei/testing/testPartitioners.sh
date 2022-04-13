@@ -41,7 +41,8 @@ rm -rf test_*.bp
 
 export PROFILER_ENABLE=2 PROFILER_LOG_FILE=WriterTimes.csv MEMPROF_LOG_FILE=WriterMemProf.csv
 
-${mpiexec} ${@} ${npflag} ${nproc_write} ${python} ${srcdir}/testPartitionersWrite.py \
+${mpiexec} ${@} ${npflag} ${nproc_write} ${python} -m mpi4py \
+  ${srcdir}/testPartitionersWrite.py \
   "${srcdir}/${writer_analysis_xml}" ${nits} ${nblock_x} ${nblock_y} 16 16    \
   -6.2832 6.2832 -6.2832 6.2832 0 6.2832 &
 writePid=$!
@@ -76,7 +77,8 @@ fi
 
 export PROFILER_ENABLE=2 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderMemProf.csv
 
-${mpiexec} ${@} ${npflag} ${nproc_read} ${python} ${srcdir}/testPartitionersRead.py \
+${mpiexec} ${@} ${npflag} ${nproc_read} ${python} -m mpi4py \
+  ${srcdir}/testPartitionersRead.py \
   "${srcdir}/${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"
 
 test_stat=$?
