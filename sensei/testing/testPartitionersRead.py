@@ -54,7 +54,8 @@ def run_endpoint(analysisXml, transportXml):
   while status == 0:
 
     # execute the analysis
-    if not ca.Execute(da):
+    status, daOut = ca.Execute(da)
+    if status == 0:
       error_message('analysis failed')
       sys.exit(-1)
 

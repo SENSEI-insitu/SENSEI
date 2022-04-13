@@ -32,10 +32,7 @@ class DataAdaptor;
  * Python's built in import mechanism. This means that it must be in a
  * directory in the `PYTHONPATH`. If a file is specified (see SetScriptFile)
  * the file is read on rank 0 and broadcast to other ranks. Use either the
- * module or the file approach, but not both. Note that the user provided
- * Eecute function must call Delete on all vtkDataObject's returned from
- * sensei::DataAdaptor::GetMesh and sensei::DataAdaptor::ReleaseData must be
- * called when processing is completed.
+ * module or the file approach, but not both.
  *
  * The active MPI communicator is made available to the script through the
  * global variable `comm`.
@@ -48,6 +45,25 @@ class DataAdaptor;
  * The compiled artifacts of this class and the sensei Python module  must be
  * findable in both the `PYTHONPATH` and the `LD_LIBRARY_PATH`
  * (`DYLD_LIBRARY_PATH` on Mac OS)
+ *
+ * The user provided Execute function returns one of four possible things:
+ *
+ * 1. None. Success is assumed in this case, and processing continues.
+ * 2. An integer status code where 0 indicates to stop in situ processing and
+ *    non-zero indicates to continue in situ processing.
+ * 3. A data adaptor instance. The data adaptor instance can be used to access
+ *    the results of the operation. Success is assumed in this case and processing
+ *    continues.
+ * 4. A tuple containing an integer status code (see 2 above for description of
+ *    status codes) and a data adaptor instance through which results of the
+ *    operation may be accessed.
+ *
+ * At any point the user provided code may raise an exception if an error
+ * occurred. This will be caught and preoprted. An error code will be returned
+ * to the simulation indicating to halt in situ processing.
+ *
+ * The user provided Execute function should call DataAdaptor::ReleaseData when
+ * processing is completed to ensure all resources are released.
  */
 class SENSEI_EXPORT PythonAnalysis : public AnalysisAdaptor
 {

@@ -389,20 +389,57 @@ bool PythonAnalysis::Execute(DataAdaptor *daIn, DataAdaptor **daOut)
   PyObject *ret = nullptr;
 
   // invoke the provided execute function
-  int status = callFunction("Execute", this->Internals->Execute, args, ret);
+  if (callFunction("Execute", this->Internals->Execute, args, ret))
+    {
+    Py_DECREF(args);
+    return false;
+    }
 
-  // if there's a returned data adptor, convert
-  if (daOut && ret && (ret != Py_None))
-  {
+  // clean up function arguments
+  Py_DECREF(args);
+
+  // the user provided function could return one of four possible things:
+  // 1. None
+  // 2. an integer status code
+  // 3. a data adaptor instance
+  // 4. a tuple continaing an integer status code and a data adaptor instance
+  int status = 1;
+  if (ret && (ret != Py_None))
+    {
+    PyObject *pyDaOut = ret;
+    if (PyLong_Check(ret))
+      {
+      // status code
+      status = PyLong_AsLong(ret);
+      Py_DECREF(ret);
+      return status;
+      }
+    else if (PyTuple_Check(ret) && (PyTuple_Size(ret) == 2))
+      {
+      if ((PyTuple_Size(ret) != 2) && !PyLong_Check(PyTuple_GetItem(ret, 0)))
+        {
+        SENSEI_PYTHON_ERROR("Bad tuple returned from Execute")
+        PyObject_Print(ret, stderr, Py_PRINT_RAW);
+        Py_DECREF(ret);
+        return false;
+        }
+      // status code
+      status = PyLong_AsLong(PyTuple_GetItem(ret, 0));
+      // data adaptor
+      pyDaOut = PyTuple_GetItem(ret, 1);
+      }
+
+    // a data adaptor was returned
     int newmem = 0;
     void *tmpvp = nullptr;
-    int ierr = SWIG_ConvertPtrAndOwn(ret, &tmpvp,
-      SWIGTYPE_p_sensei__DataAdaptor, 0, &newmem);
+    int ierr = SWIG_ConvertPtrAndOwn(pyDaOut,
+      &tmpvp, SWIGTYPE_p_sensei__DataAdaptor, 0, &newmem);
 
     if (ierr == SWIG_ERROR)
       {
+      SENSEI_PYTHON_ERROR("Execute returned an invalid DataAdaptor")
       PyObject_Print(ret, stderr, Py_PRINT_RAW);
-      SENSEI_ERROR("Execute function returned an invalid DataAdaptor")
+      Py_DECREF(ret);
       return false;
       }
 
@@ -412,23 +449,22 @@ bool PythonAnalysis::Execute(DataAdaptor *daIn, DataAdaptor **daOut)
 
     // capture the return and take a reference
     if (tmpvp)
-    {
+      {
       *daOut = reinterpret_cast<sensei::DataAdaptor*>(tmpvp);
       (*daOut)->Register(nullptr);
-    }
+      }
 
     // clean up memory allocated by SWIG
     if (newmem & SWIG_CAST_NEW_MEMORY)
-    {
+      {
       (*daOut)->Delete();
+      }
     }
-  }
 
   // clean up
-  Py_DECREF(args);
   Py_XDECREF(ret);
 
-  return status == 0;
+  return true;
 }
 
 }
