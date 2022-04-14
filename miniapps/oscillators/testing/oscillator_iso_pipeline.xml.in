@@ -1,0 +1,11 @@
+<sensei>
+  <analysis type="python" script_file="@CMAKE_CURRENT_SOURCE_DIR@/oscillator_iso_pipeline.py" enabled="1">
+    <initialize_source>
+meshName = 'mesh'
+arrayName = 'data'
+arrayCen = svtkDataObject.CELL
+isoVals = [-0.619028, -0.0739720000000001, 0.47108399999999995, 1.01614]
+outputDir = 'oscillator_iso_pipeline_%s'%(meshName)
+     </initialize_source>
+  </analysis>
+</sensei>

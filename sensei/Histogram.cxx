@@ -111,11 +111,7 @@ void Histogram::Initialize(int bins, const std::string &meshName,
 //-----------------------------------------------------------------------------
 const char *Histogram::GetGhostArrayName()
 {
-#if SVTK_MAJOR_VERSION == 6 && SVTK_MINOR_VERSION == 1
     return "svtkGhostType";
-#else
-    return svtkDataSetAttributes::GhostArrayName();
-#endif
 }
 
 //-----------------------------------------------------------------------------

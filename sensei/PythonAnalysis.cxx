@@ -1,4 +1,5 @@
 #include "PythonAnalysis.h"
+#include "DataAdaptor.h"
 #include "Error.h"
 
 #include <svtkObjectFactory.h>
@@ -70,6 +71,20 @@ int callFunction(const std::string &funcName, PyObject *func, PyObject *args)
 
   Py_XDECREF(pyRet);
 
+  return 0;
+}
+
+// call the function with the given arguments
+static
+int callFunction(const std::string &funcName,
+  PyObject *func, PyObject *args, PyObject *ret)
+{
+  ret = PyObject_CallObject(func, args);
+  if (!ret || PyErr_Occurred())
+    {
+    SENSEI_PYTHON_ERROR("An error ocurred in call to \"" << funcName << "\"")
+    return -1;
+    }
   return 0;
 }
 
@@ -351,12 +366,12 @@ int PythonAnalysis::Initialize()
 }
 
 //-----------------------------------------------------------------------------
-bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor, DataAdaptor **dataOut)
+bool PythonAnalysis::Execute(DataAdaptor *daIn, DataAdaptor **daOut)
 {
-  // we currently do not return anything
-  if (dataOut)
+  // start off by indicating no return. if we have one, then correct this
+  if (daOut)
     {
-    *dataOut = nullptr;
+    *daOut = nullptr;
     }
 
   if (!this->Internals->Execute)
@@ -367,18 +382,89 @@ bool PythonAnalysis::Execute(DataAdaptor *dataAdaptor, DataAdaptor **dataOut)
 
   // wrap the data adaptor instance
   PyObject *pyDataAdaptor = SWIG_NewPointerObj(
-    SWIG_as_voidptr(dataAdaptor), SWIGTYPE_p_sensei__DataAdaptor, 0);
+    SWIG_as_voidptr(daIn), SWIGTYPE_p_sensei__DataAdaptor, 0);
 
   // the tuple takes owner ship with N
   PyObject *args = Py_BuildValue("(N)", pyDataAdaptor);
+  PyObject *ret = nullptr;
 
   // invoke the provided execute function
-  int ret = callFunction("Execute", this->Internals->Execute, args);
+  if (callFunction("Execute", this->Internals->Execute, args, ret))
+    {
+    Py_DECREF(args);
+    return false;
+    }
 
-  // clean up
+  // clean up function arguments
   Py_DECREF(args);
 
-  return ret == 0;
+  // the user provided function could return one of four possible things:
+  // 1. None
+  // 2. an integer status code
+  // 3. a data adaptor instance
+  // 4. a tuple continaing an integer status code and a data adaptor instance
+  int status = 1;
+  if (ret && (ret != Py_None))
+    {
+    PyObject *pyDaOut = ret;
+    if (PyLong_Check(ret))
+      {
+      // status code
+      status = PyLong_AsLong(ret);
+      Py_DECREF(ret);
+      return status;
+      }
+    else if (PyTuple_Check(ret) && (PyTuple_Size(ret) == 2))
+      {
+      if ((PyTuple_Size(ret) != 2) && !PyLong_Check(PyTuple_GetItem(ret, 0)))
+        {
+        SENSEI_PYTHON_ERROR("Bad tuple returned from Execute")
+        PyObject_Print(ret, stderr, Py_PRINT_RAW);
+        Py_DECREF(ret);
+        return false;
+        }
+      // status code
+      status = PyLong_AsLong(PyTuple_GetItem(ret, 0));
+      // data adaptor
+      pyDaOut = PyTuple_GetItem(ret, 1);
+      }
+
+    // a data adaptor was returned
+    int newmem = 0;
+    void *tmpvp = nullptr;
+    int ierr = SWIG_ConvertPtrAndOwn(pyDaOut,
+      &tmpvp, SWIGTYPE_p_sensei__DataAdaptor, 0, &newmem);
+
+    if (ierr == SWIG_ERROR)
+      {
+      SENSEI_PYTHON_ERROR("Execute returned an invalid DataAdaptor")
+      PyObject_Print(ret, stderr, Py_PRINT_RAW);
+      Py_DECREF(ret);
+      return false;
+      }
+
+    /* newmem = 1 SWIG_CAST_NEW_MEMORY = 2 tmpvp = 0x557e358ea080
+    std::cerr << "newmem = " << newmem << " SWIG_CAST_NEW_MEMORY = "
+       << SWIG_CAST_NEW_MEMORY  << " tmpvp = " << tmpvp << std::endl;*/
+
+    // capture the return and take a reference
+    if (tmpvp)
+      {
+      *daOut = reinterpret_cast<sensei::DataAdaptor*>(tmpvp);
+      (*daOut)->Register(nullptr);
+      }
+
+    // clean up memory allocated by SWIG
+    if (newmem & SWIG_CAST_NEW_MEMORY)
+      {
+      (*daOut)->Delete();
+      }
+    }
+
+  // clean up
+  Py_XDECREF(ret);
+
+  return true;
 }
 
 }

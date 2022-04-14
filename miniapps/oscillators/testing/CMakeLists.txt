@@ -129,6 +129,24 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/random_2d_64.osc
     FEATURES ASCENT)
 
+  if (ENABLE_VTK_IO AND ENABLE_VTK_FILTERS)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml.in
+      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml @ONLY)
+  endif()
+
+  senseiAddTest(testOscillatorIsoPipeline
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b 4 -g 1
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml
+      ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
+    FEATURES VTK_IO VTK_FILTERS)
+
+  senseiAddTest(testOscillatorIsoPipelinePar
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
+      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml
+      ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
+    FEATURES VTK_IO VTK_FILTERS)
+
   # TODO -- this test breaks dashboard builds
   #if (ENABLE_CATALYST)
   #  add_test(NAME testCatalystSlice

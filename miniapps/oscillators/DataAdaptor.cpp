@@ -718,7 +718,7 @@ int DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh, const std::string &mes
     svtkUnsignedCharArray *gh = svtkUnsignedCharArray::New();
     gh->SetNumberOfTuples(Internals->Oscillators.Size());
     gh->Fill(0);
-    gh->SetName("vtkGhostType");
+    gh->SetName("svtkGhostType");
 
     svtkDataObject *blk = mb->GetBlock(0);
     svtkDataSetAttributes *dsa = blk->GetAttributes(svtkDataObject::CELL);

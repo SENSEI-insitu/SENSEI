@@ -85,7 +85,7 @@ public:
     svtkDataObject *&mesh) = 0;
 
   /** Adds ghost nodes on the specified mesh. Implementers shouls set the name
-   * of the array to "vtkGhostType".
+   * of the array to "svtkGhostType".
    *
    *  @param[in] mesh the VTK object returned from GetMesh
    *  @param[in] meshName the name of the mesh to access (see GetMeshMetadata)
@@ -94,7 +94,7 @@ public:
   virtual int AddGhostNodesArray(svtkDataObject* mesh, const std::string &meshName);
 
   /** Adds ghost cells on the specified mesh. Implementers should set the array name to
-   * "vtkGhostType".
+   * "svtkGhostType".
    *
    *  @param[in] mesh the svtkDataObject returned from GetMesh
    *  @param[in] meshName the name of the mesh to access (see GetMeshMetadata)

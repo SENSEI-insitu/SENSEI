@@ -193,7 +193,7 @@ def write_data(engine, file_name, steps_per_file, n_its):
     status_message('executing ADIOS2AnalysisAdaptor %s ' \
       'step %d time %0.1f'%(engine,it,t))
 
-    status, ret = aw.Execute(da)
+    aw.Execute(da)
 
     # free up data
     da.ReleaseData()

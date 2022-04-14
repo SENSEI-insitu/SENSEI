@@ -136,7 +136,7 @@ def CreateCoProcessor():
       # get color legend/bar for mandelbrotLUT in view renderView1
       mandelbrotLUTColorBar = GetScalarBar(mandelbrotLUT, renderView1)
       mandelbrotLUTColorBar.Orientation = 'Horizontal'
-      mandelbrotLUTColorBar.WindowLocation = 'AnyLocation'
+      #mandelbrotLUTColorBar.WindowLocation = 'AnyLocation'
       mandelbrotLUTColorBar.Position = [0.6225, 0.02875000000000004]
       mandelbrotLUTColorBar.Title = 'mandelbrot'
       mandelbrotLUTColorBar.ComponentTitle = ''

@@ -1693,6 +1693,12 @@ vtkFieldData *VTKObjectFactory::New(svtkFieldData *fdIn)
     }
   }
 
+  vtkDataArray *gc = fdOut->GetArray("svtkGhostType");
+  if (gc)
+  {
+    gc->SetName("vtkGhostType");
+  }
+
   return fdOut;
 #endif
 }
@@ -2660,6 +2666,12 @@ svtkFieldData *SVTKObjectFactory::New(vtkFieldData *fdIn)
       fdOut->AddArray(ai);
       ai->Delete();
     }
+  }
+
+  svtkDataArray *gc = fdOut->GetArray("vtkGhostType");
+  if (gc)
+  {
+    gc->SetName("svtkGhostType");
   }
 
   return fdOut;

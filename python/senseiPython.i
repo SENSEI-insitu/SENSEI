@@ -61,12 +61,12 @@ SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
 
     PyObject *Execute(sensei::DataAdaptor *daIn)
     {
-        // invoke the analysis
         sensei::DataAdaptor *daOut = nullptr;
-        int status = self->Execute(daIn, &daOut);
 
-        // package the return. first is the status, second is the
-        // optional data adaptor.
+        // invoke the analysis
+        int execOk = self->Execute(daIn, &daOut);
+
+        // package the returned optional data adaptor.
         PyObject *pyDaOut = nullptr;
         if (daOut)
         {
@@ -79,7 +79,7 @@ SVTK_OBJECT_IGNORE_CPP_API(sensei::##CLASS)
             Py_INCREF(pyDaOut);
         }
 
-        PyObject *res = Py_BuildValue("(IN)", status, pyDaOut);
+        PyObject *res = Py_BuildValue("(IN)", execOk, pyDaOut);
         return res;
     }
 };
