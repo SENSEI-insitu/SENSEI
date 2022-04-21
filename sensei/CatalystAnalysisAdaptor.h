@@ -46,12 +46,17 @@ public:
    * can be used to obtain such data.
    */
   virtual void AddPythonScriptPipeline(const std::string &fileName,
-    const std::string& resultProducer, const std::string& resultMesh);
+    const std::string& resultProducer, const std::string& steerableSourceType,
+    const std::string& resultMesh);
 
   /// Control how frequently the in situ processing occurs.
   int SetFrequency(unsigned int frequency);
 
   ///@}
+  /// @brief Add a plugin xml
+  ///
+  /// Adds a plugin XML which can add new proxy definitions.
+  virtual void AddPluginXML(const std::string& fileName);
 
   /// Invoke in situ processing using Catalyst
   bool Execute(DataAdaptor* data, DataAdaptor**) override;

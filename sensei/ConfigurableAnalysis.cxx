@@ -438,7 +438,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
     SENSEI_ERROR("Failed to configure the ADIOS2 adaptor from XML")
     return -1;
     }
-  
+
   unsigned int frequency = node.attribute("frequency").as_uint(0);
   adiosAdaptor->SetFrequency(frequency);
 
@@ -519,6 +519,12 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 
     this->TimeInitialization(this->CatalystAdaptor);
     this->Analyses.push_back(this->CatalystAdaptor);
+    }
+
+  // Add plugin xmls.
+  if (node.attribute("plugin_xml"))
+    {
+    this->CatalystAdaptor->AddPluginXML(node.attribute("plugin_xml").value());
     }
 
   // Add the pipelines
@@ -653,16 +659,18 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     if (node.attribute("filename"))
       {
       std::string fileName = node.attribute("filename").value();
-      std::string producer, mesh;
+      std::string producer, mesh, steerable_source_type;
+
       if (auto resultnode = node.child("result"))
       {
         producer = resultnode.attribute("producer").as_string();
+        steerable_source_type = resultnode.attribute("steerable_source_type").as_string();
         mesh = resultnode.attribute("mesh").as_string();
       }
       this->CatalystAdaptor->AddPythonScriptPipeline(fileName,
-          producer, mesh);
+          producer, steerable_source_type, mesh);
       }
-    
+
     unsigned int frequency = node.attribute("frequency").as_uint(0);
     this->CatalystAdaptor->SetFrequency(frequency);
 
