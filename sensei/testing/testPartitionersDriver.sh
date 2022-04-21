@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-if [[ $# < 11 ]]
+if [[ $# < 12 ]]
 then
-  echo "testPartitioners.sh [python] [mpiexec] [npflag] [M procs] [N procs] [src dir] [transport] [blocks x] [blocks y] [n its] [sync]"
+  echo "testPartitioners.sh [python] [mpiexec] [npflag] [M procs] [N procs] [src dir] [bin dir] [transport] [blocks x] [blocks y] [n its] [sync]"
   exit 1
 fi
 
@@ -12,11 +12,12 @@ npflag=$3
 nproc_m=$4
 nproc_n=$5
 src_dir=$6
-transport=$7
-nblocks_x=$8
-nblocks_y=$9
-n_its=${10}
-sync_mode=${11}
+bin_dir=$7
+transport=$8
+nblocks_x=$9
+nblocks_y=${10}
+n_its=${11}
+sync_mode=${12}
 
 # TODO -- write side should exercise more than one partitioner.
 # currenlty hardcoded to use the block partitioenr.
@@ -40,7 +41,7 @@ do
   for part_n in ${parts_n[*]}
   do
     echo "Testing ${transport} M=${nproc_m} N=${nproc_n} part_M=${part_m} part_N=${part_n} ... "
-    cmd="${src_dir}/testPartitioners.sh ${python} ${mpiexec} ${npflag} ${nproc_m} ${nblocks_x} ${nblocks_y} ${nproc_n} \"${src_dir}\" write_${transport}.xml catalyst_render_partition.xml read_${transport}_${part_n}.xml ${n_its} ${sync_mode}"
+    cmd="${src_dir}/testPartitioners.sh ${python} ${mpiexec} ${npflag} ${nproc_m} ${nblocks_x} ${nblocks_y} ${nproc_n} \"${src_dir}\" write_${transport}.xml ${bin_dir}/catalyst_render_partition.xml read_${transport}_${part_n}.xml ${n_its} ${sync_mode}"
     if [[ -z "${VERBOSE}" ]]
     then
       test_output=$(eval ${cmd} 2>&1)

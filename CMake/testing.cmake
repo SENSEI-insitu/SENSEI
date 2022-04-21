@@ -137,6 +137,11 @@ function (senseiAddTest T_NAME)
 
       # Add extra environment variables
       set_property(TEST ${T_NAME} APPEND PROPERTY ENVIRONMENT ${test_env})
+      if (SENSEI_PYTHON_SITE)
+        set_property(TEST ${T_NAME} APPEND PROPERTY
+          ENVIRONMENT_MODIFICATION
+            "PYTHONPATH=path_list_prepend:${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_SITE}")
+      endif ()
       # Add extra labels
       set_property(TEST ${T_NAME} APPEND PROPERTY LABELS ${test_labels})
 

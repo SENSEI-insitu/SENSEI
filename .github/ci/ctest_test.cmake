@@ -19,7 +19,7 @@ set(CTEST_TEST_TIMEOUT 100)
 
 set(test_exclude_labels)
 if (${nproc} LESS 4)
-  list(APPEND test_exclude_labels "PARALLEL")
+  # list(APPEND test_exclude_labels "PARALLEL")
 endif ()
 
 if (test_exclude_labels)
@@ -28,10 +28,11 @@ endif ()
 
 if (APPLE)
 set(ENV{DYLD_LIBRARY_PATH} "${CTEST_BINARY_DIRECTORY}/lib:$ENV{DYLD_LIBRARY_PATH}")
+set(ENV{DYLD_LIBRARY_PATH} "${CTEST_BINARY_DIRECTORY}/lib64:$ENV{DYLD_LIBRARY_PATH}")
 elseif (UNIX)
 set(ENV{LD_LIBRARY_PATH} "${CTEST_BINARY_DIRECTORY}/lib:$ENV{LD_LIBRARY_PATH}")
+set(ENV{LD_LIBRARY_PATH} "${CTEST_BINARY_DIRECTORY}/lib64:$ENV{LD_LIBRARY_PATH}")
 endif ()
-set(ENV{PYTHONPATH} "${CTEST_BINARY_DIRECTORY}/lib:$ENV{PYTHONPATH}")
 
 ctest_test(APPEND
   PARALLEL_LEVEL "${nproc}"

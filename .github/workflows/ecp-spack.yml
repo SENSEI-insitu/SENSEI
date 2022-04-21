@@ -6,16 +6,15 @@ on:
       - disabled
 
 jobs:
-
   linux-ecp:
     runs-on: ubuntu-latest
     env:
-      LAUNCHER: .github/ci/docker/spack/launcher.sh
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
       CMAKE_CONFIGURATION: linux_ecp
+      SENSEI_ENV: sensei
+      LAUNCHER: /sensei/bin/launcher
     container:
-      image: ryankrattiger/sensei-ci:latest
-      options: --user=root
-
+      image: senseiinsitu/ci:ecp-dav-sdk-catalyst-20220425
     steps:
     - uses: actions/checkout@v2
     - name: Configure
