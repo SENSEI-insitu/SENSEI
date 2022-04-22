@@ -1,0 +1,7 @@
+<sensei>
+    <analysis type="catalyst" pipeline="pythonscript"
+        filename="oscillator_catalyst_steering.py" enabled="1"
+        plugin_xml="oscillator_catalyst_steering_proxies.xml">
+    <result steerable_source_type="Oscillators" mesh="oscillators" />
+  </analysis>
+</sensei>

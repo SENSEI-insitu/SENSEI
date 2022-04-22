@@ -244,12 +244,14 @@ protected:
   int CoProcess(vtkCPDataDescription* dataDescription) override
   {
     this->ResultData = nullptr;
+
     if (this->SteerableSourceType != nullptr)
       {
       this->InitializeSteerableSource(dataDescription);
       }
+
     const auto status = this->Superclass::CoProcess(dataDescription);
-    if (!status || this->ResultProducer == nullptr || this->ResultProducer[0] == '\0')
+    if (!status)
       {
       return status;
       }
@@ -260,7 +262,7 @@ protected:
     assert(pxm != nullptr);
 
     vtkSMSourceProxy* producer = nullptr;
-    if (this->ResultProducer != nullptr)
+    if (this->ResultProducer != nullptr && this->ResultProducer[0] != '\0')
     {
       // find `ResultProducer` proxy and update it and get its data.
       producer = vtkSMSourceProxy::SafeDownCast(pxm->GetProxy("sources", this->ResultProducer));
@@ -283,6 +285,7 @@ protected:
       {
         svtkDataObject *sResult = SVTKUtils::SVTKObjectFactory::New(result);
         this->ResultData.TakeReference(sResult->NewInstance());
+        this->ResultData->ShallowCopy(sResult);
       }
     }
     return 1;
