@@ -3,7 +3,8 @@ name: ecp-spack
 on:
   pull_request:
     branches:
-      - disabled
+      - main
+      - develop
 
 jobs:
   linux-ecp:
