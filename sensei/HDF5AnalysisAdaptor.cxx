@@ -81,6 +81,8 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
     daOut = nullptr;
     }
 
+  MPI_Comm comm = this->GetCommunicator();
+
   // figure out what the simulation can provide
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
@@ -169,7 +171,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
         }
 
       // get the mesh
-      svtkCompositeDataSet* dobj = nullptr;
+      svtkDataObject* dobj = nullptr;
       if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
         {
           SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"");
@@ -194,14 +196,17 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
           return false;
         }
 
+      // ensure multiblock
+      svtkCompositeDataSetPtr cds = SVTKUtils::AsCompositeData(comm, dobj);
+
       // add the required arrays
       ArrayRequirementsIterator ait =
         this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
 
       while (ait)
         {
-          if (dataAdaptor->AddArray(
-                dobj, mit.MeshName(), ait.Association(), ait.Array()))
+          if (dataAdaptor->AddArray(cds.Get(),
+            mit.MeshName(), ait.Association(), ait.Array()))
             {
               SENSEI_ERROR("Failed to add "
                            << SVTKUtils::GetAttributesName(ait.Association())
@@ -217,7 +222,6 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
       // on out depends on having the global view.
       if (!md->GlobalView)
         {
-          MPI_Comm comm = this->GetCommunicator();
           sensei::MPIUtils::GlobalViewV(comm, md->BlockOwner);
           sensei::MPIUtils::GlobalViewV(comm, md->BlockIds);
           sensei::MPIUtils::GlobalViewV(comm, md->BlockNumPoints);
@@ -227,9 +231,7 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
           md->GlobalView = true;
         }
 
-      this->m_HDF5Writer->WriteMesh(md, dobj);
-
-      dobj->Delete();
+      this->m_HDF5Writer->WriteMesh(md, cds.Get());
 
       ++mit;
     }
