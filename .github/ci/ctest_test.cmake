@@ -24,7 +24,7 @@ endif ()
 
 set(test_exclude_labels)
 if (${nproc} LESS 4)
-  # list(APPEND test_exclude_labels "PARALLEL")
+  list(APPEND test_exclude_labels "PARALLEL")
 endif ()
 
 if (test_exclude_labels)

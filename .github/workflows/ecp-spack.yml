@@ -10,6 +10,7 @@ jobs:
   linux-ecp:
     runs-on: ubuntu-latest
     env:
+      OMPI_ALLOW_RUN_AS_ROOT: 1
       OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
       CMAKE_CONFIGURATION: linux_ecp
       SENSEI_ENV: sensei

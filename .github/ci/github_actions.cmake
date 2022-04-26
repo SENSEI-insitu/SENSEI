@@ -59,7 +59,7 @@ if (NOT CTEST_CMAKE_GENERATOR)
 endif ()
 
 if (NOT DEFINED "ENV{CTEST_MAX_PARALLELISM}")
-  set(ENV{CTEST_MAX_PARALLELISM} 2)
+  set(ENV{CTEST_MAX_PARALLELISM} 4)
 endif ()
 # Determine the track to submit to.
 set(ctest_model "Continuous")
