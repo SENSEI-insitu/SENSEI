@@ -45,7 +45,9 @@ foreach (target IN LISTS targets_to_build)
 
   math(EXPR num_warnings "${num_warnings} + ${num_warnings_target}")
 
-  ctest_submit(PARTS Build)
+  if (DO_SUBMIT)
+    ctest_submit(PARTS Build)
+  endif ()
 endforeach ()
 
 if (build_result)

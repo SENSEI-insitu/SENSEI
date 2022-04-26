@@ -17,6 +17,11 @@ endif ()
 # Default to a reasonable test timeout.
 set(CTEST_TEST_TIMEOUT 100)
 
+set(test_exclude_tests)
+if (test_exclude_tests)
+  list(PREPEND test_exlude_tests EXCLUDE)
+endif ()
+
 set(test_exclude_labels)
 if (${nproc} LESS 4)
   # list(APPEND test_exclude_labels "PARALLEL")
@@ -39,8 +44,11 @@ ctest_test(APPEND
   TEST_LOAD "${nproc}"
   RETURN_VALUE test_result
   ${test_exclude_labels}
+  ${test_exclude_tests}
   REPEAT UNTIL_FAIL:3)
-ctest_submit(PARTS Test)
+if (DO_SUBMIT)
+  ctest_submit(PARTS Test)
+endif ()
 
 if (test_result)
   message(FATAL_ERROR
