@@ -36,5 +36,5 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB }}
-        path: ../build
+        path: /__w/SENSEI/build
         retention-days: 1
