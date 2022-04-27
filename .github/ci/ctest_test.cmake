@@ -18,17 +18,24 @@ endif ()
 set(CTEST_TEST_TIMEOUT 100)
 
 set(test_exclude_tests)
+list(APPEND test_exclude_tests
+  # Disabled for CI because it uses too many proccess
+  "^testADIOS2SSTHistogram$"
+  # HDF5 Adaptors need an update for Unstructured Grid
+  "^testHDF5Read*"
+)
+string(REPLACE ";" "|" test_exclude_tests "${test_exclude_tests}")
 if (test_exclude_tests)
-  list(PREPEND test_exlude_tests EXCLUDE)
+  set(test_exclude_tests "(${test_exclude_tests})")
 endif ()
 
 set(test_exclude_labels)
 if (${nproc} LESS 2)
-  list(APPEND test_exclude_labels "PARALLEL")
+  list(APPEND test_exclude_labels "^PARALLEL$")
 endif ()
-
+string(REPLACE ";" "|" test_exclude_labels "${test_exclude_labels}")
 if (test_exclude_labels)
-  list(PREPEND test_exclude_labels EXCLUDE_LABEL)
+  set(test_exclude_tests "(${test_exclude_labels})")
 endif ()
 
 if (APPLE)
@@ -43,8 +50,8 @@ ctest_test(APPEND
   PARALLEL_LEVEL "${nproc}"
   TEST_LOAD "${nproc}"
   RETURN_VALUE test_result
-  ${test_exclude_labels}
-  ${test_exclude_tests})
+  EXCLUDE "${test_exclude_tests}"
+  EXCLUDE_LABEL "${test_exclude_labels}")
 if (DO_SUBMIT)
   ctest_submit(PARTS Test)
 endif ()
