@@ -102,7 +102,7 @@ if (BUILD_TESTING)
   # MPI rank. there's also a deadlock if some blocks are not sent.
   # hence this test current has to run with M=9 N=2
   senseiAddTest(testPartitionersADIOS1FLEXPATH
-    PARALLEL_SHELL ${TEST_NP}
+    PARALLEL_SHELL 9
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 9 2
       ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios1_flexpath 3 3 3 1
@@ -157,7 +157,9 @@ if (BUILD_TESTING)
       ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios2_bp4 3 3 3 0
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
-      PYTHON ADIOS2 CATALYST)
+      PYTHON ADIOS2 CATALYST
+    PROPERTIES
+      TIMEOUT 400)
 
   senseiAddTest(testPartitionersADIOS2SST
     PARALLEL_SHELL ${TEST_NP}
@@ -166,7 +168,9 @@ if (BUILD_TESTING)
       ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios2_sst 3 3 3 1
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
-      PYTHON ADIOS2 CATALYST)
+      PYTHON ADIOS2 CATALYST
+    PROPERTIES
+      TIMEOUT 400)
 
   ##############################################################################
   senseiAddTest(testPartitionersHDF5A
@@ -176,7 +180,9 @@ if (BUILD_TESTING)
       ${TEST_NP} ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} h5 3 3 3 0
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
-      PYTHON HDF5 CATALYST)
+      PYTHON HDF5 CATALYST
+    PROPERTIES
+      TIMEOUT 400)
 
   senseiAddTest(testPartitionersHDF5B
     PARALLEL_SHELL ${TEST_NP}
@@ -189,7 +195,7 @@ if (BUILD_TESTING)
 
   ##############################################################################
   senseiAddTest(testADIOS1FLEXPATHHistogram
-    PARALLEL_SHELL ${TEST_NP}
+    PARALLEL_SHELL 4
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
@@ -200,7 +206,7 @@ if (BUILD_TESTING)
 
   ##############################################################################
   senseiAddTest(testADIOS2SSTHistogram
-    PARALLEL_SHELL ${TEST_NP}
+    PARALLEL_SHELL 4
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
