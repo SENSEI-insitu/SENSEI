@@ -23,7 +23,7 @@ if (test_exclude_tests)
 endif ()
 
 set(test_exclude_labels)
-if (${nproc} LESS 4)
+if (${nproc} LESS 2)
   list(APPEND test_exclude_labels "PARALLEL")
 endif ()
 
@@ -44,8 +44,7 @@ ctest_test(APPEND
   TEST_LOAD "${nproc}"
   RETURN_VALUE test_result
   ${test_exclude_labels}
-  ${test_exclude_tests}
-  REPEAT UNTIL_FAIL:3)
+  ${test_exclude_tests})
 if (DO_SUBMIT)
   ctest_submit(PARTS Test)
 endif ()
