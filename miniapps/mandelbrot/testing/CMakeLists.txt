@@ -22,19 +22,19 @@ if (BUILD_TESTING)
 
   if (ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml @ONLY)
+      ${CMAKE_CURRENT_BINARY_DIR}/mandelbrot_catalyst.xml @ONLY)
   endif()
 
   senseiAddTest(testMandelbrotCatalyst
     COMMAND
       $<TARGET_FILE:mandelbrot> -i 2 -l 2
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/mandelbrot_catalyst.xml
     FEATURES CATALYST)
 
   senseiAddTest(testMandelbrotCatalystPar
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:mandelbrot> -i 2 -l 2
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/mandelbrot_catalyst.xml
       FEATURES CATALYST)
 
   if (ENABLE_LIBSIM)

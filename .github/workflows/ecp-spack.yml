@@ -3,21 +3,29 @@ name: ecp-spack
 on:
   pull_request:
     branches:
-      - disabled
+      - main
+      - develop
 
 jobs:
-
   linux-ecp:
     runs-on: ubuntu-latest
     env:
-      LAUNCHER: .github/ci/docker/spack/launcher.sh
+      OMPI_ALLOW_RUN_AS_ROOT: 1
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
       CMAKE_CONFIGURATION: linux_ecp
+      SENSEI_ENV: sensei
+      LAUNCHER: /sensei/bin/launcher
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     container:
-      image: ryankrattiger/sensei-ci:latest
-      options: --user=root
-
+      image: senseiinsitu/ci:ecp-dav-sdk-catalyst-20220425
     steps:
     - uses: actions/checkout@v2
+    - name: Install ccache
+      run: dnf install -y --setopt=install_weak_deps=False ccache
+    - name: Initialize ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: ${{ github.job }}-ccache
     - name: Configure
       run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_configure.cmake
     - name: Build
@@ -28,5 +36,5 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB }}
-        path: build
+        path: /__w/SENSEI/build
         retention-days: 1

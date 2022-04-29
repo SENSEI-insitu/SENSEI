@@ -79,7 +79,7 @@ export PROFILER_ENABLE=2 TIMER_LOG_FILE=ReaderTimes.csv MEMPROF_LOG_FILE=ReaderM
 
 ${mpiexec} ${@} ${npflag} ${nproc_read} ${python} -m mpi4py \
   ${srcdir}/testPartitionersRead.py \
-  "${srcdir}/${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"
+  "${reader_analysis_xml}" "${srcdir}/${reader_transport_xml}"
 
 test_stat=$?
 

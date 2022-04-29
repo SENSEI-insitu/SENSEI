@@ -13,12 +13,12 @@ if (BUILD_TESTING)
 
   if (ENABLE_PYTHON)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml @ONLY)
+      ${CMAKE_CURRENT_BINARY_DIR}/oscillator_python_histogram.xml @ONLY)
   endif()
 
   senseiAddTest(testOscillatorPythonHistogram
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_python_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
       FEATURES PYTHON)
 
@@ -61,35 +61,35 @@ if (BUILD_TESTING)
 
   if (ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml @ONLY)
+      ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst.xml @ONLY)
 
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml @ONLY)
+      ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst_bidirectional.xml @ONLY)
   endif()
 
   senseiAddTest(testOscillatorCatalyst
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 
   senseiAddTest(testOscillatorCatalystPar
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 
   senseiAddTest(testOscillatorCatalystBiDirectional
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst_bidirectional.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 
   senseiAddTest(testOscillatorCatalystBiDirectionalPar
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst_bidirectional.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst_bidirectional.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 
@@ -131,19 +131,19 @@ if (BUILD_TESTING)
 
   if (ENABLE_VTK_IO AND ENABLE_VTK_FILTERS)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml @ONLY)
+      ${CMAKE_CURRENT_BINARY_DIR}/oscillator_iso_pipeline.xml @ONLY)
   endif()
 
   senseiAddTest(testOscillatorIsoPipeline
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b 4 -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_iso_pipeline.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES VTK_IO VTK_FILTERS)
 
   senseiAddTest(testOscillatorIsoPipelinePar
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:oscillator> -t 1 -b ${TEST_NP} -g 1
-      -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml
+      -f ${CMAKE_CURRENT_BINARY_DIR}/oscillator_iso_pipeline.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES VTK_IO VTK_FILTERS)
 

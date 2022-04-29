@@ -2,7 +2,7 @@ if (SENSEI_USE_EXTERNAL_pugixml)
   find_package(pugixml REQUIRED COMPONENTS pugixml)
 
   configure_file("${CMAKE_SOURCE_DIR}/CMake/external.pugixml.cmake.in"
-    "${CMAKE_BINARY_DIR}/lib/cmake/pugixml.cmake"
+    "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/pugixml.cmake"
     @ONLY)
 
   install(

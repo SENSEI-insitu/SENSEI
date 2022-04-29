@@ -15,7 +15,7 @@ else()
   set(CTEST_SITE "github-actions")
 endif()
 
-set(CTEST_BINARY_DIRECTORY "${CTEST_SOURCE_DIRECTORY}/build")
+set(CTEST_BINARY_DIRECTORY "${CTEST_SOURCE_DIRECTORY}/../build")
 
 if ("$ENV{CMAKE_CONFIGURATION}" STREQUAL "")
   message(FATAL_ERROR
@@ -28,11 +28,11 @@ endif ()
 set(build_name_prefix)
 if (DEFINED "ENV{GITHUB_EVENT_NAME}")
   if ("$ENV{GITHUB_EVENT_NAME}" MATCHES "pull_request")
-    set(build_name_prefix "pr")
+    set(build_name_prefix "-pr")
   elseif ("$ENV{GITHUB_EVENT_NAME}" MATCHES "push")
-    set(build_name_prefix "branch")
+    set(build_name_prefix "-branch")
   else ()
-    set(build_name_prefix "$ENV{GITHUB_EVENT_NAME}")
+    set(build_name_prefix "-$ENV{GITHUB_EVENT_NAME}")
   endif ()
   if (DEFINED "ENV{GITHUB_REF}")
     get_filename_component(ref "$ENV{GITHUB_REF}" NAME)
@@ -40,7 +40,7 @@ if (DEFINED "ENV{GITHUB_EVENT_NAME}")
   endif ()
 endif ()
 
-set(CTEST_BUILD_NAME "SENSEI-${build_name_prefix}[$ENV{CMAKE_CONFIGURATION}]")
+set(CTEST_BUILD_NAME "SENSEI${build_name_prefix}[$ENV{CMAKE_CONFIGURATION}]")
 
 # Default to Debug builds.
 if (NOT "$ENV{CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -59,8 +59,9 @@ if (NOT CTEST_CMAKE_GENERATOR)
 endif ()
 
 if (NOT DEFINED "ENV{CTEST_MAX_PARALLELISM}")
-  set(ENV{CTEST_MAX_PARALLELISM} 2)
+  set(ENV{CTEST_MAX_PARALLELISM} 4)
 endif ()
 # Determine the track to submit to.
 set(ctest_model "Continuous")
 set(ctest_track "Experimental")
+set(DO_SUBMIT False)

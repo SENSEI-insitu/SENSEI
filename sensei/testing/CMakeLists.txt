@@ -17,14 +17,16 @@ if (BUILD_TESTING)
     SOURCES testHDF5.cpp LIBS sensei EXEC_NAME testHDF5
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:testHDF5> w 4 n h5test
-    FEATURES HDF5)
+    FEATURES HDF5
+    PROPERTIES
+      FIXTURES_SETUP HDF5_IO)
 
   senseiAddTest(testHDF5Read
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:testHDF5> r h5test.n${TEST_NP}
     FEATURES HDF5
     PROPERTIES
-      DEPENDS testHDF5Write)
+      FIXTURES_REQUIRED HDF5_IO)
 
   ##############################################################################
   senseiAddTest(testHDF5WriteStreaming
@@ -32,14 +34,15 @@ if (BUILD_TESTING)
     COMMAND $<TARGET_FILE:testHDF5> w 4 s h5stream
     FEATURES HDF5
     PROPERTIES
-      LABELS STREAMING)
+      LABELS STREAMING
+      FIXTURES_SETUP HDF5_STREAMING)
 
   senseiAddTest(testHDF5ReadStreaming
     PARALLEL ${TEST_NP}
     COMMAND $<TARGET_FILE:testHDF5> r h5stream.n${TEST_NP} s
     FEATURES HDF5
     PROPERTIES
-      DEPENDS testHDF5WriteStreaming
+      FIXTURES_REQUIRED HDF5_STREAMING
       LABELS STREAMING)
 
   ##############################################################################
@@ -84,13 +87,13 @@ if (BUILD_TESTING)
 
   ##############################################################################
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/catalyst_render_partition.xml.in
-      ${CMAKE_CURRENT_SOURCE_DIR}/catalyst_render_partition.xml  @ONLY)
+      ${CMAKE_CURRENT_BINARY_DIR}/catalyst_render_partition.xml  @ONLY)
 
   senseiAddTest(testPartitionersADIOS1BP
     PARALLEL_SHELL ${TEST_NP}
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} adios1_bp 3 3 3 0
+      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios1_bp 3 3 3 0
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
       PYTHON ADIOS1 CATALYST)
@@ -99,10 +102,10 @@ if (BUILD_TESTING)
   # MPI rank. there's also a deadlock if some blocks are not sent.
   # hence this test current has to run with M=9 N=2
   senseiAddTest(testPartitionersADIOS1FLEXPATH
-    PARALLEL_SHELL ${TEST_NP}
+    PARALLEL_SHELL 9
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 9 2
-      ${CMAKE_CURRENT_SOURCE_DIR} adios1_flexpath 3 3 3 1
+      ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios1_flexpath 3 3 3 1
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
       PYTHON ADIOS1 CATALYST)
@@ -151,42 +154,48 @@ if (BUILD_TESTING)
     PARALLEL_SHELL ${TEST_NP}
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} adios2_bp4 3 3 3 0
+      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios2_bp4 3 3 3 0
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
-      PYTHON ADIOS2 CATALYST)
+      PYTHON ADIOS2 CATALYST
+    PROPERTIES
+      TIMEOUT 400)
 
   senseiAddTest(testPartitionersADIOS2SST
     PARALLEL_SHELL ${TEST_NP}
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
-      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} adios2_sst 3 3 3 1
+      ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} adios2_sst 3 3 3 1
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
-      PYTHON ADIOS2 CATALYST)
+      PYTHON ADIOS2 CATALYST
+    PROPERTIES
+      TIMEOUT 400)
 
   ##############################################################################
   senseiAddTest(testPartitionersHDF5A
     PARALLEL_SHELL ${TEST_NP}
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
-      ${TEST_NP} ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} h5 3 3 3 0
+      ${TEST_NP} ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} h5 3 3 3 0
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
-      PYTHON HDF5 CATALYST)
+      PYTHON HDF5 CATALYST
+    PROPERTIES
+      TIMEOUT 400)
 
   senseiAddTest(testPartitionersHDF5B
     PARALLEL_SHELL ${TEST_NP}
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitionersDriver.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG}
-      ${TEST_NP} ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} h6 3 3 3 0
+      ${TEST_NP} ${TEST_NP_HALF} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} h6 3 3 3 0
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
       PYTHON HDF5 CATALYST)
 
   ##############################################################################
   senseiAddTest(testADIOS1FLEXPATHHistogram
-    PARALLEL_SHELL ${TEST_NP}
+    PARALLEL_SHELL 4
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
@@ -197,7 +206,7 @@ if (BUILD_TESTING)
 
   ##############################################################################
   senseiAddTest(testADIOS2SSTHistogram
-    PARALLEL_SHELL ${TEST_NP}
+    PARALLEL_SHELL 4
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
