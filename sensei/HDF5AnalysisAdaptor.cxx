@@ -151,13 +151,8 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
 
   // senseiHDF5::HDF5GroupGuard g(this->m_HDF5Writer->m_TimeStepGroupId);
 
-  // collect the specified data objects and metadata
-  // std::vector<svtkCompositeDataSet*> objects;
-
   MeshRequirementsIterator mit =
     this->Requirements.GetMeshRequirementsIterator();
-
-  // unsigned int meshCounter = 0;
 
   while (mit)
     {
@@ -196,16 +191,13 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
           return false;
         }
 
-      // ensure multiblock
-      svtkCompositeDataSetPtr cds = SVTKUtils::AsCompositeData(comm, dobj);
-
       // add the required arrays
       ArrayRequirementsIterator ait =
         this->Requirements.GetArrayRequirementsIterator(mit.MeshName());
 
       while (ait)
         {
-          if (dataAdaptor->AddArray(cds.Get(),
+          if (dataAdaptor->AddArray(dobj,
             mit.MeshName(), ait.Association(), ait.Array()))
             {
               SENSEI_ERROR("Failed to add "
@@ -231,6 +223,10 @@ bool HDF5AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor** daOut)
           md->GlobalView = true;
         }
 
+      // ensure multiblock
+      svtkCompositeDataSetPtr cds = SVTKUtils::AsCompositeData(comm, dobj);
+
+      // write
       this->m_HDF5Writer->WriteMesh(md, cds.Get());
 
       ++mit;
