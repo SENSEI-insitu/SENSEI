@@ -63,9 +63,6 @@ protected:
   void operator=(const AscentAnalysisAdaptor&) = delete;
 
 private:
-  bool Execute_original(DataAdaptor* data);
-  bool Execute_new(DataAdaptor* data);
-
   ascent::Ascent _ascent;
   conduit::Node optionsNode;    // Ascent options from json file.
   conduit::Node actionsNode;    // Ascent actions from json file.
