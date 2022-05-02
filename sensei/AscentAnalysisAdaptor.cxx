@@ -788,13 +788,13 @@ int AscentAnalysisAdaptor::Initialize(const std::string &json_file_path,
 }
 
 //------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
+bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 {
-#if DEBUG_TRACE
-  std::cout << "AscentAnalysisAdaptor::Execute_new() - begin " << std::endl;
-#endif
-
-  conduit::Node localRoot;
+  // signal that we do not return anything
+  if (dataOut)
+  {
+    *dataOut = nullptr;
+  }
 
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
@@ -804,26 +804,26 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
   flags.SetBlockArrayRange();
 
   MeshMetadataMap mdm;
-  if (mdm.Initialize(dataAdaptor, flags))
+  if (mdm.Initialize(dataIn, flags))
   {
      SENSEI_ERROR("Failed to get metadata")
      return false;
   }
 
-  // if no dataAdaptor requirements are given, push all the data
+  // if no dataIn requirements are given, push all the data
   // fill in the requirements with every thing
   if (this->Requirements.Empty())
   {
-     if (this->Requirements.Initialize(dataAdaptor, false))
+     if (this->Requirements.Initialize(dataIn, false))
      {
-       SENSEI_ERROR("Failed to initialze dataAdaptor description")
+       SENSEI_ERROR("Failed to initialze dataIn description")
        return false;
      }
      SENSEI_WARNING("No subset specified. Writing all available data")
   }
 
   // collect the specified data objects and metadata
-  std::vector<svtkCompositeDataSet*> objects;
+  std::vector<svtkCompositeDataSetPtr> objects;
   std::vector<MeshMetadataPtr> metadata;
 
   MeshRequirementsIterator mit =
@@ -833,7 +833,6 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
   {
     // get metadata
     MeshMetadataPtr md;
-
     if (mdm.GetMeshMetadata(mit.MeshName(), md))
     {
       SENSEI_ERROR("Failed to get mesh metadata for mesh \""
@@ -841,14 +840,10 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
       return false;
     }
 
-#if DEBUG_TRACE
-    std::cout << " Fetching mesh named: [" << mit.MeshName() << "] " << std::endl;
-#endif
-
     // get the mesh
-    svtkCompositeDataSet *dobj = nullptr;
+    svtkDataObject *dobj = nullptr;
 
-    if (dataAdaptor->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
+    if (dataIn->GetMesh(mit.MeshName(), mit.StructureOnly(), dobj))
     {
       SENSEI_ERROR("Failed to get mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -856,14 +851,14 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 
     // add the ghost cell arrays to the mesh
     if ((md->NumGhostCells || SVTKUtils::AMR(md)) &&
-            dataAdaptor->AddGhostCellsArray(dobj, mit.MeshName()))
+            dataIn->AddGhostCellsArray(dobj, mit.MeshName()))
     {
       SENSEI_ERROR("Failed to get ghost cells for mesh \"" << mit.MeshName() << "\"")
       return false;
     }
 
     // add the ghost node arrays to the mesh
-    if (md->NumGhostNodes && dataAdaptor->AddGhostNodesArray(dobj, mit.MeshName()))
+    if (md->NumGhostNodes && dataIn->AddGhostNodesArray(dobj, mit.MeshName()))
     {
       SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << mit.MeshName() << "\"")
       return false;
@@ -875,34 +870,33 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 
     while (ait)
     {
-      if (dataAdaptor->AddArray(dobj, mit.MeshName(),
+      if (dataIn->AddArray(dobj, mit.MeshName(),
                   ait.Association(), ait.Array()))
       {
         SENSEI_ERROR("Failed to add "
-                 << SVTKUtils::GetAttributesName(ait.Association())
-                 << " data array \"" << ait.Array() << "\" to mesh \""
-                 << mit.MeshName() << "\"")
+          << SVTKUtils::GetAttributesName(ait.Association())
+          << " data array \"" << ait.Array() << "\" to mesh \""
+          << mit.MeshName() << "\"")
         return false;
       }
 
-#if DEBUG_TRACE
-      std::cout << " Fetching array named [" << ait.Array() << "] with centering [" << SVTKUtils::GetAttributesName(ait.Association()) << "] " << std::endl;
-#endif
-
       ++ait;
-    } // while (ait))
+    }
 
     // generate a global view of the metadata. everything we do from here
     // on out depends on having the global view.
     md->GlobalizeView(this->GetCommunicator());
 
+    // ensure multiblock
+    svtkCompositeDataSetPtr cds =
+      SVTKUtils::AsCompositeData(this->GetCommunicator(), dobj);
+
     // add to the collection
-    objects.push_back(dobj);
+    objects.push_back(cds);
     metadata.push_back(md);
 
     ++mit;
-
-  } // while(mit)
+  }
 
   // at this point, we pulled/fetched all data from the simulation requested
   // by the config file. this collection is located in:
@@ -911,25 +905,22 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 
   // now, iterate over the collection of data objects and convert them
   // to conduit meshes
-  for (unsigned int i=0; i < objects.size(); i++)
+  conduit::Node localRoot;
+
+  unsigned int nObjs = objects.size();
+  for (unsigned int i=0; i < nObjs; ++i)
   {
     // process each of the objects[i]
     // see this URL for info about the processing motif:
     // https://www.paraview.org/Wiki/SVTK/Tutorials/Composite_Datasets
 
-    svtkCompositeDataSet* input = objects[i];
+    svtkCompositeDataSet* input = objects[i].Get();
     svtkCompositeDataIterator* iter = input->NewIterator();
 
-    int nds=0;
-    for ( iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem(), nds++)
+    for ( iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
     {
-      svtkDataSet* inputDS = svtkDataSet::SafeDownCast(iter->GetCurrentDataObject());
-//#if DEBUG_TRACE
-#if 0
-      std::cout << "Processing cds# " << i << " and working on the " << nds << "'th dataset " << std::endl;
-#endif
-      
-      ::PassData(inputDS, localRoot, dataAdaptor);
+      svtkDataSet* inputDS = dynamic_cast<svtkDataSet*>(iter->GetCurrentDataObject());
+      ::PassData(inputDS, localRoot, dataIn);
     }
 
     iter->Delete();
@@ -941,234 +932,9 @@ bool AscentAnalysisAdaptor::Execute_new(DataAdaptor* dataAdaptor)
 
   localRoot.reset();
 
-  unsigned int n_objects = objects.size();
-  for (unsigned int i = 0; i < n_objects; ++i)
-      objects[i]->Delete();
+  objects.clear();
 
-   return true;
-
-}
-
-//------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
-{
-    // we do not return anything
-    if (dataOut)
-      {
-      *dataOut = nullptr;
-      }
-
-    // return AscentAnalysisAdaptor::Execute_original(dataAdaptor);
-    return AscentAnalysisAdaptor::Execute_new(dataAdaptor);
-}
-
-//------------------------------------------------------------------------------
-bool AscentAnalysisAdaptor::Execute_original(DataAdaptor* dataAdaptor)
-{
-  // FIXME -- data requirements needs to be determined from ascent
-  // configs.
-  // get the mesh name
-  std::cout << "AscentAnalysisAdaptor::Execute_original() - begin " << std::endl;
-
-  if (this->Requirements.Empty())
-    {
-    SENSEI_ERROR("Data requirements have not been provided")
-    return false;
-    }
-
-  MeshRequirementsIterator mit =
-    this->Requirements.GetMeshRequirementsIterator();
-
-  if (!mit)
-    {
-    SENSEI_ERROR("Invalid data requirements")
-    return false;
-    }
-
-  const std::string &meshName = mit.MeshName();
-
-  // get the array name
-  ArrayRequirementsIterator ait =
-    this->Requirements.GetArrayRequirementsIterator(meshName);
-
-  if (!ait)
-    {
-    SENSEI_ERROR("Invalid data requirements. No array for mesh \""
-      << meshName << "\"")
-    return false;
-    }
-
-  std::string arrayName = ait.Array();
-  int arrayCen = ait.Association();
-
-  conduit::Node root;
-  svtkDataObject* obj = nullptr;
-
-  // see what the simulation is providing
-  MeshMetadataMap mdMap;
-  if (mdMap.Initialize(dataAdaptor))
-  {
-    SENSEI_ERROR("Failed to get metadata")
-    return( false );
-  }
-
-  if (dataAdaptor->GetMesh(meshName, false, obj))
-  {
-    SENSEI_ERROR("Failed to get mesh");
-    return( false );
-  }
-
-  if (dataAdaptor->AddArray(obj, meshName, arrayCen, arrayName))
-  {
-    SENSEI_ERROR("Failed to add "
-      << " data array \"" << arrayName << "\" to mesh \""
-      << meshName << "\"");
-    return( -1 );
-  }
-
-  // get metadata for the requested mesh
-  MeshMetadataPtr metadata;
-  if (mdMap.GetMeshMetadata(meshName, metadata))
-  {
-    SENSEI_ERROR("Failed to get metadata for mesh \"" << meshName << "\"");
-    return( false );
-  }
-
-  // Add the ghost cell arrays to the mesh.
-  if ((metadata->NumGhostCells || SVTKUtils::AMR(metadata)) &&
-    dataAdaptor->AddGhostCellsArray(obj, meshName))
-  {
-      SENSEI_ERROR("Failed to get ghost cells for mesh \"" << meshName << "\"");
-      return( false );
-  }
-
-  // Add the ghost node arrays to the mesh.
-  if (metadata->NumGhostNodes &&
-    dataAdaptor->AddGhostNodesArray(obj, meshName))
-  {
-      SENSEI_ERROR("Failed to get ghost nodes for mesh \"" << meshName << "\"");
-      return( false );
-  }
-
-  int domainNum = 0;
-  if (svtkCompositeDataSet *cds = dynamic_cast<svtkCompositeDataSet*>(obj))
-  {
-    size_t numBlocks = 0;
-    svtkCompositeDataIterator *itr = cds->NewIterator();
-
-    // FIXME - use metadata to get the number of blocks
-    svtkCompositeDataIterator *iter = cds->NewIterator();
-    iter->SkipEmptyNodesOn();
-    for(iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
-      ++numBlocks;
-
-    itr->SkipEmptyNodesOn();
-    itr->InitTraversal();
-    while(!itr->IsDoneWithTraversal())
-    {
-      if (svtkDataSet *ds = dynamic_cast<svtkDataSet*>(cds->GetDataSet(itr)))
-      {
-        char domain[20] = "";
-        if( numBlocks > 1 )
-        {
-          snprintf( domain, sizeof(domain), "domain_%.6d", domainNum );
-          ++domainNum;
-          conduit::Node &temp_node = root[domain];
-
-          // FIXME -- check retuirn for error
-          ::PassData(ds, temp_node, dataAdaptor);
-        }
-        else
-        {
-          conduit::Node &temp_node = root;
-
-	  // tmp, check for validity
-	  std::cout << "printing out contents of the conduit node/tree " << std::endl;
-
-	  temp_node.print();
-
-	  // following example from here: https://llnl-conduit.readthedocs.io/en/latest/blueprint_mesh.html#uniform
-	  conduit::Node verify_info;
-	  if (!conduit::blueprint::mesh::verify(temp_node, verify_info))
-	  {
-	     std::cout << "Verify failed! " << std::endl;
-	     verify_info.print();
-	  }
-
-
-          // FIXME -- check retuirn for error
-          ::PassData(ds, temp_node, dataAdaptor);
-        }
-      }
-      itr->GoToNextItem();
-    }
-  }
-  else if (svtkDataSet *ds = svtkDataSet::SafeDownCast(obj))
-  {
-    conduit::Node &temp_node = root;
-
-    // FIXME -- check retuirn for error
-    ::PassData(ds, temp_node, dataAdaptor);
-  }
-  else
-  {
-    SENSEI_ERROR("Data object " << obj->GetClassName()
-      << " is not supported.");
-    return( -1 );
-  }
-
-#ifdef DEBUG_SAVE_DATA
-  std::cout << "----------------------------" << std::endl;
-  std::cout << "i: " << i << " size: " << size << std::endl;
-  std::cout << "ACTIONS" << std::endl;
-  this->actionsNode.print();
-  std::cout << "NODE" << std::endl;
-  root.print();
-  std::cout << "----------------------------" << std::endl;
-
-  DebugSaveAscentData( root, this->optionsNode );
-#endif
-
-#if 1
-  // wes 4/20/2021
-  // invoke blueprint method to verify that we have created something valid
-  // 
-  conduit::Node verify_info;
-  if (!conduit::blueprint::mesh::verify(root, verify_info))
-  {
-     std::cout << "Mesh verify failed!" << std::endl;
-//     std::cout << verify_info.to_yaml() << std::endl;
-  }
-  else
-  {
-     std::cout << "Mesh verify success!" << std::endl;
-     std::cout << root.to_yaml() << std::endl;
-//     std::cout << veri
-  }
-
-  std::cout << "Contents of this->actionsNode(): " << std::endl;
-  std::cout << this->actionsNode.to_yaml() << std::endl;
-//  std::cout << ascent::about() << std::endl;
-
-  // temp wes 4/20/2021: write a file and send to Matt because
-  // it causes a crash in vtk-m, something they thought was fixed
-  conduit::relay::io::save(root, "sensei-ascent-demo.json");
-
-#endif
-
-#if 0
-  // wes 7/1/2021
-  std::cout << ascent::about() << std::endl;
-#endif
-
-
-  this->_ascent.publish(root);
-  this->_ascent.execute(this->actionsNode);
-
-
-  root.reset();
-
-  return( true );
+  return true;
 }
 
 //------------------------------------------------------------------------------
