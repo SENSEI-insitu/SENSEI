@@ -1,5 +1,5 @@
 if (NOT DEFINED "ENV{GITHUB_ACTIONS}")
-  message(STATUS
+  message(WARNING
     "This script is being run outside of GitHub-Actions.")
 else ()
   message(STATUS
@@ -58,9 +58,6 @@ if (NOT CTEST_CMAKE_GENERATOR)
   set(CTEST_CMAKE_GENERATOR "Ninja")
 endif ()
 
-if (NOT DEFINED "ENV{CTEST_MAX_PARALLELISM}")
-  set(ENV{CTEST_MAX_PARALLELISM} 4)
-endif ()
 # Determine the track to submit to.
 set(ctest_model "Continuous")
 set(ctest_track "Experimental")
