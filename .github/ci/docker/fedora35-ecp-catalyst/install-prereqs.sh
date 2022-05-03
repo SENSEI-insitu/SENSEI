@@ -8,7 +8,7 @@ dnf install -y --setopt=install_weak_deps=False \
   python3 python3-pip \
   make texinfo libtool patch patchelf file tar git gnupg2 \
   gzip unzip bzip2 xz zstd \
-  gcc g++ gfortran binutils \
+  gcc g++ gfortran binutils ccache \
   Lmod which
 
 python3 -m pip install clingo

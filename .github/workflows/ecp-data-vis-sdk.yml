@@ -1,4 +1,4 @@
-name: ecp-spack
+name: ecp-sdk-integration
 
 on:
   pull_request:
@@ -7,25 +7,23 @@ on:
       - develop
 
 jobs:
-  linux-ecp:
+  fedora35-ecp-catalyst:
     runs-on: ubuntu-latest
     env:
       OMPI_ALLOW_RUN_AS_ROOT: 1
       OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
-      CMAKE_CONFIGURATION: linux_ecp
+      CMAKE_CONFIGURATION: fedora35_ecp_catalyst
       SENSEI_ENV: sensei
       LAUNCHER: /sensei/bin/launcher
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
     container:
-      image: senseiinsitu/ci:ecp-dav-sdk-catalyst-20220425
+      image: senseiinsitu/ci:fedora35-ecp-catalyst-20220503
     steps:
     - uses: actions/checkout@v2
-    - name: Install ccache
-      run: dnf install -y --setopt=install_weak_deps=False ccache
     - name: Initialize ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        key: ${{ github.job }}-ccache
+        key: fedora35-gcc-ccache
     - name: Configure
       run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_configure.cmake
     - name: Build
@@ -35,6 +33,6 @@ jobs:
     - name: 'Upload Artifacts'
       uses: actions/upload-artifact@v2
       with:
-        name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB }}
+        name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB_ID }}
         path: /__w/SENSEI/build
         retention-days: 1
