@@ -1,5 +1,9 @@
 if(ENABLE_ASCENT)
-  find_package(Ascent REQUIRED NO_DEFAULT_PATH PATHS ${ASCENT_DIR}/lib/cmake)
+  if (ASCENT_DIR)
+    find_package(Ascent REQUIRED NO_DEFAULT_PATH PATHS ${ASCENT_DIR}/lib/cmake)
+  else ()
+    find_package(Ascent REQUIRED)
+  endif ()
 
   if(NOT ENABLE_CONDUIT)
     add_library(sConduit INTERFACE)
