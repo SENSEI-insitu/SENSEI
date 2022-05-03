@@ -8,11 +8,6 @@ ctest_start(APPEND)
 
 include(ProcessorCount)
 ProcessorCount(nproc)
-if (NOT "$ENV{CTEST_MAX_PARALLELISM}" STREQUAL "")
-  if (nproc GREATER "$ENV{CTEST_MAX_PARALLELISM}")
-    set(nproc "$ENV{CTEST_MAX_PARALLELISM}")
-  endif ()
-endif ()
 
 # Default to a reasonable test timeout.
 set(CTEST_TEST_TIMEOUT 100)
@@ -30,9 +25,6 @@ if (test_exclude_tests)
 endif ()
 
 set(test_exclude_labels)
-if (${nproc} LESS 2)
-  list(APPEND test_exclude_labels "^PARALLEL$")
-endif ()
 string(REPLACE ";" "|" test_exclude_labels "${test_exclude_labels}")
 if (test_exclude_labels)
   set(test_exclude_tests "(${test_exclude_labels})")
@@ -47,7 +39,6 @@ set(ENV{LD_LIBRARY_PATH} "${CTEST_BINARY_DIRECTORY}/lib64:$ENV{LD_LIBRARY_PATH}"
 endif ()
 
 ctest_test(APPEND
-  PARALLEL_LEVEL "${nproc}"
   TEST_LOAD "${nproc}"
   RETURN_VALUE test_result
   EXCLUDE "${test_exclude_tests}"

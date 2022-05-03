@@ -9,36 +9,49 @@ on:
 jobs:
   base-ubuntu:
     runs-on: ubuntu-latest
+    env:
+      CMAKE_CONFIGURATION: ubuntu_base
     steps:
       - uses: actions/checkout@v2
-      - name: build_and_test
+      - name: Install Deps
         run: |
           set -x
           export DEBIAN_FRONTEND="noninteractive"
           export TZ="America/Los_Angeles"
           sudo apt-get update -qq
-          sudo apt-get install -qq -y git-core gcc g++ gfortran cmake subversion automake m4 wget swig python3-dev mpich python3-numpy python3-mpi4py
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DTEST_NP=2 ..
-          make -j2
-          source bin/sensei-env.sh
-          ctest --output-on-failure
+          sudo apt-get install -qq -y git-core gcc g++ gfortran cmake ninja-build subversion automake m4 wget swig python3-dev mpich python3-numpy python3-mpi4py
+      - name: Setup CCache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ github.job }}-ubuntu-ccache
+      - name: Configure
+        run: ctest -VV -S .github/ci/ctest_configure.cmake
+      - name: Build
+        run: ctest -VV -S .github/ci/ctest_build.cmake
+      - name: Test
+        run: ctest -VV -S .github/ci/ctest_test.cmake
 
   base-macos:
     runs-on: macos-latest
+    env:
+      CMAKE_CONFIGURATION: macos_base
     steps:
       - uses: actions/checkout@v2
-      - name: build_and_test
+      - name: Install Deps
         run: |
           set -x
-          brew install openmpi swig openssl python@3.9
+          brew install ninja openmpi swig openssl python@3.9
           brew unlink python
           brew link --force python@3.9
           python3 -mpip install numpy mpi4py
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DTEST_NP=2 ..
-          make -j2
-          source bin/sensei-env.sh
-          ctest --output-on-failure
+      - name: Setup CCache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ github.job }}-macos-ccache
+      - name: Configure
+        run: ctest -VV -S .github/ci/ctest_configure.cmake
+      - name: Build
+        run: ctest -VV -S .github/ci/ctest_build.cmake
+      - name: Test
+        run: ctest -VV -S .github/ci/ctest_test.cmake
+

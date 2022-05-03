@@ -1,6 +1,6 @@
 set(CTEST_PROJECT_NAME "SENSEI")
 set(CTEST_NIGHTLY_START_TIME "00:00:00 EDT")
 set(CTEST_DROP_METHOD "https")
-set(CTEST_DROP_SITE "cdash.nersc.gov")
-set(CTEST_DROP_LOCATION "/submit.php?project=SENSEI")
+set(CTEST_DROP_SITE "open.cdash.org")
+set(CTEST_DROP_LOCATION "/submit.php?project=sensei")
 set(CTEST_DROP_SITE_CDASH TRUE)
