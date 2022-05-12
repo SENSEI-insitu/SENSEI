@@ -37,7 +37,7 @@ if (ENABLE_PYTHON)
     COPYONLY)
 
   install(FILES  "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/__init__.py"
-    DESTINATION "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}")
+    DESTINATION "${SENSEI_PYTHON_DIR}")
 
   # capture python path for use in automated CI
   file(CONFIGURE OUTPUT "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}/sensei-env.sh"

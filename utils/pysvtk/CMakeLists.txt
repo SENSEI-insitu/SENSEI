@@ -67,8 +67,8 @@ if (ENABLE_PYTHON)
       "${CMAKE_BINARY_DIR}/${SVTK_PYTHON_DIR}/${python_file}"
       COPYONLY)
 
-    install(FILES  "${CMAKE_BINARY_DIR}/${SVTK_PYTHON_DIR}/${python_file}"
-      DESTINATION "${CMAKE_BINARY_DIR}/${SVTK_PYTHON_DIR}")
+    install(FILES "${CMAKE_BINARY_DIR}/${SVTK_PYTHON_DIR}/${python_file}"
+      DESTINATION "${SVTK_PYTHON_DIR}")
 
   endforeach ()
 
