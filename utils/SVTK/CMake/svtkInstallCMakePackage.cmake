@@ -166,5 +166,5 @@ install(
 
 svtk_module_export_find_packages(
   CMAKE_DESTINATION "${svtk_cmake_destination}"
-  FILE_NAME         "SVTK-svtk-module-find-packages.cmake"
+  FILE_NAME         "svtk-svtk-module-find-packages.cmake"
   MODULES           ${svtk_modules})

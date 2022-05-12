@@ -2198,7 +2198,7 @@ function (svtk_module_build)
   endif ()
 
   if (NOT DEFINED _svtk_build_PACKAGE)
-    set(_svtk_build_PACKAGE "${CMAKE_PROJECT_NAME}")
+    set(_svtk_build_PACKAGE svtk)
   endif ()
   get_property(_svtk_build_package_exists GLOBAL
     PROPERTY  "_svtk_module_package_${_svtk_build_PACKAGE}"
