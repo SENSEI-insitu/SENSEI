@@ -97,9 +97,24 @@ if(ENABLE_ASCENT)
   find_dependency(Ascent NO_DEFAULT_PATH PATHS ${ASCENT_DIR})
   include(sAscent)
 endif()
+
 include(senseiCore)
+
 if (ENABLE_PYTHON)
+  set(SENSEI_PYTHON_DIR "${CMAKE_CURRENT_LIST_DIR}/../../@SENSEI_PYTHON_DIR@")
+
   include(sPython)
-  include(_PythonAnalysis)
+
+  add_library(sPythonAnalysis SHARED IMPORTED)
+  set_property(TARGET sPythonAnalysis
+    PROPERTY IMPORTED_LOCATION
+    "${SENSEI_PYTHON_DIR}/_PythonAnalysis.so")
+  if (APPLE)
+    set_property(TARGET sPythonAnalysis
+    PROPERTY IMPORTED_SONAME "@rpath/_PythonAnalysis.so")
+  endif()
+  add_dependencies(sPythonAnalysis PythonAnalysis)
+
 endif()
+
 include(sensei)

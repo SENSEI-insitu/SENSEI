@@ -141,9 +141,9 @@ if (ENABLE_ADIOS2)
     # enables one not to have to set (DY)LD_LIBRARY_PATH prior to importing
     # sensei.
     if (APPLE)
-      set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "@loader_path/./")
+      set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "@loader_path/./:@loader_path/../svtk")
     elseif(UNIX)
-      set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
+      set_target_properties(PythonAnalysis PROPERTIES INSTALL_RPATH "\$ORIGIN/./:\$ORIGIN/../svtk")
     endif()
 
     add_library(sPythonAnalysis SHARED IMPORTED)
@@ -156,16 +156,14 @@ if (ENABLE_ADIOS2)
     endif()
     add_dependencies(sPythonAnalysis PythonAnalysis)
 
-    # Python implementations
+    # install Python analyses
     set(python_analyses Histogram.py)
     foreach(python_analysis ${python_analyses})
       configure_file(${python_analysis}
         "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/${python_analysis}"
         COPYONLY)
+      install(FILES ${python_analysis} DESTINATION ${SENSEI_PYTHON_DIR})
     endforeach()
-
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
-      DESTINATION ${SENSEI_PYTHON_DIR} FILES_MATCHING PATTERN "*.py")
 
     # add to the sensei library so link info gets propagated
     list(APPEND sensei_libs sPythonAnalysis)
