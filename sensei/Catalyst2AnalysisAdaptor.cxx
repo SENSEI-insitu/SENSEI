@@ -77,23 +77,53 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
   // Conduit node to fill
   conduit_cpp::Node exec_params;
 
-  // Casting into the concrete Catalyst2DataAdaptor is not ideal,
-  // but it remove the need to GetMesh - Mesh to conduit.
-  // (still need testing, may need conduit to conduit adapt)
   auto c2dataAdaptor = Catalyst2DataAdaptor::SafeDownCast(dataAdaptor);
-  if (c2dataAdaptor == nullptr)
+  if (c2dataAdaptor)
   {
-    SENSEI_ERROR("The Catalyst2AnalysisAdaptor requires a Catalyst2DataAdaptor to do 0-Copy.");
-    return false;
-  }
-  unsigned int nbNodes;
-  c2dataAdaptor->GetNumberOfMeshes(nbNodes);
-  if (nbNodes > 1)
-  {
-    SENSEI_WARNING("The mesh has several nodes, only the first one will be processed.");
-  }
+    // fastpath, no need to translate data
+    unsigned int nbNodes;
+    c2dataAdaptor->GetNumberOfMeshes(nbNodes);
+    if (nbNodes > 1)
+    {
+      SENSEI_WARNING("The mesh has several nodes, only the first one will be processed.");
+    }
 
-  exec_params = c2dataAdaptor->GetNode(0);
+    exec_params = c2dataAdaptor->GetNode(0);
+  }
+  else
+  {
+    // translate data to conduit using VTK Module
+    // TODO: Update the CMake to depends on the VTK conduit module
+    for (auto meta : metadata)
+    {
+      const char* meshName = meta->MeshName.c_str();
+      vtkDataObject* dobj = nullptr;
+      if (dataAdaptor->GetMesh(meshName, false, dobj))
+      {
+        SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+        return -1;
+      }
+      if (dobj)
+      {
+        if (auto* pds = vtkPartitionedDataSet::SafeDownCast(dobj))
+        {
+          for (auto node : vtk::Range(pds))
+          {
+            // TODO
+            // if (node->IsA("vtkDataObject"))
+            //   vtkDataObjectToConduit::FillConduitNode(node, exec_params);
+            // else
+            //   std::cout << "ingore: " << node->GetClassName() << std::endl;
+          }
+        }
+        else
+        {
+          // TODO
+          // vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
+        }
+      }
+    }
+  }
 
   // Time description
   double time = dataAdaptor->GetDataTime();
