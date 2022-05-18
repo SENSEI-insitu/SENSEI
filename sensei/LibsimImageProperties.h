@@ -1,12 +1,14 @@
 #ifndef sensei_LibsimImageProperties_h
 #define sensei_LibsimImageProperties_h
 
+#include "senseiConfig.h"
+
 #include <string>
 
 namespace sensei
 {
 
-class LibsimImageProperties
+class SENSEI_EXPORT LibsimImageProperties
 {
 public:
     LibsimImageProperties();
