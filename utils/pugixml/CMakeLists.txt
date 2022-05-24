@@ -6,7 +6,7 @@ if (SENSEI_USE_EXTERNAL_pugixml)
     @ONLY)
 
   install(
-    FILES "${CMAKE_BINARY_DIR}/lib/cmake/pugixml.cmake"
+    FILES "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/pugixml.cmake"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake")
 else ()
   add_library(pugixml STATIC src/pugixml.cpp)
