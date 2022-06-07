@@ -33,3 +33,10 @@ else()
   message(STATUS "Disabled: Vortex miniapp.")
 endif()
 
+if(ENABLE_LAMMPS)
+  message(STATUS "Enabled: LAMMPS driver.")
+  add_subdirectory(lammps)
+else()
+  message(STATUS "Disabled: LAMMPS driver.")
+endif()
+

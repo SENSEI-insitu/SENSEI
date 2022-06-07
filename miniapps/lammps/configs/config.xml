@@ -1,0 +1,34 @@
+<sensei>
+  <analysis type="PosthocIO"
+    output_dir="./vtkfiles" file_name="output" mode="paraview"
+    enabled="0">
+    <mesh name="atoms" structure_only="0" ghost_cells="1" ghost_nodes="0">
+      <point_arrays>type,id</point_arrays>
+    </mesh>
+  </analysis>
+
+   <!-- configure ADIOS2 write -->
+   <analysis type="adios2" filename="test_%05d.bp”
+      engine="BP4" enabled="1”
+      steps_per_file="1" >
+
+      <!-- ADIOS2 engine parameters -->
+      <engine_parameters>
+          NumAggregators = 0
+          InitialBufferSize = 1Mb
+          BufferGrowthFactor = 2
+          MaxBufferSize = 1024Mb
+          StatsLevel = 0
+          Profile = Off
+      </engine_parameters>
+
+      <!-- subset by mesh and array -->
+      <mesh name="atoms">
+         <point_arrays>type,id </point_arrays>
+      </mesh>
+
+  </analysis>
+
+
+
+</sensei>
