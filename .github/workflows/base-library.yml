@@ -3,7 +3,7 @@ name: base-library
 on:
   pull_request:
     branches:
-      - main
+      - master
       - develop
 
 jobs:
