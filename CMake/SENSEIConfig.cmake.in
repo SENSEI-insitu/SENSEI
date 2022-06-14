@@ -60,8 +60,12 @@ elseif (ENABLE_VTK_CORE)
   if (NOT VTK_DIR)
     set(VTK_DIR "@VTK_DIR@")
   endif()
-  find_dependency(vtk)
+  find_dependency(VTK)
 endif()
+
+if (ENABLE_VTK_CORE)
+  include(sVTK)
+endif ()
 
 if (ENABLE_VTKM)
   include(sVTKm)
