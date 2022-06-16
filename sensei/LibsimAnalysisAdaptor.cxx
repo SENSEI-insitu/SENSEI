@@ -1279,7 +1279,9 @@ svtkDataSet_to_VisIt_Mesh(svtkDataObject *dobj)
                 const svtkIdType *svtkconn = (const svtkIdType *)ugrid->GetCells()->GetData()->GetVoidPointer(0);
                 const svtkIdType *offsets = (const svtkIdType *)ugrid->GetCellLocationsArray()->GetVoidPointer(0);
                 int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
-                int *newconn = new int[connlen];
+		int *newconn = (int *) malloc(sizeof(int) * connlen);
+		if (newconn == nullptr)
+		    throw std::bad_alloc();
                 int *lsconn = newconn;
                 for(int cellid = 0; cellid < ncells; ++cellid)
                 {
@@ -1326,7 +1328,8 @@ svtkDataSet_to_VisIt_Mesh(svtkDataObject *dobj)
                 }
                 else
                 {
-                    delete [] newconn;
+		    if (newconn != nullptr)
+			free(newconn);
                     err = true;
                 }
             }
