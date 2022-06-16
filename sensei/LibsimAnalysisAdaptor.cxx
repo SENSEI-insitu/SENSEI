@@ -553,8 +553,8 @@ LibsimAnalysisAdaptor::PrivateData::DetermineExportFilename(const std::string &f
     }
     else
     {
-        fnoext = f; // The SVTK writer makes ok filenames.
-        fmt = "SVTK_1.0";
+        fnoext = f; // The VTK writer makes ok filenames.
+        fmt = "VTK_1.0";
     }
 }
 
