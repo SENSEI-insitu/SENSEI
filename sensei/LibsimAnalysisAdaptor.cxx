@@ -1276,13 +1276,14 @@ svtkDataSet_to_VisIt_Mesh(svtkDataObject *dobj)
             if(ncells > 0 && !err)
             {
                 const unsigned char *cellTypes = (const unsigned char *)ugrid->GetCellTypesArray()->GetVoidPointer(0);
-                const svtkIdType *svtkconn = (const svtkIdType *)ugrid->GetCells()->GetData()->GetVoidPointer(0);
-                const svtkIdType *offsets = (const svtkIdType *)ugrid->GetCellLocationsArray()->GetVoidPointer(0);
+                const svtkIdType *svtkconn = (const svtkIdType *)ugrid->GetCells()->GetConnectivityArray()->GetVoidPointer(0);
+                const svtkIdType *offsets = (const svtkIdType *)ugrid->GetCells()->GetOffsetsArray()->GetVoidPointer(0);
                 int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
 		int *newconn = (int *) malloc(sizeof(int) * connlen);
 		if (newconn == nullptr)
 		    throw std::bad_alloc();
                 int *lsconn = newconn;
+
                 for(int cellid = 0; cellid < ncells; ++cellid)
                 {
                     // Map SVTK cell type to Libsim cell type.
@@ -1293,8 +1294,7 @@ svtkDataSet_to_VisIt_Mesh(svtkDataObject *dobj)
 
                         // The number of points is the first number for the cell.
                         const svtkIdType *cellConn = svtkconn + offsets[cellid];
-                        svtkIdType npts = cellConn[0];
-                        cellConn++;
+                        svtkIdType npts = offsets[cellid + 1] - offsets[cellid];
                         for(svtkIdType idx = 0; idx < npts; ++idx)
                             *lsconn++ = static_cast<int>(cellConn[idx]);
                     }
@@ -1304,7 +1304,7 @@ svtkDataSet_to_VisIt_Mesh(svtkDataObject *dobj)
                         // so we at least don't mess up the cell data later.
                         *lsconn++ = VISIT_CELL_POINT;
                         const svtkIdType *cellConn = svtkconn + offsets[cellid];
-                        *lsconn++ = cellConn[1];
+                        *lsconn++ = cellConn[0];
                     }
                 }
 
