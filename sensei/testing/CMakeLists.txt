@@ -220,4 +220,13 @@ if (BUILD_TESTING)
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/testMeshMetadata.py
     FEATURES PYTHON)
 
+  ##############################################################################
+#  add_executable(testAOSDataArray testAOSDataArray.cpp)
+#  target_link_libraries(testAOSDataArray sensei hamr)
+
+  #senseiAddTest(testAOSDataArray
+  #  SOURCES testAOSDataArray.cpp LIBS sensei hamr EXEC_NAME testAOSDataArray
+  #  PARALLEL ${TEST_NP}
+  #  COMMAND $<TARGET_FILE:testAOSDataArray>)
+
 endif()
