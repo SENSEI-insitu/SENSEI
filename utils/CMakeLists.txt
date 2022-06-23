@@ -20,3 +20,7 @@ add_subdirectory(pugixml)
 include(SVTKconfig.cmake)
 add_subdirectory(SVTK)
 add_subdirectory(pysvtk)
+
+set(HAMR_ENABLE_CUDA ${ENABLE_CUDA})
+add_subdirectory(HAMR)
+
