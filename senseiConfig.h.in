@@ -26,6 +26,7 @@
 #cmakedefine ENABLE_CATALYST
 #cmakedefine ENABLE_CATALYST_PYTHON
 #cmakedefine ENABLE_LIBSIM
+#cmakedefine ENABLE_VISTLE
 #cmakedefine ENABLE_ADIOS1
 #cmakedefine ENABLE_ADIOS2
 #cmakedefine ENABLE_HDF5
