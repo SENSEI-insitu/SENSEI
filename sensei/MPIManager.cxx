@@ -19,12 +19,18 @@ MPIManager::MPIManager(int &argc, char **&argv)
   Profiler::StartEvent("AppInitialize");
 
 #if defined(SENSEI_HAS_MPI)
+#ifdef VISTLE_SINGLE_PROCESS
+  int required = MPI_THREAD_MULTIPLE;
+  std::string mpiThreadSupport = "multiple";
+#else
   int required = MPI_THREAD_SERIALIZED;
+  std::string mpiThreadSupport = "serialized";
+#endif
   int provided = 0;
   MPI_Init_thread(&argc, &argv, required, &provided);
   if (provided < required)
     {
-    SENSEI_ERROR("This MPI does not support thread serialized");
+    SENSEI_ERROR("This MPI does not support thread " + mpiThreadSupport);
     abort();
     }
 #else
