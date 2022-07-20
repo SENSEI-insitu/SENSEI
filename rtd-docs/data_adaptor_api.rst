@@ -15,8 +15,8 @@ Finally the data adaptor is a key piece of SENSEI's in transit system. The
 analysis back end can be run in a different parallel job and be given an in
 transit data adaptor in place of the simulation's data adaptor. In this scenario
 the in transit data adaptor helps move data needed by the analysis back end.
-The data adaptor API enables this scenario to apear the same to the simulation
-and the analysis back end. Neither simulaiton nor analysis need be modified for
+The data adaptor API enables this scenario to appear the same to the simulation
+and the analysis back end. Neither simulation nor analysis need be modified for
 in transit processing.
 
 
