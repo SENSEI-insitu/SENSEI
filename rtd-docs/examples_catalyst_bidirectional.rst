@@ -3,10 +3,20 @@
 Computational Steering with Catalyst and SENSEI
 ***********************************************
 
-Getting Started
-###############
+Synopsis
+########
+
+In this example, we demonstrate using SENSEI with a bidirectional Catalyst 1.0 Analysis Adaptor to perform computational steering. Here, we employ the oscillator miniapp. The list of oscillator objects are exposed to Catalyst where each oscillator can be manipulated. Position of oscillators as well as oscillator properties can be modified on the fly, changing the behavior of the simulated domain.
+
+Setting Up
+##########
 
 You will need ParaView 5.10 installed, and SENSEI compiled with the options `ENABLE_CATALYST` and `ENABLE_CATALYST_PYTHON` turned on.
+
+Note, only Catalyst 1.0 scripts are compatible with computational steering in SENSEI. Unfortunately, those scripts cannot be generated automatically in the most recent editions of ParaView. The provided example script can be modified manually for your own purposes.
+
+Running the Example
+###################
 
 Open the ParaView application and navigate to `Tools`->`Manage Plugins`. Press the `Load New...` button, and navigate the file browser to the location of the `oscillator_catalyst_steering_proxies.xml` file, and select that file.
 
@@ -36,3 +46,9 @@ Click on the `Steering Parameters` item in the `Pipeline Browser`. The `Properti
    :align: center
 
    ParaView's GUI contains the Properties panel, where oscillator parameters can be edited, a center 3D Viewport where the oscillators are rendered using ray-traced volume rendering, and a second 3D Viewport where the 5 existing oscillators' locations are visualized with respect to one another.
+
+
+Results
+#######
+
+The key takeaway from this example is that Catalyst and SENSEI can be used to perform computational steering tasks with in situ visualization. The oscillators, whose properties and locations can be modified in situ, respond to the user's modifications. Setting up such a computational steering workflow in your own simulation code requires exposing desired parameters to SENSEI, and writing XML instructions for ParaView to generate the GUI for modifying the parameters.
