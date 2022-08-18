@@ -1,8 +1,10 @@
 .. _amrex_tutorials:
-
-
+***********************************************
 SENSEI + AMReX
-==========================
+***********************************************
+
+Synopsis
+########
 
 AMReX is a freely available simulation software framework designed to enable massively parallel block-structured adaptive mesh refinement (AMR) applications.
 
@@ -32,8 +34,8 @@ Which of these is active/available depends on how AMReX is compiled. See below
 for the details on configuring the build.
 
 
-Setting up the build
---------------------
+Setting Up
+##########
 
 Compiling the AMReX SENSEI tutorials requires that SENSEI is previously
 installed. The options that SENSEI was built with determine the specific in
@@ -66,8 +68,8 @@ available. The following table summarizes the various combinations and results.
 | -DSENSEI_DIR=<path to install>  |                                                              |
 +---------------------------------+--------------------------------------------------------------+
 
-Running the tutorials
----------------------
+Running the Example
+###################
 
 Once the tutorials are compiled they can be run from their corresponding
 directory.  The executable is passed an AMReX parm-parse `inputs` file
@@ -115,4 +117,5 @@ issuing the launching command. For instance the
 
    mpiexec -np 4 ./Advection_AmrLevel_ImplicitAmr inputs
 
-
+Results
+#######
