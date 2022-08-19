@@ -34,7 +34,7 @@ if (ENABLE_PYTHON)
   target_include_directories(sPython INTERFACE ${PYTHON_INCLUDE_PATH} ${MPI4PY_INCLUDE_DIR})
   target_link_libraries(sPython INTERFACE ${PYTHON_LIBRARIES})
   install(TARGETS sPython EXPORT sPython)
-  install(EXPORT sPython DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  install(EXPORT sPython DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
     EXPORT_LINK_INTERFACE_LIBRARIES)
 
   # find SWIG

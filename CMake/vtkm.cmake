@@ -13,6 +13,6 @@ if (ENABLE_VTKM)
   #target_include_directories(sVTKm SYSTEM INTERFACE ${VTKm_INCLUDE_DIRS})
   #target_compile_definitions(sVTKm INTERFACE ${VTKm_COMPILE_OPTIONS})
   install(TARGETS sVTKm EXPORT sVTKm)
-  install(EXPORT sVTKm DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  install(EXPORT sVTKm DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
     EXPORT_LINK_INTERFACE_LIBRARIES)
 endif()
