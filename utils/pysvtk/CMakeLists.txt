@@ -54,7 +54,7 @@ if (ENABLE_PYTHON)
   install(FILES ${CMAKE_BINARY_DIR}/${SVTK_PYTHON_DIR}/pysvtk.py
     DESTINATION ${SVTK_PYTHON_DIR})
 
-  #install(EXPORT pysvtk DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  #install(EXPORT pysvtk DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
   #  EXPORT_LINK_INTERFACE_LIBRARIES)
 
   # install additional pythons sources

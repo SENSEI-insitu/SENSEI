@@ -6,7 +6,7 @@ if(ENABLE_OPTS)
     $<INSTALL_INTERFACE:include>)
 
   install(TARGETS sOPTS EXPORT sOPTS)
-  install(EXPORT sOPTS DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+  install(EXPORT sOPTS DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR})
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/utils/opts/include" DESTINATION include)
 endif()
 

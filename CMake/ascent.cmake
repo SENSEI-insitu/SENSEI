@@ -15,6 +15,6 @@ if(ENABLE_ASCENT)
   target_include_directories(sAscent SYSTEM INTERFACE ${ASCENT_INCLUDE_DIRS})
 
   install(TARGETS sAscent EXPORT sAscent)
-  install(EXPORT sAscent DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  install(EXPORT sAscent DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
     EXPORT_LINK_INTERFACE_LIBRARIES)
 endif()
