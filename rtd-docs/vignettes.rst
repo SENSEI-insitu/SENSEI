@@ -3,23 +3,29 @@
 Analysis & Visualization Vignettes
 **********************************
 
+Papers
+------
 ..
-  add the label of your vignette here
+   add an image with a tag like the below references to add more vignettes. add the image to the grid below. you can link to you page using the :target: keyword make sure your preview image for this page is 600x600px. Deviating from those dimensions will cause issues when rendering the page.
 
-.. _vignette-example:
+.. |ISAV17| image:: images/pv_vtk-m_isocontours_preview.png
+   :width: 100%
+   :target: paper-thompson-isav17.rst
 
+.. |SC016| image:: images/v_vortex_breakdown_preview.png
+   :width: 100%
+   :target: paper-ayachit-sc16.rst
 
-2022
-----
+.. |ISAV16| image:: images/SENSEI-design_preview.png
+   :width: 100%
+   :target: paper-ayachit-isav16.rst
 
+.. |EWC22| image:: images/engwcmp_preview.png
+   :width: 100%
+   :target: paper-newberry-ewc22.rst
 
-2021
-----
-
-
-2020
-----
-
-
-2019
-----
++--------+-------+
+||ISAV17|||SC016||
++--------+-------+
+||ISAV16|||EWC22||
++--------+-------+
