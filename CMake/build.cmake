@@ -1,4 +1,10 @@
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
 option(BUILD_SHARED_LIBS OFF "Build shared libraries by default")
 option(BUILD_STATIC_EXECS  OFF "Link executables statically")
@@ -15,22 +21,48 @@ if(NOT CMAKE_BUILD_TYPE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-if (NOT MSVC)
-  if (NOT CMAKE_CXX_FLAGS)
-  set(tmp "-fPIC -std=c++11 -Wall -Wextra")
-  if (BUILD_STATIC_EXECS)
-    set(tmp "${tmp} -static -static-libgcc -static-libstdc++ -pthread -Wl,-Bstatic")
-  endif()
-  if ((APPLE) AND ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-    set(tmp "${tmp} -stdlib=libc++")
-  endif()
-  if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
-    set(tmp "${tmp} -O3 -march=native -mtune=native")
-  endif()
-  set(CMAKE_CXX_FLAGS "${tmp}"
-    CACHE STRING "SENSEI build defaults"
-    FORCE)
-  endif()
+# Add the requisite flags. CMake enthusiasts will tell you this is "not the
+# CMake way".  Unfortunately the officially cmake sanctioned methods are
+# inconsistent, and don't work in some cases.  Nontheless, we allow one
+# to override CMAKE_CXX_FLAGS on the command line for those that need or want
+# to do so.
+if (NOT CMAKE_CXX_FLAGS)
+    set(tmp "-fPIC -std=c++17 -Wall -Wextra -fvisibility=hidden")
+    if ((APPLE) AND ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+        set(tmp "${tmp} -stdlib=libc++")
+    endif()
+    if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
+        set(tmp "${tmp} -O3 -march=native -mtune=native -fno-trapping-math -fno-math-errno")
+        if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+            set(tmp "${tmp} -fno-signaling-nans")
+        endif()
+    endif()
+    set(CMAKE_CXX_FLAGS "${tmp}"
+        CACHE STRING "SENSEI build defaults"
+        FORCE)
+    string(REGEX REPLACE "-O[0-9]" "-O3" tmp "${CMAKE_CXX_FLAGS_RELEASE}")
+    set(CMAKE_CXX_FLAGS_RELEASE "${tmp}"
+        CACHE STRING "SENSEI build defaults"
+        FORCE)
+endif()
+
+if (NOT CMAKE_CUDA_FLAGS)
+    set(tmp "--default-stream per-thread --expt-relaxed-constexpr")
+    if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
+        set(tmp "${tmp} -Xcompiler -Wall,-Wextra,-O3,-march=native,-mtune=native,-fno-trapping-math,-fno-math-errno,-fvisibility=hidden")
+        if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+            set(tmp "${tmp},-fno-signaling-nans")
+        endif()
+    elseif ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+        set(tmp "${tmp} -g -G -Xcompiler -Wall,-Wextra,-O0,-g,-fvisibility=hidden")
+    endif()
+    set(CMAKE_CUDA_FLAGS "${tmp}"
+        CACHE STRING "SENSEI build defaults"
+        FORCE)
+    string(REGEX REPLACE "-O[0-9]" "-O3" tmp "${CMAKE_CUDA_FLAGS_RELEASE}")
+    set(CMAKE_CUDA_FLAGS_RELEASE "${tmp}"
+        CACHE STRING "SENSEI build defaults"
+        FORCE)
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR})

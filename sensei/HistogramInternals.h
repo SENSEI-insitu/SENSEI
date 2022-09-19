@@ -85,8 +85,8 @@ private:
   double Min;
   double Max;
   double Width;
-  std::map<svtkDataArray*, std::shared_ptr<void>> DataCache;
-  std::map<svtkDataArray*, std::shared_ptr<unsigned char>> GhostCache;
+  std::map<svtkDataArray*, std::shared_ptr<const void>> DataCache;
+  std::map<svtkDataArray*, std::shared_ptr<const unsigned char>> GhostCache;
   std::shared_ptr<unsigned int> Histogram;
 };
 

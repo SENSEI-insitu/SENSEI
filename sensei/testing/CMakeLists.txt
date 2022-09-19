@@ -4,6 +4,7 @@ if (BUILD_TESTING)
   senseiAddTest(testHistogramSerial
     SOURCES testHistogram.cpp LIBS sensei EXEC_NAME testHistogram
     COMMAND $<TARGET_FILE:testHistogram>
+    CUDA_TARGET
     LABELS HISTO)
 
   senseiAddTest(testHistogramParallel
@@ -46,17 +47,17 @@ if (BUILD_TESTING)
       LABELS STREAMING)
 
   ##############################################################################
-  senseiAddTest(testProgrammableDataAdaptor
-    PARALLEL 1
-    COMMAND $<TARGET_FILE:testProgrammableDataAdaptor>
-    SOURCES testProgrammableDataAdaptor.cpp
-    LIBS sensei)
-
-  senseiAddTest(testProgrammableDataAdaptorPy
-    PARALLEL 1
-    COMMAND ${PYTHON_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
-    FEATURES PYTHON)
+#   senseiAddTest(testProgrammableDataAdaptor
+#     PARALLEL 1
+#     COMMAND $<TARGET_FILE:testProgrammableDataAdaptor>
+#     SOURCES testProgrammableDataAdaptor.cpp
+#     LIBS sensei)
+# 
+#   senseiAddTest(testProgrammableDataAdaptorPy
+#     PARALLEL 1
+#     COMMAND ${PYTHON_EXECUTABLE}
+#       ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
+#     FEATURES PYTHON)
 
   ##############################################################################
   senseiAddTest(testPythonAnalysis
@@ -194,26 +195,26 @@ if (BUILD_TESTING)
       PYTHON HDF5 CATALYST)
 
   ##############################################################################
-  senseiAddTest(testADIOS1FLEXPATHHistogram
-    PARALLEL_SHELL 4
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
-      ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
-      histogram.xml read_adios1_flexpath_default.xml 10 1
-      -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
-    FEATURES
-      PYTHON ADIOS1)
-
-  ##############################################################################
-  senseiAddTest(testADIOS2SSTHistogram
-    PARALLEL_SHELL 4
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
-      ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
-      histogram.xml read_adios2_sst_block.xml 10 1
-      -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
-    FEATURES
-      PYTHON ADIOS2)
+#   senseiAddTest(testADIOS1FLEXPATHHistogram
+#     PARALLEL_SHELL 4
+#     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+#       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
+#       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
+#       histogram.xml read_adios1_flexpath_default.xml 10 1
+#       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
+#     FEATURES
+#       PYTHON ADIOS1)
+# 
+#   ##############################################################################
+#   senseiAddTest(testADIOS2SSTHistogram
+#     PARALLEL_SHELL 4
+#     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+#       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
+#       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
+#       histogram.xml read_adios2_sst_block.xml 10 1
+#       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
+#     FEATURES
+#       PYTHON ADIOS2)
 
   ##############################################################################
   senseiAddTest(testMeshMetadata
@@ -221,12 +222,23 @@ if (BUILD_TESTING)
     FEATURES PYTHON)
 
   ##############################################################################
-#  add_executable(testAOSDataArray testAOSDataArray.cpp)
-#  target_link_libraries(testAOSDataArray sensei hamr)
+  add_target(EXEC
+    NAME testAOSDataArray
+    CU_SOURCES testAOSDataArray.cpp
+    LINK_LIBS sensei hamr
+    )
 
   #senseiAddTest(testAOSDataArray
   #  SOURCES testAOSDataArray.cpp LIBS sensei hamr EXEC_NAME testAOSDataArray
   #  PARALLEL ${TEST_NP}
   #  COMMAND $<TARGET_FILE:testAOSDataArray>)
+
+
+  ##############################################################################
+  #senseiAddTest(testAOSDataArray
+  #  SOURCES testAOSDataArray.cpp LIBS sensei hamr EXEC_NAME testAOSDataArray
+  #  COMMAND $<TARGET_FILE:testAOSDataArray>)
+
+
 
 endif()

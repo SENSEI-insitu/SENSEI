@@ -1,6 +1,7 @@
 #include <random>
 #include <iostream>
 #include <mpi.h>
+#include <svtkHAMRDataArray.h>
 #include <svtkDoubleArray.h>
 #include <svtkImageData.h>
 #include <svtkPointData.h>
@@ -112,11 +113,18 @@ int main(int argc, char **argv)
   getSequence(vals);
   unsigned int nVals = vals.size();
 
+  std::shared_ptr<double> pVals(vals.data(), [](void*){});
+
+  svtkHAMRDataArray<double> *da =
+    svtkHAMRDataArray<double>::New("normal", pVals, nVals, 1, svtkAllocator::malloc, -1);
+
+/*
   svtkDoubleArray *da = svtkDoubleArray::New();
   da->SetNumberOfTuples(nVals);
   da->SetName("normal");
   for (unsigned int i = 0; i < nVals; ++i)
     *da->GetPointer(i) = vals[i];
+*/
 
   svtkImageData *im = svtkImageData::New();
   im->SetDimensions(gNx, gNy, gNz);

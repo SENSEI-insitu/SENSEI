@@ -24,6 +24,7 @@
 #include <svtkUnsignedCharArray.h>
 #include <svtkAOSDataArrayTemplate.h>
 #include <svtkSOADataArrayTemplate.h>
+#include <svtkHAMRDataArray.h>
 #include <svtkCompositeDataIterator.h>
 #include <svtkCompositeDataSet.h>
 #include <svtkDataObject.h>
@@ -42,7 +43,7 @@ namespace HistogramInternalsCUDA
 template <typename data_t>
 struct indirectGhostMin
 {
-    indirectGhostMin(data_t *data, unsigned char *ghosts) :
+    indirectGhostMin(const data_t *data, const unsigned char *ghosts) :
       Data(data), Ghosts(ghosts) {}
 
     __device__
@@ -58,8 +59,8 @@ struct indirectGhostMin
           return r;               // right is less than left
     }
 
-    data_t *Data;
-    unsigned char *Ghosts;
+    const data_t *Data;
+    const unsigned char *Ghosts;
 };
 
 /** given a data array a ghost array and two indices, looks up
@@ -69,7 +70,7 @@ struct indirectGhostMin
 template <typename data_t>
 struct indirectGhostMax
 {
-    indirectGhostMax(data_t *data, unsigned char *ghosts) :
+    indirectGhostMax(const data_t *data, const unsigned char *ghosts) :
       Data(data), Ghosts(ghosts) {}
 
     __device__
@@ -85,20 +86,20 @@ struct indirectGhostMax
           return r;               // right is greater than left
     }
 
-    data_t *Data;
-    unsigned char *Ghosts;
+    const data_t *Data;
+    const unsigned char *Ghosts;
 };
 
 
 // **************************************************************************
 template <typename data_t>
-int ComputeRange(std::shared_ptr<data_t> &pdata,
-    std::shared_ptr<unsigned char> &pGhosts, size_t nVals,
+int ComputeRange(std::shared_ptr<const data_t> &pdata,
+    std::shared_ptr<const unsigned char> &pGhosts, size_t nVals,
     data_t &dataMin, data_t &dataMax)
 {
   // wrap pointers for thrust
-  thrust::device_ptr<data_t> tpdata(pdata.get());
-  thrust::device_ptr<unsigned char> tpGhosts(pGhosts.get());
+  thrust::device_ptr<const data_t> tpdata(pdata.get());
+  thrust::device_ptr<const unsigned char> tpGhosts(pGhosts.get());
 
   // generate ordinal sequence
   thrust::device_vector<size_t> indices(nVals);
@@ -145,7 +146,7 @@ int ComputeRange(std::shared_ptr<data_t> &pdata,
  */
 template <typename data_t>
 __global__
-void histogram(data_t *data, unsigned char *ghosts,
+void histogram(const data_t *data, const unsigned char *ghosts,
   size_t nVals, data_t minVal, data_t width, unsigned int *hist,
   size_t nBins)
 {
@@ -187,7 +188,7 @@ void histogram(data_t *data, unsigned char *ghosts,
 
 /** launch the histogram kernel */
 template <typename data_t>
-int block_local_histogram(data_t *data, unsigned char *ghosts,
+int block_local_histogram(const data_t *data, const unsigned char *ghosts,
   size_t nVals, data_t minVal, data_t width, unsigned int *hist,
   size_t nBins)
 {
@@ -231,7 +232,7 @@ namespace HistogramInternalsCPU
  * @param[in,out] hist  the histogram
  */
 template <typename data_t>
-void block_local_histogram(data_t *data, unsigned char *ghosts,
+void block_local_histogram(const data_t *data, const unsigned char *ghosts,
   size_t nVals, data_t minVal, data_t width, unsigned int *hist,
   size_t nBins)
 {
@@ -293,7 +294,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
 
   // if ghost zones were provided use them, otherwise generate
   size_t nVals = da->GetNumberOfTuples();
-  std::shared_ptr<unsigned char> pGhosts;
+  std::shared_ptr<const unsigned char> pGhosts;
   if (ghosts)
     {
     // we have ghosts
@@ -307,7 +308,17 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       sensei::CUDAUtils::SetDevice(this->DeviceId);
 
       // get a pointer accessible on the GPU
-      pGhosts = sensei::MemoryUtils::MakeCudaAccessible(ghosts->GetPointer(0), nVals);
+      if (dynamic_cast<svtkHAMRDataArray<unsigned char>*>(((svtkDataArray*)ghosts)))
+        {
+        svtkHAMRDataArray<unsigned char> *tGhosts =
+          static_cast<svtkHAMRDataArray<unsigned char>*>(((svtkDataArray*)ghosts));
+
+        pGhosts = tGhosts->GetCUDAAccessible();
+        }
+      else
+        {
+        pGhosts = sensei::MemoryUtils::MakeCudaAccessible(ghosts->GetPointer(0), nVals);
+        }
       }
     else
       {
@@ -316,7 +327,17 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       std::cerr << "HistogramInternals::AddLocalData ghosts CPU" << std::endl;
 #endif
       // get a pointer accessible on the CPU
-      pGhosts = sensei::MemoryUtils::MakeCpuAccessible(ghosts->GetPointer(0), nVals);
+      if (dynamic_cast<svtkHAMRDataArray<unsigned char>*>((svtkDataArray*)ghosts))
+        {
+        svtkHAMRDataArray<unsigned char> *tGhosts =
+          static_cast<svtkHAMRDataArray<unsigned char>*>((svtkDataArray*)ghosts);
+
+        pGhosts = tGhosts->GetCPUAccessible();
+        }
+      else
+        {
+        pGhosts = sensei::MemoryUtils::MakeCpuAccessible(ghosts->GetPointer(0), nVals);
+        }
 #if defined(ENABLE_CUDA)
       }
 #endif
@@ -335,22 +356,12 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       sensei::CUDAUtils::SetDevice(this->DeviceId);
 
       // generate ghosts on the GPU
-      unsigned char *devpGhosts = nullptr;
-      cudaError_t ierr = cudaSuccess;
-      if ((ierr = cudaMalloc(&devpGhosts, nVals)) != cudaSuccess)
-        {
-        SENSEI_ERROR("Failed to allocate ghost zones on the GPU. "
-          << cudaGetErrorString(ierr))
-        return -1;
-        }
-      if ((ierr = cudaMemset(devpGhosts, 0, nVals)) != cudaSuccess)
-        {
-        SENSEI_ERROR("Failed to zero ghost zones on the GPU. "
-          << cudaGetErrorString(ierr))
-        return -1;
-        }
-      pGhosts = std::shared_ptr<unsigned char>(devpGhosts,
-        sensei::MemoryUtils::FreeCudaPtr);
+      svtkHAMRDataArray<unsigned char> *tGhosts =
+        svtkHAMRDataArray<unsigned char>::New("vtkGhostType", nVals, 1, svtkAllocator::cuda, 0);
+
+      pGhosts = tGhosts->GetCUDAAccessible();
+
+      tGhosts->Delete();
       }
     else
       {
@@ -360,10 +371,12 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
         " allocating on the CPU" << std::endl;
 #endif
       // generate ghosts on the CPU
-      pGhosts = std::shared_ptr<unsigned char>(
-        (unsigned char*)malloc(nVals), sensei::MemoryUtils::FreeCpuPtr);
+      svtkHAMRDataArray<unsigned char> *tGhosts =
+        svtkHAMRDataArray<unsigned char>::New("vtkGhostType", nVals, 1, svtkAllocator::malloc, 0);
 
-      memset(pGhosts.get(), 0, nVals);
+      pGhosts = tGhosts->GetCPUAccessible();
+
+      tGhosts->Delete();
 #if defined(ENABLE_CUDA)
       }
 #endif
@@ -377,7 +390,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
     {
     svtkTemplateMacro(
 
-      std::shared_ptr<SVTK_TT> pDa;
+      std::shared_ptr<const SVTK_TT> pDa;
 #if defined(ENABLE_CUDA)
       if (this->DeviceId >= 0)
         {
@@ -386,8 +399,18 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
           << (da->GetName() ? da->GetName() : "\"\"") << " CUDA" << std::endl;
 #endif
         // get a pointer to the data that's usable on the GPU
-        pDa = sensei::MemoryUtils::MakeCudaAccessible(
-          sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+        if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
+          {
+          svtkHAMRDataArray<SVTK_TT> *tDa =
+            static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
+
+          pDa = tDa->GetCUDAAccessible();
+          }
+        else
+          {
+          pDa = sensei::MemoryUtils::MakeCudaAccessible(
+            sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+          }
         }
       else
         {
@@ -396,8 +419,18 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
         std::cerr << "HistogramInternals::AddLocalData "
           << (da->GetName() ? da->GetName() : "\"\"") << " CPU" << std::endl;
 #endif
-        pDa = sensei::MemoryUtils::MakeCpuAccessible(
-         sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+        if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
+          {
+          svtkHAMRDataArray<SVTK_TT> *tDa =
+            static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
+
+          pDa = tDa->GetCPUAccessible();
+          }
+        else
+          {
+          pDa = sensei::MemoryUtils::MakeCpuAccessible(
+           sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+          }
 #if defined(ENABLE_CUDA)
         }
 #endif
@@ -427,10 +460,10 @@ int HistogramInternals::ComputeRange()
     {
     // get the data array. arrays in the cache have already been moved to the
     // GPU if that was neccessary.
-    std::shared_ptr<unsigned char> pGhosts = git->second;
+    std::shared_ptr<const unsigned char> pGhosts = git->second;
 
     svtkDataArray *da = dit->first;
-    std::shared_ptr<void> pvDa = dit->second;
+    std::shared_ptr<const void> pvDa = dit->second;
 
     size_t nVals = da->GetNumberOfTuples();
 
@@ -444,7 +477,7 @@ int HistogramInternals::ComputeRange()
 
         // cast to the correct type. The data will already be in the right place
         // data movement is handled in AddLocalData
-        std::shared_ptr<SVTK_TT> pDa = std::static_pointer_cast<SVTK_TT>(pvDa);
+        std::shared_ptr<const SVTK_TT> pDa = std::static_pointer_cast<const SVTK_TT>(pvDa);
 
 #if defined(ENABLE_CUDA)
         if (this->DeviceId >= 0)
@@ -462,8 +495,8 @@ int HistogramInternals::ComputeRange()
           {
 #endif
           // calculate range taking into account ghost zones on the CPU
-          SVTK_TT *rpDa = pDa.get();
-          unsigned char *rpGhosts = pGhosts.get();
+          const SVTK_TT *rpDa = pDa.get();
+          const unsigned char *rpGhosts = pGhosts.get();
           for (size_t i = 0; i < nVals; ++i)
             {
             if (rpGhosts[i] == 0)
@@ -609,10 +642,10 @@ int HistogramInternals::ComputeLocalHistogram()
     {
     // get the data array. arrays in the cache have already been moved to the
     // GPU if that was neccessary.
-    std::shared_ptr<unsigned char> pGhosts = git->second;
+    std::shared_ptr<const unsigned char> pGhosts = git->second;
 
     svtkDataArray *da = dit->first;
-    std::shared_ptr<void> pDa = dit->second;
+    std::shared_ptr<const void> pDa = dit->second;
 
     // get the sizes of the datat array
     size_t nVals = da->GetNumberOfTuples();

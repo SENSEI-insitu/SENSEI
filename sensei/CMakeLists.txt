@@ -12,12 +12,7 @@ if (ENABLE_SENSEI)
     PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
     SVTKDataAdaptor.cxx SVTKUtils.cxx XMLUtils.cxx)
 
-  set(senseiCore_libs pugixml thread sDIY sSVTK sMPI)
-
-  set(senseiCore_cuda_sources)
-  if (ENABLE_CUDA)
-    list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu HistogramInternals.cxx)
-  endif ()
+  set(senseiCore_libs pugixml thread sDIY sSVTK sMPI hamr)
 
   if (ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
@@ -91,11 +86,18 @@ if (ENABLE_ADIOS2)
     list(APPEND senseiCore_libs sVTK)
   endif()
 
-  add_library(senseiCore ${senseiCore_sources} ${senseiCore_cuda_sources})
-
+  set(senseiCore_cuda_sources)
   if (ENABLE_CUDA)
-    sensei_cuda_target(TARGET senseiCore SOURCES ${senseiCore_cuda_sources})
-  endif ()
+    list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu HistogramInternals.cxx)
+  endif()
+
+  add_target(LIB
+    NAME senseiCore
+    CXX_SOURCES ${senseiCore_sources}
+    CU_SOURCES ${senseiCore_cuda_sources}
+    CU_ARCH "${SENSEI_CUDA_ARCHITECTURES}"
+    LINK_LIBS ${senseiCore_libs}
+    )
 
   if (ENABLE_CATALYST)
     target_compile_definitions(senseiCore PRIVATE PARAVIEW_VERSION_MAJOR=${ParaView_VERSION_MAJOR} PARAVIEW_VERSION_MINOR=${ParaView_VERSION_MINOR})

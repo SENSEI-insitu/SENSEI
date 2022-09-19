@@ -46,7 +46,7 @@ All options are optional unless otherwise specified.
   * `PROPERTIES`: [Test  properties](https://cmake.org/cmake/help/v3.6/manual/cmake-properties.7.html\#test-properties) for this test
 #]==]
 function (senseiAddTest T_NAME)
-  set(opt_args REQ_SENSEI_DATA)
+  set(opt_args REQ_SENSEI_DATA CUDA_TARGET)
   set(val_args EXEC_NAME PARALLEL PARALLEL_SHELL)
   set(array_args SOURCES LIBS COMMAND FEATURES PROPERTIES)
   cmake_parse_arguments(PARSE_ARGV 0 T "${opt_args}" "${val_args}" "${array_args}")
@@ -84,6 +84,9 @@ function (senseiAddTest T_NAME)
       if (T_LIBS)
         target_link_libraries(${EXEC_NAME} ${T_LIBS})
       endif()
+      if (ENABLE_CUDA AND T_CUDA_TARGET)
+        sensei_cuda_target(TARGET ${EXEC_NAME} SOURCES ${T_SOURCES})
+      endif ()
     endif()
 
     if ((T_REQ_SENSEI_DATA AND SENSEI_DATA_ROOT) OR NOT T_REQ_SENSEI_DATA)
