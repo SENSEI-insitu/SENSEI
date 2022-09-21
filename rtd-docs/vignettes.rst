@@ -29,3 +29,29 @@ Papers
 +--------+-------+
 ||ISAV16|||EWC22||
 +--------+-------+
+
+Tutorials and Examples
+----------------------
+
+.. |amrex-ex| image:: images/amrex_tutorial_preview.png
+   :width: 100%
+   :target: examples_amrex_tutorials.rst
+   
+.. |catalyst-ex| image:: images/pv_catalyst_steering_preview.png
+   :width: 100%
+   :target: examples_catalyst_bidirectional.rst
+
+.. |pipeline-x| image:: images/placeholder.png
+   :width: 100%
+   :target: pipeline_demo.rst
+
+.. |example-ex| image:: images/placeholder.png
+   :width: 100%
+   :target: examples_example_rst.rst
+
+
++-------------+-------------+--------------+
+||amrex-ex|   ||catalyst-ex|||example-ex|  |
++-------------+-------------+--------------+
+||pipeline-x| ||example-ex| ||example-ex|  |
++-------------+-------------+--------------+
