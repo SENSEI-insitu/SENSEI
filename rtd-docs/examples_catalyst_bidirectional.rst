@@ -1,4 +1,4 @@
-.. _catalyst_bidirectional:
+.. _catalystbidirectional:
 ***********************************************
 Computational Steering with Catalyst and SENSEI
 ***********************************************
