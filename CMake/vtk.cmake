@@ -7,7 +7,7 @@ if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
 
   # lets build the list of modules for VTK pre-8.90 and post 8.90
   set(sensei_vtk_components_legacy)
-  set(sensei_vtk_components_modern)
+  set(sensei_vtk_components_modern CommonDataModel)
 
   if (ENABLE_VTK_MPI)
     list(APPEND sensei_vtk_components_legacy vtkParallelMPI)
