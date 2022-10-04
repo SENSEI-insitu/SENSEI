@@ -1,21 +1,20 @@
 .. _Ayachit_ISAV16:
-***********************************************
-SENSEI ISAV16 Paper
-***********************************************
 
-Title
-########
-
+***********************************************
 The SENSEI Generic In Situ Interface
-
-Authors
-########
+***********************************************
 
 Utkarsh Ayachit, Brad Whitlock, Matthew Wolf, Burlen Loring,
 Berk Geveci, David Lonie, and E. Wes Bethel
 
+============
+Full Text
+============
+
+Link to the full text PDF.
+
 Abstract
-########
+========
 The SENSEI generic in situ interface is an API that promotes code
 portability and reusability. From the simulation view, a developer
 can instrument their code with the SENSEI API and then make make use
@@ -28,7 +27,7 @@ the SENSEI generic interface, along with some simplified coding
 examples.
 
 Interface Design
-^^^^^^^^^^^^^^^^
+=================
 
 Data Model: A key part of the design of the common interface was a
 decision on a common data description model. Our choice was to extend
@@ -75,4 +74,3 @@ data adaptor in its Execute method. Using the sensei::DataAdaptor API,
 the analysis adaptor can obtain the mesh (geometry, and connectivity)
 and attribute or field arrays necessary for the analysis method.
 
-#######

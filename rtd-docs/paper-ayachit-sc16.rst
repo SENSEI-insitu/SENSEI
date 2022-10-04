@@ -1,17 +1,8 @@
+.. _ayachitsc16:
 
-.. _Ayachit_SC16:
-***********************************************
-SENSEI SC16 Paper
-***********************************************
-
-Title
-########
-
-Performance Analysis, Design Considerations, and Applications of
-Extreme-scale In Situ Infrastructures
-
-Authors
-########
+******************************************************************************************************
+Performance Analysis, Design Considerations, and Applications of Extreme-scale In Situ Infrastructures
+******************************************************************************************************
 
 Utkarsh Ayachit, Andrew Bauer, Earl P. N. Duque, Greg Eisenhauer,
 Nicola Ferrier, Junmin Gu, Kenneth E. Jansen, Burlen Loring,
@@ -20,8 +11,16 @@ Reetesh Ranjan, Michel Rasquin, Christopher P. Stone,
 Venkat Vishwanath, Gunther H. Weber, Brad Whitlock, Matthew Wolf,
 K. John Wu, and E. Wes Bethel
 
+============
+Full Text
+============
+
+Link to the full text PDF.
+
+========
 Abstract
-########
+========
+
 A key trend facing extreme-scale computational science is the widening
 gap between computational and I/O rates, and the challenge that
 follows is how to best gain insight from simulation data when it is
@@ -39,8 +38,9 @@ large-scale HPC platforms, that include a miniapplication and multiple
 science application codes, one of which demonstrates in situ methods
 in use at greater than 1M-way concurrency.
 
+=================
 Mini-Application
-^^^^^^^^^^^^^^^^
+=================
 
 As a prototypical data source, we implemented a miniapplication, an
 MPI code in C++, that simulates a collection of periodic, damped, or
@@ -57,8 +57,9 @@ The computation is embarrassingly parallel; optionally, the ranks may
 synchronize after every time step, but this synchronization is off in
 the experiments below.
 
+=========
 Pipelines
-^^^^^^^^^
+=========
 
 The miniapplication test configurations, listed below, show the
 various combinations of the oscillator miniapplication, in situ the
@@ -101,11 +102,12 @@ interface.
 |                 | include in situ workloads for histogram, autocorrelation, and Catalyst-slice.|
 +-----------------+------------------------------------------------------------------------------+
 
+============================
 Science Application Examples
-############################
+============================
 
 .. figure:: images/v_vortex_breakdown.png
-   :width: 30 %
+   :width: 100 %
    :align: center
 
    Computational Fluid Dynamics - The Evolution of Temporal Mixing Layer from Initial to Vortex Breakdown using AVF-LESLIE.
@@ -122,4 +124,4 @@ Science Application Examples
 
    Computational Fluid Dynamics - 6.33 Billion element grid with 1,048,576 MPI ranks on 32,768 nodes (32 MPI ranks per node) with output size of 2900x725 and 30 time steps.
 
-#######
+
