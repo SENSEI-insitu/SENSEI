@@ -68,5 +68,6 @@ Table of Contents
    system_components
    mini-apps
    examples
+   vignettes
    developer_guide
    glossary
