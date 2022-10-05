@@ -58,6 +58,8 @@ Papers
 
 .. toctree::
    :maxdepth: 1
+   :name: vignettes_papers
+   :numbered:
 
    paper-newberry-ewc22
    paper-loring-egpgv20
@@ -72,20 +74,19 @@ Tutorials and Examples
 
 .. |amrex-ex| image:: images/amrex_tutorial_preview.png
    :width: 100%
-   :target: examples_amrex_tutorials.rst
+   :target: examples_amrex_tutorials.html
 
 .. |catalyst-ex| image:: images/pv_catalyst_steering_preview.png
    :width: 100%
-   :target: examples_catalyst_bidirectional.rst
+   :target: examples_catalyst_bidirectional.html
 
 .. |pipeline-x| image:: images/placeholder.png
    :width: 100%
-   :target: pipeline_demo.rst
+   :target: pipeline_demo.html
 
 .. |example-ex| image:: images/placeholder.png
    :width: 100%
-   :target: examples_example_rst.rst
-
+   :target: examples_example_html.html
 
 +-------------+-------------+--------------+
 ||amrex-ex|   ||catalyst-ex|||example-ex|  |
@@ -98,7 +99,6 @@ Tutorials and Examples
 
    examples_amrex_tutorials
    examples_catalyst_bidirectional
-   pipeline_demo
    examples_example_rst
 
 
