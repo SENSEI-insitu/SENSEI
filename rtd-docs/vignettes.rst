@@ -30,7 +30,15 @@ Papers
    :width: 600px
    :target: paper-newberry-ewc22.html
 
-.. |blEGPGV20| image:: images/iamr_iso_knl_420_128spp_sm_FIN.png
+.. |blEGPGV20iso| image:: images/iamr_iso_knl_420_128spp_sm_FIN.png
+   :width: 600px
+   :target: paper-loring-egpgv20.html
+
+.. |blEGPGV20bu| image:: images/iamr_iso_knl_420_boxes_used_128spp_sm.png
+   :width: 600px
+   :target: paper-loring-egpgv20.html
+
+.. |blEGPGV20bn| image:: images/iamr_iso_knl_420_boxes_not_used_128spp_sm.png
    :width: 600px
    :target: paper-loring-egpgv20.html
 
@@ -39,7 +47,9 @@ Papers
    :target: paper-loring-isav18.html
 
 +------------------+-----------------+
-| |EWC22|          | |blEGPGV20|     |
+| |EWC22|          | |blEGPGV20iso|  |
+|                  | |blEGPGV20bu|   |
+|                  | |blEGPGV20bn|   |
 +------------------+-----------------+
 | |blISAV18|       |  |ISAV17|       |
 +------------------+-----------------+
