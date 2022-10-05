@@ -1,15 +1,18 @@
 .. _amrextutorials:
+
 ***********************************************
 SENSEI + AMReX
 ***********************************************
 
+========
 Synopsis
-########
+========
 
 AMReX is a freely available simulation software framework designed to enable massively parallel block-structured adaptive mesh refinement (AMR) applications.
 
 The `AMReX Tutorials repository <https://github.com/AMReX-Codes/amrex-tutorials>`_ houses several tutorial examples demonstrating the use of SENSEI in AMReX based simulation codes. The full list of tutorials are documented `here <https://amrex-codes.github.io/amrex/tutorials_html/>`_.
 
+--------
 Overview
 --------
 
@@ -34,8 +37,9 @@ Which of these is active/available depends on how AMReX is compiled. See below
 for the details on configuring the build.
 
 
+==========
 Setting Up
-##########
+==========
 
 Compiling the AMReX SENSEI tutorials requires that SENSEI is previously
 installed. The options that SENSEI was built with determine the specific in
@@ -43,8 +47,9 @@ situ capabilities available. Additional CMake options must also be passed
 when compiling AMReX to activate the SENSEI bridge and adaptors bundled
 with AMReX. The AMReX library is available on `GitHub <https://github.com/AMReX-Codes/amrex>`_.
 
+-------------
 Build options
-^^^^^^^^^^^^^
+-------------
 
 The options that AMReX is compiled with determine which SENSEI tutorials are
 available. The following table summarizes the various combinations and results.
@@ -68,8 +73,9 @@ available. The following table summarizes the various combinations and results.
 | -DSENSEI_DIR=<path to install>  |                                                              |
 +---------------------------------+--------------------------------------------------------------+
 
+===================
 Running the Example
-###################
+===================
 
 Once the tutorials are compiled they can be run from their corresponding
 directory.  The executable is passed an AMReX parm-parse `inputs` file
@@ -117,5 +123,7 @@ issuing the launching command. For instance the
 
    mpiexec -np 4 ./Advection_AmrLevel_ImplicitAmr inputs
 
+=======
 Results
-#######
+=======
+
