@@ -46,6 +46,10 @@ Papers
    :width: 600px
    :target: paper-loring-isav18.html
 
+.. |bbLDAV18| image:: images/Nek5000_Bernardoni.png
+   :width: 600px
+   :target: poster-bernardoni-ldav18.html
+
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
@@ -54,6 +58,8 @@ Papers
 | |blISAV18|       |  |ISAV17|       |
 +------------------+-----------------+
 | |ISAV16|         |  |SC016|        |
++------------------+-----------------+
+| |bbLDAV18|       |                 |
 +------------------+-----------------+
 
 .. toctree::
@@ -67,6 +73,7 @@ Papers
    paper-thompson-isav17
    paper-ayachit-sc16
    paper-ayachit-isav16
+   poster-bernardoni-ldav18
 
 ======================
 Tutorials and Examples
