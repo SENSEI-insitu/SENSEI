@@ -80,18 +80,16 @@ Tutorials and Examples
    :width: 100%
    :target: examples_catalyst_bidirectional.html
 
-.. |pipeline-x| image:: images/placeholder.png
+.. |intransit-ex| image:: images/intransit.png
    :width: 100%
-   :target: pipeline_demo.html
+   :target: examples_intransit.html
 
 .. |example-ex| image:: images/placeholder.png
    :width: 100%
    :target: examples_example_html.html
 
 +-------------+-------------+--------------+
-||amrex-ex|   ||catalyst-ex|||example-ex|  |
-+-------------+-------------+--------------+
-||pipeline-x| ||example-ex| ||example-ex|  |
+||amrex-ex|   ||catalyst-ex|||intransit-ex||
 +-------------+-------------+--------------+
 
 .. toctree::
@@ -99,6 +97,6 @@ Tutorials and Examples
 
    examples_amrex_tutorials
    examples_catalyst_bidirectional
-   examples_example_rst
+   examples_intransit
 
 
