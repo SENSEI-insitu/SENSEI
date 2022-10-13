@@ -91,13 +91,19 @@ Tutorials and Examples
    :width: 100%
    :target: examples_intransit.html
 
+.. |openfoam-ex| image:: images/openfoam_slice_00001.png
+   :width: 100%
+   :target: examples_openfoam.html
+
 .. |example-ex| image:: images/placeholder.png
    :width: 100%
    :target: examples_example_html.html
 
-+-------------+-------------+--------------+
-||amrex-ex|   ||catalyst-ex|||intransit-ex||
-+-------------+-------------+--------------+
++--------------+-------------+
+||amrex-ex|    ||catalyst-ex||
++--------------+-------------+
+||intransit-ex|||openfoam-ex||
++--------------+-------------+
 
 .. toctree::
    :maxdepth: 1
@@ -105,5 +111,5 @@ Tutorials and Examples
    examples_amrex_tutorials
    examples_catalyst_bidirectional
    examples_intransit
-
+   examples_openfoam
 
