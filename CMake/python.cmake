@@ -21,10 +21,6 @@ if (ENABLE_PYTHON)
   find_package(PythonInterp ${SENSEI_PYTHON_VERSION} REQUIRED)
   find_package(PythonLibs ${SENSEI_PYTHON_VERSION} REQUIRED)
   find_package(NUMPY REQUIRED)
-  find_program(swig_cmd NAMES swig swig3.0 swig4.0)
-  if (swig_cmd-NOTFOUND)
-  	message(SEND_ERROR "Failed to locate swig")
-  endif()
 
   # find MPI
   find_package(MPI4PY REQUIRED)
@@ -40,7 +36,7 @@ if (ENABLE_PYTHON)
   # find SWIG
   cmake_policy(SET CMP0078 NEW)
   cmake_policy(SET CMP0086 NEW)
-  find_package(SWIG COMPONENTS python)
+  find_package(SWIG REQUIRED COMPONENTS python)
   include(UseSWIG)
 
   # the destination of all SENSEI Python codes
