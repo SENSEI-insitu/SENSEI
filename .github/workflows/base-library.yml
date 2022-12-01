@@ -37,21 +37,14 @@ jobs:
       CMAKE_CONFIGURATION: macos_base
     steps:
       - uses: actions/checkout@v2
-      - name: Install Deps
+      - name: build_and_test
         run: |
           set -x
-          brew install ninja openmpi swig openssl python@3.9
-          brew unlink python
-          brew link --force python@3.9
+          brew install cmake openmpi swig openssl
           python3 -mpip install numpy mpi4py
-      - name: Setup CCache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: ${{ github.job }}-macos-ccache
-      - name: Configure
-        run: ctest -VV -S .github/ci/ctest_configure.cmake
-      - name: Build
-        run: ctest -VV -S .github/ci/ctest_build.cmake
-      - name: Test
-        run: ctest -VV -S .github/ci/ctest_test.cmake
-
+          mkdir build
+          cd build
+          cmake -DPython3_EXECUTABLE=`python3-config --prefix`/bin/python3 -DPython3_ROOT_DIR=`python3-config --prefix` -DPython3_FIND_STRATEGY=LOCATION -DPython3_FIND_FRAMEWORK=FIRST -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DTEST_NP=2 ..
+          make -j2
+          source bin/sensei-env.sh
+          ctest --output-on-failure
