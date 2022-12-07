@@ -50,16 +50,20 @@ Papers
    :width: 600px
    :target: poster-bernardoni-ldav18.html
 
+.. |wuISAV18| image:: images/libis.png
+   :width: 600px
+   :target: paper-usher-isav18.html
+
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
 |                  | |blEGPGV20bn|   |
 +------------------+-----------------+
-| |blISAV18|       |  |ISAV17|       |
+| |blISAV18|       |  |bbLDAV18|     |
++------------------+-----------------+
+| |wuISAV18|       |  |ISAV17|       |
 +------------------+-----------------+
 | |ISAV16|         |  |SC016|        |
-+------------------+-----------------+
-| |bbLDAV18|       |                 |
 +------------------+-----------------+
 
 .. toctree::
@@ -70,10 +74,11 @@ Papers
    paper-newberry-ewc22
    paper-loring-egpgv20
    paper-loring-isav18
+   poster-bernardoni-ldav18
+   paper-usher-isav18
    paper-thompson-isav17
    paper-ayachit-sc16
    paper-ayachit-isav16
-   poster-bernardoni-ldav18
 
 ======================
 Tutorials and Examples
