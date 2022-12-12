@@ -62,10 +62,16 @@ Papers
    :width: 600px
    :target: paper-ames-ldav19.html
 
+.. |ssISAV19| image:: images/Spack_Shudler.png
+   :width: 600px
+   :target: paper-shudler-isav19.html
+
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
 |                  | |blEGPGV20bn|   |
++------------------+-----------------+
+| |ssISAV19|       |                 |
 +------------------+-----------------+
 | |ssEGPGV19|      | |jaLDAV19|      |
 +------------------+-----------------+
@@ -83,6 +89,7 @@ Papers
 
    paper-newberry-ewc22
    paper-loring-egpgv20
+   paper-shudler-isav19
    paper-shudler-egpgv19
    paper-ames-ldav19
    paper-loring-isav18
