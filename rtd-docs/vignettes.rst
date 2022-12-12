@@ -66,12 +66,17 @@ Papers
    :width: 600px
    :target: paper-shudler-isav19.html
 
+.. |cmLDAV20| image:: images/Bloodflow_Murphy.png
+   :width: 600px
+   :target: poster-murphy-ldav20.html
+
+
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
 |                  | |blEGPGV20bn|   |
 +------------------+-----------------+
-| |ssISAV19|       |                 |
+| |cmLDAV20|       | |ssISAV19|      |
 +------------------+-----------------+
 | |ssEGPGV19|      | |jaLDAV19|      |
 +------------------+-----------------+
@@ -89,6 +94,7 @@ Papers
 
    paper-newberry-ewc22
    paper-loring-egpgv20
+   poster-murphy-ldav20
    paper-shudler-isav19
    paper-shudler-egpgv19
    paper-ames-ldav19
