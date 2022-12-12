@@ -58,18 +58,22 @@ Papers
    :width: 600px
    :target: paper-shudler-egpgv19.html
 
+.. |jaLDAV19| image:: images/Harvey_Ames.png
+   :width: 600px
+   :target: paper-ames-ldav19.html
+
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
 |                  | |blEGPGV20bn|   |
 +------------------+-----------------+
-| |ssEGPGV19|      |                 |
+| |ssEGPGV19|      | |jaLDAV19|      |
 +------------------+-----------------+
-| |blISAV18|       |  |bbLDAV18|     |
+| |blISAV18|       | |bbLDAV18|      |
 +------------------+-----------------+
-| |wuISAV18|       |  |ISAV17|       |
+| |wuISAV18|       | |ISAV17|        |
 +------------------+-----------------+
-| |SC016|          |  |ISAV16|       |
+| |SC016|          | |ISAV16|        |
 +------------------+-----------------+
 
 .. toctree::
@@ -80,6 +84,7 @@ Papers
    paper-newberry-ewc22
    paper-loring-egpgv20
    paper-shudler-egpgv19
+   paper-ames-ldav19
    paper-loring-isav18
    poster-bernardoni-ldav18
    paper-usher-isav18
