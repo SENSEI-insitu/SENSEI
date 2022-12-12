@@ -54,16 +54,22 @@ Papers
    :width: 600px
    :target: paper-usher-isav18.html
 
+.. |ssEGPGV19| image:: images/Nek5000_Shudler.png
+   :width: 600px
+   :target: paper-shudler-egpgv19.html
+
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
 |                  | |blEGPGV20bn|   |
 +------------------+-----------------+
+| |ssEGPGV19|      |                 |
++------------------+-----------------+
 | |blISAV18|       |  |bbLDAV18|     |
 +------------------+-----------------+
 | |wuISAV18|       |  |ISAV17|       |
 +------------------+-----------------+
-| |ISAV16|         |  |SC016|        |
+| |SC016|          |  |ISAV16|       |
 +------------------+-----------------+
 
 .. toctree::
@@ -73,6 +79,7 @@ Papers
 
    paper-newberry-ewc22
    paper-loring-egpgv20
+   paper-shudler-egpgv19
    paper-loring-isav18
    poster-bernardoni-ldav18
    paper-usher-isav18
