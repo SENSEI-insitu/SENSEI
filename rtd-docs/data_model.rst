@@ -1,4 +1,5 @@
 .. _data_model:
+
 Data model
 ==========
 The data model is a key piece of the system. It allows data to be packaged and
