@@ -110,7 +110,7 @@ endif()
 include(senseiCore)
 
 if (ENABLE_PYTHON)
-  set(SENSEI_PYTHON_DIR "${CMAKE_CURRENT_LIST_DIR}/../../@SENSEI_PYTHON_DIR@")
+  set(SENSEI_PYTHON_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../@SENSEI_PYTHON_DIR@")
 
   include(sPython)
 
