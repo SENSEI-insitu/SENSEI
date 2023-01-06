@@ -244,6 +244,9 @@ Additionally, the following variables are deprecated:
   Use ``MPIEXEC_EXECUTABLE`` instead.
 #]=======================================================================]
 
+
+message(FATAL_ERROR " ===================== USING VTK's FindMPI !!!!! ")
+
 cmake_policy(PUSH)
 cmake_policy(SET CMP0057 NEW) # if IN_LIST
 

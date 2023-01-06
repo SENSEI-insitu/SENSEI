@@ -114,7 +114,7 @@ set_property(CACHE SVTK_BUILD_TESTING
     STRINGS "ON;OFF;WANT")
 set(BUILD_TESTING OFF)
 if (SVTK_BUILD_TESTING)
-  set(BUILD_TESTING ON)
+  message(FATAL_ERROR " ========================== SVTK has no regression tests")
 endif ()
 
 #-----------------------------------------------------------------------------
@@ -124,7 +124,7 @@ if(SVTK_USE_CUDA)
   # This needs to be a top level flag as enable_language needs
   # to be called from CMake entry point for variables to have
   # the correct scope.
-  enable_language(CUDA)
+  message(FATAL_ERROR " ========================== SVTK with CUDA has not been tested")
 endif()
 
 #-----------------------------------------------------------------------------
