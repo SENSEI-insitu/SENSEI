@@ -47,6 +47,6 @@ if (ENABLE_PYTHON)
   set(SENSEI_PYTHON_DIR "${SENSEI_PYTHON_SITE}/sensei/"
     CACHE STRING "Where SENSEI Python bindings are compiled and installed")
 
-  message(STATUS "SENSEI Python modules will be installed at \"${SENSEI_PYTHON_DIR}\"")
+  message(STATUS "SENSEI: Python modules will be installed at \"${SENSEI_PYTHON_DIR}\"")
 
 endif()

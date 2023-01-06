@@ -4,7 +4,7 @@ set(OSCILLATOR_CUDA OFF CACHE BOOL "Enable CUDA acceleration in the miniapp")
 if (OSCILLATOR_CUDA)
   set(ENABLE_CUDA ON)
   include(cuda)
-  message(STATUS "oscillators miniapp will use CUDA")
+  message(STATUS "SENSEI: oscillators miniapp will use CUDA")
 endif()
 
 set(sources main.cpp analysis.cpp)

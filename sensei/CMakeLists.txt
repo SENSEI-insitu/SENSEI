@@ -1,5 +1,5 @@
 if (ENABLE_SENSEI)
-  message(STATUS "Enabled: sensei library")
+  message(STATUS "SENSEI: Enabled: sensei library")
 
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
