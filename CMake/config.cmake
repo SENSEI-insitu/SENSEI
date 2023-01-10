@@ -5,11 +5,11 @@ install(FILES ${CMAKE_BINARY_DIR}/senseiConfig.h DESTINATION include)
 set(SENSEI_BUILD OFF)
 
 configure_file(CMake/SENSEIConfig.cmake.in
-  ${CMAKE_INSTALL_LIBDIR}/cmake/SENSEIConfig.cmake @ONLY)
+  ${sensei_CMAKE_INSTALL_CMAKEDIR}/SENSEIConfig.cmake @ONLY)
 
 configure_file(CMake/SENSEIConfigVersion.cmake.in
-  ${CMAKE_INSTALL_LIBDIR}/cmake/SENSEIConfigVersion.cmake @ONLY)
+  ${sensei_CMAKE_INSTALL_CMAKEDIR}/SENSEIConfigVersion.cmake @ONLY)
 
-install(FILES ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/SENSEIConfig.cmake
-  ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake/SENSEIConfigVersion.cmake
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake)
+install(FILES ${CMAKE_BINARY_DIR}/${sensei_CMAKE_INSTALL_CMAKEDIR}/SENSEIConfig.cmake
+  ${CMAKE_BINARY_DIR}/${sensei_CMAKE_INSTALL_CMAKEDIR}/SENSEIConfigVersion.cmake
+  DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR})

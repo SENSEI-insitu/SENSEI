@@ -317,7 +317,7 @@ SENSEI_WRAP_DATA_ADAPTOR(DataAdaptor)
     return out;
   }
 }
-%ingnore sensei::##cname##::GetPartition;
+%ignore sensei::##cname##::GetPartition;
 %enddef
 
 PARTITIONER_API(Partitioner)

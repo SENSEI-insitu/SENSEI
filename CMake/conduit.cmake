@@ -7,6 +7,6 @@ if(ENABLE_CONDUIT)
   target_include_directories(sConduit SYSTEM INTERFACE ${CONDUIT_INCLUDE_DIRS})
 
   install(TARGETS sConduit EXPORT sConduit)
-  install(EXPORT sConduit DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  install(EXPORT sConduit DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
     EXPORT_LINK_INTERFACE_LIBRARIES)
 endif()

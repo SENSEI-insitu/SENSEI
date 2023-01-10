@@ -16,7 +16,7 @@ elseif (ENABLE_CORI_GPU OR (NOT DEFINED ENABLE_CORI_GPU AND NOT ("$ENV{OPENMPI_D
     set(MPIEXEC srun CACHE STRING "Platform MPI run equivalent")
     set(MPI_C_FOUND CACHE BOOL ON "status of MPI config")
 else()
-    find_package(MPI COMPONENTS C)
+    find_package(MPI COMPONENTS C CXX)
 endif()
 
 if (NOT MPI_C_FOUND)
@@ -35,5 +35,5 @@ target_include_directories(sMPI SYSTEM INTERFACE
 target_link_libraries(sMPI INTERFACE ${MPI_C_LIBRARIES})
 
 install(TARGETS sMPI EXPORT sMPI)
-install(EXPORT sMPI DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+install(EXPORT sMPI DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
   EXPORT_LINK_INTERFACE_LIBRARIES)
