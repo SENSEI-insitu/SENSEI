@@ -41,7 +41,7 @@ if (ENABLE_PYTHON)
 
   # the destination of all SENSEI Python codes
   set(SENSEI_PYTHON_SITE
-    "${CMAKE_INSTALL_LIBDIR}/python-${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/"
+    "${CMAKE_INSTALL_LIBDIR}/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/"
     CACHE STRING "Where Python modules are compiled and installed.")
 
   set(SENSEI_PYTHON_DIR "${SENSEI_PYTHON_SITE}/sensei/"
