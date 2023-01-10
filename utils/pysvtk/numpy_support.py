@@ -75,7 +75,7 @@ def get_svtk_array_type(numpy_array_type):
 
 def get_svtk_to_numpy_typemap():
     """Returns the SVTK array type to numpy array type mapping."""
-    _svtk_np = {svtkConstants.SVTK_BIT:numpy.bool,
+    _svtk_np = {svtkConstants.SVTK_BIT:numpy.int8,
                 svtkConstants.SVTK_CHAR:numpy.int8,
                 svtkConstants.SVTK_SIGNED_CHAR:numpy.int8,
                 svtkConstants.SVTK_UNSIGNED_CHAR:numpy.uint8,
