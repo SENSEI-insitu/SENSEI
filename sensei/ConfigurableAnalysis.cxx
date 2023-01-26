@@ -1245,8 +1245,12 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
   for (pugi::xml_node node = root.child("analysis");
     node; node = node.next_sibling("analysis"))
     {
-    if (!node.attribute("enabled").as_int(0))
+
+    if (!node.attribute("enabled").as_bool(false))
+      {
+      SENSEI_WARNING("Skipping analysis of type \"" << node.attribute("type").value() << "\" as it is not enabled")    
       continue;
+      }
 
     std::string type = node.attribute("type").value();
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
@@ -1275,8 +1279,12 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
   for (pugi::xml_node node = root.child("transport");
     node; node = node.next_sibling("transport"))
     {
-    if (!node.attribute("enabled").as_int(0))
+    
+    if (!node.attribute("enabled").as_bool(false))
+      {
+      SENSEI_WARNING("Skipping transport of type \"" << node.attribute("type").value() << "\" as it is not enabled")    
       continue;
+      }
 
     std::string type = node.attribute("type").value();
     if (!(((type == "adios1") && !this->Internals->AddAdios1(node))
