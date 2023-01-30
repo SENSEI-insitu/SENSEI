@@ -1246,9 +1246,9 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     node; node = node.next_sibling("analysis"))
     {
 
-    if (!node.attribute("enabled").as_bool(false))
+    if (!node.attribute("enabled").as_bool(true))
       {
-      SENSEI_WARNING("Skipping analysis of type \"" << node.attribute("type").value() << "\" as it is not enabled")    
+      SENSEI_STATUS("Skipping analysis of type \"" << node.attribute("type").value() << "\" as it is not enabled")    
       continue;
       }
 
@@ -1280,9 +1280,9 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     node; node = node.next_sibling("transport"))
     {
     
-    if (!node.attribute("enabled").as_bool(false))
+    if (!node.attribute("enabled").as_bool(true))
       {
-      SENSEI_WARNING("Skipping transport of type \"" << node.attribute("type").value() << "\" as it is not enabled")    
+      SENSEI_STATUS("Skipping transport of type \"" << node.attribute("type").value() << "\" as it is not enabled")    
       continue;
       }
 
