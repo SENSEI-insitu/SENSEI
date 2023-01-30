@@ -382,13 +382,14 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
   const std::string& fileName,
   const std::string& resultProducer,
   const std::string& steerableSourceType,
-  const std::string& resultMesh)
+  const std::string& resultMesh,
+  int scriptVersion)
 {
 #ifdef ENABLE_CATALYST_PYTHON
 #if PARAVIEW_VERSION_MAJOR > 5 || (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 9)
   // detect if we are given a Catalyst 1 or 2 script
   vtkSmartPointer<vtkCPPythonPipeline> pythonPipeline =
-    vtkCPPythonPipeline::CreateAndInitializePipeline(fileName.c_str());
+    vtkCPPythonPipeline::CreateAndInitializePipeline(fileName.c_str(), scriptVersion);
 
   // if we have a catalyst 1 script, we can create a pipeline with steering options
   if(auto catalyst1Pipeline = vtkCPPythonScriptPipeline::SafeDownCast(pythonPipeline))
