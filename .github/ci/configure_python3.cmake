@@ -1,13 +1,13 @@
 execute_process(
-  COMMAND "which" "python3"
-  OUTPUT_VARIABLE pyexec
+  COMMAND "python3-config" "--prefix"
+  OUTPUT_VARIABLE PY_ROOT
   OUTPUT_STRIP_TRAILING_WHITESPACE)
-set(Python3_EXECUTABLE "${pyexec}" CACHE PATH "")
-set(Python3_EXECUTABLE "${pyexec}" CACHE PATH "")
 
-get_filename_component(pypath "${pyexec}" DIRECTORY)
-get_filename_component(pypath "${pypath}" DIRECTORY)
-set(Python3_ROOT_DIR "${pypath}" CACHE PATH "")
+set(Python3_ROOT_DIR "${PY_ROOT}" CACHE PATH "")
+set(Python3_EXECUTABLE "${PY_ROOT}/bin/python3" CACHE PATH "")
+
+set(Python3_FIND_STRATEGY "LOCATION" CACHE STRING "")
+set(Python3_FIND_FRAMEWORK "FIRST" CACHE STRING "")
 
 set(ENABLE_PYTHON ON CACHE BOOL "")
 set(SENSEI_PYTHON_VERSION 3 CACHE STRING "")

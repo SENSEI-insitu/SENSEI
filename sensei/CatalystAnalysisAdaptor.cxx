@@ -246,15 +246,15 @@ protected:
     this->ResultData = nullptr;
 
     if (this->SteerableSourceType != nullptr)
-      {
+    {
       this->InitializeSteerableSource(dataDescription);
-      }
+    }
 
     const auto status = this->Superclass::CoProcess(dataDescription);
     if (!status)
-      {
+    {
       return status;
-      }
+    }
 
 
     // find `ResultProducer` proxy and update it and get its data.
@@ -385,13 +385,38 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
   const std::string& resultMesh)
 {
 #ifdef ENABLE_CATALYST_PYTHON
-  vtkNew<sensei::CatalystScriptPipeline> pythonPipeline;
-  pythonPipeline->SetResultProducer(!resultProducer.empty() ? resultProducer.c_str() : nullptr);
-  pythonPipeline->SetResultMesh(!resultMesh.empty() ? resultMesh.c_str() : nullptr);
-  pythonPipeline->SetSteerableSourceType(
+#if PARAVIEW_VERSION_MAJOR > 5 || (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 9)
+  // detect if we are given a Catalyst 1 or 2 script
+  vtkSmartPointer<vtkCPPythonPipeline> pythonPipeline =
+    vtkCPPythonPipeline::CreateAndInitializePipeline(fileName.c_str());
+
+  // if we have a catalyst 1 script, we can create a pipeline with steering options
+  if(auto catalyst1Pipeline = vtkCPPythonScriptPipeline::SafeDownCast(pythonPipeline))
+  {
+    vtkNew<sensei::CatalystScriptPipeline> steerablePipeline;
+    steerablePipeline->SetResultProducer(!resultProducer.empty() ? resultProducer.c_str() : nullptr);
+    steerablePipeline->SetResultMesh(!resultMesh.empty() ? resultMesh.c_str() : nullptr);
+    steerablePipeline->SetSteerableSourceType(
+      !steerableSourceType.empty() ? steerableSourceType.c_str() : nullptr);
+    steerablePipeline->Initialize(fileName.c_str());
+    this->AddPipeline(steerablePipeline.GetPointer());
+  }
+  else if(pythonPipeline)
+  {
+    // we currently do not support steering with this code path for Catalyst 2
+    this->AddPipeline(pythonPipeline.GetPointer());
+  }
+#else
+  // we only have access to Catalyst 1, so we can use the steerable pipeline
+  vtkNew<sensei::CatalystScriptPipeline> steerablePipeline;
+  steerablePipeline->SetResultProducer(!resultProducer.empty() ? resultProducer.c_str() : nullptr);
+  steerablePipeline->SetResultMesh(!resultMesh.empty() ? resultMesh.c_str() : nullptr);
+  steerablePipeline->SetSteerableSourceType(
     !steerableSourceType.empty() ? steerableSourceType.c_str() : nullptr);
-  pythonPipeline->Initialize(fileName.c_str());
-  this->AddPipeline(pythonPipeline.GetPointer());
+  steerablePipeline->Initialize(fileName.c_str());
+  this->AddPipeline(steerablePipeline.GetPointer());
+#endif
+
 #else
   (void)fileName;
   (void)resultProducer;
@@ -632,7 +657,7 @@ bool CatalystAnalysisAdaptor::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut
     // Query Catalyst for what data is required, fetch from the sim
     if (this->SelectData(dataIn, metadata, dataDesc.GetPointer()))
       {
-      SENSEI_ERROR("Failed to selct data")
+      SENSEI_ERROR("Failed to select data")
       return false;
       }
 

@@ -1,3 +1,6 @@
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wstringop-overread"
 /*=========================================================================
 
 Program:   Visualization Toolkit
@@ -1711,3 +1714,4 @@ bool svtkHyperTreeGrid::HasAnyGhostCells() const
 {
   return this->PointData->GetArray(svtkDataSetAttributes::GhostArrayName()) != nullptr;
 }
+#pragma GCC diagnostic pop

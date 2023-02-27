@@ -21,10 +21,6 @@ if (ENABLE_PYTHON)
   find_package(PythonInterp ${SENSEI_PYTHON_VERSION} REQUIRED)
   find_package(PythonLibs ${SENSEI_PYTHON_VERSION} REQUIRED)
   find_package(NUMPY REQUIRED)
-  find_program(swig_cmd NAMES swig swig3.0 swig4.0)
-  if (swig_cmd-NOTFOUND)
-  	message(SEND_ERROR "Failed to locate swig")
-  endif()
 
   # find MPI
   find_package(MPI4PY REQUIRED)
@@ -34,18 +30,18 @@ if (ENABLE_PYTHON)
   target_include_directories(sPython INTERFACE ${PYTHON_INCLUDE_PATH} ${MPI4PY_INCLUDE_DIR})
   target_link_libraries(sPython INTERFACE ${PYTHON_LIBRARIES})
   install(TARGETS sPython EXPORT sPython)
-  install(EXPORT sPython DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  install(EXPORT sPython DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
     EXPORT_LINK_INTERFACE_LIBRARIES)
 
   # find SWIG
   cmake_policy(SET CMP0078 NEW)
   cmake_policy(SET CMP0086 NEW)
-  find_package(SWIG COMPONENTS python)
+  find_package(SWIG REQUIRED COMPONENTS python)
   include(UseSWIG)
 
   # the destination of all SENSEI Python codes
   set(SENSEI_PYTHON_SITE
-    "${CMAKE_INSTALL_LIBDIR}/python-${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/"
+    "${CMAKE_INSTALL_LIBDIR}/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/"
     CACHE STRING "Where Python modules are compiled and installed.")
 
   set(SENSEI_PYTHON_DIR "${SENSEI_PYTHON_SITE}/sensei/"

@@ -66,6 +66,7 @@ templates_path = ['_templates']
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
 
+
 # The master toctree document.
 master_doc = 'index'
 
@@ -82,8 +83,9 @@ language = None
 # add any included files to this list to silence warnings about 
 # duplicate references
 exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store', \
-     'reaction_rate_demo', 'adaptor_apisi.rst', 'data_addaptor_apis.rst', \
-     'analysis_adaptor_apis.rst']
+    'data_adaptor_api.rst', 'analysis_adaptor_api.rst', 'ascent_back_end.rst', \
+    'catalyst_back_end.rst', 'histogram_back_end.rst', 'autocorrelation_back_end.rst', \
+    'reaction_rate_demo.rst', 'pipeline_demo.rst']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'friendly'
@@ -106,6 +108,12 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = [
+    'theme_overrides.css',
+]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.

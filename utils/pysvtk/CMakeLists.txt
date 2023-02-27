@@ -7,7 +7,7 @@ if (ENABLE_PYTHON)
   #set_property(SOURCE svtk.i PROPERTY COMPILE_OPTIONS -Wextra)
 
   set(SVTK_PYTHON_DIR
-    "${CMAKE_INSTALL_LIBDIR}/python-${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/svtk/"
+    "${CMAKE_INSTALL_LIBDIR}/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages/svtk/"
     CACHE STRING "Where SVTK Python bindings are compiled and installed")
 
   message(STATUS "SVTK Python modules will be installed at \"${SVTK_PYTHON_DIR}\"")
@@ -54,7 +54,7 @@ if (ENABLE_PYTHON)
   install(FILES ${CMAKE_BINARY_DIR}/${SVTK_PYTHON_DIR}/pysvtk.py
     DESTINATION ${SVTK_PYTHON_DIR})
 
-  #install(EXPORT pysvtk DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake
+  #install(EXPORT pysvtk DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
   #  EXPORT_LINK_INTERFACE_LIBRARIES)
 
   # install additional pythons sources
