@@ -68,6 +68,11 @@ if (ENABLE_ADIOS2)
     list(APPEND senseiCore_libs sLibsim)
   endif()
 
+  if (ENABLE_KOMBYNE)
+    list(APPEND senseiCore_sources KombyneAnalysisAdaptor.cxx)
+    list(APPEND senseiCore_libs sKombyne)
+  endif()
+
   if (ENABLE_VTK_IO)
     list(APPEND senseiCore_sources VTKPosthocIO.cxx)
     if (ENABLE_VTK_MPI)

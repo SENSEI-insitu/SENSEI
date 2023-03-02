@@ -55,6 +55,9 @@
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #endif
+#ifdef ENABLE_KOMBYNE
+#include "KombyneAnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_PYTHON
 #include "PythonAnalysis.h"
 #endif
@@ -103,6 +106,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
+  int AddKombyne(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
   int AddPosthocIO(pugi::xml_node node);
   int AddVTKAmrWriter(pugi::xml_node node);
@@ -120,6 +124,9 @@ public:
   // storing an additional pointer.
 #ifdef ENABLE_LIBSIM
   svtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
+#endif
+#ifdef ENABLE_KOMBYNE
+  svtkSmartPointer<KombyneAnalysisAdaptor> KombyneAdaptor;
 #endif
 #ifdef ENABLE_CATALYST
   svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
@@ -822,6 +829,43 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 }
 
 // --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddKombyne(pugi::xml_node node)
+{
+#ifndef ENABLE_KOMBYNE
+  (void)node;
+  SENSEI_ERROR("Kombyne was requested but is disabled in this build")
+  return -1;
+#else
+
+  std::string cfgfile = node.attribute("configfile").as_string("kombyne.yml");
+  std::string logfile = node.attribute("logfile").as_string("kombyne.log");
+  std::string mode = node.attribute("mode").as_string("in-situ");
+  int verbose = node.attribute("verbose").as_int(0);
+  unsigned int frequency = node.attribute("frequency").as_uint(0);
+
+  // TODO: Support multiple pipelines in a single instance?
+  auto adaptor = svtkSmartPointer<KombyneAnalysisAdaptor>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    adaptor->SetCommunicator(this->Comm);
+
+  adaptor->SetConfigFile(cfgfile);
+  adaptor->SetMode(mode);
+  adaptor->SetVerbose(verbose);
+
+  this->TimeInitialization(adaptor, [&]()
+    {
+    adaptor->Initialize();
+    return 0;
+    });
+
+  this->Analyses.push_back(adaptor);
+  SENSEI_STATUS("configured KombyneAnalysisAdaptor")
+#endif
+  return 0;
+}
+
+// --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 {
   if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "array"))
@@ -1257,6 +1301,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
+      || ((type == "kombyne") && !this->Internals->AddKombyne(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
       || ((type == "svtkmcontour") && !this->Internals->AddVTKmContour(node))
