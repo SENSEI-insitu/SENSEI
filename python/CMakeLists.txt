@@ -30,7 +30,7 @@ if (ENABLE_PYTHON)
     if (APPLE)
       set_target_properties(senseiPython PROPERTIES INSTALL_RPATH "@loader_path/./")
     elseif(UNIX)
-      set_target_properties(senseiPython PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
+      set_target_properties(senseiPython PROPERTIES INSTALL_RPATH "\$ORIGIN/;\$ORIGIN/../svtk/")
     endif()
 
   configure_file(sensei.py "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/__init__.py"
