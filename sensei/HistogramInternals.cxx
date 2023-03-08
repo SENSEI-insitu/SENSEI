@@ -6,6 +6,7 @@
 
 #if defined(ENABLE_CUDA)
 #include "CUDAUtils.h"
+#include <thrust/sequence.h>
 #include <thrust/reduce.h>
 #include <thrust/device_vector.h>
 #endif
