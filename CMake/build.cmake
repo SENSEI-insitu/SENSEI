@@ -32,36 +32,30 @@ if (NOT CMAKE_CXX_FLAGS)
         set(tmp "${tmp} -stdlib=libc++")
     endif()
     if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
-        set(tmp "${tmp} -O3 -march=native -mtune=native -fno-trapping-math -fno-math-errno")
-        if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-            set(tmp "${tmp} -fno-signaling-nans")
-        endif()
+        set(tmp "${tmp} -O3 -march=native -mtune=native")
     endif()
     set(CMAKE_CXX_FLAGS "${tmp}"
-        CACHE STRING "SENSEI build defaults"
+        CACHE STRING "SENSEI C++ compiler defaults"
         FORCE)
     string(REGEX REPLACE "-O[0-9]" "-O3" tmp "${CMAKE_CXX_FLAGS_RELEASE}")
     set(CMAKE_CXX_FLAGS_RELEASE "${tmp}"
-        CACHE STRING "SENSEI build defaults"
+        CACHE STRING "SENSEI C++ compiler defaults"
         FORCE)
 endif()
 
 if (NOT CMAKE_CUDA_FLAGS)
-    set(tmp "--default-stream per-thread --expt-relaxed-constexpr")
+    set(tmp "-std=c++17 --default-stream per-thread --expt-relaxed-constexpr")
     if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
-        set(tmp "${tmp} -Xcompiler -Wall,-Wextra,-O3,-march=native,-mtune=native,-fno-trapping-math,-fno-math-errno,-fvisibility=hidden")
-        if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-            set(tmp "${tmp},-fno-signaling-nans")
-        endif()
+        set(tmp "${tmp} -Xcompiler -Wall,-Wextra,-O3,-march=native,-mtune=native,-fvisibility=hidden")
     elseif ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
         set(tmp "${tmp} -g -G -Xcompiler -Wall,-Wextra,-O0,-g,-fvisibility=hidden")
     endif()
     set(CMAKE_CUDA_FLAGS "${tmp}"
-        CACHE STRING "SENSEI build defaults"
+        CACHE STRING "SENSEI CUDA compiler defaults"
         FORCE)
     string(REGEX REPLACE "-O[0-9]" "-O3" tmp "${CMAKE_CUDA_FLAGS_RELEASE}")
     set(CMAKE_CUDA_FLAGS_RELEASE "${tmp}"
-        CACHE STRING "SENSEI build defaults"
+        CACHE STRING "SENSEI CUDA compiler defaults"
         FORCE)
 endif()
 
