@@ -837,8 +837,7 @@ int ConfigurableAnalysis::InternalsType::AddKombyne(pugi::xml_node node)
   return -1;
 #else
 
-  std::string cfgfile = node.attribute("configfile").as_string("kombyne.yml");
-  std::string logfile = node.attribute("logfile").as_string("kombyne.log");
+  std::string pipeline = node.attribute("pipeline").as_string("kombyne.yaml");
   std::string mode = node.attribute("mode").as_string("in-situ");
   int verbose = node.attribute("verbose").as_int(0);
   unsigned int frequency = node.attribute("frequency").as_uint(0);
@@ -849,7 +848,7 @@ int ConfigurableAnalysis::InternalsType::AddKombyne(pugi::xml_node node)
   if (this->Comm != MPI_COMM_NULL)
     adaptor->SetCommunicator(this->Comm);
 
-  adaptor->SetConfigFile(cfgfile);
+  adaptor->SetPipelineFile(pipeline);
   adaptor->SetMode(mode);
   adaptor->SetVerbose(verbose);
 

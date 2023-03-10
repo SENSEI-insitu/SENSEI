@@ -4,6 +4,8 @@
 #include "AnalysisAdaptor.h"
 #include "MeshMetadata.h"
 
+#include <kombyne_execution.h>
+
 #include <string>
 
 namespace sensei
@@ -32,7 +34,8 @@ public:
   ///@name Run time configuration
   ///@{
 
-  int SetConfigFile(std::string cfgfile);
+  int SetPipelineFile(std::string filename);
+  int SetSessionName(std::string sessionname);
   int SetMode(std::string mode);
   void SetVerbose(int verbose);
 
@@ -56,10 +59,14 @@ private:
   KombyneAnalysisAdaptor(const KombyneAnalysisAdaptor&); // Not implemented.
   void operator=(const KombyneAnalysisAdaptor&); // Not implemented.
 
-  std::string configFile;
-  std::string logFile;
-  std::string mode;
+  std::string pipelineFile;
+  std::string sessionName;
+  kb_role role;
   bool verbose;
+  bool initialized;
+
+  kb_pipeline_collection_handle hp;
+  kb_pipeline_data_handle hpd;
 };
 
 }
