@@ -6,7 +6,12 @@
 
 #include <kombyne_execution.h>
 
+#include <svtkDataObject.h>
+#include <svtkSmartPointer.h>
+
 #include <string>
+
+using svtkDataObjectPtr = svtkSmartPointer<svtkDataObject>;
 
 namespace sensei
 {
@@ -55,9 +60,15 @@ protected:
   KombyneAnalysisAdaptor();
   ~KombyneAnalysisAdaptor();
 
-private:
-  KombyneAnalysisAdaptor(const KombyneAnalysisAdaptor&); // Not implemented.
-  void operator=(const KombyneAnalysisAdaptor&); // Not implemented.
+  int GetMetaData(void);
+  int GetMesh(const std::string &meshName, svtkDataObjectPtr &dobjp);
+
+  svtkDataObject *GetDomainMesh(MPI_Comm comm, DataAdaptor *data,
+      std::string meshName, int domain);
+
+  DataAdaptor *Adaptor;
+  std::map<std::string, svtkDataObjectPtr> Meshes;
+  std::map<std::string, sensei::MeshMetadataPtr> Metadata;
 
   std::string pipelineFile;
   std::string sessionName;
@@ -66,7 +77,10 @@ private:
   bool initialized;
 
   kb_pipeline_collection_handle hp;
-  kb_pipeline_data_handle hpd;
+
+private:
+  KombyneAnalysisAdaptor(const KombyneAnalysisAdaptor&); // Not implemented.
+  void operator=(const KombyneAnalysisAdaptor&); // Not implemented.
 };
 
 }
