@@ -30,12 +30,14 @@
 namespace sensei
 {
 
+// Note: This adaptor borrows heavily from the LibsimAnalysisAdaptor
+
 // -----------------------------------------------------------------------------
 // SVTK to Kombyne helper functions
 // -----------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
-static kb_var_handle svtkDataArray_To_Kombyne_VariableData(svtkDataArray *arr)
+static kb_var_handle svtkDataArrayToKombyneVariable(svtkDataArray *arr)
 {
   kb_var_handle h = KB_HANDLE_NULL;
   if (arr != nullptr)
@@ -118,8 +120,7 @@ static kb_var_handle svtkDataArray_To_Kombyne_VariableData(svtkDataArray *arr)
 }
 
 // -----------------------------------------------------------------------------
-static int
-svtkToKombyneCellType(unsigned char svtkcelltype)
+static int svtkToKombyneCellType(unsigned char svtkcelltype)
 {
   static int celltypeMap[SVTK_NUMBER_OF_CELL_TYPES];
   static bool celltypeMapInitialized = false;
@@ -144,8 +145,8 @@ svtkToKombyneCellType(unsigned char svtkcelltype)
 }
 
 // -----------------------------------------------------------------------------
-static kb_var_handle
-svtkDataSet_GhostData(svtkDataSetAttributes *dsa, const std::string &name)
+static kb_var_handle svtkDataSet_GhostData(
+    svtkDataSetAttributes *dsa, const std::string &name)
 {
   kb_var_handle h = KB_HANDLE_NULL;
   // Check that we have the array and it is of allowed types.
@@ -158,14 +159,53 @@ svtkDataSet_GhostData(svtkDataSetAttributes *dsa, const std::string &name)
       svtkIntArray::SafeDownCast(arr))
     )
   {
-    h = svtkDataArray_To_Kombyne_VariableData(arr);
+    h = svtkDataArrayToKombyneVariable(arr);
   }
   return h;
 }
 
 // -----------------------------------------------------------------------------
-static kb_mesh_handle
-svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
+static kb_fields_handle svtkDataSet_Variables(
+    svtkDataObject *dobj, MeshMetadataPtr mdptr)
+{
+  kb_fields_handle hfields = kb_fields_alloc();
+
+  if (hfields != KB_HANDLE_NULL)
+  {
+    // TODO: support subsetting variable list
+    for (int j = 0; j < mdptr->NumArrays; ++j)
+    {
+      std::string varName = mdptr->ArrayName[j];
+      int centering = mdptr->ArrayCentering[j];
+
+      svtkDataArray *array = nullptr;
+      array = dobj->GetAttributes(centering)->GetArray(varName.c_str());
+      if (array == nullptr)
+      {
+        SENSEI_ERROR("Failed to get variable \"" << varName << "\"")
+        continue;
+      }
+
+      kb_var_handle hvar = svtkDataArrayToKombyneVariable(array);
+      if (hvar == KB_HANDLE_NULL)
+      {
+        SENSEI_ERROR("Failed to create Kombyne variable \"" << varName << "\"")
+        continue;
+      }
+
+      int nc = mdptr->ArrayComponents[j];
+      kb_centering vc = (centering == svtkDataObject::POINT) ?
+        KB_CENTERING_POINTS : KB_CENTERING_CELLS;
+
+      kb_fields_add_var(hfields, varName.c_str(), vc, hvar);
+    }
+  }
+  return hfields;
+}
+
+// -----------------------------------------------------------------------------
+static kb_mesh_handle svtkDataSet_Mesh(
+    svtkDataObject *dobj, MeshMetadataPtr mdptr)
 {
   svtkDataSet *ds = dynamic_cast<svtkDataSet*>(dobj);
   if (dobj && !ds)
@@ -251,6 +291,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
           if (gc != KB_HANDLE_NULL)
             kb_rgrid_set_ghost_cells(hrgrid, gc);
 
+          kb_rgrid_set_fields(hrgrid, svtkDataSet_Variables(dobj, mdptr));
           mesh = (kb_mesh_handle) hrgrid;
         }
         else
@@ -289,9 +330,9 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
     if (hrgrid != KB_HANDLE_NULL)
     {
       kb_var_handle hx, hy, hz;
-      hx = svtkDataArray_To_Kombyne_VariableData(rgrid->GetXCoordinates());
-      hy = svtkDataArray_To_Kombyne_VariableData(rgrid->GetYCoordinates());
-      hz = svtkDataArray_To_Kombyne_VariableData(rgrid->GetZCoordinates());
+      hx = svtkDataArrayToKombyneVariable(rgrid->GetXCoordinates());
+      hy = svtkDataArrayToKombyneVariable(rgrid->GetYCoordinates());
+      hz = svtkDataArrayToKombyneVariable(rgrid->GetZCoordinates());
       if (hz == KB_HANDLE_NULL)
         hz = kb_var_alloc();
 
@@ -311,6 +352,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
         if (gc != KB_HANDLE_NULL)
           kb_rgrid_set_ghost_cells(hrgrid, gc);
 
+        kb_rgrid_set_fields(hrgrid, svtkDataSet_Variables(dobj, mdptr));
         mesh = (kb_mesh_handle) hrgrid;
       }
       else
@@ -333,7 +375,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
     {
       int dims[3];
       sgrid->GetDimensions(dims);
-      kb_var_handle pts = svtkDataArray_To_Kombyne_VariableData(
+      kb_var_handle pts = svtkDataArrayToKombyneVariable(
           sgrid->GetPoints()->GetData());
       if (pts != KB_HANDLE_NULL)
       {
@@ -351,6 +393,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
         if (gc != KB_HANDLE_NULL)
           kb_sgrid_set_ghost_cells(hsgrid, gc);
 
+        kb_sgrid_set_fields(hsgrid, svtkDataSet_Variables(dobj, mdptr));
         mesh = (kb_mesh_handle) hsgrid;
       }
       else
@@ -364,7 +407,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
     if (hugrid != KB_HANDLE_NULL)
     {
       bool err = false;
-      kb_var_handle pts = svtkDataArray_To_Kombyne_VariableData(
+      kb_var_handle pts = svtkDataArrayToKombyneVariable(
           pgrid->GetPoints()->GetData());
       if (pts != KB_HANDLE_NULL)
         kb_ugrid_set_coords(hugrid, pts);
@@ -382,11 +425,11 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
         {
           for (int i = 0; i < ncells; ++i)
             newconn[i] = i;
+
           // Wrap newconn, let Kombyne own it.
           kb_var_seti(hc, KB_MEM_COPY, 1, ncells, newconn);
-
           kb_ugrid_add_cells(hugrid, KB_CELLTYPE_VERTEX, hc);
-
+          kb_ugrid_set_fields(hugrid, svtkDataSet_Variables(dobj, mdptr));
           mesh = (kb_mesh_handle) hugrid;
         }
         else
@@ -405,7 +448,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
     if (hugrid != KB_HANDLE_NULL)
     {
       bool err = false;
-      kb_var_handle pts = svtkDataArray_To_Kombyne_VariableData(
+      kb_var_handle pts = svtkDataArrayToKombyneVariable(
           ugrid->GetPoints()->GetData());
       if (pts != KB_HANDLE_NULL)
         kb_ugrid_set_coords(hugrid, pts);
@@ -415,7 +458,6 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
       svtkIdType ncells = ugrid->GetNumberOfCells();
       if (ncells > 0 && !err)
       {
-#if 1
         const unsigned char *cellTypes = (const unsigned char *)
           ugrid->GetCellTypesArray()->GetVoidPointer(0);
         const svtkIdType *svtkconn = (const svtkIdType *)
@@ -425,8 +467,6 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
 
         int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
         int *newconn = (int *) malloc(sizeof(int) * connlen);
-        std::cout << "[GAA]: ncells = " << ncells << std::endl;
-        std::cout << "[GAA]: connlen = " << connlen << std::endl;
 
         if (newconn != nullptr)
         {
@@ -476,6 +516,7 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
             if (gc != KB_HANDLE_NULL)
               kb_ugrid_set_ghost_cells(hugrid, gc);
 
+            kb_ugrid_set_fields(hugrid, svtkDataSet_Variables(dobj, mdptr));
             mesh = (kb_mesh_handle) hugrid;
           }
           else
@@ -486,81 +527,6 @@ svtkDataSet_to_Kombyne_Mesh(svtkDataObject *dobj)
         }
         else
           err = true;
-#else
-        const unsigned char *cellTypes = (const unsigned char *)
-          ugrid->GetCellTypesArray()->GetVoidPointer(0);
-        const svtkIdType *svtkconn = (const svtkIdType *)
-          ugrid->GetCells()->GetConnectivityArray()->GetVoidPointer(0);
-        const svtkIdType *offsets = (const svtkIdType *)
-          ugrid->GetCells()->GetOffsetsArray()->GetVoidPointer(0);
-
-        int *newctypes = (int *) malloc(sizeof(int) * ncells);
-        int *newclens = (int *) malloc(sizeof(size_t) * ncells);
-        int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
-        int *newconn = (int *) malloc(sizeof(int) * connlen);
-        std::cout << "[GAA]: ncells = " << ncells << std::endl;
-        std::cout << "[GAA]: connlen = " << connlen << std::endl;
-
-        if (newctypes != nullptr && newclens != nullptr && newconn != nullptr)
-        {
-          int *lsconn = newconn;
-
-          for (int cellid = 0; cellid < ncells; ++cellid)
-          {
-            newctypes[cellid] = svtkToKombyneCellType(cellTypes[cellid]);
-            newclens[cellid] = offsets[cellid + 1] - offsets[cellid];
-            std::cout << "[GAA]: celltype[" << cellid << "]: "
-              << "type = " << newctypes[cellid]
-              << ", length = " << newclens[cellid] << std::endl;
-          }
-          for (int i = 0; i < connlen; ++i)
-            newconn[i] = svtkconn[i];
-
-          kb_var_handle ht = kb_var_alloc();
-          kb_var_handle hl = kb_var_alloc();
-          kb_var_handle hc = kb_var_alloc();
-          if (ht != KB_HANDLE_NULL &&
-              hl != KB_HANDLE_NULL &&
-              hc != KB_HANDLE_NULL)
-          {
-            // Wrap newconn, let Kombyne own it.
-            kb_var_seti(ht, KB_MEM_COPY, 1, ncells, newctypes);
-            kb_var_seti(hl, KB_MEM_COPY, 1, ncells, newclens);
-            kb_var_seti(hc, KB_MEM_COPY, 1, connlen, newconn);
-
-            kb_ugrid_add_cells_variable_length(hugrid, ht, hl, hc);
-
-            // Try and make some ghost nodes.
-            kb_var_handle gn = svtkDataSet_GhostData(
-                ds->GetPointData(), "svtkGhostType");
-            if (gn != KB_HANDLE_NULL)
-              kb_ugrid_set_ghost_nodes(hugrid, gn);
-
-            // Try and make some ghost cells.
-            kb_var_handle gc = svtkDataSet_GhostData(
-                ds->GetCellData(), "svtkGhostType");
-            if (gc != KB_HANDLE_NULL)
-              kb_ugrid_set_ghost_cells(hugrid, gc);
-
-            mesh = (kb_mesh_handle) hugrid;
-          }
-          else
-          {
-            if (hc != KB_HANDLE_NULL)
-              kb_var_free(hc);
-            if (hl != KB_HANDLE_NULL)
-              kb_var_free(hl);
-            if (ht != KB_HANDLE_NULL)
-              kb_var_free(ht);
-            free(newconn);
-            free(newclens);
-            free(newctypes);
-            err = true;
-          }
-        }
-        else
-          err = true;
-#endif
       }
 
       if (err)
@@ -613,14 +579,6 @@ void KombyneAnalysisAdaptor::Initialize()
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
-  std::cout << "[GAA]: KombyneAnalysisAdaptor::Initialize()" << std::endl;
-  std::cout << "    pipeline: " << this->pipelineFile << std::endl;
-  if (this->role == KB_ROLE_SIMULATION)
-    std::cout << "    mode: in-transit" << std::endl;
-  else
-    std::cout << "    mode: in-situ" << std::endl;
-  std::cout << "    verbose: " << (this->verbose != 0) << std::endl;
-
   kb_role newrole;  // will be the same as the input role
   MPI_Comm split;   // will be the same as the input communicator
 
@@ -654,191 +612,54 @@ void KombyneAnalysisAdaptor::Initialize()
 }
 
 // --------------------------------------------------------------------------
-int
-KombyneAnalysisAdaptor::GetMetaData(void)
+int KombyneAnalysisAdaptor::GetMetaData(void)
 {
-    // for each mesh we'll pass metadata onto Kombyne
-    unsigned int nMeshes = 0;
-    if (Adaptor->GetNumberOfMeshes(nMeshes))
+  // for each mesh we'll pass metadata onto Kombyne
+  unsigned int nMeshes = 0;
+  if (Adaptor->GetNumberOfMeshes(nMeshes))
+  {
+    SENSEI_ERROR("Failed to get the number of meshes")
+    return -1;
+  }
+
+  // set up the metadata cache
+  this->Metadata.clear();
+
+  for (unsigned int i = 0; i < nMeshes; ++i)
+  {
+    MeshMetadataPtr mmd = MeshMetadata::New();
+
+    // enable optional metadata
+    mmd->Flags.SetBlockDecomp();
+    mmd->Flags.SetBlockExtents();
+
+    if (Adaptor->GetMeshMetadata(i, mmd))
     {
-        SENSEI_ERROR("Failed to get the number of meshes")
-        return -1;
+      SENSEI_ERROR("Failed to get metadata for mesh " << i)
+      return -1;
     }
 
-    // set up the metadata cache
-    this->Metadata.clear();
+    // check if the sim gave us what we asked for
+    MeshMetadataFlags reqFlags;
+    reqFlags.SetBlockDecomp();
+    reqFlags.SetBlockExtents();
 
-    for (unsigned int i = 0; i < nMeshes; ++i)
+    if (mmd->Validate(this->GetCommunicator(), reqFlags))
     {
-        sensei::MeshMetadataPtr mmd = sensei::MeshMetadata::New();
-
-        // enable optional metadata
-        mmd->Flags.SetBlockDecomp();
-        mmd->Flags.SetBlockExtents();
-
-        if (Adaptor->GetMeshMetadata(i, mmd))
-        {
-            SENSEI_ERROR("Failed to get metadata for mesh " << i)
-            return -1;
-        }
-
-        // check if the sim gave us what we asked for
-        MeshMetadataFlags reqFlags;
-        reqFlags.SetBlockDecomp();
-        reqFlags.SetBlockExtents();
-
-        if (mmd->Validate(this->GetCommunicator(), reqFlags))
-        {
-            SENSEI_ERROR("Invalid metadata for mesh " << i)
-            return -1;
-        }
-
-        // this simplifies things substantially to be able to have a global view
-        // the driver behind this is AMR data, for which we require a global view.
-        if (!mmd->GlobalView)
-            mmd->GlobalizeView(this->GetCommunicator());
-
-        // cache the metadata
-        this->Metadata[mmd->MeshName] = mmd;
-
-        // pass to Kombyne
-#if 0
-        // Add mesh metadata.
-        kb_var_handle vmmd = KB_HANDLE_NULL;
-        if (Kombyne_MeshMetaData_alloc(&vmmd) != VISIT_OKAY)
-        {
-            SENSEI_ERROR("Failed to allocate mesh metadata")
-            return KB_HANDLE_NULL;
-        }
-
-        if (mmd->MeshType == SVTK_OVERLAPPING_AMR)
-        {
-            int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
-                mmd->Extent[3] - mmd->Extent[2] + 1,
-                mmd->Extent[5] - mmd->Extent[4] + 1};
-
-            int topoDims = this->TopologicalDimension(dims);
-
-            Kombyne_MeshMetaData_setMeshType(vmmd, VISIT_MESHTYPE_AMR);
-            Kombyne_MeshMetaData_setTopologicalDimension(vmmd, topoDims);
-            Kombyne_MeshMetaData_setSpatialDimension(vmmd, topoDims);
-
-            Kombyne_MeshMetaData_setDomainTitle(vmmd, "Patches");
-            Kombyne_MeshMetaData_setDomainPieceName(vmmd, "patch");
-
-            Kombyne_MeshMetaData_setNumGroups(vmmd, mmd->NumLevels);
-            Kombyne_MeshMetaData_setGroupTitle(vmmd, "Levels");
-            Kombyne_MeshMetaData_setGroupPieceName(vmmd, "level");
-
-            for (int j = 0; j < mmd->NumBlocks; ++j)
-            {
-                int b = 0;
-#ifdef USE_REAL_DOMAIN
-                for (; b < mmd->NumBlocks; ++b)
-                    if (mmd->BlockIds[b] == j)
-                        break;
-#else
-                b = j;
-#endif
-                Kombyne_MeshMetaData_addGroupId(vmmd, mmd->BlockLevel[b]);
-            }
-        }
-        else
-        {
-            switch (mmd->BlockType)
-            {
-                case SVTK_STRUCTURED_GRID:
-                case SVTK_RECTILINEAR_GRID:
-                case SVTK_IMAGE_DATA:
-                {
-                    int meshType = mmd->BlockType == SVTK_STRUCTURED_GRID ?
-                        VISIT_MESHTYPE_CURVILINEAR : VISIT_MESHTYPE_RECTILINEAR;
-
-                    int dims[3] = {mmd->Extent[1] - mmd->Extent[0] + 1,
-                        mmd->Extent[3] - mmd->Extent[2] + 1,
-                        mmd->Extent[5] - mmd->Extent[4] + 1};
-
-                    int topoDims = this->TopologicalDimension(dims);
-
-                    Kombyne_MeshMetaData_setMeshType(vmmd, meshType);
-                    Kombyne_MeshMetaData_setTopologicalDimension(vmmd, topoDims);
-                    Kombyne_MeshMetaData_setSpatialDimension(vmmd, topoDims);
-                }
-                break;
-
-                case SVTK_UNSTRUCTURED_GRID:
-                case SVTK_POLY_DATA:
-                {
-                    Kombyne_MeshMetaData_setMeshType(vmmd, VISIT_MESHTYPE_UNSTRUCTURED);
-                    Kombyne_MeshMetaData_setTopologicalDimension(vmmd, 3);
-                    Kombyne_MeshMetaData_setSpatialDimension(vmmd, 3);
-                }
-                break;
-
-                default:
-                {
-                    SENSEI_ERROR("Unsupported block type " << mmd->BlockType)
-                    return KB_HANDLE_NULL;
-                }
-            }
-        }
-
-        Kombyne_MeshMetaData_setName(vmmd, mmd->MeshName.c_str());
-        Kombyne_MeshMetaData_setNumDomains(vmmd, mmd->NumBlocks);
-        Kombyne_SimulationMetaData_addMesh(md, vmmd);
-
-        // Add variables
-        for (int j = 0; j < mmd->NumArrays; ++j)
-        {
-            kb_var_handle vmd = KB_HANDLE_NULL;
-            if (Kombyne_VariableMetaData_alloc(&vmd) != VISIT_OKAY)
-            {
-                SENSEI_ERROR("Failed to allocate variable metadata")
-                return KB_HANDLE_NULL;
-            }
-
-            // naming convention: <mesh>/<centering>/<var>
-            std::string arrayName = mmd->MeshName + "/" +
-                (mmd->ArrayCentering[j] == svtkDataObject::POINT ? "point" : "cell") +
-                "/" + mmd->ArrayName[j];
-
-            Kombyne_VariableMetaData_setName(vmd, arrayName.c_str());
-
-            Kombyne_VariableMetaData_setMeshName(vmd, mmd->MeshName.c_str());
-
-            int varType = -1;
-            switch (mmd->ArrayComponents[j])
-            {
-                case 1:
-                    varType = VISIT_VARTYPE_SCALAR;
-                    break;
-                case 3:
-                    varType = VISIT_VARTYPE_VECTOR;
-                    break;
-                case 6:
-                    varType = VISIT_VARTYPE_SYMMETRIC_TENSOR;
-                    break;
-                case 9:
-                    varType = VISIT_VARTYPE_TENSOR;
-                    break;
-                default:
-                    SENSEI_ERROR("Failed to proccess an array with "
-                      << mmd->ArrayComponents[j] << " compnents")
-                    return KB_HANDLE_NULL;
-            }
-            Kombyne_VariableMetaData_setType(vmd, varType);
-
-            int varCen = mmd->ArrayCentering[j] == svtkDataObject::POINT ?
-                VISIT_VARCENTERING_NODE : VISIT_VARCENTERING_ZONE;
-
-            Kombyne_VariableMetaData_setCentering(vmd, varCen);
-
-            Kombyne_SimulationMetaData_addVariable(md, vmd);
-        }
-#endif
+      SENSEI_ERROR("Invalid metadata for mesh " << i)
+      return -1;
     }
 
-    return 0;
+    // this simplifies things substantially to be able to have a global view
+    // the driver behind this is AMR data, for which we require a global view.
+    if (!mmd->GlobalView)
+      mmd->GlobalizeView(this->GetCommunicator());
+
+    // cache the metadata
+    this->Metadata[mmd->MeshName] = mmd;
+  }
+
+  return 0;
 }
 
 // --------------------------------------------------------------------------
@@ -847,7 +668,7 @@ int KombyneAnalysisAdaptor::GetMesh(
 {
     dobjp = nullptr;
 
-    // get the mesh. it's cached because visit wants things block
+    // get the mesh. it's cached because Kombyne wants things block
     // by block but sensei only works with the whole object
     auto it = this->Meshes.find(meshName);
     if (it  == this->Meshes.end())
@@ -891,21 +712,19 @@ int KombyneAnalysisAdaptor::GetMesh(
         this->Meshes[meshName] = dobjp;
     }
     else
-    {
         dobjp = it->second;
-    }
 
     return 0;
 }
 
 //-----------------------------------------------------------------------------
 svtkDataObject *KombyneAnalysisAdaptor::GetDomainMesh(
-    MPI_Comm comm, DataAdaptor *data, std::string meshName, int domain)
+    MPI_Comm comm, MeshMetadataPtr mdptr)
 {
   svtkDataObject *mesh = nullptr;
 
   svtkDataObjectPtr wmesh;
-  if (this->GetMesh(meshName, wmesh))
+  if (this->GetMesh(mdptr->MeshName, wmesh))
   {
     SENSEI_ERROR("Failed to get simulation mesh.");
     return nullptr;
@@ -915,13 +734,42 @@ svtkDataObject *KombyneAnalysisAdaptor::GetDomainMesh(
   // get the block that Kombyne is after
   svtkCompositeDataIterator *cdit = cd->NewIterator();
 
+  if (! cdit->IsDoneWithTraversal())
+  {
+    // TODO: support subsetting variable list
+    for (int j = 0; j < mdptr->NumArrays; ++j)
+    {
+      std::string varName = mdptr->ArrayName[j];
+      int centering = mdptr->ArrayCentering[j];
+
+      // read the array if we have not yet
+      if (! cdit->GetCurrentDataObject()->GetAttributes(
+          centering)->GetArray(varName.c_str()))
+      {
+        if (this->Adaptor->AddArray(
+              wmesh.GetPointer(), mdptr->MeshName, centering, varName))
+        {
+          SENSEI_ERROR("Failed to add "
+              << SVTKUtils::GetAttributesName(centering)
+              << " data array \"" << varName << "\"")
+          cdit->Delete();
+          continue;
+        }
+      }
+    }
+  }
+
+  int domain;
+  MPI_Comm_rank(comm, &domain);
+
   // extract array from the requested block
 
   // SVTK's iterators for AMR datasets behave differently than for multiblock
   // datasets.  we are going to have to handle AMR data as a special case for
   // now.
 
-  svtkUniformGridAMRDataIterator *amrIt = dynamic_cast<svtkUniformGridAMRDataIterator*>(cdit);
+  svtkUniformGridAMRDataIterator *amrIt =
+    dynamic_cast<svtkUniformGridAMRDataIterator*>(cdit);
   svtkOverlappingAMR *amrMesh = dynamic_cast<svtkOverlappingAMR*>(cd.Get());
 
   for (cdit->InitTraversal(); !cdit->IsDoneWithTraversal(); cdit->GoToNextItem())
@@ -952,18 +800,23 @@ svtkDataObject *KombyneAnalysisAdaptor::GetDomainMesh(
   if (mesh == nullptr)
   {
       SENSEI_ERROR("Failed to get domain " << domain << " from mesh \""
-          << meshName << "\"")
+          << mdptr->MeshName << "\"")
   }
 
   return mesh;
 }
 
 //-----------------------------------------------------------------------------
+void KombyneAnalysisAdaptor::ClearCache()
+{
+  this->Meshes.clear();
+  this->Metadata.clear();
+}
+
+//-----------------------------------------------------------------------------
 /// Invoke in situ processing using Kombyne
 bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
 {
-  std::cout << "[GAA]: KombyneAnalysisAdaptor::Execute()" << std::endl;
-
   this->Adaptor = data;
 
   // We don't currently return any data.
@@ -999,14 +852,9 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
     }
   }
 
-  int promises = KB_PROMISE_STATIC_FIELDS;
+  int promises = 0; //KB_PROMISE_STATIC_FIELDS;
   if (staticMesh)
-  {
-    std::cout << "[GAA]: static grid" << std::endl;
     promises |= KB_PROMISE_STATIC_GRID;
-  }
-  else
-    std::cout << "[GAA]: moving grid" << std::endl;
 
   ierr = kb_pipeline_data_set_promises(hpd, promises);
 
@@ -1024,7 +872,6 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
     SENSEI_ERROR("Failed to get simulation mesh info.");
     return false;
   }
-  std::cout << "[GAA]: simulation has " << nmesh << " meshes." << std::endl;
 
   for (unsigned int i = 0; i < nmesh; i++)
   {
@@ -1035,20 +882,19 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
       return false;
     }
 
-    svtkDataObject *mesh = GetDomainMesh(comm, data, mdptr->MeshName, i);
+    svtkDataObject *mesh = GetDomainMesh(comm, mdptr);
     if (mesh == nullptr)
     {
       SENSEI_ERROR("Failed to get simulation mesh.");
       return false;
     }
 
-    kb_mesh_handle hmesh = svtkDataSet_to_Kombyne_Mesh(mesh);
+    kb_mesh_handle hmesh = svtkDataSet_Mesh(mesh, mdptr);
     if (hmesh == KB_HANDLE_NULL)
     {
-        SENSEI_ERROR("Failed to convert "
-            << (mesh ? mesh->GetClassName() : "nullptr")
-            << " to a Kombyne mesh.")
-        return false;
+      SENSEI_ERROR("Failed to convert "
+          << (mesh ? mesh->GetClassName() : "nullptr") << " to a Kombyne mesh.")
+      return false;
     }
 
     // Add mesh to pipeline_data
@@ -1061,6 +907,11 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
   // Free the pipeline data.
   kb_pipeline_data_free(hpd);
 
+  // During execution data and metadata are cached due to the differnece
+  // between how sensei presents data and Kombyne consumes it.
+  // You must clear the cache after each execute.
+  ClearCache();
+
   return true;
 }
 
@@ -1068,8 +919,6 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
 /// Shuts Kombyne down.
 int KombyneAnalysisAdaptor::Finalize()
 {
-  std::cout << "[GAA]: KombyneAnalysisAdaptor::Finalize()" << std::endl;
-  // free stuff here?
   kb_finalize();
   this->initialized = false;
   return 0;

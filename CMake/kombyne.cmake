@@ -1,5 +1,4 @@
 if(ENABLE_KOMBYNE)
-  MESSAGE("ENABLE_KOMBYNE: YES!")
   cmake_policy(SET CMP0074 NEW)
   if(ENABLE_CUDA)
     enable_language(CUDA)
@@ -31,8 +30,6 @@ if(ENABLE_KOMBYNE)
     install(EXPORT sKombyne DESTINATION ${sensei_CMAKE_INSTALL_CMAKEDIR}
       EXPORT_LINK_INTERFACE_LIBRARIES)
 
-  else()
-    MESSAGE("got nothing")
   endif()
 
 endif()
