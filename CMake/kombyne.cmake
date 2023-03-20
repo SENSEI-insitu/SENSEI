@@ -5,7 +5,7 @@ if(ENABLE_KOMBYNE)
   endif()
 
   if(DEFINED KOMBYNE_DIR)
-    set(kombyne_ROOT "${KOMBYNELITE_DIR}")
+    set(kombyne_ROOT "${KOMBYNE_DIR}")
     find_package(kombyne)
 
     add_library(sKombyne INTERFACE)
