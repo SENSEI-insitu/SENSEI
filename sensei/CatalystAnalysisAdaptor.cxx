@@ -28,7 +28,12 @@
 #include <vtkMultiProcessController.h>
 #include <vtkCPProcessor.h>
 #include <vtkPointSet.h>
+#if PARAVIEW_VERSION_MAJOR > 5 ||                                       \
+    (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 11)
+#include <vtkPVVersion.h>
+#else
 #include <vtkPVConfig.h>
+#endif
 #include <vtkPVXMLElement.h>
 #include <vtkSmartPointer.h>
 #include <vtkSMDoubleVectorProperty.h>

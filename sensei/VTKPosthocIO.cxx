@@ -417,7 +417,10 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
       if (ga)
         {
         ga->SetName(this->GetGhostArrayName().c_str());
+#if PARAVIEW_VERSION_MAJOR < 5 ||                                       \
+    (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR < 11)
         vds->UpdateCellGhostArrayCache();
+#endif
         }
 
       if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)
