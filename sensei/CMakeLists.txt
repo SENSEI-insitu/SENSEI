@@ -94,12 +94,6 @@ if (ENABLE_ADIOS2)
 
   if (ENABLE_CATALYST)
     target_compile_definitions(senseiCore PRIVATE PARAVIEW_VERSION_MAJOR=${ParaView_VERSION_MAJOR} PARAVIEW_VERSION_MINOR=${ParaView_VERSION_MINOR})
-    if (NOT ENABLE_VTK_FILTERS OR
-        NOT ENABLE_VTK_IO OR
-        NOT ENABLE_VTK_MPI OR
-        NOT ENABLE_VTK_RENDERING)
-      message(FATAL_ERROR "ENABLE_CATALYST needs: ENABLE_VTK_FILTERS, ENABLE_VTK_IO, ENABLE_VTK_MPI, ENABLE_VTK_RENDERING")
-    endif()
   endif()
 
   target_include_directories(senseiCore PUBLIC
