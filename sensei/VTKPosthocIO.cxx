@@ -41,7 +41,6 @@
 
 #include <mpi.h>
 
-
 //-----------------------------------------------------------------------------
 static
 std::string getBlockExtension(svtkDataObject *dob)
@@ -417,8 +416,11 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
       if (ga)
         {
         ga->SetName(this->GetGhostArrayName().c_str());
-#if PARAVIEW_VERSION_MAJOR < 5 ||                                       \
-    (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR < 11)
+#if VTK_MAJOR_VERSION < 9 ||                                       \
+    (VTK_MAJOR_VERSION == 9 && VTK_MINOR_VERSION < 2) ||           \
+    (VTK_MAJOR_VERSION == 9 && VTK_MINOR_VERSION == 2 && VTK_BUILD_VERSION < 20220823)
+        // deprecation happen after VTK 9.2 but before build 20220823
+        // which is the VTK version included in ParaView
         vds->UpdateCellGhostArrayCache();
 #endif
         }
