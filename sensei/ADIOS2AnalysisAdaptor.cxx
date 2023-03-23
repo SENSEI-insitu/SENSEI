@@ -47,7 +47,7 @@ senseiNewMacro(ADIOS2AnalysisAdaptor);
 //----------------------------------------------------------------------------
 ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() :
     Schema(nullptr), FileName("sensei.bp"), DebugMode(0),
-    StepsPerFile(0), StepIndex(0), FileIndex(0)
+    StepsPerFile(0), StepIndex(0), FileIndex(0), Frequency(1)
 {
   this->Handles.io = nullptr;
   this->Handles.engine = nullptr;
@@ -181,9 +181,9 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency)
+int ADIOS2AnalysisAdaptor::SetFrequency(long frequency)
 {
-  this->Frequency = frequency;
+  this->Frequency = std::max(1l, frequency);
   return 0;
 }
 
@@ -237,6 +237,9 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**daOut
   if (this->DefineVariables(metadata) ||
     this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
+
+  if (this->GetVerbose())
+      SENSEI_STATUS("ADIOS2AnalysisAdaptor wrote step " << timeStep)
 
   return true;
 }
