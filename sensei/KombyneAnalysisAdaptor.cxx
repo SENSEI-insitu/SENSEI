@@ -572,10 +572,9 @@ KombyneAnalysisAdaptor::~KombyneAnalysisAdaptor()
 //-----------------------------------------------------------------------------
 void KombyneAnalysisAdaptor::Initialize()
 {
-  MPI_Comm comm;
   int rank, size;
 
-  comm = this->GetCommunicator();
+  MPI_Comm comm = this->GetCommunicator();
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
@@ -718,8 +717,8 @@ int KombyneAnalysisAdaptor::GetMesh(
 }
 
 //-----------------------------------------------------------------------------
-svtkDataObject *KombyneAnalysisAdaptor::GetDomainMesh(
-    MPI_Comm comm, MeshMetadataPtr mdptr)
+svtkDataObject *KombyneAnalysisAdaptor::GetMeshBlock(
+    MPI_Comm comm, const int domain, MeshMetadataPtr mdptr)
 {
   svtkDataObject *mesh = nullptr;
 
@@ -758,9 +757,6 @@ svtkDataObject *KombyneAnalysisAdaptor::GetDomainMesh(
       }
     }
   }
-
-  int domain;
-  MPI_Comm_rank(comm, &domain);
 
   // extract array from the requested block
 
@@ -858,7 +854,7 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
 
   ierr = kb_pipeline_data_set_promises(hpd, promises);
 
-  MPI_Comm comm = data->GetCommunicator();
+  MPI_Comm comm = this->GetCommunicator();
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
@@ -873,6 +869,8 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
     return false;
   }
 
+  // TODO: calculate during GetMetaData
+  int numdom = 0;
   for (unsigned int i = 0; i < nmesh; i++)
   {
     MeshMetadataPtr mdptr = MeshMetadata::New();
@@ -881,24 +879,47 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
       SENSEI_ERROR("Failed to get simulation mesh info.");
       return false;
     }
+    mdptr = this->Metadata[mdptr->MeshName];
 
-    svtkDataObject *mesh = GetDomainMesh(comm, mdptr);
-    if (mesh == nullptr)
+    numdom += mdptr->NumBlocks;
+  }
+
+  for (unsigned int i = 0; i < nmesh; i++)
+  {
+    MeshMetadataPtr mdptr = MeshMetadata::New();
+    if (data->GetMeshMetadata(i, mdptr))
     {
-      SENSEI_ERROR("Failed to get simulation mesh.");
+      SENSEI_ERROR("Failed to get simulation mesh info.");
       return false;
     }
+    mdptr = this->Metadata[mdptr->MeshName];
 
-    kb_mesh_handle hmesh = svtkDataSet_Mesh(mesh, mdptr);
-    if (hmesh == KB_HANDLE_NULL)
+    for (int j = 0; j < mdptr->NumBlocks; ++j)
     {
-      SENSEI_ERROR("Failed to convert "
-          << (mesh ? mesh->GetClassName() : "nullptr") << " to a Kombyne mesh.")
-      return false;
-    }
+      if (mdptr->BlockOwner[j] != rank)
+        continue;
 
-    // Add mesh to pipeline_data
-    ierr = kb_pipeline_data_add(hpd, rank, size, timestep, time, hmesh);
+      int domain = mdptr->BlockIds[j];
+
+      svtkDataObject *mesh = GetMeshBlock(comm, domain, mdptr);
+      if (mesh == nullptr)
+      {
+        SENSEI_ERROR("Failed to get simulation mesh.");
+        return false;
+      }
+
+      kb_mesh_handle hmesh = svtkDataSet_Mesh(mesh, mdptr);
+      if (hmesh == KB_HANDLE_NULL)
+      {
+        SENSEI_ERROR("Failed to convert "
+            << (mesh ? mesh->GetClassName() : "nullptr")
+            << " to a Kombyne mesh.")
+        return false;
+      }
+
+      // Add mesh to pipeline_data
+      ierr = kb_pipeline_data_add(hpd, domain, numdom, timestep, time, hmesh);
+    }
   }
 
   // Execute the simulation side of things.

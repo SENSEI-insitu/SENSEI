@@ -63,7 +63,8 @@ protected:
   int GetMetaData(void);
   int GetMesh(const std::string &meshName, svtkDataObjectPtr &dobjp);
 
-  svtkDataObject *GetDomainMesh(MPI_Comm comm, sensei::MeshMetadataPtr mdptr);
+  svtkDataObject *GetMeshBlock(
+      MPI_Comm comm, const int domain, MeshMetadataPtr mdptr);
 
   void ClearCache();
 
