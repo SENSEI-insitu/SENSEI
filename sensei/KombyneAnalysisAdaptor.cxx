@@ -51,6 +51,7 @@ static kb_var_handle svtkDataArrayToKombyneVariable(svtkDataArray *arr)
       bool copy = false;
       int nc = arr->GetNumberOfComponents();
       int nt = arr->GetNumberOfTuples();
+
       if (arr->HasStandardMemoryLayout())
       {
         if (arr->GetDataType() == SVTK_CHAR)
@@ -443,21 +444,22 @@ static kb_mesh_handle svtkDataSet_Mesh(
     //    << ugrid->GetNumberOfPoints() << ", ncells = "
     //    << ugrid->GetNumberOfCells())
 
-    auto hugrid = kb_ugrid_alloc();
-
-    if (hugrid != KB_HANDLE_NULL)
+    svtkIdType ncells = ugrid->GetNumberOfCells();
+    if (ncells > 0)
     {
-      bool err = false;
-      kb_var_handle pts = svtkDataArrayToKombyneVariable(
-          ugrid->GetPoints()->GetData());
-      if (pts != KB_HANDLE_NULL)
-        kb_ugrid_set_coords(hugrid, pts);
-      else
-        err = true;
+      auto hugrid = kb_ugrid_alloc();
 
-      svtkIdType ncells = ugrid->GetNumberOfCells();
-      if (ncells > 0 && !err)
+      if (hugrid != KB_HANDLE_NULL)
       {
+        bool err = false;
+
+        kb_var_handle pts = svtkDataArrayToKombyneVariable(
+            ugrid->GetPoints()->GetData());
+        if (pts != KB_HANDLE_NULL)
+          kb_ugrid_set_coords(hugrid, pts);
+        else
+          err = true;
+
         const unsigned char *cellTypes = (const unsigned char *)
           ugrid->GetCellTypesArray()->GetVoidPointer(0);
         const svtkIdType *svtkconn = (const svtkIdType *)
@@ -468,7 +470,9 @@ static kb_mesh_handle svtkDataSet_Mesh(
         int connlen = ugrid->GetCells()->GetNumberOfConnectivityEntries();
         int *newconn = (int *) malloc(sizeof(int) * connlen);
 
-        if (newconn != nullptr)
+        if (newconn == nullptr)
+          err = true;
+        else
         {
           int *lsconn = newconn;
 
@@ -525,12 +529,10 @@ static kb_mesh_handle svtkDataSet_Mesh(
             err = true;
           }
         }
-        else
-          err = true;
-      }
 
-      if (err)
-        kb_ugrid_free(hugrid);
+        if (err)
+          kb_ugrid_free(hugrid);
+      }
     }
   }
   // TODO: expand to other mesh types.
@@ -909,16 +911,11 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
       }
 
       kb_mesh_handle hmesh = svtkDataSet_Mesh(mesh, mdptr);
-      if (hmesh == KB_HANDLE_NULL)
+      if (hmesh != KB_HANDLE_NULL)
       {
-        SENSEI_ERROR("Failed to convert "
-            << (mesh ? mesh->GetClassName() : "nullptr")
-            << " to a Kombyne mesh.")
-        return false;
+        // Add mesh to pipeline_data
+        ierr = kb_pipeline_data_add(hpd, domain, numdom, timestep, time, hmesh);
       }
-
-      // Add mesh to pipeline_data
-      ierr = kb_pipeline_data_add(hpd, domain, numdom, timestep, time, hmesh);
     }
   }
 
