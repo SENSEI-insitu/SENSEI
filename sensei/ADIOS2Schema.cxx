@@ -366,7 +366,7 @@ svtkDataObject *newDataObject(int code)
 // --------------------------------------------------------------------------
 bool streamIsFileBased(std::string engine)
 {
-  if (engine == "BPFile" || engine == "HDF5" || engine == "BP3" || engine == "BP4")
+  if (engine == "BPFile" || engine == "HDF5" || engine == "BP3" || engine == "BP4" || engine == "BP5")
     {
     return true;
     }

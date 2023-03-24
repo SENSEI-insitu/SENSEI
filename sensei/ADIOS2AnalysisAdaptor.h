@@ -102,7 +102,7 @@ public:
   /** Controls how many calls to Execute do nothing between actual I/O and
    * streaming.
    */
-  int SetFrequency(unsigned int frequency);
+  int SetFrequency(long frequency);
 
   /// @}
 
@@ -150,7 +150,7 @@ protected:
   long StepsPerFile;
   long StepIndex;
   long FileIndex;
-  unsigned int Frequency;
+  long Frequency;
 
 private:
   ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;
