@@ -27,7 +27,7 @@ parser.add_argument('-f', '--frac-damped', type=float, default=0.75,
     help='fraction of damped type')
 
 args = parser.parse_args()
-print args
+print("# " + str(args))
 
 
 nosc = args.num
@@ -55,7 +55,7 @@ z1 = args.bounds[5]
 def rng(x0, x1):
     return x0 + (x1 - x0)*random.random()
 
-sys.stderr.write('#type    center    r    omega0    zeta\n')
+print('#type    center    r    omega0    zeta\n')
 
 
 max_dist = 0.
@@ -63,16 +63,25 @@ min_dist = x1-x0
 
 pts = []
 
+size = [x1 - x0, y1 - y0, z1 - z0]
+gridCenter = [x0 + size[0]/2, y0 + size[1]/2, z0 + size[2]/2]
 i = 0
 while i < nosc:
-    x = rng(x0, x1)
-    y = rng(y0, y1)
-    z = rng(z0, z1)
+    gaussian = min(1.0, max(0.05, random.gauss(0.6, 0.2)))
+    # distribution of particles follows guassian from center
+    center = [
+        gridCenter[0] + random.uniform(-size[0]/2, size[0]/2) * gaussian,
+        gridCenter[1] + random.uniform(-size[1]/2, size[1]/2) * gaussian,
+        gridCenter[2] + random.uniform(-size[2]/2, size[2]/2) * gaussian ]
+    x = center[0]
+    y = center[1]
+    z = center[2]
     w = rng(w0, w1)
-    r = rng(r0, r1)
+    # larger particles near the center for added structure to random particles
+    r = rng(r0, r1 * (1.0 - gaussian))
     n = rng(n0, n1)
     t = 'damped' if random.random() < dfrac else 'periodic'
-    sys.stderr.write('%s    %f %f %f    %f    %f    %f\n'%(t,x,y,z,r,w,n))
+    print('%s    %f %f %f    %f    %f    %f\n'%(t,x,y,z,r,w,n))
     pts += [x,y,z]
     i += 1
 
@@ -95,6 +104,6 @@ while i < nosc:
         j += 1
     i += 1
 
-sys.stderr.write('# max_dist = %f\n'%(max_dist))
-sys.stderr.write('# min_dist = %f\n'%(min_dist))
+print('# max_dist = %f\n'%(max_dist))
+print('# min_dist = %f\n'%(min_dist))
 

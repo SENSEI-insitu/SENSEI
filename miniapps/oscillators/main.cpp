@@ -88,7 +88,7 @@ int main(int argc, char** argv)
         >> Option('w', "window", window,    "analysis window")
         >> Option('k', "k-max",  k_max,     "number of strongest autocorrelations to report")
 #endif
-        >> Option(     "t-end",  t_end,     "end time")
+        >> Option('E', "t-end",  t_end,     "end time")
         >> Option('j', "jobs",   threads,   "number of threads to use")
         >> Option('o', "output", out_prefix, "prefix to save output")
         >> Option('g', "ghost-cells", ghostCells, "number of ghost cells")

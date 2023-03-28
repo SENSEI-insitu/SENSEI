@@ -52,6 +52,10 @@ if (ENABLE_CATALYST)
   set(VTK_DEFAULT ON)
 endif()
 
+cmake_dependent_option(ENABLE_OSPRAY
+  "Enable analysis methods that use OSPRay" OFF
+  "ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_VTK_IO
   "Enable use of vtk I/O" ${VTK_DEFAULT}
   "ENABLE_SENSEI" OFF)
@@ -70,6 +74,10 @@ cmake_dependent_option(ENABLE_VTK_ACCELERATORS
 
 cmake_dependent_option(ENABLE_VTK_FILTERS
   "Enable use of VTK's generic filters library" ${VTK_DEFAULT}
+  "ENABLE_SENSEI" OFF)
+
+cmake_dependent_option(ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
+  "Enable use of VTK's parallel geometry filter library" OFF
   "ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(ENABLE_VTKM
@@ -100,6 +108,7 @@ message(STATUS "ENABLE_HDF5=${ENABLE_HDF5}")
 message(STATUS "ENABLE_CONDUIT=${ENABLE_CONDUIT}")
 message(STATUS "ENABLE_ASCENT=${ENABLE_ASCENT}")
 message(STATUS "ENABLE_LIBSIM=${ENABLE_LIBSIM}")
+message(STATUS "ENABLE_OSPRAY=${ENABLE_OSPRAY}")
 message(STATUS "ENABLE_VTK_IO=${ENABLE_VTK_IO}")
 message(STATUS "ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
 message(STATUS "ENABLE_VTK_RENDERING=${ENABLE_VTK_RENDERING}")

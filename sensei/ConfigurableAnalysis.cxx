@@ -55,6 +55,9 @@
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #endif
+#ifdef ENABLE_OSPRAY
+#include "OSPRayAnalysisAdaptor.h"
+#endif
 #ifdef ENABLE_PYTHON
 #include "PythonAnalysis.h"
 #endif
@@ -104,6 +107,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddCatalyst(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
+  int AddOSPRay(pugi::xml_node node);
   int AddPosthocIO(pugi::xml_node node);
   int AddVTKAmrWriter(pugi::xml_node node);
   int AddPythonAnalysis(pugi::xml_node node);
@@ -913,6 +917,228 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 #endif
 }
 
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddOSPRay(pugi::xml_node node)
+{
+#ifndef ENABLE_OSPRAY
+  (void)node;
+  SENSEI_ERROR("OSPRay was requested but is disabled in this build")
+  return -1;
+#else
+
+  struct Colormap {
+    std::vector<float> points;
+    std::vector<float> RGBPoints;
+    std::vector<float> linearColors; // interpolated values from points
+    std::vector<float> linearOpacities; // interpolated values from points
+    int resolution; // number of colors/opacities
+  };
+  std::map<std::string, Colormap> colormaps;
+
+  auto parseFloat = [&](std::stringstream& ss) {
+    float result = -1.f;
+    std::string val;
+    std::getline(ss, val, ',');
+    std::stringstream ss2(val);
+    ss2 >> result;
+    return result;
+  };
+
+  std::string colormap = "none";
+
+  std::string output_dir = node.attribute("output_dir").value();
+  std::string file_name = node.attribute("file_name").value();
+  pugi::xml_node meshNode = node.child("mesh");
+  if (meshNode.next_sibling("mesh")) {
+    SENSEI_ERROR("OSPRay's Adapter only supports 1 mesh");
+    return -1;
+  }
+  std::string meshName = meshNode.attribute("name").value();
+  std::string pRadius = meshNode.child_value("radius");
+  std::string pColor = meshNode.child_value("color");
+  std::string renderAs = meshNode.attribute("render_as").value();
+  std::string assoc = meshNode.attribute("array_assoc").value();
+  std::string colormapStr = meshNode.attribute("colormap_name").value();
+  std::string arrayName = meshNode.attribute("array_name").value();
+  std::string useD3String = meshNode.attribute("use_D3").value();
+  std::string backgroundColor = node.child_value("backgroundColor");
+  auto colormapNodes = node.children("colormap");
+  // colormaps are expected to be copied from exported paraview colormaps into
+  // corresponding points (val/opacity) and rgb_points (val/r/g/b)
+  for (auto colormapNode : colormapNodes) {
+    std::string cmName = colormapNode.child_value("name");
+    std::string cmPoints = colormapNode.child_value("points");
+    std::string cmRGBPoints = colormapNode.child_value("rgb_points");
+    std::string cmRange = colormapNode.child_value("range");
+    Colormap colormap;
+    // get rid of commas
+    {
+      std::stringstream ss(cmPoints);
+      while (ss) {
+        colormap.points.emplace_back(parseFloat(ss));
+      }
+    }
+    {
+      std::stringstream ss(cmRGBPoints);
+      while (ss) {
+        colormap.RGBPoints.emplace_back(parseFloat(ss));
+      }
+    }
+    std::stringstream ss3(cmRange);
+    double range[2];
+    ss3 >> range[0] >> range[1];
+
+    int numColors = 256;
+    int numValues = colormap.RGBPoints.size()/4;
+    int rgbIdx = 0;
+    int aIdx = 0;
+    // build colors
+    float rangeScale = range[1] - range[0];
+    auto& rgbPoints = colormap.RGBPoints;
+    auto& points = colormap.points;
+    for (int i = 0; i < numColors; i++) {
+      float val = float(i) / float(numColors - 1) * rangeScale + range[0];
+      int rgbIdx2 = rgbIdx + 1 < numValues ? rgbIdx + 1 : rgbIdx;
+      if (rgbPoints[rgbIdx2 * 4] < val) {
+        rgbIdx = std::min(numValues - 1, rgbIdx + 1);
+        rgbIdx2 = rgbIdx + 1 < numValues ? rgbIdx + 1 : rgbIdx;
+      }
+      float rgb1[4] = {rgbPoints[rgbIdx * 4 + 0],
+        rgbPoints[rgbIdx * 4 + 1],
+        rgbPoints[rgbIdx * 4 + 2],
+        rgbPoints[rgbIdx * 4 + 3]};
+      float rgb2[4] = {rgbPoints[rgbIdx2 * 4 + 0],
+        rgbPoints[rgbIdx2 * 4 + 1],
+        rgbPoints[rgbIdx2 * 4 + 2],
+        rgbPoints[rgbIdx2 * 4 + 3]};
+      int aIdx2 = aIdx + 1 < numValues ? aIdx + 1 : aIdx;
+      // *4 to skip over the range values paraview seems to insert every other value
+      if (points[aIdx2 * 4] < val)
+      {
+        aIdx = std::min(numValues - 1, aIdx + 1);
+        aIdx2 = aIdx + 1 < numValues ? aIdx + 1 : aIdx;
+      }
+      float a1[2] = {points[aIdx * 4 + 0], points[aIdx * 4 + 1]};
+      float a2[2] = {points[aIdx2 * 4 + 0], points[aIdx2 * 4 + 1]};
+      float rgba[4];
+      float rgbRange = rgb2[0] - rgb1[0];
+      if (rgbRange == 0.f)
+        rgbRange = 1.f;
+      float rgbFrac = 1.f - (val - rgb1[0]) / rgbRange;
+      float aRange = a2[0] - a1[0];
+      if (aRange == 0.f)
+        aRange = 1.f;
+      float aFrac = 1.f - (val - a1[0]) / aRange;
+      for (int i = 0; i < 3; i++) {
+        rgba[i] = rgb1[i + 1] * rgbFrac + rgb2[i + 1] * (1.f - rgbFrac);
+      }
+      rgba[3] = a1[1] * aFrac + a2[1] * (1.f - aFrac);
+      colormap.linearColors.emplace_back(rgba[0]);
+      colormap.linearColors.emplace_back(rgba[1]);
+      colormap.linearColors.emplace_back(rgba[2]);
+      colormap.linearOpacities.emplace_back(rgba[3]);
+    }
+    colormaps[cmName] = colormap;
+  }
+
+  pugi::xml_node cameraNode = node.child("camera");
+  OSPRayAnalysisAdaptor::Camera camera;
+  bool hasCamera = false;
+  if (cameraNode) {
+    if (cameraNode.next_sibling("camera")) {
+      SENSEI_ERROR("OSPRay's Adapter only supports 1 camera");
+      return -1;
+    }
+    hasCamera = true;
+    std::string cPosition = cameraNode.child_value("position");
+    std::string cDirection = cameraNode.child_value("direction");
+    std::string cUp = cameraNode.child_value("up");
+    std::string cFovy = cameraNode.child_value("fovy");
+    std::string cFocusDistance = cameraNode.child_value("focusDistance");
+    if (cPosition != "") {
+      std::stringstream ss(cPosition);
+      ss >> camera.Position[0] >> camera.Position[1] >> camera.Position[2];
+    }
+    if (cDirection != "") {
+      std::stringstream ss(cDirection);
+      ss >> camera.Direction[0] >> camera.Direction[1] >> camera.Direction[2];
+    }
+    if (cUp != "") {
+      std::stringstream ss(cUp);
+      ss >> camera.Up[0] >> camera.Up[1] >> camera.Up[2];
+    }
+    if (cFovy != "") {
+      std::stringstream ss(cFovy);
+      camera.Fovy = parseFloat(ss);
+    }
+    if (cFocusDistance != "") {
+      std::stringstream ss(cFovy);
+      camera.FocusDistance = parseFloat(ss);
+    }
+  }
+
+  bool useD3 = useD3String == "True";
+
+  if (colormapStr != "")
+    colormap = colormapStr;
+
+  auto adaptor = svtkSmartPointer<OSPRayAnalysisAdaptor>::New();
+  adaptor->SetMeshName(meshName.c_str());
+  adaptor->SetRenderAs(renderAs.c_str());
+  adaptor->SetAssociation(assoc.c_str());
+  adaptor->SetArrayName(arrayName.c_str());
+  adaptor->SetWidth(512);
+  adaptor->SetHeight(512);
+  adaptor->SetDirectory(output_dir.c_str());
+  adaptor->SetFileName(file_name.c_str());
+  adaptor->SetUseD3(useD3);
+  if (colormap != "none") {
+    if (colormaps.find(colormap) != colormaps.end()) {
+      auto& cm = colormaps[colormap];
+      adaptor->SetColormap(cm.linearColors, cm.linearOpacities);
+    } else
+      std::cerr << "ERROR: (ospray config) colormap " << colormap << "not found\n";
+  }
+  if (pRadius != "") {
+    std::stringstream ss(pRadius);
+    float radius;
+    ss >> radius;
+    adaptor->SetParticleRadius(radius);
+  }
+  if (pColor != "") {
+    std::stringstream ss(pColor);
+    float color[3];
+    ss >> color[0] >> color[1] >> color[2];
+    adaptor->SetParticleColor(color);
+  }
+  if (backgroundColor != "") {
+    std::stringstream ss(backgroundColor);
+    float color[4];
+    ss >> color[0] >> color[1] >> color[2] >> color[3];
+    adaptor->SetBackgroundColor(color);
+  }
+
+  if (this->Comm != MPI_COMM_NULL) {
+    adaptor->SetCommunicator(this->Comm);
+  }
+  if (hasCamera)
+    adaptor->SetCamera(camera);
+
+  this->TimeInitialization(adaptor, [&]() {
+    adaptor->Initialize();
+    return 0;
+  });
+
+  this->Analyses.push_back(adaptor.GetPointer());
+
+  SENSEI_STATUS("Configured OSPRay"
+    << " data array \"" << arrayName << "\" on mesh \"" << meshName)
+
+  return 0;
+#endif
+}
+
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 {
@@ -1257,6 +1483,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
+      || ((type == "ospray") && !this->Internals->AddOSPRay(node))
       || ((type == "PosthocIO") && !this->Internals->AddPosthocIO(node))
       || ((type == "VTKAmrWriter") && !this->Internals->AddVTKAmrWriter(node))
       || ((type == "svtkmcontour") && !this->Internals->AddVTKmContour(node))
