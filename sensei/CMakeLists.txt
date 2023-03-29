@@ -58,6 +58,11 @@ if (ENABLE_ADIOS2)
     list(APPEND senseiCore_libs sHDF5)
   endif()
 
+  if (ENABLE_OSPRAY)
+    list(APPEND senseiCore_sources OSPRayAnalysisAdaptor.cxx)
+    list(APPEND senseiCore_libs sOSPRay)
+  endif()
+
   if (ENABLE_VTK_ACCELERATORS)
     list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()

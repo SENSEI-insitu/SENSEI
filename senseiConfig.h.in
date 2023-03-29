@@ -31,12 +31,14 @@
 #cmakedefine ENABLE_HDF5
 #cmakedefine ENABLE_CONDUIT
 #cmakedefine ENABLE_ASCENT
+#cmakedefine ENABLE_OSPRAY
 #cmakedefine ENABLE_VTK_CORE
 #cmakedefine ENABLE_VTK_MPI
 #cmakedefine ENABLE_VTK_IO
 #cmakedefine ENABLE_VTK_RENDERING
 #cmakedefine ENABLE_VTK_ACCELERATORS
 #cmakedefine ENABLE_VTK_FILTERS
+#cmakedefine ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
 #cmakedefine ENABLE_VTKM
 #cmakedefine ENABLE_PROFILER
 

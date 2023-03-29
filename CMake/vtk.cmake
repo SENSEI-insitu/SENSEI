@@ -1,7 +1,7 @@
 set(ENABLE_VTK_CORE OFF)
 if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
   ENABLE_VTK_RENDERING OR ENABLE_VTK_ACCELERATORS OR
-  ENABLE_VTK_FILTERS)
+  ENABLE_VTK_FILTERS OR ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY)
 
   set(ENABLE_VTK_CORE ON)
 
@@ -46,6 +46,11 @@ if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
   if (ENABLE_VTK_FILTERS)
     list(APPEND sensei_vtk_components_legacy vtkFiltersGeneral)
     list(APPEND sensei_vtk_components_modern FiltersGeneral)
+  endif()
+
+  if (ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY)
+    list(APPEND sensei_vtk_components_legacy vtkFiltersParallelGeometry)
+    list(APPEND sensei_vtk_components_modern FiltersParallelGeometry)
   endif()
 
   if (sensei_vtk_components_modern)

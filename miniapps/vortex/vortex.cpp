@@ -780,7 +780,7 @@ int main(int argc, char **argv)
         dataAdaptor->SetDataTimeStep(sim.cycle);
         sensei::Profiler::StartEvent("vortex::analyze");
         sensei::DataAdaptor* reply = nullptr;
-        analysisAdaptor->Execute(dataAdaptor.GetPointer(), reply);
+        analysisAdaptor->Execute(dataAdaptor.GetPointer(), &reply);
         sensei::Profiler::EndEvent("vortex::analyze");
 
         sensei::Profiler::StartEvent("vortex::analyze::release-data");
