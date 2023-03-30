@@ -198,7 +198,10 @@ static kb_fields_handle svtkDataSet_Variables(
       kb_centering vc = (centering == svtkDataObject::POINT) ?
         KB_CENTERING_POINTS : KB_CENTERING_CELLS;
 
-      kb_fields_add_var(hfields, varName.c_str(), vc, hvar);
+      if (varName == "iblank")
+        kb_fields_add_var(hfields, "kb_iblank", vc, hvar);
+      else
+        kb_fields_add_var(hfields, varName.c_str(), vc, hvar);
     }
   }
   return hfields;
