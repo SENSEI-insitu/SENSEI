@@ -57,12 +57,6 @@ void ADIOS2DataAdaptor::SetReadEngine(const std::string &engine)
 }
 
 //----------------------------------------------------------------------------
-void ADIOS2DataAdaptor::SetDebugMode(int mode)
-{
-  this->Internals->Stream.SetDebugMode(mode);
-}
-
-//----------------------------------------------------------------------------
 void ADIOS2DataAdaptor::AddParameter(const std::string &name,
   const std::string &value)
 {
@@ -95,8 +89,6 @@ int ADIOS2DataAdaptor::Initialize(pugi::xml_node &node)
   // optional attributes
   if (node.attribute("timeout"))
     this->AddParameter("OpenTimeoutSecs", node.attribute("timeout").value());
-
-  this->SetDebugMode(node.attribute("debug_mode").as_int(0));
 
   pugi::xml_node params = node.child("engine_parameters");
   if (params)

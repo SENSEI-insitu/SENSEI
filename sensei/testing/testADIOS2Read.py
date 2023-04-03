@@ -39,7 +39,6 @@ def read_data(engine, fileName, verbose):
   da = ADIOS2DataAdaptor.New()
   da.SetReadEngine(engine)
   da.SetFileName(fileName)
-  da.SetDebugMode(1)
   da.SetPartitioner(BlockPartitioner.New())
   da.OpenStream()
   # process all time steps
