@@ -155,7 +155,6 @@ def write_data(engine, file_name, steps_per_file, n_its):
   aw.SetEngineName(engine)
   aw.SetFileName(file_name)
   aw.SetStepsPerFile(steps_per_file)
-  aw.SetDebugMode(1)
   aw.SetVerbose(1)
 
   # create the datasets
