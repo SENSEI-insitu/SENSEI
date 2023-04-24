@@ -329,7 +329,7 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2()
     }
 
   // initialize adios2
-#if ADIOS2_VERSION_MAJOR > 2 || (ADIOS2_VERSION_MINOR == 2 && ADIOS2_VERSION_MINOR >= 9)
+#if ADIOS2_VERSION_MAJOR > 2 || (ADIOS2_VERSION_MAJOR == 2 && ADIOS2_VERSION_MINOR >= 9)
   // adios2_init()'s signature changed in version 2.9.0
   this->Adios = adios2_init(this->GetCommunicator());
 #else
