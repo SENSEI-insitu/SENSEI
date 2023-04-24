@@ -663,7 +663,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     if (node.attribute("filename"))
       {
       std::string fileName = node.attribute("filename").value();
-      int scriptVersion = node.attribute("scriptversion").as_int(1);
+      int scriptVersion = node.attribute("versionhint").as_int(2);
 
       std::string producer, mesh, steerable_source_type;
       if (auto resultnode = node.child("result"))

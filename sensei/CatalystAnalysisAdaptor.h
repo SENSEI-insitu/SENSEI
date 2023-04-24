@@ -48,7 +48,7 @@ public:
    */
   virtual void AddPythonScriptPipeline(const std::string& fileName,
     const std::string& resultProducer, const std::string& steerableSourceType,
-    const std::string& resultMesh, int scriptVersion = 1);
+    const std::string& resultMesh, int versionHint = 2);
 
   /// Control how frequently the in situ processing occurs.
   int SetFrequency(unsigned int frequency);
