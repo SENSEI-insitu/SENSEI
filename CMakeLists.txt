@@ -5,6 +5,7 @@ project(sensei)
 
 include(options)
 include(cuda)
+include(openmp)
 include(build)
 include(threads)
 include(targets)

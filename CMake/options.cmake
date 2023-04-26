@@ -6,6 +6,14 @@ cmake_dependent_option(ENABLE_CUDA
   "Enable analysis methods that use CUDA" OFF
   "ENABLE_SENSEI" OFF)
 
+cmake_dependent_option(SENSEI_ENABLE_HIP
+  "Enable analysis methods that use HIP" OFF
+  "SENSEI_ENABLE_SENSEI" OFF)
+
+cmake_dependent_option(SENSEI_ENABLE_OPENMP
+  "Enable analysis methods that use OpenMP device offload" OFF
+  "SENSEI_ENABLE_SENSEI" OFF)
+
 cmake_dependent_option(ENABLE_PYTHON
   "Enable Python binding to Sensei infrastucture" ON
   "ENABLE_SENSEI" OFF)

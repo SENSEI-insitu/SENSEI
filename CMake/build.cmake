@@ -34,6 +34,13 @@ if (NOT CMAKE_CXX_FLAGS)
     if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
         set(tmp "${tmp} -O3 -march=native -mtune=native")
     endif()
+    if (SENSEI_ENABLE_OPENMP)
+        if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+            set(tmp "${tmp} -fopenmp -fopenmp-targets=nvptx64 -Xopenmp-target=nvptx64 --offload-arch=sm_75 -Wno-unknown-cuda-version")
+        elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+            set(tmp "-fopenmp -foffload=nvptx-none -foffload-options=nvptx-none=-march=sm_75")
+        endif()
+    endif()
     set(CMAKE_CXX_FLAGS "${tmp}"
         CACHE STRING "SENSEI C++ compiler defaults"
         FORCE)
