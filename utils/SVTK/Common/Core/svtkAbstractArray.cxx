@@ -685,7 +685,7 @@ void svtkAbstractArray::UpdateDiscreteValueSet(double uncertainty, double minimu
 #define SVTK_CACHE_LINE_SIZE 64
 #define SVTK_SAMPLE_FACTOR 5
   // I. Determine the granularity at which the array should be sampled.
-  int numberOfComponentsWithProminentValues = 0;
+  //int numberOfComponentsWithProminentValues = 0;
   int nc = this->NumberOfComponents;
   int blockSize = SVTK_CACHE_LINE_SIZE / (this->GetDataTypeSize() * nc);
   if (!blockSize)
@@ -740,7 +740,7 @@ void svtkAbstractArray::UpdateDiscreteValueSet(double uncertainty, double minimu
   {
     if (uniques[c].size() && uniques[c].size() <= this->MaxDiscreteValues)
     {
-      ++numberOfComponentsWithProminentValues;
+      //++numberOfComponentsWithProminentValues;
       iv = this->GetInformation()->Get(PER_COMPONENT());
       if (!iv)
       {
@@ -763,7 +763,7 @@ void svtkAbstractArray::UpdateDiscreteValueSet(double uncertainty, double minimu
   }
   if (nc > 1 && uniques[nc].size() <= this->MaxDiscreteValues * nc)
   {
-    ++numberOfComponentsWithProminentValues;
+    //++numberOfComponentsWithProminentValues;
     this->GetInformation()->Set(
       DISCRETE_VALUES(), &uniques[nc][0], static_cast<int>(uniques[nc].size()));
   }

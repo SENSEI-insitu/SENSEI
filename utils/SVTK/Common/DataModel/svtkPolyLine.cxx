@@ -79,9 +79,9 @@ int svtkPolyLine::GenerateSlidingNormals(
 {
   svtkVector3d normal(0.0, 0.0, 1.0); // arbitrary default value
 
-  svtkIdType lid = 0;
+  //svtkIdType lid = 0;
   svtkNew<svtkIdList> linePts;
-  for (lines->InitTraversal(); lines->GetNextCell(linePts); ++lid)
+  for (lines->InitTraversal(); lines->GetNextCell(linePts); /*++lid*/)
   {
     svtkIdType npts = linePts->GetNumberOfIds();
     if (npts <= 0)

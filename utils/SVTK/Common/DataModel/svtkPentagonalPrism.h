@@ -197,7 +197,7 @@ public:
    * matrix. Returns 9 elements of 3x3 inverse Jacobian plus interpolation
    * function derivatives.
    */
-  void JacobianInverse(const double pcoords[3], double** inverse, double derivs[30]);
+  void JacobianInverse(const double pcoords[3], double** inverse, double derivs[24]);
 
 protected:
   svtkPentagonalPrism();

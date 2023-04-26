@@ -1373,7 +1373,7 @@ inline double svtkMath::Normalize(double v[3])
 }
 
 //----------------------------------------------------------------------------
-inline float svtkMath::Normalize2D(float v[3])
+inline float svtkMath::Normalize2D(float v[2])
 {
   float den = svtkMath::Norm2D(v);
   if (den != 0.0)
@@ -1387,7 +1387,7 @@ inline float svtkMath::Normalize2D(float v[3])
 }
 
 //----------------------------------------------------------------------------
-inline double svtkMath::Normalize2D(double v[3])
+inline double svtkMath::Normalize2D(double v[2])
 {
   double den = svtkMath::Norm2D(v);
   if (den != 0.0)
