@@ -156,7 +156,8 @@
 // (e.g., SetFilename(char *));
 //
 #define svtkSetStringMacro(name)                                                                    \
-  virtual void Set##name(const char* _arg) svtkSetStringBodyMacro(name, _arg)
+  virtual void Set##name(const char* _arg) svtkSetStringBodyMacro(name, _arg)                       \
+  void Set##name(const std::string & _arg) { this->Set##name(_arg.c_str()); }
 
 // This macro defines a body of set string macro. It can be used either in
 // the header file using svtkSetStringMacro or in the implementation.
