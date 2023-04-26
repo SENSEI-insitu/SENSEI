@@ -12,8 +12,8 @@ DEPENDS
   SVTK::CommonCore
   SVTK::CommonMath
   SVTK::CommonTransforms
-PRIVATE_DEPENDS
   SVTK::CommonMisc
+PRIVATE_DEPENDS
   SVTK::CommonSystem
   SVTK::svtksys
 TEST_DEPENDS
