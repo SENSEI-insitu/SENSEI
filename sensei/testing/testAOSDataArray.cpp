@@ -4,7 +4,7 @@
 
 #include "senseiConfig.h"
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     id->SetDimensions(nx, ny, nz);
 
     svtkHAMRDataArray<double> *da = nullptr;
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
     if (device >= 0)
     {
         da = initializeCUDA<double>(nTups, nComps);

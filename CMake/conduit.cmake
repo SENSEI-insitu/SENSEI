@@ -1,4 +1,4 @@
-if(ENABLE_CONDUIT)
+if(SENSEI_ENABLE_CONDUIT)
   find_package(Conduit REQUIRED NO_DEFAULT_PATH PATHS ${CONDUIT_DIR}/lib/cmake)
 
   add_library(sConduit INTERFACE)

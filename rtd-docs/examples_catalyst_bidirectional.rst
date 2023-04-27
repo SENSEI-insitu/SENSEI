@@ -20,7 +20,7 @@ Setting Up
 ==========
 
 You will need ParaView 5.10 installed, and SENSEI compiled with the options
-`ENABLE_CATALYST` and `ENABLE_CATALYST_PYTHON` turned on.
+`SENSEI_ENABLE_CATALYST` and `SENSEI_ENABLE_CATALYST_PYTHON` turned on.
 
 Note, only Catalyst 1.0 scripts are compatible with computational steering in
 SENSEI. Unfortunately, those scripts cannot be generated automatically in the

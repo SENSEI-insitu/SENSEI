@@ -4,7 +4,7 @@
 #include "MemoryUtils.h"
 #include "Error.h"
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
 #include "CUDAUtils.h"
 #include <thrust/sequence.h>
 #include <thrust/reduce.h>
@@ -34,7 +34,7 @@
 
 namespace sensei
 {
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
 namespace HistogramInternalsCUDA
 {
 /** given a data array a ghost array and two indices, looks up
@@ -299,7 +299,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
   if (ghosts)
     {
     // we have ghosts
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
     if (this->DeviceId >= 0)
       {
 #if defined(SENSEI_DEBUG)
@@ -339,14 +339,14 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
         {
         pGhosts = sensei::MemoryUtils::MakeCpuAccessible(ghosts->GetPointer(0), nVals);
         }
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
       }
 #endif
     }
   else
     {
     // we don't have ghosts
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
     if (this->DeviceId >= 0)
       {
 #if defined(SENSEI_DEBUG)
@@ -378,7 +378,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       pGhosts = tGhosts->GetCPUAccessible();
 
       tGhosts->Delete();
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
       }
 #endif
     }
@@ -392,7 +392,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
     svtkTemplateMacro(
 
       std::shared_ptr<const SVTK_TT> pDa;
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
       if (this->DeviceId >= 0)
         {
 #if defined(SENSEI_DEBUG)
@@ -432,7 +432,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
           pDa = sensei::MemoryUtils::MakeCpuAccessible(
            sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
           }
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
         }
 #endif
       // cache the GPU accessible pointer for use in the histogram calculation
@@ -480,7 +480,7 @@ int HistogramInternals::ComputeRange()
         // data movement is handled in AddLocalData
         std::shared_ptr<const SVTK_TT> pDa = std::static_pointer_cast<const SVTK_TT>(pvDa);
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
         if (this->DeviceId >= 0)
           {
           // make the requested GPU the active one
@@ -511,7 +511,7 @@ int HistogramInternals::ComputeRange()
           std::cerr << "HistogramInternals::ComputeRange CPU ["
              << blockMin << ", " << blockMax << "]" << std::endl;
 #endif
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
           }
 #endif
         // accumulate the min/max
@@ -576,7 +576,7 @@ int HistogramInternals::InitializeHistogram()
   size_t histBytes = nBins*sizeof(unsigned int);
   unsigned int *pHist = nullptr;
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
   if (this->DeviceId >= 0)
     {
 #if defined(SENSEI_DEBUG)
@@ -618,7 +618,7 @@ int HistogramInternals::InitializeHistogram()
     // save the pointer for calculations of subsequent blocks
     this->Histogram = std::shared_ptr<unsigned int>(pHist,
       sensei::MemoryUtils::FreeCpuPtr);
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
     }
 #endif
 
@@ -659,7 +659,7 @@ int HistogramInternals::ComputeLocalHistogram()
     switch (da->GetDataType())
       {
       svtkTemplateMacro(
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
         if (this->DeviceId >= 0)
           {
 #if defined(SENSEI_DEBUG)
@@ -685,7 +685,7 @@ int HistogramInternals::ComputeLocalHistogram()
           // data is already in the right place, it is moved in AddLocalData
           HistogramInternalsCPU::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
             pGhosts.get(), nVals, this->Min, this->Width, this->Histogram.get(), nBins);
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
           }
 #endif
         );
@@ -712,7 +712,7 @@ int HistogramInternals::FinalizeHistogram()
   size_t nBins = this->NumberOfBins + 1;
   size_t histBytes = nBins*sizeof(unsigned int);
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
   // make the requested GPU the active one
   if (this->DeviceId >= 0)
     sensei::CUDAUtils::SetDevice(this->DeviceId);

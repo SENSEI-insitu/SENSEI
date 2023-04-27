@@ -1,10 +1,10 @@
 include(CMakeDependentOption)
 
-option(ENABLE_SENSEI "Enable Sensei infrastucture" ON)
+option(SENSEI_ENABLE_SENSEI "Enable Sensei infrastucture" ON)
 
-cmake_dependent_option(ENABLE_CUDA
+cmake_dependent_option(SENSEI_ENABLE_CUDA
   "Enable analysis methods that use CUDA" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
 cmake_dependent_option(SENSEI_ENABLE_HIP
   "Enable analysis methods that use HIP" OFF
@@ -14,123 +14,124 @@ cmake_dependent_option(SENSEI_ENABLE_OPENMP
   "Enable analysis methods that use OpenMP device offload" OFF
   "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_PYTHON
+cmake_dependent_option(SENSEI_ENABLE_PYTHON
   "Enable Python binding to Sensei infrastucture" ON
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_CATALYST
+cmake_dependent_option(SENSEI_ENABLE_CATALYST
   "Enable analysis methods that use Catalyst" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_CATALYST_PYTHON
+cmake_dependent_option(SENSEI_ENABLE_CATALYST_PYTHON
   "Enable analysis methods that use Catalyst Python scripts" ON
-  "ENABLE_CATALYST" OFF)
+  "SENSEI_ENABLE_CATALYST" OFF)
 
-cmake_dependent_option(ENABLE_ADIOS1
+cmake_dependent_option(SENSEI_ENABLE_ADIOS1
   "Enable analysis methods that use ADIOS 1" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_ADIOS2
+cmake_dependent_option(SENSEI_ENABLE_ADIOS2
   "Enable analysis methods that use ADIOS 2" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_HDF5
+cmake_dependent_option(SENSEI_ENABLE_HDF5
   "Enable analysis methods that use HDF5" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_CONDUIT
+cmake_dependent_option(SENSEI_ENABLE_CONDUIT
   "Enable analysis methods that use Conduit" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_ASCENT
+cmake_dependent_option(SENSEI_ENABLE_ASCENT
   "Enable analysis methods that use Ascent" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_ASCENT
+cmake_dependent_option(SENSEI_ENABLE_ASCENT
   "Enable analysis methods that use ASCENT" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_LIBSIM
+cmake_dependent_option(SENSEI_ENABLE_LIBSIM
   "Enable analysis methods that use Libsim" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
 # enable VTK by default if Catalyst is present.
 set(VTK_DEFAULT OFF)
-if (ENABLE_CATALYST)
+if (SENSEI_ENABLE_CATALYST)
   set(VTK_DEFAULT ON)
 endif()
 
-cmake_dependent_option(ENABLE_OSPRAY
+cmake_dependent_option(SENSEI_ENABLE_OSPRAY
   "Enable analysis methods that use OSPRay" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_IO
+cmake_dependent_option(SENSEI_ENABLE_VTK_IO
   "Enable use of vtk I/O" ${VTK_DEFAULT}
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_MPI
+cmake_dependent_option(SENSEI_ENABLE_VTK_MPI
   "Enable use of parallel vtk" ${VTK_DEFAULT}
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_RENDERING
+cmake_dependent_option(SENSEI_ENABLE_VTK_RENDERING
   "Enable use of VTK's rendering libraries" ${VTK_DEFAULT}
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_ACCELERATORS
+cmake_dependent_option(SENSEI_ENABLE_VTK_ACCELERATORS
   "Enable analysis methods that use VTK-m via VTK's Accelerators module" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_FILTERS
+cmake_dependent_option(SENSEI_ENABLE_VTK_FILTERS
   "Enable use of VTK's generic filters library" ${VTK_DEFAULT}
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
+cmake_dependent_option(SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
   "Enable use of VTK's parallel geometry filter library" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTKM
+cmake_dependent_option(SENSEI_ENABLE_VTKM
   "Enable analysis methods that use VTK-m" OFF
-  "ENABLE_SENSEI" OFF)
+  "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_VTKM_RENDERING
+cmake_dependent_option(SENSEI_ENABLE_VTKM_RENDERING
   "Enable analysis methods that use VTK-m's rendering library" OFF
-  "ENABLE_VTKM" OFF)
+  "SENSEI_ENABLE_VTKM" OFF)
 
-option(ENABLE_OPTS "A version of the getopt function" ON)
-option(ENABLE_PROFILER "Enable the internal profiler" OFF)
-option(ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
-option(ENABLE_MANDELBROT "Enable Mandelbrot AMR miniapp" ON)
-option(ENABLE_VORTEX "Enable Vortex miniapp (experimental)" OFF)
-option(ENABLE_CONDUITTEST "Enable Conduit miniapp (experimental)" OFF)
-option(ENABLE_KRIPKE "Enable Kripke miniapp (experimental)" OFF)
+option(SENSEI_ENABLE_OPTS "A version of the getopt function" ON)
+option(SENSEI_ENABLE_PROFILER "Enable the internal profiler" OFF)
+option(SENSEI_ENABLE_OSCILLATORS "Enable Oscillators miniapp" ON)
+option(SENSEI_ENABLE_MANDELBROT "Enable Mandelbrot AMR miniapp" ON)
+option(SENSEI_ENABLE_VORTEX "Enable Vortex miniapp (experimental)" OFF)
+option(SENSEI_ENABLE_CONDUITTEST "Enable Conduit miniapp (experimental)" OFF)
+option(SENSEI_ENABLE_KRIPKE "Enable Kripke miniapp (experimental)" OFF)
 option(SENSEI_USE_EXTERNAL_pugixml "Use external pugixml library" OFF)
 
-message(STATUS "SENSEI: ENABLE_SENSEI=${ENABLE_SENSEI}")
-message(STATUS "SENSEI: ENABLE_CUDA=${ENABLE_CUDA}")
-message(STATUS "SENSEI: ENABLE_PYTHON=${ENABLE_PYTHON}")
-message(STATUS "SENSEI: ENABLE_CATALYST=${ENABLE_CATALYST}")
-message(STATUS "SENSEI: ENABLE_CATALYST_PYTHON=${ENABLE_CATALYST}")
-message(STATUS "SENSEI: ENABLE_ADIOS1=${ENABLE_ADIOS1}")
-message(STATUS "SENSEI: ENABLE_ADIOS2=${ENABLE_ADIOS2}")
-message(STATUS "SENSEI: ENABLE_HDF5=${ENABLE_HDF5}")
-message(STATUS "SENSEI: ENABLE_CONDUIT=${ENABLE_CONDUIT}")
-message(STATUS "SENSEI: ENABLE_ASCENT=${ENABLE_ASCENT}")
-message(STATUS "SENSEI: ENABLE_LIBSIM=${ENABLE_LIBSIM}")
-message(STATUS "SENSEI: ENABLE_OSPRAY=${ENABLE_OSPRAY}")
-message(STATUS "SENSEI: ENABLE_VTK_IO=${ENABLE_VTK_IO}")
-message(STATUS "SENSEI: ENABLE_VTK_MPI=${ENABLE_VTK_MPI}")
-message(STATUS "SENSEI: ENABLE_VTK_RENDERING=${ENABLE_VTK_RENDERING}")
-message(STATUS "SENSEI: ENABLE_VTK_ACCELERATORS=${ENABLE_VTK_ACCELERATORS}")
-message(STATUS "SENSEI: ENABLE_VTK_FILTERS=${ENABLE_VTK_FILTERS}")
-message(STATUS "SENSEI: ENABLE_VTKM=${ENABLE_VTKM}")
-message(STATUS "SENSEI: ENABLE_VTKM_RENDERING=${ENABLE_VTKM_RENDERING}")
-message(STATUS "SENSEI: ENABLE_PROFILER=${ENABLE_PROFILER}")
-message(STATUS "SENSEI: ENABLE_OPTS=${ENABLE_OPTS}")
-message(STATUS "SENSEI: ENABLE_OSCILLATORS=${ENABLE_OSCILLATORS}")
-message(STATUS "SENSEI: ENABLE_CONDUITTEST=${ENABLE_CONDUITTEST}")
-message(STATUS "SENSEI: ENABLE_KRIPKE=${ENABLE_KRIPKE}")
+message(STATUS "SENSEI: SENSEI_ENABLE_SENSEI=${SENSEI_ENABLE_SENSEI}")
+message(STATUS "SENSEI: SENSEI_ENABLE_CUDA=${SENSEI_ENABLE_CUDA}")
+message(STATUS "SENSEI: SENSEI_ENABLE_PYTHON=${SENSEI_ENABLE_PYTHON}")
+message(STATUS "SENSEI: SENSEI_ENABLE_CATALYST=${SENSEI_ENABLE_CATALYST}")
+message(STATUS "SENSEI: SENSEI_ENABLE_CATALYST_PYTHON=${SENSEI_ENABLE_CATALYST}")
+message(STATUS "SENSEI: SENSEI_ENABLE_ADIOS1=${SENSEI_ENABLE_ADIOS1}")
+message(STATUS "SENSEI: SENSEI_ENABLE_ADIOS2=${SENSEI_ENABLE_ADIOS2}")
+message(STATUS "SENSEI: SENSEI_ENABLE_HDF5=${SENSEI_ENABLE_HDF5}")
+message(STATUS "SENSEI: SENSEI_ENABLE_CONDUIT=${SENSEI_ENABLE_CONDUIT}")
+message(STATUS "SENSEI: SENSEI_ENABLE_ASCENT=${SENSEI_ENABLE_ASCENT}")
+message(STATUS "SENSEI: SENSEI_ENABLE_LIBSIM=${SENSEI_ENABLE_LIBSIM}")
+message(STATUS "SENSEI: SENSEI_ENABLE_OSPRAY=${SENSEI_ENABLE_OSPRAY}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTK_IO=${SENSEI_ENABLE_VTK_IO}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTK_MPI=${SENSEI_ENABLE_VTK_MPI}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTK_RENDERING=${SENSEI_ENABLE_VTK_RENDERING}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTK_ACCELERATORS=${SENSEI_ENABLE_VTK_ACCELERATORS}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY=${SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTK_FILTERS=${SENSEI_ENABLE_VTK_FILTERS}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTKM=${SENSEI_ENABLE_VTKM}")
+message(STATUS "SENSEI: SENSEI_ENABLE_VTKM_RENDERING=${SENSEI_ENABLE_VTKM_RENDERING}")
+message(STATUS "SENSEI: SENSEI_ENABLE_PROFILER=${SENSEI_ENABLE_PROFILER}")
+message(STATUS "SENSEI: SENSEI_ENABLE_OPTS=${SENSEI_ENABLE_OPTS}")
+message(STATUS "SENSEI: SENSEI_ENABLE_OSCILLATORS=${SENSEI_ENABLE_OSCILLATORS}")
+message(STATUS "SENSEI: SENSEI_ENABLE_CONDUITTEST=${SENSEI_ENABLE_CONDUITTEST}")
+message(STATUS "SENSEI: SENSEI_ENABLE_KRIPKE=${SENSEI_ENABLE_KRIPKE}")
 message(STATUS "SENSEI: SENSEI_USE_EXTERNAL_pugixml=${SENSEI_USE_EXTERNAL_pugixml}")
 
-if (ENABLE_ADIOS1 AND ENABLE_ADIOS2)
+if (SENSEI_ENABLE_ADIOS1 AND SENSEI_ENABLE_ADIOS2)
   message(FATAL_ERROR "ADIOS1 and ADIOS2 are mutually exclusive build options")
 endif()

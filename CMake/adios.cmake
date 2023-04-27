@@ -1,4 +1,4 @@
-if(ENABLE_ADIOS1)
+if(SENSEI_ENABLE_ADIOS1)
   find_package(ADIOS1 REQUIRED)
 
   add_library(sADIOS1 INTERFACE)

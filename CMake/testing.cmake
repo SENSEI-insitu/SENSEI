@@ -41,7 +41,7 @@ All options are optional unless otherwise specified.
   * `EXEC_NAME `: Name of the compiled test executable (default: `<name>` passed to `senseAddTest`)
   * `LIBS`: Libraries to link to the compiled test executable
   * `FEATURES`: List of features that must be enabled for the test to run.
-                Maps to ENABLE_<feature> and adds <feature> labels to the test.
+                Maps to SENSEI_ENABLE_<feature> and adds <feature> labels to the test.
   * `REQ_SENSEI_DATA`: Flag to indicate the test needs the data repo.
   * `PROPERTIES`: [Test  properties](https://cmake.org/cmake/help/v3.6/manual/cmake-properties.7.html\#test-properties) for this test
 #]==]
@@ -67,7 +67,7 @@ function (senseiAddTest T_NAME)
     set(TEST_ENABLED ON)
   else()
     foreach(feature ${T_FEATURES})
-      if (NOT ENABLE_${feature})
+      if (NOT SENSEI_ENABLE_${feature})
         set(TEST_ENABLED OFF)
       endif()
     endforeach()
@@ -84,7 +84,7 @@ function (senseiAddTest T_NAME)
       if (T_LIBS)
         target_link_libraries(${EXEC_NAME} ${T_LIBS})
       endif()
-      if (ENABLE_CUDA AND T_CUDA_TARGET)
+      if (SENSEI_ENABLE_CUDA AND T_CUDA_TARGET)
         sensei_cuda_target(TARGET ${EXEC_NAME} SOURCES ${T_SOURCES})
       endif ()
     endif()

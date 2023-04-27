@@ -27,7 +27,7 @@ void DontFreePtr(void *ptr)
 #endif
 }
 
-#if !defined(ENABLE_CUDA)
+#if !defined(SENSEI_ENABLE_CUDA)
 // **************************************************************************
 void FreeCudaPtr(void *ptr)
 {

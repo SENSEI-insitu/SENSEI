@@ -1,4 +1,4 @@
-if (ENABLE_PYTHON)
+if (SENSEI_ENABLE_PYTHON)
     set_property(SOURCE senseiPython.i PROPERTY CPLUSPLUS ON)
     set_property(SOURCE senseiPython.i PROPERTY SWIG_MODULE_NAME senseiPython)
     set_property(SOURCE senseiPython.i PROPERTY DEPENDS ../sensei/DataAdaptor.i)

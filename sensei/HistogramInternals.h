@@ -17,7 +17,7 @@ namespace sensei
 {
 /// Distributed MPI+X paralllel histogram
 /** Computes a histogram on multiple data blocks with one array per block.
- * CUDA will be used for the calculations if ENABLE_CUDA is defined during the
+ * CUDA will be used for the calculations if SENSEI_ENABLE_CUDA is defined during the
  * build, otherwise the CPU is used. The data arrays must have only one
  * component.
  *
@@ -38,7 +38,9 @@ public:
 
     HistogramInternals(MPI_Comm comm, int deviceId, int numberOfBins) :
       Comm(comm),
+#if defined(SENSEI_ENABLE_CUDA)
       DeviceId(deviceId),
+#endif
       NumberOfBins(numberOfBins),
       Min(std::numeric_limits<double>::max()),
       Max(std::numeric_limits<double>::lowest()),
@@ -80,7 +82,9 @@ private:
 
 private:
   MPI_Comm Comm;
+#if defined(SENSEI_ENABLE_CUDA)
   int DeviceId;
+#endif
   int NumberOfBins;
   double Min;
   double Max;

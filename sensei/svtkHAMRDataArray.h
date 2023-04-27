@@ -1,7 +1,7 @@
 #ifndef svtkHAMRDataArray_h
 #define svtkHAMRDataArray_h
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
 #include <cuda.h>
 #include <cuda_runtime.h>
 #endif

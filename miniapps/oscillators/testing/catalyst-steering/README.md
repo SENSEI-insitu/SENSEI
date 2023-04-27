@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-You will need ParaView 5.10 installed, and SENSEI compiled with the options `ENABLE_CATALYST` and `ENABLE_CATALYST_PYTHON` turned on.
+You will need ParaView 5.10 installed, and SENSEI compiled with the options `SENSEI_ENABLE_CATALYST` and `SENSEI_ENABLE_CATALYST_PYTHON` turned on.
 
 Open the ParaView application and navigate to `Tools`->`Manage Plugins`. Press the `Load New...` button, and navigate the file browser to the location of the `oscillator_catalyst_steering_proxies.xml` file, and select that file.
 

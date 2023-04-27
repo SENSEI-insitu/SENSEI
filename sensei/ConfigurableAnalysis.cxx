@@ -20,52 +20,52 @@
 
 #include "Autocorrelation.h"
 #include "Histogram.h"
-#ifdef ENABLE_VTK_IO
+#ifdef SENSEI_ENABLE_VTK_IO
 #include "VTKPosthocIO.h"
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
 #include "VTKAmrWriter.h"
 #endif
 #endif
-#ifdef ENABLE_VTK_ACCELERATORS
+#ifdef SENSEI_ENABLE_VTK_ACCELERATORS
 #include "VTKmContourAnalysis.h"
 #endif
-#ifdef ENABLE_VTKM
+#ifdef SENSEI_ENABLE_VTKM
 #include "VTKmVolumeReductionAnalysis.h"
 #include "VTKmCDFAnalysis.h"
 #endif
-#ifdef ENABLE_ADIOS1
+#ifdef SENSEI_ENABLE_ADIOS1
 #include "ADIOS1AnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_ADIOS2
+#ifdef SENSEI_ENABLE_ADIOS2
 #include "ADIOS2AnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_HDF5
+#ifdef SENSEI_ENABLE_HDF5
 #include "HDF5AnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #include <vtkNew.h>
 #endif
-#ifdef ENABLE_ASCENT
+#ifdef SENSEI_ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_LIBSIM
+#ifdef SENSEI_ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #endif
-#ifdef ENABLE_OSPRAY
+#ifdef SENSEI_ENABLE_OSPRAY
 #include "OSPRayAnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_PYTHON
+#ifdef SENSEI_ENABLE_PYTHON
 #include "PythonAnalysis.h"
 #endif
-#if defined(ENABLE_VTK_IO) && defined(ENABLE_VTK_FILTERS)
-#define ENABLE_SLICE_EXTRACT
+#if defined(SENSEI_ENABLE_VTK_IO) && defined(SENSEI_ENABLE_VTK_FILTERS)
+#define SENSEI_ENABLE_SLICE_EXTRACT
 #include "SliceExtract.h"
 #endif
-#if defined(ENABLE_VTK_FILTERS)
+#if defined(SENSEI_ENABLE_VTK_FILTERS)
 #include "Calculator.h"
 #endif
 
@@ -122,10 +122,10 @@ public:
   // special analyses. these apear in the above list, however
   // they require special treatment which is simplified by
   // storing an additional pointer.
-#ifdef ENABLE_LIBSIM
+#ifdef SENSEI_ENABLE_LIBSIM
   svtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
 #endif
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
   svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
 #endif
 
@@ -213,7 +213,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 {
-#ifndef ENABLE_VTK_ACCELERATORS
+#ifndef SENSEI_ENABLE_VTK_ACCELERATORS
   (void)node;
   SENSEI_ERROR("svtkAcceleratorsVtkm was requested but is disabled in this build")
   return -1;
@@ -251,7 +251,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKM
+#ifndef SENSEI_ENABLE_VTKM
   (void)node;
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
@@ -286,7 +286,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKM
+#ifndef SENSEI_ENABLE_VTKM
   (void)node;
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
@@ -326,7 +326,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 {
-#ifndef ENABLE_ASCENT
+#ifndef SENSEI_ENABLE_ASCENT
   (void)node;
   SENSEI_ERROR("Ascent was requested but is disabled in this build")
   return( -1 );
@@ -383,7 +383,7 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
 {
-#ifndef ENABLE_ADIOS1
+#ifndef SENSEI_ENABLE_ADIOS1
   (void)node;
   SENSEI_ERROR("ADIOS 1 was requested but is disabled in this build")
   return -1;
@@ -427,7 +427,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
 {
-#ifndef ENABLE_ADIOS2
+#ifndef SENSEI_ENABLE_ADIOS2
   (void)node;
   SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
   return -1;
@@ -456,7 +456,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
 {
-#ifndef ENABLE_HDF5
+#ifndef SENSEI_ENABLE_HDF5
   (void)node;
   SENSEI_ERROR("HDF5 was requested but is disabled in this build");
   return -1;
@@ -508,7 +508,7 @@ int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 {
-#ifndef ENABLE_CATALYST
+#ifndef SENSEI_ENABLE_CATALYST
   (void)node;
   SENSEI_ERROR("Catalyst was requested but is disabled in this build")
   return -1;
@@ -657,7 +657,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     }
   else if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {
-#ifndef ENABLE_CATALYST_PYTHON
+#ifndef SENSEI_ENABLE_CATALYST_PYTHON
     SENSEI_ERROR("Catalyst Python was requested but is disabled in this build")
 #else
     if (node.attribute("filename"))
@@ -692,7 +692,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 {
-#ifndef ENABLE_LIBSIM
+#ifndef SENSEI_ENABLE_LIBSIM
   (void)node;
   SENSEI_ERROR("Libsim was requested but is disabled in this build")
   return -1;
@@ -874,7 +874,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 {
-#ifndef ENABLE_VTK_IO
+#ifndef SENSEI_ENABLE_VTK_IO
   (void)node;
   SENSEI_ERROR("VTK I/O was requested but is disabled in this build")
   return -1;
@@ -923,7 +923,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddOSPRay(pugi::xml_node node)
 {
-#ifndef ENABLE_OSPRAY
+#ifndef SENSEI_ENABLE_OSPRAY
   (void)node;
   SENSEI_ERROR("OSPRay was requested but is disabled in this build")
   return -1;
@@ -1144,7 +1144,7 @@ int ConfigurableAnalysis::InternalsType::AddOSPRay(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 {
-#if !defined(ENABLE_VTK_IO) || !defined(ENABLE_VTK_MPI)
+#if !defined(SENSEI_ENABLE_VTK_IO) || !defined(SENSEI_ENABLE_VTK_MPI)
   (void)node;
   SENSEI_ERROR("VTK AMR Writer was requested but is disabled in this build")
   return -1;
@@ -1186,7 +1186,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
 {
-#if !defined(ENABLE_PYTHON)
+#if !defined(SENSEI_ENABLE_PYTHON)
   (void)node;
   SENSEI_ERROR("The PythonAnalysis was requested but is disabled in this build")
   return -1;
@@ -1238,7 +1238,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 {
-#ifndef ENABLE_SLICE_EXTRACT
+#ifndef SENSEI_ENABLE_SLICE_EXTRACT
   (void)node;
   SENSEI_ERROR("SliceExtract requested but is disabled in this build")
   return -1;
@@ -1368,7 +1368,7 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
 {
-#if !defined(ENABLE_VTK_FILTERS)
+#if !defined(SENSEI_ENABLE_VTK_FILTERS)
   (void)node;
   SENSEI_ERROR("Calculator requested but is disabled in this build")
   return -1;

@@ -222,11 +222,13 @@ if (BUILD_TESTING)
     FEATURES PYTHON)
 
   ##############################################################################
+if (SENSEI_ENABLE_CUDA)
   add_target(EXEC
     NAME testAOSDataArray
     CU_SOURCES testAOSDataArray.cpp
     LINK_LIBS sensei hamr
     )
+endif()
 
   #senseiAddTest(testAOSDataArray
   #  SOURCES testAOSDataArray.cpp LIBS sensei hamr EXEC_NAME testAOSDataArray

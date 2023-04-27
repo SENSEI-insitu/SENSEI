@@ -1,4 +1,4 @@
-if(ENABLE_CUDA)
+if(SENSEI_ENABLE_CUDA)
 
   set(SENSEI_CUDA_ARCHITECTURES "60;70;75" CACHE
     STRING "Compile for these CUDA virtual and real architectures")
@@ -15,11 +15,11 @@ if(ENABLE_CUDA)
   if (CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
   else()
-    message(FATAL_ERROR "CUDA is required by ENABLE_CUDA but CUDA was not found")
+    message(FATAL_ERROR "CUDA is required by SENSEI_ENABLE_CUDA but CUDA was not found")
   endif()
 
   if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11")
-    message(FATAL_ERROR "CUDA >= 11 is required by ENABLE_CUDA")
+    message(FATAL_ERROR "CUDA >= 11 is required by SENSEI_ENABLE_CUDA")
   endif ()
 
   # Use this function to make sure targets and sources compile on CUDA.

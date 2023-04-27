@@ -2,7 +2,7 @@ project(oscillators)
 
 set(OSCILLATOR_CUDA OFF CACHE BOOL "Enable CUDA acceleration in the miniapp")
 if (OSCILLATOR_CUDA)
-  set(ENABLE_CUDA ON)
+  set(SENSEI_ENABLE_CUDA ON)
   include(cuda)
   message(STATUS "SENSEI: oscillators miniapp will use CUDA")
 endif()
@@ -10,7 +10,7 @@ endif()
 set(sources main.cpp analysis.cpp)
 set(libs sMPI sDIY sOPTS thread)
 
-if(ENABLE_SENSEI)
+if(SENSEI_ENABLE_SENSEI)
   list(APPEND sources bridge.cpp DataAdaptor.cpp
     Oscillator.cpp Particles.cpp Block.cpp BlockInternals.cpp)
 

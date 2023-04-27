@@ -13,12 +13,12 @@
 #include <vtkImageData.h>
 #include <vtkPointData.h>
 #include <vtkCellData.h>
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_MPI)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_MPI)
 #  include <vtkMultiProcessController.h>
 #endif
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 #  include <vtkSMPropertyHelper.h>
 #  include <vtkSMRenderViewProxy.h>
 #  include <vtkSMRepresentationProxy.h>
@@ -26,14 +26,14 @@
 #endif
 #include <vtkUnsignedCharArray.h>
 
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
 #  include <vtkCamera.h>
 #  include <vtkActor.h>
 #  include <vtkRenderWindow.h>
 #  include <vtkRenderer.h>
 #  include <vtkWindowToImageFilter.h>
 #endif
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 #  include <vtkIceTCompositePass.h>
 #  include <vtkCameraPass.h>
 #  include <vtkLightingMapPass.h>
@@ -252,7 +252,7 @@ struct CinemaHelper::Internals
   bool IsRoot;
   int PID;
   int CurrentCameraPosition;
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
   std::vector<vtkSmartPointer<vtkSMRepresentationProxy>> Representations;
 #endif
   std::vector<vtkSmartPointer<vtkActor>> Actors;
@@ -278,7 +278,7 @@ struct CinemaHelper::Internals
   {
     this->ImageSize[0] = this->ImageSize[1] = 512;
     this->SampleSize = 1024;
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_MPI)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_MPI)
     vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
     this->IsRoot = (controller->GetLocalProcessId() == 0);
     this->PID = controller->GetLocalProcessId();
@@ -793,7 +793,7 @@ int CinemaHelper::GetNumberOfCameraPositions()
 }
 
 // --------------------------------------------------------------------------
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 void CinemaHelper::ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionIndex)
 {
   if (cameraPositionIndex < this->Data->NumberOfCameraPositions && this->Data->CameraPositions)
@@ -813,9 +813,9 @@ void CinemaHelper::ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionI
     view->UpdateVTKObjects();
     }
 }
-#endif // ENABLE_CATALYST
+#endif // SENSEI_ENABLE_CATALYST
 
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
 // --------------------------------------------------------------------------
 void CinemaHelper::ApplyCameraPosition(vtkCamera *camera, int cameraPositionIndex)
 {
@@ -862,7 +862,7 @@ std::string CinemaHelper::GetScalarName() const
 }
 
 // --------------------------------------------------------------------------
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 int CinemaHelper::RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue)
 {
   this->Data->Representations.push_back(representation);
@@ -898,9 +898,9 @@ int CinemaHelper::RegisterLayer(const std::string& name, vtkSMRepresentationProx
   this->Data->JSONCompositePipeline.push_back(jsonContent2.str());
   return 1;
 }
-#endif // ENABLE_CATALYST
+#endif // SENSEI_ENABLE_CATALYST
 
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
 // --------------------------------------------------------------------------
 int CinemaHelper::RegisterLayer(const std::string& name, vtkActor* actor, double scalarValue)
 {
@@ -939,7 +939,7 @@ int CinemaHelper::RegisterLayer(const std::string& name, vtkActor* actor, double
 }
 #endif
 
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 // --------------------------------------------------------------------------
 void CinemaHelper::Capture(vtkSMViewProxy* view)
 {
@@ -1126,14 +1126,14 @@ void CinemaHelper::CaptureSortedCompositeData(vtkSMRenderViewProxy* view)
     fpItensity.close();
     }
 }
-#endif // ENABLE_CATALYST
+#endif // SENSEI_ENABLE_CATALYST
 
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
 // --------------------------------------------------------------------------
 void CinemaHelper::Render(vtkRenderWindow* renderWindow)
 {
   renderWindow->SetSize(this->Data->ImageSize[0], this->Data->ImageSize[1]);
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_MPI)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_MPI)
   vtkMultiProcessController* controller = vtkMultiProcessController::GetGlobalController();
   if (controller->GetLocalProcessId() == 0)
     {
@@ -1152,7 +1152,7 @@ void CinemaHelper::Render(vtkRenderWindow* renderWindow)
 }
 #endif
 
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
 vtkImageData* CinemaHelper::CaptureWindow(vtkRenderWindow* renderWindow)
 {
   int swapBuffers = renderWindow->GetSwapBuffers();
@@ -1180,7 +1180,7 @@ vtkImageData* CinemaHelper::CaptureWindow(vtkRenderWindow* renderWindow)
 }
 #endif
 
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 // --------------------------------------------------------------------------
 void CinemaHelper::CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer,
   vtkIceTCompositePass* compositePass)
@@ -1362,7 +1362,7 @@ void CinemaHelper::CaptureImage(vtkSMViewProxy* view, const std::string fileName
 {
   view->WriteImage(this->Data->getDataAbsoluteFilePath(fileName, createDirectory).c_str(), writerName.c_str(), scale);
 }
-#endif // ENABLE_CATALYST
+#endif // SENSEI_ENABLE_CATALYST
 
 // --------------------------------------------------------------------------
 void CinemaHelper::WriteVolume(vtkImageData* image)

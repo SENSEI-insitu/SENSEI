@@ -1,4 +1,4 @@
-if(ENABLE_LIBSIM)
+if(SENSEI_ENABLE_LIBSIM)
   find_package(LIBSIM REQUIRED)
   add_library(sLibsim INTERFACE)
   target_link_libraries(sLibsim INTERFACE ${LIBSIM_LIBRARIES})

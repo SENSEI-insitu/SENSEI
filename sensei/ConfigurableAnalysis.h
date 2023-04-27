@@ -43,7 +43,7 @@ public:
   void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /** Set the communicator used by the adaptor.
-   * The default communicator is a duplicate of MPI_COMMM_WORLD, giving
+   * The default communicator is a duplicate of MPI_COMM_WORLD, giving
    * each adaptor a unique communication space. Users wishing to override
    * this should set the communicator before doing anything else. Derived
    * classes should use the communicator returned by GetCommunicator.

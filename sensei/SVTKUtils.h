@@ -71,7 +71,7 @@ class vtkDataSet;
   svtkTemplateMacroCase(SVTK_FLOAT, float, call);
 
 
-#if defined(ENABLE_VTK_CORE)
+#if defined(SENSEI_ENABLE_VTK_CORE)
 
 #include <vtkSetGet.h>
 
