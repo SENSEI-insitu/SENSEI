@@ -12,6 +12,9 @@
 #include "svtkAOSDataArrayTemplate.h"
 #include "svtkCommonCoreModule.h"          // For export macro
 
+#include <cstdint>
+#include <string>
+
 using svtkAllocator = hamr::buffer_allocator;
 
 template <typename T>
@@ -35,7 +38,7 @@ public:
    *                 deleter associated with the declared ::svtkAllocator alloc
    * @returns a new instance that must be deleted by the caller
    */
-  static svtkHAMRDataArray *New(const char *name, T *data,
+  static svtkHAMRDataArray *New(const std::string &name, T *data,
     size_t numTuples, int numComps, svtkAllocator alloc, int owner, int take);
 
   /** zero-copy the passed data. This override gives one direct control over the
@@ -48,7 +51,7 @@ public:
    * @param[in] owner the device id where the data resides, or -1 for the CPU
    * @returns a new instance that must be deleted by the caller
    */
-  static svtkHAMRDataArray *New(const char *name, const std::shared_ptr<T> &data,
+  static svtkHAMRDataArray *New(const std::string &name, const std::shared_ptr<T> &data,
     size_t numTuples, int numComps, svtkAllocator alloc, int owner);
 
   /** zero-copy the passed data. This override gives one direct control over the
@@ -62,7 +65,7 @@ public:
    * @returns a new instance that must be deleted by the caller
    */
   template <typename deleter_t>
-  static svtkHAMRDataArray *New(const char *name, T *data, size_t numTuples,
+  static svtkHAMRDataArray *New(const std::string &name, T *data, size_t numTuples,
     int numComps, svtkAllocator alloc, int owner, deleter_t deleter);
 
   /** Allocate a new array of the specified size using the specified allocator
@@ -72,7 +75,7 @@ public:
    * @param[in] alloc an ::svtkAllocator instance declaring where the data resides
    * @returns a new instance that must be deleted by the caller
    */
-  static svtkHAMRDataArray *New(const char *name,
+  static svtkHAMRDataArray *New(const std::string &name,
     size_t numTuples, int numComps, svtkAllocator alloc);
 
   /** Allocate a new array of the specified size using the specified allocator
@@ -84,7 +87,7 @@ public:
    * @param[in] initVal the value to initialize the contents to
    * @returns a new instance that must be deleted by the caller
    */
-  static svtkHAMRDataArray *New(const char *name,
+  static svtkHAMRDataArray *New(const std::string &name,
     size_t numTuples, int numComps, svtkAllocator alloc, const T &initVal);
 
   /** Convert via to an svtkAOSDataArrayTemplate instance. Because SVTK only
@@ -350,7 +353,7 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New()
 
 // --------------------------------------------------------------------------
 template<typename T>
-svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
+svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const std::string &name,
   size_t numTuples, int numComps, svtkAllocator alloc)
 {
   assert(numComps > 0);
@@ -359,14 +362,14 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
   tmp->Data = new hamr::buffer<T>(alloc, numTuples*numComps);
   tmp->MaxId = numTuples - 1;
   tmp->SetNumberOfComponents(numComps);
-  tmp->SetName(name);
+  tmp->SetName(name.c_str());
 
   return tmp;
 }
 
 // --------------------------------------------------------------------------
 template<typename T>
-svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
+svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const std::string &name,
   size_t numTuples, int numComps, svtkAllocator alloc, const T &initVal)
 {
   assert(numComps > 0);
@@ -375,14 +378,14 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
   tmp->Data = new hamr::buffer<T>(alloc, numTuples*numComps, initVal);
   tmp->MaxId = numTuples - 1;
   tmp->SetNumberOfComponents(numComps);
-  tmp->SetName(name);
+  tmp->SetName(name.c_str());
 
   return tmp;
 }
 
 // --------------------------------------------------------------------------
 template<typename T>
-svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name, T *data,
+svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const std::string &name, T *data,
   size_t numTuples, int numComps, svtkAllocator alloc, int owner, int take)
 {
   assert(numComps > 0);
@@ -401,14 +404,14 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name, T *data,
 
   tmp->MaxId = numTuples - 1;
   tmp->SetNumberOfComponents(numComps);
-  tmp->SetName(name);
+  tmp->SetName(name.c_str());
 
   return tmp;
 }
 
 // --------------------------------------------------------------------------
 template<typename T>
-svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
+svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const std::string &name,
   const std::shared_ptr<T> &data, size_t numTuples, int numComps,
   svtkAllocator alloc, int owner)
 {
@@ -418,7 +421,7 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
   tmp->Data = new hamr::buffer<T>(alloc, numTuples*numComps, owner, data);
   tmp->MaxId = numTuples - 1;
   tmp->SetNumberOfComponents(numComps);
-  tmp->SetName(name);
+  tmp->SetName(name.c_str());
 
   return tmp;
 }
@@ -426,7 +429,7 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name,
 // --------------------------------------------------------------------------
 template<typename T>
 template <typename deleter_t>
-svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name, T *data,
+svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const std::string &name, T *data,
   size_t numTuples, int numComps, svtkAllocator alloc, int owner,
   deleter_t deleter)
 {
@@ -436,7 +439,7 @@ svtkHAMRDataArray<T> *svtkHAMRDataArray<T>::New(const char *name, T *data,
   tmp->Data = new hamr::buffer<T>(alloc, numTuples*numComps, owner, data, deleter);
   tmp->MaxId = numTuples - 1;
   tmp->SetNumberOfComponents(numComps);
-  tmp->SetName(name);
+  tmp->SetName(name.c_str());
 
   return tmp;
 }
@@ -1271,5 +1274,10 @@ void svtkHAMRDataArray<T>::PrintSelf(ostream& os, svtkIndent indent)
     std::cerr << "nullptr";
   }
 }
+
+using svtkHAMRDoubleArray = svtkHAMRDataArray<double>;
+using svtkHAMRFloatArray = svtkHAMRDataArray<float>;
+using svtkHAMRInt32Array = svtkHAMRDataArray<int32_t>;
+using svtkHAMRInt64Array = svtkHAMRDataArray<int64_t>;
 
 #endif
