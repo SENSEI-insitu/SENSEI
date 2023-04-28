@@ -1,6 +1,9 @@
 #!/bin/bash
 . ${SPACK_ROOT}/share/spack/setup-env.sh
 
+# source the bootstraped lmod
+. /bootstrap/runner/install/linux-ubuntu20.04-x86_64/gcc-11.1.0/lmod-8.7.2-2dgwl2hnw3ztoij4yibuhimturloucbz/lmod/8.7.2/init/bash
+
 if [[ -z ${SENSEI_ENV} ]]; then
   echo "No environment configured."
   exit 1

@@ -36,17 +36,13 @@ jobs:
         name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB_ID }}
         path: /__w/SENSEI/build
         retention-days: 1
+
   ubuntu-ecp-catalyst:
     runs-on: ubuntu-latest
     env:
-      OMPI_ALLOW_RUN_AS_ROOT: 1
-      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
-      CMAKE_CONFIGURATION: ubuntu_ecp_catalyst
-      SENSEI_ENV: sensei
       LAUNCHER: /sensei/bin/launch-env.sh
-      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     container:
-      image: senseiinsitu/ci:fedora35-ecp-catalyst-20220503
+      image: ghcr.io/sensei-insitu/ci-ecp@sha256:021fa976435bee980bcb90a0f1b206980c588040d0da4090e479c757f597bb29
     steps:
     - uses: actions/checkout@v2
     - name: Initialize ccache

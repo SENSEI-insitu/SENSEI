@@ -18,6 +18,3 @@ WORKDIR /sensei/
 COPY configure-env.sh /sensei/bin/
 COPY launch-env.sh /sensei/bin/
 RUN echo ". /sensei/bin/configure-env.sh" >> ~/.bashrc
-
-ENTRYPOINT []
-CMD ["bash","--login"]

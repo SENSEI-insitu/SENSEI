@@ -27,7 +27,5 @@ tag=$1-$tag_date
 echo
 echo "Building container: senseiinsitu/ci:$tag"
 echo "  Dockerfile: $wdir/Dockerfile"
-docker build -t ghcr.io/willdunklin/sensei:$tag $wdir |& tee $1-build-log.txt
-# docker push ghcr.io/willdunklin/sensei:$tag
-
-# docker build --no-cache -t senseiinsitu/ci:$tag $wdir |& tee $1-build-log.txt
+docker build -t ghcr.io/sensei-insitu/ci-ecp:$tag $wdir |& tee $1-build-log.txt
+docker push ghcr.io/sensei-insitu/ci-ecp:$tag
