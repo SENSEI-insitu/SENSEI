@@ -6,7 +6,7 @@ if [[ ! -f $(which docker) ]]; then
 fi
 
 if [[ -z $1 ]]; then
-  echo "Usage: build_image.sh <image-base-name> [buildcache]"
+  echo "Usage: build_image.sh <image-base-name>"
   exit 1
 fi
 
@@ -27,5 +27,6 @@ tag=$1-$tag_date
 echo
 echo "Building container: senseiinsitu/ci:$tag"
 echo "  Dockerfile: $wdir/Dockerfile"
+
 docker build -t ghcr.io/sensei-insitu/ci-ecp:$tag $wdir |& tee $1-build-log.txt
 docker push ghcr.io/sensei-insitu/ci-ecp:$tag
