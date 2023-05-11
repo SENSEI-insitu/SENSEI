@@ -19,12 +19,14 @@ else
   exit 1
 fi
 
+# create image
 base_name=$1
 tag_date=$(date +%Y%m%d)
 tag=$1-$tag_date
 
+echo
 echo "Building container: senseiinsitu/ci:$tag"
 echo "  Dockerfile: $wdir/Dockerfile"
- 
-docker build -t senseiinsitu/ci:$tag $wdir |& tee $1-build-log.txt
-docker push senseiinsitu/ci:$tag
+
+docker build -t ghcr.io/sensei-insitu/ci-ecp:$tag $wdir |& tee $1-build-log.txt
+docker push ghcr.io/sensei-insitu/ci-ecp:$tag
