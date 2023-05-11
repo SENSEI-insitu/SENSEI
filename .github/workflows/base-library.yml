@@ -54,4 +54,3 @@ jobs:
         run: ctest -VV -S .github/ci/ctest_build.cmake
       - name: Test
         run: ctest -VV -S .github/ci/ctest_test.cmake
-

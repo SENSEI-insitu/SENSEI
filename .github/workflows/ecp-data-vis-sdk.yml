@@ -7,31 +7,27 @@ on:
       - develop
 
 jobs:
-  fedora35-ecp-catalyst:
+  ubuntu-ecp-catalyst:
     runs-on: ubuntu-latest
     env:
-      OMPI_ALLOW_RUN_AS_ROOT: 1
-      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
-      CMAKE_CONFIGURATION: fedora35_ecp_catalyst
-      SENSEI_ENV: sensei
-      LAUNCHER: /sensei/bin/launcher
-      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      CMAKE_CONFIGURATION: ubuntu_ecp_catalyst
+      LAUNCHER: /sensei/bin/launch-env.sh
     container:
-      image: senseiinsitu/ci:fedora35-ecp-catalyst-20220503
+      image: ghcr.io/sensei-insitu/ci-ecp@sha256:021fa976435bee980bcb90a0f1b206980c588040d0da4090e479c757f597bb29
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Initialize ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        key: fedora35-gcc-ccache
+        key: ubuntu-gcc-ccache
     - name: Configure
       run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_configure.cmake
     - name: Build
       run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_build.cmake
     - name: Test
       run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_test.cmake
-    - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v2
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB_ID }}
         path: /__w/SENSEI/build
