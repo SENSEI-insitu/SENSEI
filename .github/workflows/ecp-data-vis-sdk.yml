@@ -7,36 +7,6 @@ on:
       - develop
 
 jobs:
-  fedora35-ecp-catalyst:
-    runs-on: ubuntu-latest
-    env:
-      OMPI_ALLOW_RUN_AS_ROOT: 1
-      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
-      CMAKE_CONFIGURATION: fedora35_ecp_catalyst
-      SENSEI_ENV: sensei
-      LAUNCHER: /sensei/bin/launcher
-      CMAKE_CXX_COMPILER_LAUNCHER: ccache
-    container:
-      image: senseiinsitu/ci:fedora35-ecp-catalyst-20220503
-    steps:
-    - uses: actions/checkout@v2
-    - name: Initialize ccache
-      uses: hendrikmuhs/ccache-action@v1.2
-      with:
-        key: fedora35-gcc-ccache
-    - name: Configure
-      run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_configure.cmake
-    - name: Build
-      run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_build.cmake
-    - name: Test
-      run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_test.cmake
-    - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ env.CMAKE_CONFIGURATION }}_${{ env.GITHUB_JOB_ID }}
-        path: /__w/SENSEI/build
-        retention-days: 1
-
   ubuntu-ecp-catalyst:
     runs-on: ubuntu-latest
     env:
