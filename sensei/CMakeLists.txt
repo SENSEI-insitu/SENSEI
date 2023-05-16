@@ -88,7 +88,8 @@ if (SENSEI_ENABLE_ADIOS2)
 
   set(senseiCore_cuda_sources)
   if (SENSEI_ENABLE_CUDA)
-    list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu HistogramInternals.cxx)
+    list(APPEND senseiCore_cuda_sources CUDAUtils.cxx MemoryUtils.cxx
+      HistogramInternals.cxx)
   endif()
 
   if (SENSEI_ENABLE_OPENMP)
