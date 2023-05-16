@@ -137,37 +137,26 @@ unsigned int Size(int svtkt)
     {
     case SVTK_FLOAT:
       return sizeof(float);
-      break;
     case SVTK_DOUBLE:
       return sizeof(double);
-      break;
     case SVTK_CHAR:
       return sizeof(char);
-      break;
     case SVTK_UNSIGNED_CHAR:
       return sizeof(unsigned char);
-      break;
     case SVTK_INT:
       return sizeof(int);
-      break;
     case SVTK_UNSIGNED_INT:
       return sizeof(unsigned int);
-      break;
     case SVTK_LONG:
       return sizeof(long);
-      break;
     case SVTK_UNSIGNED_LONG:
       return sizeof(unsigned long);
-      break;
     case SVTK_LONG_LONG:
       return sizeof(long long);
-      break;
     case SVTK_UNSIGNED_LONG_LONG:
       return sizeof(unsigned long long);
-      break;
     case SVTK_ID_TYPE:
       return sizeof(svtkIdType);
-      break;
     default:
       {
       SENSEI_ERROR("the adios type for svtk type enumeration " << svtkt
@@ -366,13 +355,10 @@ const char *GetAttributesName(int association)
     {
     case svtkDataObject::POINT:
       return "point";
-      break;
     case svtkDataObject::CELL:
       return "cell";
-      break;
     case svtkDataObject::FIELD:
       return "field";
-      break;
     }
   SENSEI_ERROR("Invalid data set attributes association")
   return "";
@@ -385,13 +371,10 @@ svtkFieldData *GetAttributes(svtkDataSet *dobj, int association)
     {
     case svtkDataObject::POINT:
       return static_cast<svtkFieldData*>(dobj->GetPointData());
-      break;
     case svtkDataObject::CELL:
       return static_cast<svtkFieldData*>(dobj->GetCellData());
-      break;
     case svtkDataObject::FIELD:
       return static_cast<svtkFieldData*>(dobj->GetFieldData());
-      break;
     }
   SENSEI_ERROR("Invalid data set attributes association")
   return nullptr;

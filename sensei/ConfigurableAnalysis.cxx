@@ -823,8 +823,8 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
     SENSEI_STATUS("configured LibsimAnalysisAdaptor render")
   }
 
-#endif
   return 0;
+#endif
 }
 
 // --------------------------------------------------------------------------

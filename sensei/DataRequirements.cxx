@@ -14,7 +14,7 @@ static
 unsigned int getArrayNames(pugi::xml_node node, std::vector<std::string> &arrays)
 {
   if (!node || !node.text())
-    return -1;
+    return 0;
 
   std::string text = node.text().as_string();
 
