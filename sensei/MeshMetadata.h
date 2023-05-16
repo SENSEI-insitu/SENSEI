@@ -183,8 +183,8 @@ struct SENSEI_EXPORT MeshMetadata
                    // Passed into Set methods, Get methods generate the desired view.
 
   std::string MeshName;              ///< name of mesh (all)
-  int MeshType;                      ///< container mesh type (all)
-  int BlockType;                     ///< block mesh type (all)
+  int MeshType;                      ///< container mesh type. see svtkType.h (all)
+  int BlockType;                     ///< block mesh type. see svtkType.h (all)
   int NumBlocks;                     ///< global number of blocks (all)
   std::vector<int> NumBlocksLocal;   ///< number of blocks on each rank (all)
   std::array<int,6> Extent;          ///< global cell index space extent (Cartesian, AMR, optional)
