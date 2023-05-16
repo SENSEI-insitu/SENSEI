@@ -48,7 +48,7 @@ All options are optional unless otherwise specified.
 function (senseiAddTest T_NAME)
   set(opt_args REQ_SENSEI_DATA CUDA_TARGET)
   set(val_args EXEC_NAME PARALLEL PARALLEL_SHELL)
-  set(array_args SOURCES LIBS COMMAND FEATURES PROPERTIES)
+  set(array_args SOURCES CU_SOURCES LIBS COMMAND FEATURES PROPERTIES)
   cmake_parse_arguments(PARSE_ARGV 0 T "${opt_args}" "${val_args}" "${array_args}")
 
   if (T_PARALLEL AND T_PARALLEL_SHELL)
@@ -75,18 +75,25 @@ function (senseiAddTest T_NAME)
 
   if (TEST_ENABLED)
     # Build the executable if there are sources provided
-    if (T_SOURCES)
+    if (T_SOURCES OR T_CU_SOURCES)
+
       set(EXEC_NAME ${T_NAME})
       if (T_EXEC_NAME)
         set(EXEC_NAME ${T_EXEC_NAME})
       endif()
-      add_executable(${EXEC_NAME} ${T_SOURCES})
-      if (T_LIBS)
-        target_link_libraries(${EXEC_NAME} ${T_LIBS})
-      endif()
+
       if (SENSEI_ENABLE_CUDA AND T_CUDA_TARGET)
-        sensei_cuda_target(TARGET ${EXEC_NAME} SOURCES ${T_SOURCES})
+        set(T_CU_SOURCES ${T_SOURCES})
+        set(T_SOURCES)
       endif ()
+
+      add_target(EXEC
+        NAME ${EXEC_NAME}
+        CXX_SOURCES ${T_SOURCES}
+        CU_SOURCES ${T_CU_SOURCES}
+        CU_ARCH "${SENSEI_CUDA_ARCHITECTURES}"
+        LINK_LIBS ${T_LIBS})
+
     endif()
 
     if ((T_REQ_SENSEI_DATA AND SENSEI_DATA_ROOT) OR NOT T_REQ_SENSEI_DATA)
@@ -126,6 +133,8 @@ function (senseiAddTest T_NAME)
       # Add the test
       add_test(NAME ${T_NAME} COMMAND ${T_COMMAND}
         WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+      message(STATUS "SENSEI: added test ${T_NAME}")
 
       # Set the properties
       if (T_PROPERTIES)
