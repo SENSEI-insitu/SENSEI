@@ -4,7 +4,7 @@
 # configuration settings.
 spack:
   # add package specs to the `specs` list
-  specs: [sensei@develop+adios2+ascent+hdf5+python+shared+vtkio+catalyst]
+  specs: [sensei@develop+adios2+ascent+hdf5+python+shared+vtkio+catalyst, lmod]
   view: false
   concretizer:
     unify: true
