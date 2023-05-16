@@ -115,16 +115,13 @@ int main(int argc, char **argv)
 
   std::shared_ptr<double> pVals(vals.data(), [](void*){});
 
-  svtkHAMRDataArray<double> *da =
-    svtkHAMRDataArray<double>::New("normal", pVals, nVals, 1, svtkAllocator::malloc, -1);
+  svtkAllocator alloc = svtkAllocator::malloc;
+#if defined(SENSEI_ENABLE_CUDA)
+  alloc = svtkAllocator::cuda_host;
+#endif
 
-/*
-  svtkDoubleArray *da = svtkDoubleArray::New();
-  da->SetNumberOfTuples(nVals);
-  da->SetName("normal");
-  for (unsigned int i = 0; i < nVals; ++i)
-    *da->GetPointer(i) = vals[i];
-*/
+  auto da = svtkHAMRDoubleArray::New("normal", pVals, nVals,
+    1, alloc, svtkStream(), svtkStreamMode::sync_cpu, -1);
 
   svtkImageData *im = svtkImageData::New();
   im->SetDimensions(gNx, gNy, gNz);

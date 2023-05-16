@@ -356,11 +356,11 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       // make the requested GPU the active one
       sensei::CUDAUtils::SetDevice(this->DeviceId);
 
-      // generate ghosts on the GPU
-      svtkHAMRDataArray<unsigned char> *tGhosts =
-        svtkHAMRDataArray<unsigned char>::New("vtkGhostType", nVals, 1, svtkAllocator::cuda, 0);
+      // generate ghosts on the GPU, and get a shared pointer to the buffer
+      auto tGhosts = svtkHAMRUnsignedCharArray::New("vtkGhostType",
+        nVals, 1, svtkAllocator::cuda_async, svtkStream(), svtkStreamMode::sync_cpu, 0);
 
-      pGhosts = tGhosts->GetCUDAAccessible();
+      pGhosts = tGhosts->GetDataPointer();
 
       tGhosts->Delete();
       }
@@ -371,11 +371,11 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       std::cerr << "HistogramInternals::AddLocalData ghosts were not provided,"
         " allocating on the CPU" << std::endl;
 #endif
-      // generate ghosts on the CPU
-      svtkHAMRDataArray<unsigned char> *tGhosts =
-        svtkHAMRDataArray<unsigned char>::New("vtkGhostType", nVals, 1, svtkAllocator::malloc, 0);
+      // generate ghosts on the CPU, and get a shared pointer to the buffer
+      auto tGhosts = svtkHAMRUnsignedCharArray::New("vtkGhostType",
+        nVals, 1, svtkAllocator::malloc, svtkStream(), svtkStreamMode::sync, 0);
 
-      pGhosts = tGhosts->GetCPUAccessible();
+      pGhosts = tGhosts->GetDataPointer();
 
       tGhosts->Delete();
 #if defined(SENSEI_ENABLE_CUDA)
@@ -402,9 +402,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
         // get a pointer to the data that's usable on the GPU
         if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
           {
-          svtkHAMRDataArray<SVTK_TT> *tDa =
-            static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
-
+          auto tDa = static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
           pDa = tDa->GetCUDAAccessible();
           }
         else
@@ -422,15 +420,13 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
 #endif
         if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
           {
-          svtkHAMRDataArray<SVTK_TT> *tDa =
-            static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
-
+          auto tDa = static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
           pDa = tDa->GetCPUAccessible();
           }
         else
           {
           pDa = sensei::MemoryUtils::MakeCpuAccessible(
-           sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+            sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
           }
 #if defined(SENSEI_ENABLE_CUDA)
         }

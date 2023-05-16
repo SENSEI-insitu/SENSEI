@@ -36,7 +36,8 @@ svtkHAMRDataArray<T> *initializeCUDA(size_t nTups, size_t nComps)
     initialize<<<block_grid, thread_grid>>>(ptr, nTups, nComps);
 
     svtkHAMRDataArray<T> *da = svtkHAMRDataArray<T>::New("foo", ptr, nTups,
-                                   nComps, svtkAllocator::cuda, 0, 1);
+                                   nComps, svtkAllocator::cuda, svtkStream(),
+                                   svtkStreamMode::sync, 0, 1);
 
     return da;
 }
@@ -56,7 +57,8 @@ svtkHAMRDataArray<T> *initializeCPU(size_t nTups, size_t nComps)
     }
 
     svtkHAMRDataArray<T> *da = svtkHAMRDataArray<T>::New("foo", ptr, nTups,
-                                   nComps, svtkAllocator::malloc, -1, 1);
+                                   nComps, svtkAllocator::malloc, svtkStream(),
+                                   svtkStreamMode::sync, -1, 1);
 
     return da;
 }
