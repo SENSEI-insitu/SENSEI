@@ -1515,15 +1515,15 @@ PUGI__NS_BEGIN
 	{
 		typedef size_t value_type;
 
-		static value_type low(value_type result, uint32_t)
+		/*static value_type low(value_type result, uint32_t)
 		{
 			return result + 1;
-		}
+		}*/
 
-		static value_type high(value_type result, uint32_t)
+		/*static value_type high(value_type result, uint32_t)
 		{
 			return result + 2;
-		}
+		}*/
 	};
 
 	struct utf16_writer
@@ -1548,10 +1548,10 @@ PUGI__NS_BEGIN
 			return result + 2;
 		}
 
-		static value_type any(value_type result, uint32_t ch)
+		/*static value_type any(value_type result, uint32_t ch)
 		{
 			return (ch < 0x10000) ? low(result, ch) : high(result, ch);
-		}
+		}*/
 	};
 
 	struct utf32_counter
@@ -1587,12 +1587,12 @@ PUGI__NS_BEGIN
 			return result + 1;
 		}
 
-		static value_type any(value_type result, uint32_t ch)
+		/*static value_type any(value_type result, uint32_t ch)
 		{
 			*result = ch;
 
 			return result + 1;
-		}
+		}*/
 	};
 
 	struct latin1_writer
