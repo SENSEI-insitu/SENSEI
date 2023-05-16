@@ -283,11 +283,6 @@ public:
    **/
   void SetArrayFreeFunction(void (*callback)(void*)) override;
 
-  /**
-   * Return the number of values in the array.
-   */
-  svtkIdType GetNumberOfValues() { return this->MaxId + 1; }
-
   //@{
   /**
    * Return the indices where a specific value appears.

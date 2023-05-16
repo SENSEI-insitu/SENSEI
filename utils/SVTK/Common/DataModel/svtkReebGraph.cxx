@@ -991,7 +991,6 @@ svtkReebGraph::Implementation::svtkReebPath svtkReebGraph::Implementation::FindP
 {
   svtkReebPath entry;
   std::priority_queue<svtkReebPath> pq;
-  int size;
 
   svtkIdType N0 = this->GetArc(arcId)->NodeId0;
   svtkIdType N1 = this->GetArc(arcId)->NodeId1;
@@ -1042,7 +1041,7 @@ svtkReebGraph::Implementation::svtkReebPath svtkReebGraph::Implementation::FindP
   entry.ArcTable = nullptr;
   pq.push(entry);
 
-  while ((size = static_cast<int>(pq.size())))
+  while (static_cast<int>(pq.size()))
   {
     entry = pq.top();
     pq.pop();
@@ -2637,7 +2636,6 @@ void svtkReebGraph::Implementation::SimplifyLabels(
   const svtkIdType nodeId, svtkReebLabelTag onlyLabel, bool goDown, bool goUp)
 {
   int A, L, Lnext;
-  svtkReebLabel* l;
   svtkReebNode* n = this->GetNode(nodeId);
 
   // I remove all Labels (paths) which start from me
@@ -2651,7 +2649,7 @@ void svtkReebGraph::Implementation::SimplifyLabels(
       {
         Lnext = this->GetLabel(L)->HNext;
 
-        if (!(l = this->GetLabel(L))->VNext) //...starts from me!
+        if (!(this->GetLabel(L))->VNext) //...starts from me!
         {
           if (!onlyLabel || onlyLabel == this->GetLabel(L)->label)
           {
@@ -2694,7 +2692,7 @@ void svtkReebGraph::Implementation::SimplifyLabels(
       {
         Lnext = this->GetLabel(L)->HNext;
 
-        if (!(l = this->GetLabel(L))->VPrev) //...starts from me!
+        if (!(this->GetLabel(L))->VPrev) //...starts from me!
         {
           if (!onlyLabel || onlyLabel == this->GetLabel(L)->label)
           {

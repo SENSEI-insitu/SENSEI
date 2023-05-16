@@ -346,9 +346,10 @@ int svtkAbstractArrayGetDataTypeSize(T*)
 
 int svtkAbstractArray::GetDataTypeSize(int type)
 {
+  int typeSize = 1;
   switch (type)
   {
-    svtkTemplateMacro(return svtkAbstractArrayGetDataTypeSize(static_cast<SVTK_TT*>(nullptr)));
+    svtkTemplateMacro(typeSize = svtkAbstractArrayGetDataTypeSize(static_cast<SVTK_TT*>(nullptr)));
 
     case SVTK_BIT:
     case SVTK_STRING:
@@ -359,7 +360,7 @@ int svtkAbstractArray::GetDataTypeSize(int type)
       svtkGenericWarningMacro(<< "Unsupported data type!");
   }
 
-  return 1;
+  return typeSize;
 }
 
 // ----------------------------------------------------------------------
