@@ -20,6 +20,7 @@
 
 #include "Autocorrelation.h"
 #include "Histogram.h"
+#include "ParticleDensity.h"
 #ifdef SENSEI_ENABLE_VTK_IO
 #include "VTKPosthocIO.h"
 #ifdef SENSEI_ENABLE_VTK_MPI
@@ -97,6 +98,7 @@ struct ConfigurableAnalysis::InternalsType
   // a status message indicating success/failure is printed
   // by rank 0
   int AddHistogram(pugi::xml_node node);
+  int AddParticleDensity(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
@@ -206,6 +208,45 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
     << " bins on " << assocStr << " data array \"" << array
     << "\" on mesh \"" << mesh << "\" writing output to "
     << (fileName.empty() ? "cout" : "file"))
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddParticleDensity(pugi::xml_node node)
+{
+  if (XMLUtils::RequireAttribute(node, "mesh") ||
+    XMLUtils::RequireAttribute(node, "xpos") || XMLUtils::RequireAttribute(node, "ypos") ||
+    XMLUtils::RequireAttribute(node, "zpos") || XMLUtils::RequireAttribute(node, "mass"))
+    {
+    SENSEI_ERROR("Failed to initialize ParticleDensity");
+    return -1;
+    }
+
+  std::string mesh = node.attribute("mesh").value();
+  std::string xpos = node.attribute("xpos").value();
+  std::string ypos = node.attribute("ypos").value();
+  std::string zpos = node.attribute("zpos").value();
+  std::string mass = node.attribute("mass").value();
+  std::string proj = node.attribute("proj").as_string("xy");
+  std::string odir = node.attribute("odir").as_string("./");
+  int xres = node.attribute("xres").as_int(256);
+  int yres = node.attribute("yres").as_int(256);
+  int ret = node.attribute("ret").as_int(0);
+
+  auto pden = svtkSmartPointer<ParticleDensity>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    pden->SetCommunicator(this->Comm);
+
+  this->TimeInitialization(pden, [&]() {
+      pden->Initialize(mesh, xpos, ypos, zpos, mass, proj, xres, yres, odir, ret);
+      return 0;
+    });
+
+  this->Analyses.push_back(pden.GetPointer());
+
+  SENSEI_STATUS("Configured ParticleDensity")
 
   return 0;
 }
@@ -685,8 +726,8 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
   SENSEI_STATUS("Configured CatalystAnalysisAdaptor "
     << node.attribute("pipeline").value() << " "
     << (node.attribute("filename") ? node.attribute("filename").value() : ""))
-#endif
   return 0;
+#endif
 }
 
 // --------------------------------------------------------------------------
@@ -1482,6 +1523,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 
     std::string type = node.attribute("type").value();
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
+      || ((type == "ParticleDensity") && !this->Internals->AddParticleDensity(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "adios2") && !this->Internals->AddAdios2(node))

@@ -307,3 +307,8 @@ SENSEI_WRAP_ANALYSIS_ADAPTOR(VTKAmrWriter)
 SENSEI_WRAP_ANALYSIS_ADAPTOR(SliceExtract)
 #endif
 #endif
+
+/****************************************************************************
+ * ParticleDensity
+ ***************************************************************************/
+SENSEI_WRAP_ANALYSIS_ADAPTOR(ParticleDensity)

@@ -89,7 +89,7 @@ if (SENSEI_ENABLE_ADIOS2)
   set(senseiCore_cuda_sources)
   if (SENSEI_ENABLE_CUDA)
     list(APPEND senseiCore_cuda_sources CUDAUtils.cxx MemoryUtils.cxx
-      HistogramInternals.cxx)
+      HistogramInternals.cxx ParticleDensity.cxx)
   endif()
 
   if (SENSEI_ENABLE_OPENMP)

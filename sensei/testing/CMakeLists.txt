@@ -14,6 +14,20 @@ if (BUILD_TESTING)
       LABELS HISTO)
 
   ##############################################################################
+  senseiAddTest(testParticleDensitySerial
+    SOURCES testParticleDensity.cpp
+    LIBS sensei EXEC_NAME testParticleDensity
+    COMMAND $<TARGET_FILE:testParticleDensity> 20000 xy 128 ./
+    CUDA_TARGET
+    )
+
+  senseiAddTest(testParticleDensityParallel
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:testParticleDensity> 20000 xy 128 ./
+    CUDA_TARGET
+    )
+
+  ##############################################################################
   senseiAddTest(testHDF5Write
     SOURCES testHDF5.cpp LIBS sensei EXEC_NAME testHDF5
     PARALLEL ${TEST_NP}
