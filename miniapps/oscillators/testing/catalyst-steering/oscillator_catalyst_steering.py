@@ -1,3 +1,4 @@
+# script-version: 1
 from paraview.simple import *
 from paraview import coprocessing
 
