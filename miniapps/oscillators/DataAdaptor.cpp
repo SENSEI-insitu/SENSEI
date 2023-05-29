@@ -852,9 +852,8 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
     }
   else if (id == 3)
     {
-    int nBlocks = this->Internals->BlockData.size();
+    int nBlocks = this->Internals->ParticleData.size();
 
-    metadata->GlobalView = 1;
     metadata->MeshName = "particles";
     metadata->MeshType = SVTK_MULTIBLOCK_DATA_SET;
     metadata->BlockType = SVTK_POLY_DATA;
