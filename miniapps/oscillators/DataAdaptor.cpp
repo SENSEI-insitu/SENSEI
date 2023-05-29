@@ -869,10 +869,10 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
     metadata->ArrayType = {SVTK_INT, SVTK_FLOAT, SVTK_FLOAT};
     metadata->StaticMesh = 1;
 
+    using ParticleMapIterator = std::map<long, const std::vector<Particle>*>::iterator;
+    ParticleMapIterator end = this->Internals->ParticleData.end();
     if (metadata->Flags.BlockSizeSet())
       {
-      using ParticleMapIterator = std::map<long, const std::vector<Particle>*>::iterator;
-      ParticleMapIterator end = this->Internals->ParticleData.end();
       for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
         {
         auto particles = it->second;
@@ -880,7 +880,17 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
         long nPts = nCells;
 
         metadata->BlockNumCells.push_back(nCells);
+        metadata->BlockCellArraySize.push_back(nCells);
         metadata->BlockNumPoints.push_back(nPts);
+        }
+      }
+
+    if (metadata->Flags.BlockDecompSet())
+      {
+      for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
+        {
+        metadata->BlockOwner.push_back(rank);
+        metadata->BlockIds.push_back(it->first);
         }
       }
     }
