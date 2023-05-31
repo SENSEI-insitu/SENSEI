@@ -641,7 +641,7 @@ int DataAdaptor::AddArray(svtkDataObject* mesh, const std::string &meshName,
         return -1;
         }
       if ((arrayName != "velocity") && (arrayName != "velocityMagnitude") &&
-        (arrayName != "id"))
+        (arrayName != "pid"))
         {
         SENSEI_ERROR("Invalid particle mesh array \"" << arrayName << "\"")
         return -1;
@@ -757,14 +757,14 @@ int DataAdaptor::AddGhostCellsArray(svtkDataObject *mesh, const std::string &mes
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetNumberOfMeshes(unsigned int &numMeshes)
 {
-  numMeshes = 3;
+  numMeshes = 4;
   return 0;
 }
 
 //-----------------------------------------------------------------------------
 int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata)
 {
-  if (id > 2)
+  if (id > 3)
     {
     SENSEI_ERROR("invalid mesh id " << id)
     return -1;
@@ -775,7 +775,6 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
   MPI_Comm_rank(this->GetCommunicator(), &rank);
   MPI_Comm_size(this->GetCommunicator(), &nRanks);
-
   if (id == 2)
     {
     metadata->GlobalView = 1;
@@ -849,6 +848,49 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
       metadata->ArrayRange = bar;
       metadata->BlockArrayRange.push_back(bar);
+      }
+    }
+  else if (id == 3)
+    {
+    int nBlocks = this->Internals->ParticleData.size();
+
+    metadata->MeshName = "particles";
+    metadata->MeshType = SVTK_MULTIBLOCK_DATA_SET;
+    metadata->BlockType = SVTK_POLY_DATA;
+    metadata->CoordinateType = SVTK_FLOAT;
+    metadata->NumBlocks = this->Internals->NumBlocks;;
+    metadata->NumBlocksLocal = {nBlocks};
+    metadata->NumGhostCells = 0;
+    metadata->NumArrays = 3;
+    metadata->ArrayName = {"pid", "velocity", "velocityMagnitude"};
+    metadata->ArrayCentering = {svtkDataObject::POINT, svtkDataObject::POINT, svtkDataObject::POINT};
+    metadata->ArrayComponents = {1, 3, 1};
+    metadata->ArrayType = {SVTK_INT, SVTK_FLOAT, SVTK_FLOAT};
+    metadata->StaticMesh = 1;
+
+    using ParticleMapIterator = std::map<long, const std::vector<Particle>*>::iterator;
+    ParticleMapIterator end = this->Internals->ParticleData.end();
+    if (metadata->Flags.BlockSizeSet())
+      {
+      for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
+        {
+        auto particles = it->second;
+        long nCells = particles->size();
+        long nPts = nCells;
+
+        metadata->BlockNumCells.push_back(nCells);
+        metadata->BlockCellArraySize.push_back(nCells);
+        metadata->BlockNumPoints.push_back(nPts);
+        }
+      }
+
+    if (metadata->Flags.BlockDecompSet())
+      {
+      for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
+        {
+        metadata->BlockOwner.push_back(rank);
+        metadata->BlockIds.push_back(it->first);
+        }
       }
     }
   else
