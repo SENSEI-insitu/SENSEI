@@ -68,7 +68,7 @@ public:
 
 protected:
   ConfigurableAnalysis();
-  virtual ~ConfigurableAnalysis();
+  ~ConfigurableAnalysis() override;
 
   ConfigurableAnalysis(const ConfigurableAnalysis&) = delete;
   void operator=(const ConfigurableAnalysis&) = delete;

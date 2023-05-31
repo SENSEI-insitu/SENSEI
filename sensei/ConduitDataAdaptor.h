@@ -37,7 +37,7 @@ public:
 
 protected:
   ConduitDataAdaptor();
-  virtual ~ConduitDataAdaptor();
+  ~ConduitDataAdaptor() override;
 
   typedef std::map<std::string, std::vector<std::string>> Fields;
   Fields FieldNames;

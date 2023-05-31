@@ -30,7 +30,7 @@ public:
 
 protected:
   Catalyst2AnalysisAdaptor();
-  virtual ~Catalyst2AnalysisAdaptor();
+  ~Catalyst2AnalysisAdaptor() override;
 
   void Initialize();
 
