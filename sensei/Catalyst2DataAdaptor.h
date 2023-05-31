@@ -14,7 +14,7 @@ class Catalyst2DataAdaptor : public sensei::DataAdaptor
 public:
   static Catalyst2DataAdaptor* New();
   senseiTypeMacro(Catalyst2DataAdaptor, sensei::DataAdaptor);
-  void PrintSelf(ostream &os, vtkIndent indent) override;
+  void PrintSelf(ostream &os, svtkIndent indent) override;
 
   // Accessor
   // --------
@@ -30,8 +30,8 @@ public:
 
   int GetNumberOfMeshes(unsigned int &numMeshes) override;
   int GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metadata) override;
-  int GetMesh(const std::string &meshName, bool structureOnly, vtkDataObject *&mesh) override;
-  int AddArray(vtkDataObject* mesh, const std::string &meshName, int association, const std::string &arrayName) override;
+  int GetMesh(const std::string &meshName, bool structureOnly, svtkDataObject *&mesh) override;
+  int AddArray(svtkDataObject* mesh, const std::string &meshName, int association, const std::string &arrayName) override;
   int ReleaseData() override;
 
 protected:

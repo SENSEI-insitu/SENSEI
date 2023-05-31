@@ -4,7 +4,7 @@
 #include "Error.h"
 #include "MeshMetadata.h"
 #include "Profiler.h"
-#include "VTKUtils.h"
+#include "SVTKUtils.h"
 
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
@@ -49,7 +49,7 @@ void Catalyst2AnalysisAdaptor::AddPythonScriptPipeline(const std::string& fileNa
 }
 
 //----------------------------------------------------------------------------
-bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
+bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 {
   TimeEvent<128> mark("Catalyst2AnalysisAdaptor::Execute");
 
@@ -97,7 +97,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
     for (auto meta : metadata)
     {
       const char* meshName = meta->MeshName.c_str();
-      vtkDataObject* dobj = nullptr;
+      svtkDataObject* dobj = nullptr;
       if (dataAdaptor->GetMesh(meshName, false, dobj))
       {
         SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
@@ -105,7 +105,8 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor)
       }
       if (dobj)
       {
-        if (auto* pds = vtkPartitionedDataSet::SafeDownCast(dobj))
+        vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
+        if (auto* pds = vtkPartitionedDataSet::SafeDownCast(vdobj))
         {
           for (auto node : vtk::Range(pds))
           {
@@ -144,7 +145,7 @@ int Catalyst2AnalysisAdaptor::Finalize()
 }
 
 //-----------------------------------------------------------------------------
-void Catalyst2AnalysisAdaptor::PrintSelf(ostream& os, vtkIndent indent)
+void Catalyst2AnalysisAdaptor::PrintSelf(ostream& os, svtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 }

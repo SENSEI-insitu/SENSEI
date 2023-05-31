@@ -23,7 +23,7 @@ Catalyst2DataAdaptor::Catalyst2DataAdaptor() {}
 Catalyst2DataAdaptor::~Catalyst2DataAdaptor() {}
 
 //-----------------------------------------------------------------------------
-void Catalyst2DataAdaptor::PrintSelf(ostream &os, vtkIndent indent)
+void Catalyst2DataAdaptor::PrintSelf(ostream &os, svtkIndent indent)
 {
   // can't print conduit_cpp::node on custom ostream yet
   // use cout for debug
@@ -56,7 +56,7 @@ const conduit_cpp::Node& Catalyst2DataAdaptor::GetNode(unsigned int id) const
 
 //-----------------------------------------------------------------------------
 int Catalyst2DataAdaptor::GetMesh(
-  const std::string& meshName, bool /*structureOnly*/, vtkDataObject*& mesh)
+  const std::string& meshName, bool /*structureOnly*/, svtkDataObject*& mesh)
 {
   for (auto n : this->Nodes)
   {
@@ -103,7 +103,7 @@ int Catalyst2DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataP
 }
 
 //-----------------------------------------------------------------------------
-int Catalyst2DataAdaptor::AddArray(vtkDataObject* mesh, const std::string& meshName,
+int Catalyst2DataAdaptor::AddArray(svtkDataObject* mesh, const std::string& meshName,
   int /*association*/, const std::string& arrayname)
 {
   // TODO

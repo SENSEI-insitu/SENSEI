@@ -141,7 +141,7 @@ public:
   svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
 #endif
 #ifdef ENABLE_CATALYST2
-  vtkSmartPointer<Catalyst2AnalysisAdaptor> Catalyst2Adaptor;
+  svtkSmartPointer<Catalyst2AnalysisAdaptor> Catalyst2Adaptor;
 #endif
 
   // the communicator that is used to initialize new analyses.
@@ -787,7 +787,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
   // a single adaptor used with multiple pipelines
   if (!this->Catalyst2Adaptor)
     {
-    this->Catalyst2Adaptor = vtkSmartPointer<Catalyst2AnalysisAdaptor>::New();
+    this->Catalyst2Adaptor = svtkSmartPointer<Catalyst2AnalysisAdaptor>::New();
 
     if (this->Comm != MPI_COMM_NULL)
       this->Catalyst2Adaptor->SetCommunicator(this->Comm);

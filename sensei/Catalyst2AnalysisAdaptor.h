@@ -19,12 +19,12 @@ class Catalyst2AnalysisAdaptor : public AnalysisAdaptor
 public:
   static Catalyst2AnalysisAdaptor* New();
   senseiTypeMacro(Catalyst2AnalysisAdaptor, AnalysisAdaptor);
-  void PrintSelf(ostream& os, vtkIndent indent) override;
+  void PrintSelf(ostream& os, svtkIndent indent) override;
 
   /// Adds a pipeline initialized from a Catalyst python script
   virtual void AddPythonScriptPipeline(const std::string &fileName);
 
-  bool Execute(DataAdaptor* data) override;
+  bool Execute(DataAdaptor* data, DataAdaptor** dataOut = nullptr) override;
 
   int Finalize() override;
 
