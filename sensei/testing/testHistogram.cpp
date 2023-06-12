@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 #endif
 
   auto da = svtkHAMRDoubleArray::New("normal", pVals, nVals,
-    1, alloc, svtkStream(), svtkStreamMode::sync_cpu, -1);
+    1, alloc, svtkStream(), svtkStreamMode::sync_host, -1);
 
   svtkImageData *im = svtkImageData::New();
   im->SetDimensions(gNx, gNy, gNz);

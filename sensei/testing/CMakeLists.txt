@@ -194,27 +194,27 @@ if (BUILD_TESTING)
     FEATURES
       PYTHON HDF5 CATALYST)
 
-  ##############################################################################
-#   senseiAddTest(testADIOS1FLEXPATHHistogram
-#     PARALLEL_SHELL 4
-#     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-#       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
-#       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
-#       histogram.xml read_adios1_flexpath_default.xml 10 1
-#       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
-#     FEATURES
-#       PYTHON ADIOS1)
-# 
-#   ##############################################################################
-#   senseiAddTest(testADIOS2SSTHistogram
-#     PARALLEL_SHELL 4
-#     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-#       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
-#       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
-#       histogram.xml read_adios2_sst_block.xml 10 1
-#       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
-#     FEATURES
-#       PYTHON ADIOS2)
+   ##############################################################################
+   senseiAddTest(testADIOS1FLEXPATHHistogram
+     PARALLEL_SHELL 4
+     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
+       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
+       histogram.xml read_adios1_flexpath_default.xml 10 1
+       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
+     FEATURES
+       PYTHON ADIOS1)
+
+   ##############################################################################
+   senseiAddTest(testADIOS2SSTHistogram
+     PARALLEL_SHELL 4
+     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
+       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
+       histogram.xml read_adios2_sst_block.xml 10 1
+       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
+     FEATURES
+       PYTHON ADIOS2)
 
   ##############################################################################
   senseiAddTest(testMeshMetadata
@@ -222,25 +222,23 @@ if (BUILD_TESTING)
     FEATURES PYTHON)
 
   ##############################################################################
-if (SENSEI_ENABLE_CUDA)
-  add_target(EXEC
-    NAME testAOSDataArray
-    CU_SOURCES testAOSDataArray.cpp
-    LINK_LIBS sensei hamr
-    )
-endif()
+  if (SENSEI_ENABLE_CUDA)
+    senseiAddTest(testHAMRDataArrayCUDA
+      SOURCES testHAMRDataArray.cpp LIBS sensei EXEC_NAME testHAMRDataArray
+      COMMAND $<TARGET_FILE:testHAMRDataArray> 0
+      CUDA_TARGET
+      )
 
-  #senseiAddTest(testAOSDataArray
-  #  SOURCES testAOSDataArray.cpp LIBS sensei hamr EXEC_NAME testAOSDataArray
-  #  PARALLEL ${TEST_NP}
-  #  COMMAND $<TARGET_FILE:testAOSDataArray>)
+    senseiAddTest(testHAMRDataArrayHost
+      COMMAND $<TARGET_FILE:testHAMRDataArray> -1)
 
+  else()
 
-  ##############################################################################
-  #senseiAddTest(testAOSDataArray
-  #  SOURCES testAOSDataArray.cpp LIBS sensei hamr EXEC_NAME testAOSDataArray
-  #  COMMAND $<TARGET_FILE:testAOSDataArray>)
+    senseiAddTest(testHAMRDataArrayHost
+      SOURCES testHAMRDataArray.cpp LIBS sensei EXEC_NAME testHAMRDataArray
+      COMMAND $<TARGET_FILE:testHAMRDataArray> -1
+      )
 
-
+  endif()
 
 endif()

@@ -97,7 +97,11 @@ if (SENSEI_ENABLE_ADIOS2)
   endif()
 
   if (SENSEI_SEPARATE_IMPL)
-    list(APPEND senseiCore_sources svtkHAMRDataArray.cxx)
+    if (SENSEI_ENABLE_CUDA)
+      list(APPEND senseiCore_cuda_sources svtkHAMRDataArray.cxx)
+    else()
+      list(APPEND senseiCore_sources svtkHAMRDataArray.cxx)
+    endif()
   endif()
 
   add_target(LIB

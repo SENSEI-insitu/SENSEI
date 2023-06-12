@@ -69,11 +69,12 @@ int main(int argc, char **argv)
 {
     if (argc != 2)
     {
-        std::cerr << "usage: testAOSDataArray [use cuda]" << std::endl;
+        std::cerr << "usage: testAOSDataArray [device id]" << std::endl;
         return -1;
     }
 
     int device = atoi(argv[1]);
+    (void)device;
 
     int nx = 2;
     int ny = 2;
