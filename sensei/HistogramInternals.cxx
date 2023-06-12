@@ -738,7 +738,13 @@ int HistogramInternals::FinalizeHistogram()
 
   // Replace the internal copy of the histogram with the finalized result.
   // only MPI rank 0 has the result after this
+#if defined(SENSEI_CLANG_CUDA)
+  // work around an issue on clang17 cuda wrappers as of June 9 2023
+  this->Histogram = std::shared_ptr<unsigned int>(tmp,
+    (void (*)(void *) noexcept(true)) free);
+#else
   this->Histogram = std::shared_ptr<unsigned int>(tmp, free);
+#endif
 
   return 0;
 }

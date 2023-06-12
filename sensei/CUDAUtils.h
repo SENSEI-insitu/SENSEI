@@ -3,6 +3,7 @@
 
 /// @file
 
+#include "senseiConfig.h"
 #include "Error.h"
 
 #include <mpi.h>

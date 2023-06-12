@@ -17,33 +17,66 @@ endif()
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release"
-  CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+    CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-# Add the requisite flags. CMake enthusiasts will tell you this is "not the
-# CMake way".  Unfortunately the officially cmake sanctioned methods are
-# inconsistent, and don't work in some cases.  Nontheless, we allow one
-# to override CMAKE_CXX_FLAGS on the command line for those that need or want
-# to do so.
+# add the requisite flags. CMake enthusiasts will tell you that this is "not
+# the CMake way". However, CMake has spotty coverage, is inconsistent in
+# mechanisms, and often it does not work. Nonetheless, one may override our
+# settings here by specifying them on the command line.
+#
+# Issues:
+# * CMake does not propagate -fvisibility=hidden during cuda
+#   linking and this leads to a nasty runtime crash when stataic and shared
+#   libraries containing cuda code are linked into a fat bin.
+#   Filed a bug report w/ NVIDIA and this has been reported to be fixed (Q4 2022)
+# * CMake does not handle nvc++ as the CUDA compiler. (Q1 2023)
+# * On some systems CMake will use O2 for release builds rather than O3 and does not
+#   enable processor specific optimizations.
+# * CMake's FindOpenMP module currently does not detect OpenMP offload flags at
+# all. There is a a CMake bug report about this. (Q1 2023)
+#
+# these issues are likely to be resolved over time. adjust the CMake
+# minimum version and test before removing these.
+
+# import OpenMP offload flag detection from hamr rather than duplicated it here.
+include(utils/HAMR/cmake/hamr_omp_offload.cmake)
+
 if (NOT CMAKE_CXX_FLAGS)
     set(tmp "-fPIC -std=c++17 -Wall -Wextra -fvisibility=hidden")
-    if ((APPLE) AND ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-        set(tmp "${tmp} -stdlib=libc++")
-    endif()
+
+    # this was necessary on MacOS in early days of C++11. likely not needed anymore.
+    #if ((APPLE) AND ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+    #    set(tmp "${tmp} -stdlib=libc++")
+    #endif()
+
     if (SENSEI_NVHPC_CUDA)
-        set(tmp "${tmp} -cuda -gpu=${SENSEI_CUDA_ARCHITECTURES} --diag_suppress extra_semicolon")
+        set(tmp "${tmp} -cuda -gpu=${SENSEI_CUDA_ARCHITECTURES}")
     endif()
+
     if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
         set(tmp "${tmp} -O3 -march=native -mtune=native")
     endif()
+
     if (SENSEI_ENABLE_OPENMP)
-        if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-            set(tmp "${tmp} -fopenmp -fopenmp-targets=nvptx64 -Xopenmp-target=nvptx64 --offload-arch=sm_75 -Wno-unknown-cuda-version")
-        elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-            set(tmp "-fopenmp -foffload=nvptx-none -foffload-options=nvptx-none=-march=sm_75")
+        set(tmp_flags)
+
+        get_offload_compile_flags( TARGET ${SENSEI_OPENMP_TARGET}
+            ARCH ${SENSEI_OPENMP_ARCH} ADD_FLAGS ${SENSEI_OPENMP_FLAGS}
+            RESULT tmp_flags)
+
+        set(tmp "${tmp} ${tmp_flags}")
+
+        set(tmp_loop "distribute parallel for")
+        if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
+            set(tmp_loop "loop")
         endif()
+
+        set(SENSEI_OPENMP_LOOP ${tmp_loop} CACHE
+            STRING "OpenMP looping construct to use for device off load")
     endif()
+
     set(CMAKE_CXX_FLAGS "${tmp}"
         CACHE STRING "SENSEI C++ compiler defaults"
         FORCE)
@@ -53,21 +86,35 @@ if (NOT CMAKE_CXX_FLAGS)
         FORCE)
 endif()
 
-if ((NOT SENSEI_NVHPC_CUDA) AND (NOT CMAKE_CUDA_FLAGS))
-    set(tmp "-std=c++17 --default-stream per-thread --expt-relaxed-constexpr")
+set(tmp)
+if (SENSEI_ENABLE_OPENMP)
+  get_offload_link_flags(TARGET ${SENSEI_OPENMP_TARGET}
+    ARCH ${SENSEI_OPENMP_ARCH} ADD_FLAGS ${SENSEI_OPENMP_FLAGS}
+    RESULT tmp)
+endif()
+
+set(SENSEI_OPENMP_LINK_FLAGS ${tmp}
+  CACHE STRING "SENSEI linker flags for OpenMP")
+
+# CUDA
+if (NOT CMAKE_CUDA_FLAGS AND SENSEI_NVCC_CUDA)
+    set(tmp "--default-stream per-thread --expt-relaxed-constexpr") # -ccbin=${CMAKE_CXX_COMPILER}")
     if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
         set(tmp "${tmp} -Xcompiler -Wall,-Wextra,-O3,-march=native,-mtune=native,-fvisibility=hidden")
     elseif ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
         set(tmp "${tmp} -g -G -Xcompiler -Wall,-Wextra,-O0,-g,-fvisibility=hidden")
     endif()
+
     set(CMAKE_CUDA_FLAGS "${tmp}"
         CACHE STRING "SENSEI CUDA compiler defaults"
         FORCE)
+
     string(REGEX REPLACE "-O[0-9]" "-O3" tmp "${CMAKE_CUDA_FLAGS_RELEASE}")
     set(CMAKE_CUDA_FLAGS_RELEASE "${tmp}"
         CACHE STRING "SENSEI CUDA compiler defaults"
         FORCE)
 endif()
+
 
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_BINARY_DIR})

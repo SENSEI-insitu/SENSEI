@@ -96,12 +96,17 @@ if (SENSEI_ENABLE_ADIOS2)
     list(APPEND senseiCore_libs OpenMP::OpenMP_CXX)
   endif()
 
+  if (SENSEI_SEPARATE_IMPL)
+    list(APPEND senseiCore_sources svtkHAMRDataArray.cxx)
+  endif()
+
   add_target(LIB
     NAME senseiCore
     CXX_SOURCES ${senseiCore_sources}
     CU_SOURCES ${senseiCore_cuda_sources}
     CU_ARCH "${SENSEI_CUDA_ARCHITECTURES}"
     LINK_LIBS ${senseiCore_libs}
+    LINK_OPTS ${SENSEI_OPENMP_LINK_FLAGS}
     )
 
   if (SENSEI_ENABLE_CATALYST)
@@ -152,6 +157,10 @@ if (SENSEI_ENABLE_ADIOS2)
     set_property(TARGET PythonAnalysis
       PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON)
 
+    if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA AND NOT SENSEI_NVHPC_CUDA)
+      target_link_options(PythonAnalysis PUBLIC ${SENSEI_OPENMP_LINK_FLAGS})
+    endif ()
+
     # install the Python module
     install(TARGETS PythonAnalysis DESTINATION ${SENSEI_PYTHON_DIR})
     install(FILES ${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/PythonAnalysis.py
@@ -192,13 +201,18 @@ if (SENSEI_ENABLE_ADIOS2)
   # sensei
   # world facing library that users will link to
   # contains senseiCore classes, PythonAnalysis, and ConfigurableAnalysis
-  add_library(sensei ${sensei_sources})
+  add_target(LIB
+    NAME sensei
+    CXX_SOURCES ${sensei_sources}
+    LINK_LIBS ${sensei_libs}
+    LINK_OPTS ${SENSEI_OPENMP_LINK_FLAGS}
+    )
+  #add_library(sensei ${sensei_sources})
+  #target_link_libraries(sensei PUBLIC ${sensei_libs})
 
   target_include_directories(sensei PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>)
-
-  target_link_libraries(sensei PUBLIC ${sensei_libs})
 
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
     DESTINATION include FILES_MATCHING PATTERN "*.h")

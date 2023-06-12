@@ -22,6 +22,11 @@
 
 #cmakedefine SENSEI_ENABLE_SENSEI
 #cmakedefine SENSEI_ENABLE_CUDA
+#cmakedefine SENSEI_NVHPC_CUDA
+#cmakedefine SENSEI_NVCC_CUDA
+#cmakedefine SENSEI_CLANG_CUDA
+#cmakedefine SENSEI_ENABLE_OPENMP
+#cmakedefine SENSEI_SEPARATE_IMPL
 #cmakedefine SENSEI_ENABLE_PYTHON
 #cmakedefine SENSEI_ENABLE_CATALYST
 #cmakedefine SENSEI_ENABLE_CATALYST_PYTHON
@@ -55,6 +60,16 @@
   result->InitializeObjectBase(); \
   return result; \
   }
+#endif
+
+// work around an issue with clang compiling CUDA (clang 17/CUDA 12 May 2023).
+// problematic includes can go here, leaving the individual source files
+// unmodified.
+#if defined(SENSEI_CLANG_CUDA)
+#undef __noinline__
+#include <memory>
+#include <type_traits>
+#define __noinline__ __attribute__((noinline))
 #endif
 
 #endif

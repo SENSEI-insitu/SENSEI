@@ -3,6 +3,7 @@
 
 ///@file
 
+#include "senseiConfig.h"
 #include <memory>
 
 //#define SENSEI_DEBUG 1

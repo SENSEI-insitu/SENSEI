@@ -1,6 +1,7 @@
 #ifndef MeshMetadata_h
 #define MeshMetadata_h
 
+#include "senseiConfig.h"
 #include "BinaryStream.h"
 
 #include <mpi.h>

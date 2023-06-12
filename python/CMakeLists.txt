@@ -19,6 +19,10 @@ if (SENSEI_ENABLE_PYTHON)
 
     set_property(TARGET senseiPython PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON)
 
+    if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA AND NOT SENSEI_NVHPC_CUDA)
+      target_link_options(senseiPython PUBLIC ${SENSEI_OPENMP_LINK_FLAGS})
+    endif ()
+
     # install the SWIG'ed SENSEI module
     install(TARGETS senseiPython DESTINATION ${SENSEI_PYTHON_DIR})
     install(FILES ${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/senseiPython.py
