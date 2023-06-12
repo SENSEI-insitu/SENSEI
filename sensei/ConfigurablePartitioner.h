@@ -38,7 +38,7 @@ public:
    * <partitioner type="..." ... >
    *   ...
    * </partitioner>
-   *```
+   * ```
    *
    * where type is one of block, cyclic, planar, or mapped. See sensei::Parititioner
    * sub-classes for documentation on the specific XML recognized by each.
