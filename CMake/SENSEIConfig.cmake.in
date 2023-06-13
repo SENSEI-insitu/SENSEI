@@ -71,10 +71,6 @@ elseif (SENSEI_ENABLE_VTK_CORE)
 endif()
 
 if (ENABLE_CATALYST2)
-  if (NOT VTK_DIR)
-    set(VTK_DIR "@VTK_DIR@")
-  endif()
-  find_dependency(VTK VTK::IOCatalystConduit)
   include(sCatalyst2)
 endif()
 

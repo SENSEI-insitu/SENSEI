@@ -1,6 +1,6 @@
 #include "Catalyst2AnalysisAdaptor.h"
 
-#include "Catalyst2DataAdaptor.h"
+#include "DataAdaptor.h"
 #include "Error.h"
 #include "MeshMetadata.h"
 #include "Profiler.h"
@@ -8,11 +8,6 @@
 
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
-
-#include <vtkDataObject.h>
-#include <vtkDataObjectTreeRange.h>
-#include <vtkPartitionedDataSet.h>
-#include <vtkRange.h>
 
 namespace sensei
 {
@@ -58,7 +53,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   if (dataAdaptor->GetNumberOfMeshes(nMeshes))
   {
     SENSEI_ERROR("Failed to get the number of meshes")
-    return false;
+      return false;
   }
 
   std::vector<MeshMetadataPtr> metadata(nMeshes);
@@ -69,7 +64,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
     if (dataAdaptor->GetMeshMetadata(i, mmd))
     {
       SENSEI_ERROR("Failed to get metadata for mesh " << i << " of " << nMeshes)
-      return false;
+        return false;
     }
     metadata[i] = mmd;
   }
@@ -77,52 +72,36 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   // Conduit node to fill
   conduit_cpp::Node exec_params;
 
-  auto c2dataAdaptor = Catalyst2DataAdaptor::SafeDownCast(dataAdaptor);
-  if (c2dataAdaptor)
+  // translate data to conduit using VTK Module
+  // TODO: Update the CMake to depends on the VTK conduit module
+  for (auto meta : metadata)
   {
-    // fastpath, no need to translate data
-    unsigned int nbNodes;
-    c2dataAdaptor->GetNumberOfMeshes(nbNodes);
-    if (nbNodes > 1)
+    const char* meshName = meta->MeshName.c_str();
+    svtkDataObject* dobj = nullptr;
+    if (dataAdaptor->GetMesh(meshName, false, dobj))
     {
-      SENSEI_WARNING("The mesh has several nodes, only the first one will be processed.");
-    }
-
-    exec_params = c2dataAdaptor->GetNode(0);
-  }
-  else
-  {
-    // translate data to conduit using VTK Module
-    // TODO: Update the CMake to depends on the VTK conduit module
-    for (auto meta : metadata)
-    {
-      const char* meshName = meta->MeshName.c_str();
-      svtkDataObject* dobj = nullptr;
-      if (dataAdaptor->GetMesh(meshName, false, dobj))
-      {
-        SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
         return -1;
-      }
-      if (dobj)
-      {
-        vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
-        if (auto* pds = vtkPartitionedDataSet::SafeDownCast(vdobj))
-        {
-          for (auto node : vtk::Range(pds))
-          {
-            // TODO
-            // if (node->IsA("vtkDataObject"))
-            //   vtkDataObjectToConduit::FillConduitNode(node, exec_params);
-            // else
-            //   std::cout << "ingore: " << node->GetClassName() << std::endl;
-          }
-        }
-        else
-        {
-          // TODO
-          // vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
-        }
-      }
+    }
+    if (dobj)
+    {
+      // vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
+      // if (auto* pds = vtkPartitionedDataSet::SafeDownCast(vdobj))
+      // {
+      //   for (auto node : vtk::Range(pds))
+      //   {
+      //     // TODO
+      //     // if (node->IsA("vtkDataObject"))
+      //     //   vtkDataObjectToConduit::FillConduitNode(node, exec_params);
+      //     // else
+      //     //   std::cout << "ingore: " << node->GetClassName() << std::endl;
+      //   }
+      // }
+      // else
+      // {
+      //   // TODO
+      //   // vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
+      // }
     }
   }
 
