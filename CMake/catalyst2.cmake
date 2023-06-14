@@ -3,7 +3,7 @@ if (ENABLE_CATALYST2)
     message(FATAL_ERROR "Catalyst2 bring its own conduit, please set ENABLE_CONDUIT to OFF")
   endif()
 
-  find_package(VTK CONFIG COMPONENTS  CommonCore CommonExecutionModel IOCore)
+  find_package(VTK CONFIG REQUIRED COMPONENTS CommonCore CommonExecutionModel IOCore IOCatalystConduit)
   find_package(catalyst REQUIRED)
 
   add_library(sCatalyst2 INTERFACE)

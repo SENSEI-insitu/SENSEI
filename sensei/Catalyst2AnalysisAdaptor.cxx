@@ -9,6 +9,13 @@
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
 
+#include <vtkDataObject.h>
+#include <vtkMultiBlockDataSet.h>
+#include <vtkDataObjectTreeRange.h>
+#include <vtkDataObjectToConduit.h>
+#include <vtkRange.h>
+
+
 namespace sensei
 {
 
@@ -78,30 +85,30 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   {
     const char* meshName = meta->MeshName.c_str();
     svtkDataObject* dobj = nullptr;
+    std::cout << meshName << std::endl;
     if (dataAdaptor->GetMesh(meshName, false, dobj))
     {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
         return -1;
     }
-    if (dobj)
+    if (dobj && std::string(meshName) != "oscillators" && std::string(meshName) != "particles")
     {
-      // vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
-      // if (auto* pds = vtkPartitionedDataSet::SafeDownCast(vdobj))
-      // {
-      //   for (auto node : vtk::Range(pds))
-      //   {
-      //     // TODO
-      //     // if (node->IsA("vtkDataObject"))
-      //     //   vtkDataObjectToConduit::FillConduitNode(node, exec_params);
-      //     // else
-      //     //   std::cout << "ingore: " << node->GetClassName() << std::endl;
-      //   }
-      // }
-      // else
-      // {
-      //   // TODO
-      //   // vtkDataObjectToConduit::FillConduitNode(dobj, exec_params);
-      // }
+      vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
+      if (auto* pds = vtkMultiBlockDataSet::SafeDownCast(vdobj))
+      {
+        for (auto node : vtk::Range(pds))
+        {
+          if (node->IsA("vtkDataObject"))
+          {
+            std::cout << node->GetClassName() << std::endl;
+            vtkDataObjectToConduit::FillConduitNode(node, exec_params);
+          }
+          else
+          {
+            std::cout << "ingore: " << node->GetClassName() << std::endl;
+          }
+        }
+      }
     }
   }
 
