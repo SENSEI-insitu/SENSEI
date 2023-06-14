@@ -1,0 +1,5 @@
+<sensei>
+    <analysis type="catalyst2" pipeline="pythonscript"
+        filename="oscillator_catalyst_steering2.py" enabled="1">
+  </analysis>
+</sensei>
