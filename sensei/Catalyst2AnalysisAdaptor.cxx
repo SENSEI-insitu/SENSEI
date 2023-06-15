@@ -9,12 +9,15 @@
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
 
+#include <vtkCellData.h>
+#include <vtkConvertToPartitionedDataSetCollection.h>
 #include <vtkDataObject.h>
-#include <vtkMultiBlockDataSet.h>
 #include <vtkDataObjectTreeRange.h>
 #include <vtkDataObjectToConduit.h>
+#include <vtkDataSet.h>
+#include <vtkMultiBlockDataSet.h>
+#include <vtkPointData.h>
 #include <vtkRange.h>
-
 
 namespace sensei
 {
@@ -79,29 +82,56 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   // Conduit node to fill
   conduit_cpp::Node exec_params;
 
-  // translate data to conduit using VTK Module
-  // TODO: Update the CMake to depends on the VTK conduit module
+  vtkNew<vtkConvertToPartitionedDataSetCollection> converter;
   for (auto meta : metadata)
   {
     const char* meshName = meta->MeshName.c_str();
     svtkDataObject* dobj = nullptr;
-    std::cout << meshName << std::endl;
     if (dataAdaptor->GetMesh(meshName, false, dobj))
     {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
         return -1;
     }
-    if (dobj && std::string(meshName) != "oscillators" && std::string(meshName) != "particles")
+
+    for (int j = 0; j < meta->NumArrays; ++j)
+    {
+      int assoc = meta->ArrayCentering[j];
+      const char *arrayName = meta->ArrayName[j].c_str();
+
+      if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
+      {
+        SENSEI_ERROR("Failed to add "
+                     << SVTKUtils::GetAttributesName(assoc)
+                     << " data array \"" << arrayName << "\" to mesh \""
+                     << meshName << "\"")
+          return -1;
+      }
+    }
+
+    if (dobj &&
+        std::string(meshName) != "oscillators" &&
+        std::string(meshName) != "ucdmesh" &&
+        std::string(meshName) != "particles" )
     {
       vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
-      if (auto* pds = vtkMultiBlockDataSet::SafeDownCast(vdobj))
+      if (auto* mbds = vtkMultiBlockDataSet::SafeDownCast(vdobj))
       {
-        for (auto node : vtk::Range(pds))
+        for (auto node : vtk::Range(mbds))
         {
-          if (node->IsA("vtkDataObject"))
+          auto* dataset = vtkDataSet::SafeDownCast(node);
+          if (dataset)
           {
-            std::cout << node->GetClassName() << std::endl;
-            vtkDataObjectToConduit::FillConduitNode(node, exec_params);
+            std::cout << meshName
+                      << " type: " << dataset->GetClassName()
+                      << ", point arrays: "
+                      << dataset->GetPointData()->GetNumberOfArrays()
+                      << ", cell arrays: "
+                      << dataset->GetCellData()->GetNumberOfArrays()
+                      << std::endl;
+            auto channel = exec_params[std::string("catalyst/channels/") + meshName];
+            channel["type"].set("mesh");
+            auto mesh = channel["data"];
+            vtkDataObjectToConduit::FillConduitNode(dataset, mesh);
           }
           else
           {
