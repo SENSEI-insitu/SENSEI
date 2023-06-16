@@ -870,6 +870,51 @@ int DataAdaptor::GetMeshMetadata(unsigned int id, sensei::MeshMetadataPtr &metad
 
     using ParticleMapIterator = std::map<long, const std::vector<Particle>*>::iterator;
     ParticleMapIterator end = this->Internals->ParticleData.end();
+
+    if (metadata->Flags.BlockBoundsSet())
+      {
+      for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
+        {
+          std::array<double,6> bds = {
+            std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
+            std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(),
+            std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest()};
+        auto particles = it->second;
+        for (auto particle: *particles)
+          {
+            bds[0] = std::min(bds[0], (double)particle.position[0]);
+            bds[1] = std::max(bds[1], (double)particle.position[0]);
+            bds[2] = std::min(bds[2], (double)particle.position[1]);
+            bds[3] = std::max(bds[3], (double)particle.position[1]);
+            bds[4] = std::min(bds[4], (double)particle.position[2]);
+            bds[5] = std::max(bds[5], (double)particle.position[2]);
+          }
+        metadata->Bounds = bds;
+        metadata->BlockBounds.push_back(bds);
+        }
+      }
+
+    if (metadata->Flags.BlockArrayRangeSet())
+      {
+      for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
+        {
+          std::vector<std::array<double,2>> bar(3,
+            {std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest()});
+        auto particles = it->second;
+        for (auto particle: *particles)
+          {
+          bar[0][0] = std::min(bar[0][0], (double)particle.velocity[0]);
+          bar[0][1] = std::max(bar[0][1], (double)particle.velocity[0]);
+          bar[1][0] = std::min(bar[1][0], (double)particle.velocity[1]);
+          bar[1][1] = std::max(bar[1][1], (double)particle.velocity[1]);
+          bar[2][0] = std::min(bar[2][0], (double)particle.velocity[2]);
+          bar[2][1] = std::max(bar[2][1], (double)particle.velocity[2]);
+          }
+        metadata->ArrayRange = bar;
+        metadata->BlockArrayRange.push_back(bar);
+        }
+      }
+
     if (metadata->Flags.BlockSizeSet())
       {
       for (ParticleMapIterator it = this->Internals->ParticleData.begin(); it != end; ++it)
