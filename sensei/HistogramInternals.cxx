@@ -219,9 +219,9 @@ int block_local_histogram(const data_t *data, const unsigned char *ghosts,
 }
 #endif
 
-namespace HistogramInternalsCPU
+namespace HistogramInternalsHost
 {
-/** Computes a histogram on the CPU. The histgoram must be pre-initialized to
+/** Computes a histogram on the Host. The histgoram must be pre-initialized to
  * zero multiple invokations of the kernel accumulate results for new data.
  *
  * @param[in] data      the array to calculate the histogram for
@@ -325,19 +325,19 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       {
 #endif
 #if defined(SENSEI_DEBUG)
-      std::cerr << "HistogramInternals::AddLocalData ghosts CPU" << std::endl;
+      std::cerr << "HistogramInternals::AddLocalData ghosts Host" << std::endl;
 #endif
-      // get a pointer accessible on the CPU
+      // get a pointer accessible on the Host
       if (dynamic_cast<svtkHAMRDataArray<unsigned char>*>((svtkDataArray*)ghosts))
         {
         svtkHAMRDataArray<unsigned char> *tGhosts =
           static_cast<svtkHAMRDataArray<unsigned char>*>((svtkDataArray*)ghosts);
 
-        pGhosts = tGhosts->GetCPUAccessible();
+        pGhosts = tGhosts->GetHostAccessible();
         }
       else
         {
-        pGhosts = sensei::MemoryUtils::MakeCpuAccessible(ghosts->GetPointer(0), nVals);
+        pGhosts = sensei::MemoryUtils::MakeHostAccessible(ghosts->GetPointer(0), nVals);
         }
 #if defined(SENSEI_ENABLE_CUDA)
       }
@@ -358,7 +358,7 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
 
       // generate ghosts on the GPU, and get a shared pointer to the buffer
       auto tGhosts = svtkHAMRUnsignedCharArray::New("vtkGhostType",
-        nVals, 1, svtkAllocator::cuda_async, svtkStream(), svtkStreamMode::sync_cpu, 0);
+        nVals, 1, svtkAllocator::cuda_async, svtkStream(), svtkStreamMode::sync_host, 0);
 
       pGhosts = tGhosts->GetDataPointer();
 
@@ -369,9 +369,9 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
 #endif
 #if defined(SENSEI_DEBUG)
       std::cerr << "HistogramInternals::AddLocalData ghosts were not provided,"
-        " allocating on the CPU" << std::endl;
+        " allocating on the Host" << std::endl;
 #endif
-      // generate ghosts on the CPU, and get a shared pointer to the buffer
+      // generate ghosts on the Host, and get a shared pointer to the buffer
       auto tGhosts = svtkHAMRUnsignedCharArray::New("vtkGhostType",
         nVals, 1, svtkAllocator::malloc, svtkStream(), svtkStreamMode::sync, 0);
 
@@ -416,16 +416,16 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
 #endif
 #if defined(SENSEI_DEBUG)
         std::cerr << "HistogramInternals::AddLocalData "
-          << (da->GetName() ? da->GetName() : "\"\"") << " CPU" << std::endl;
+          << (da->GetName() ? da->GetName() : "\"\"") << " Host" << std::endl;
 #endif
         if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
           {
           auto tDa = static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
-          pDa = tDa->GetCPUAccessible();
+          pDa = tDa->GetHostAccessible();
           }
         else
           {
-          pDa = sensei::MemoryUtils::MakeCpuAccessible(
+          pDa = sensei::MemoryUtils::MakeHostAccessible(
             sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
           }
 #if defined(SENSEI_ENABLE_CUDA)
@@ -491,7 +491,7 @@ int HistogramInternals::ComputeRange()
         else
           {
 #endif
-          // calculate range taking into account ghost zones on the CPU
+          // calculate range taking into account ghost zones on the Host
           const SVTK_TT *rpDa = pDa.get();
           const unsigned char *rpGhosts = pGhosts.get();
           for (size_t i = 0; i < nVals; ++i)
@@ -504,7 +504,7 @@ int HistogramInternals::ComputeRange()
               }
             }
 #if defined(SENSEI_DEBUG)
-          std::cerr << "HistogramInternals::ComputeRange CPU ["
+          std::cerr << "HistogramInternals::ComputeRange Host ["
              << blockMin << ", " << blockMax << "]" << std::endl;
 #endif
 #if defined(SENSEI_ENABLE_CUDA)
@@ -606,14 +606,14 @@ int HistogramInternals::InitializeHistogram()
 #endif
 #if defined(SENSEI_DEBUG)
     std::cerr << "InitializeHistogram initializing "
-      << this->NumberOfBins << " bins on the CPU" << std::endl;
+      << this->NumberOfBins << " bins on the Host" << std::endl;
 #endif
     pHist = (unsigned int*)malloc(histBytes);
     memset(pHist, 0, histBytes);
 
     // save the pointer for calculations of subsequent blocks
     this->Histogram = std::shared_ptr<unsigned int>(pHist,
-      sensei::MemoryUtils::FreeCpuPtr);
+      sensei::MemoryUtils::FreeHostPtr);
 #if defined(SENSEI_ENABLE_CUDA)
     }
 #endif
@@ -675,11 +675,11 @@ int HistogramInternals::ComputeLocalHistogram()
           {
 #endif
 #if defined(SENSEI_DEBUG)
-          std::cerr << "HistogramInternals::ComputeLocalHistogram CPU" << std::endl;
+          std::cerr << "HistogramInternals::ComputeLocalHistogram Host" << std::endl;
 #endif
-          // compute the histgram for this block's worth of data on the CPU
+          // compute the histgram for this block's worth of data on the Host
           // data is already in the right place, it is moved in AddLocalData
-          HistogramInternalsCPU::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
+          HistogramInternalsHost::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
             pGhosts.get(), nVals, this->Min, this->Width, this->Histogram.get(), nBins);
 #if defined(SENSEI_ENABLE_CUDA)
           }
@@ -717,10 +717,10 @@ int HistogramInternals::FinalizeHistogram()
   // fetch result from the GPU for the MPI parallel part of the reduction
   // this call synchronizes CUDA kernels
   std::shared_ptr<unsigned int> pHist =
-    sensei::MemoryUtils::MakeCpuAccessible(this->Histogram.get(), nBins);
+    sensei::MemoryUtils::MakeHostAccessible(this->Histogram.get(), nBins);
 
-  // allocate a buffer on teh CPU for the result of the MPI parallel reduction
-  // the result of the histogram is always coppied to the CPU
+  // allocate a buffer on the host for the result of the MPI parallel reduction
+  // the result of the histogram is always coppied to the host
   unsigned int *tmp = nullptr;
   if (rank == 0)
     {

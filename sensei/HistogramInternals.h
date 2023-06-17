@@ -45,7 +45,9 @@ public:
       Min(std::numeric_limits<double>::max()),
       Max(std::numeric_limits<double>::lowest()),
       Width(1.0)
-    {}
+    {
+      (void)deviceId;
+    }
 
     ~HistogramInternals();
 

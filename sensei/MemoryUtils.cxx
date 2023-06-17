@@ -15,10 +15,10 @@ namespace MemoryUtils
 {
 
 // **************************************************************************
-void FreeCpuPtr(void *ptr)
+void FreeHostPtr(void *ptr)
 {
 #if defined(SENSEI_DEBUG)
-    std::cerr << "FreeCpuPtr(" << ptr << ")" << std::endl;
+    std::cerr << "FreeHostPtr(" << ptr << ")" << std::endl;
 #endif
     free(ptr);
 }
@@ -140,7 +140,7 @@ std::shared_ptr<void> MakeCudaAccessible_(void *ptr, size_t nBytes)
 }
 
 // **************************************************************************
-std::shared_ptr<void> MakeCpuAccessible_(void *ptr, size_t nBytes)
+std::shared_ptr<void> MakeHostAccessible_(void *ptr, size_t nBytes)
 {
   if (!cpuAccessible(ptr))
     {
@@ -173,7 +173,7 @@ std::shared_ptr<void> MakeCpuAccessible_(void *ptr, size_t nBytes)
       }
 
     // return a shared pointer that will free up the CPU buffer
-    return std::shared_ptr<void>(cpuPtr, MemoryUtils::FreeCpuPtr);
+    return std::shared_ptr<void>(cpuPtr, MemoryUtils::FreeHostPtr);
     }
 
   // this pointer can be accessed on the CPU
@@ -208,7 +208,7 @@ std::shared_ptr<void> MakeCudaAccessible_(void *ptr, size_t nBytes)
 }
 
 // **************************************************************************
-std::shared_ptr<void> MakeCpuAccessible_(void *ptr, size_t nBytes)
+std::shared_ptr<void> MakeHostAccessible_(void *ptr, size_t nBytes)
 {
   (void) nBytes;
 
