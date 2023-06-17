@@ -22,16 +22,22 @@ template<typename cpp_t> struct mpi_tt {};
 #define define_mpi_tt(CT, ME) \
 template<> struct mpi_tt<CT> { static MPI_Datatype datatype(){ return ME; } };
 
-define_mpi_tt(char, MPI_CHAR)
-define_mpi_tt(int, MPI_INT)
-define_mpi_tt(long, MPI_LONG)
-define_mpi_tt(unsigned char, MPI_UNSIGNED_CHAR)
-define_mpi_tt(unsigned int, MPI_UNSIGNED)
-define_mpi_tt(unsigned long, MPI_UNSIGNED_LONG)
 define_mpi_tt(float, MPI_FLOAT)
 define_mpi_tt(double, MPI_DOUBLE)
+define_mpi_tt(char, MPI_CHAR)
+define_mpi_tt(signed char, MPI_CHAR)
+define_mpi_tt(short, MPI_SHORT)
+define_mpi_tt(int, MPI_INT)
+define_mpi_tt(long, MPI_LONG)
+define_mpi_tt(long long, MPI_LONG_LONG)
+define_mpi_tt(unsigned char, MPI_UNSIGNED_CHAR)
+define_mpi_tt(unsigned short, MPI_UNSIGNED_SHORT)
+define_mpi_tt(unsigned int, MPI_UNSIGNED)
+define_mpi_tt(unsigned long, MPI_UNSIGNED_LONG)
+define_mpi_tt(unsigned long long, MPI_UNSIGNED_LONG_LONG)
 
 /// @endcond
+
 
 /** helper to recuce by summation elements in a vector it's assumed that the
  * vector is the same size on all ranks.
