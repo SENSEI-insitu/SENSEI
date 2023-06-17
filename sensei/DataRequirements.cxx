@@ -2,6 +2,7 @@
 #include "DataAdaptor.h"
 #include "MeshMetadata.h"
 #include "SVTKUtils.h"
+#include "XMLUtils.h"
 #include "Error.h"
 
 #include <svtkDataObject.h>
@@ -9,34 +10,6 @@
 
 namespace sensei
 {
-
-static
-unsigned int getArrayNames(pugi::xml_node node, std::vector<std::string> &arrays)
-{
-  if (!node || !node.text())
-    return 0;
-
-  std::string text = node.text().as_string();
-
-  // replace ',' with ' '
-  size_t n = text.size();
-  for (size_t i = 0; i < n; ++i)
-    {
-    if (text[i] == ',')
-      text[i] = ' ';
-    }
-
-  std::istringstream iss(text);
-
-  while (iss.good())
-    {
-    std::string array;
-    iss >> array >> std::ws;
-    arrays.push_back(array);
-    }
-
-  return arrays.size();
-}
 
 // --------------------------------------------------------------------------
 DataRequirements::DataRequirements()
@@ -83,12 +56,12 @@ int DataRequirements::Initialize(pugi::xml_node parent)
 
     // get cell data arrays, optional
     std::vector<std::string> arrays;
-    if (getArrayNames(node.child("cell_arrays"), arrays))
+    if (XMLUtils::ParseList(node.child("cell_arrays"), arrays))
       this->MeshArrayMap[meshName][svtkDataObject::CELL] = arrays;
 
     // get point data arrays, optional
     arrays.clear();
-    if (getArrayNames(node.child("point_arrays"), arrays))
+    if (XMLUtils::ParseList(node.child("point_arrays"), arrays))
       this->MeshArrayMap[meshName][svtkDataObject::POINT] = arrays;
 
     meshId += 1;

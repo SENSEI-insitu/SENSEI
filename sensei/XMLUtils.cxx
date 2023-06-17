@@ -160,5 +160,33 @@ int ParseNameValuePairs(const pugi::xml_node &node,
   return 0;
 }
 
+// **************************************************************************
+int ParseList(pugi::xml_node node, std::vector<std::string> &listOut)
+{
+  if (!node || !node.text())
+    return -1;
+
+  std::string text = node.text().as_string();
+
+  // replace ',' with ' '
+  size_t n = text.size();
+  for (size_t i = 0; i < n; ++i)
+    {
+    if (text[i] == ',')
+      text[i] = ' ';
+    }
+
+  std::istringstream iss(text);
+
+  while (iss.good())
+    {
+    std::string array;
+    iss >> array >> std::ws;
+    listOut.push_back(array);
+    }
+
+  return listOut.size();
+}
+
 }
 }
