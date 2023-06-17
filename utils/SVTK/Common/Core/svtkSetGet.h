@@ -897,6 +897,89 @@ public:
   svtkTemplateMacro(call);                                                                          \
   svtkTemplateMacroCase(SVTK_STRING, svtkStdString, call)
 
+// dispatch only floating point types
+#define svtkTemplateMacroFloat(call)                                                                     \
+  svtkTemplateMacroCase(SVTK_DOUBLE, double, call);                                                  \
+  svtkTemplateMacroCase(SVTK_FLOAT, float, call);                                                    \
+
+// dispatch only integer types
+#define svtkTemplateMacroInt(call)                                                                     \
+  svtkTemplateMacroCase(SVTK_LONG_LONG, long long, call);                                            \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_LONG_LONG, unsigned long long, call);                          \
+  svtkTemplateMacroCase(SVTK_ID_TYPE, svtkIdType, call);                                              \
+  svtkTemplateMacroCase(SVTK_LONG, long, call);                                                      \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_LONG, unsigned long, call);                                    \
+  svtkTemplateMacroCase(SVTK_INT, int, call);                                                        \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_INT, unsigned int, call);                                      \
+  svtkTemplateMacroCase(SVTK_SHORT, short, call);                                                    \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_SHORT, unsigned short, call);                                  \
+  svtkTemplateMacroCase(SVTK_CHAR, char, call);                                                      \
+  svtkTemplateMacroCase(SVTK_SIGNED_CHAR, signed char, call);                                        \
+  svtkTemplateMacroCase(SVTK_UNSIGNED_CHAR, unsigned char, call)
+
+// The svtkNestedTemplateMacro is used to centralize the set of types
+// supported by Execute methods.  It also avoids duplication of long
+// switch statement case lists.
+//
+// This version of the macro allows the template to take any number of
+// arguments.  Example usage:
+// switch(coord->GetDataType())
+//   {
+//   svtkNestedTemplateMacro(_COORD,
+//    switch(array->GetDataType())
+//    {
+//      svtkNestedTemplateMacro(_ARRAY,
+//        myFunc(static_cast<SVTK_TT_COORD*>(coords),
+//           static_cast<SVTK_TT_ARRAY*>(data), arg2)
+//       );
+//    }
+//    );
+//   }
+#define svtkNestedTemplateMacroCase(id, typeN, type, call)                                                    \
+  case typeN:                                                                                      \
+  {                                                                                                \
+    typedef type SVTK_TT ## id;                                                                   \
+    call;                                                                                          \
+  }                                                                                                \
+  break
+#define svtkNestedTemplateMacro(id, call)                                                                     \
+  svtkNestedTemplateMacroCase(id, SVTK_DOUBLE, double, call);                                                  \
+  svtkNestedTemplateMacroCase(id, SVTK_FLOAT, float, call);                                                    \
+  svtkNestedTemplateMacroCase(id, SVTK_LONG_LONG, long long, call);                                            \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_LONG_LONG, unsigned long long, call);                          \
+  svtkNestedTemplateMacroCase(id, SVTK_ID_TYPE, svtkIdType, call);                                              \
+  svtkNestedTemplateMacroCase(id, SVTK_LONG, long, call);                                                      \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_LONG, unsigned long, call);                                    \
+  svtkNestedTemplateMacroCase(id, SVTK_INT, int, call);                                                        \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_INT, unsigned int, call);                                      \
+  svtkNestedTemplateMacroCase(id, SVTK_SHORT, short, call);                                                    \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_SHORT, unsigned short, call);                                  \
+  svtkNestedTemplateMacroCase(id, SVTK_CHAR, char, call);                                                      \
+  svtkNestedTemplateMacroCase(id, SVTK_SIGNED_CHAR, signed char, call);                                        \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_CHAR, unsigned char, call)
+
+// dispatch floating point types
+#define svtkNestedTemplateMacroFloat(id, call)                                                                     \
+  svtkNestedTemplateMacroCase(id, SVTK_DOUBLE, double, call);                                                  \
+  svtkNestedTemplateMacroCase(id, SVTK_FLOAT, float, call);                                                    \
+
+// dispatch only integer types
+#define svtkNestedTemplateMacroInt(id, call)                                                                     \
+  svtkNestedTemplateMacroCase(id, SVTK_LONG_LONG, long long, call);                                            \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_LONG_LONG, unsigned long long, call);                          \
+  svtkNestedTemplateMacroCase(id, SVTK_ID_TYPE, svtkIdType, call);                                              \
+  svtkNestedTemplateMacroCase(id, SVTK_LONG, long, call);                                                      \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_LONG, unsigned long, call);                                    \
+  svtkNestedTemplateMacroCase(id, SVTK_INT, int, call);                                                        \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_INT, unsigned int, call);                                      \
+  svtkNestedTemplateMacroCase(id, SVTK_SHORT, short, call);                                                    \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_SHORT, unsigned short, call);                                  \
+  svtkNestedTemplateMacroCase(id, SVTK_CHAR, char, call);                                                      \
+  svtkNestedTemplateMacroCase(id, SVTK_SIGNED_CHAR, signed char, call);                                        \
+  svtkNestedTemplateMacroCase(id, SVTK_UNSIGNED_CHAR, unsigned char, call)
+
+
+
 // The svtkTemplate2Macro is used to dispatch like svtkTemplateMacro but
 // over two template arguments instead of one.
 //
