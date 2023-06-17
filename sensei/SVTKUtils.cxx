@@ -4,6 +4,8 @@
 #include "MeshMetadata.h"
 #include "Error.h"
 
+#include <hamr_buffer.h>
+#include <svtkHAMRDataArray.h>
 
 #include <svtkDataArray.h>
 #include <svtkAbstractArray.h>
@@ -3299,6 +3301,144 @@ svtkDataSet *SVTKObjectFactory::New(vtkDataSet *dsIn)
 
   return nullptr;
 #endif
+}
+
+// **************************************************************************
+template <typename SVTK_TT>
+int write(FILE *fh, svtkDataArray *da)
+{
+  // first put the data into a buffer on the host. this will be a deep
+  // copy because the VTK file format is big endian and we need to
+  // rearange bytes
+  long nt = da->GetNumberOfTuples();
+  long nc = da->GetNumberOfComponents();
+  long nct =  nc*nt;
+  long nb = nct*sizeof(SVTK_TT);
+
+  hamr::buffer<SVTK_TT> tmp(hamr::get_host_allocator(), nct);
+
+  if (svtkHAMRDataArray<SVTK_TT> *hamrda =
+    dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
+  {
+    auto spda = hamrda->GetHostAccessible();
+    memcpy(tmp.data(), spda.get(), nb);
+  }
+  else if (svtkAOSDataArrayTemplate<SVTK_TT> *aosda =
+    dynamic_cast<svtkAOSDataArrayTemplate<SVTK_TT>*>(da))
+  {
+    SVTK_TT *pda = aosda->GetPointer(0);
+    memcpy(tmp.data(), pda, nb);
+  }
+  else
+  {
+    SENSEI_ERROR("Invalid data array type " << da->GetClassName())
+    fclose(fh);
+    return -1;
+  }
+
+  // rearange bytes to big endian in place as required by the VTK file format
+  if (sizeof(SVTK_TT) == 8)
+  {
+    uint64_t *ptmp = (uint64_t*)tmp.data();
+    for (size_t i = 0; i < tmp.size(); ++i)
+      ptmp[i] = __builtin_bswap64(ptmp[i]);
+  }
+  else if (sizeof(SVTK_TT) == 4)
+  {
+    uint32_t *ptmp = (uint32_t*)tmp.data();
+    for (size_t i = 0; i < tmp.size(); ++i)
+      ptmp[i] = __builtin_bswap32(ptmp[i]);
+  }
+  else if (sizeof(SVTK_TT) == 2)
+  {
+    uint16_t *ptmp = (uint16_t*)tmp.data();
+    for (size_t i = 0; i < tmp.size(); ++i)
+      ptmp[i] = __builtin_bswap16(ptmp[i]);
+  }
+  else if (sizeof(SVTK_TT) != 1)
+  {
+    SENSEI_ERROR("Invalid element size " << sizeof(SVTK_TT) << " bytes")
+    fclose(fh);
+    return -1;
+  }
+
+  // replace ' ' with '_' in unsigned types
+  char typeName[128];
+  strncpy(typeName, da->GetDataTypeAsString(), 127);
+  typeName[127] = '\0';
+
+  while (char *ptr = strchr(typeName, ' '))
+    *ptr = '_';
+
+  // write the array
+  fprintf(fh, "SCALARS %s %s %ld\n"
+          "LOOKUP_TABLE default\n", da->GetName(), typeName, nc);
+
+  fwrite(tmp.data(), sizeof(SVTK_TT), nct, fh);
+
+  return 0;
+}
+
+// **************************************************************************
+int WriteVTK(const char *fn, long npx, long npy, long npz,
+  double x0, double y0, double z0, double dx, double dy, double dz,
+  const std::vector<svtkDataArray*> &cellData,
+  const std::vector<svtkDataArray*> &pointData)
+{
+  // write the file in vtk format
+  FILE *fh = fopen(fn, "w");
+  if (!fh)
+  {
+      SENSEI_ERROR("Failed to open \"" << fn << "\"")
+      return -1;
+  }
+
+  // write the file in vtk format
+  fprintf(fh, "# vtk DataFile Version 2.0\n"
+              "sensei in-situ output\n"
+              "BINARY\n"
+              "DATASET STRUCTURED_POINTS\n"
+              "DIMENSIONS %ld %ld %ld\n"
+              "ORIGIN %g %g %g\n"
+              "SPACING %g %g %g\n",
+              npx, npy, npz, x0, y0, z0, dx, dy, dz);
+
+  // write the point data arrays
+  unsigned int npa = pointData.size();
+  if (npa)
+  {
+    long np = npx*npy*npz;
+    fprintf(fh, "POINT_DATA %ld\n", np);
+    for (unsigned int i = 0; i < npa; ++i)
+    {
+      svtkDataArray *da = pointData[i];
+      switch (da->GetDataType())
+      {
+      svtkTemplateMacro(
+        write<SVTK_TT>(fh, da);
+      );}
+    }
+  }
+
+  // write the cell data arrays
+  unsigned int nca = cellData.size();
+  if (nca)
+  {
+    long nc = std::max(npx - 1l, 1l)*std::max(npy - 1l, 1l)*std::max(npz - 1l, 1l);
+    fprintf(fh, "CELL_DATA %ld\n", nc);
+    for (unsigned int i = 0; i < nca; ++i)
+    {
+      svtkDataArray *da = cellData[i];
+      switch (da->GetDataType())
+      {
+      svtkTemplateMacro(
+        write<SVTK_TT>(fh, da);
+      );}
+    }
+  }
+
+  fclose(fh);
+  return 0;
 }
 
 }

@@ -259,6 +259,32 @@ SENSEI_EXPORT
 int WriteDomainDecomp(MPI_Comm comm, const sensei::MeshMetadataPtr &md,
   const std::string fileName);
 
+/** Write an svtkImageData data set to disk in a VTK compatible binary format.
+ * This format can be read by ParaView and VisIt amoung others. This
+ * implementation does not depend on VTK iteself and can be used when VTK is
+ * not present in the build.
+ *
+ * @param[in] fn the name of the file to write
+ * @param[in] npx the number of points in the x-dimension
+ * @param[in] npy the number of points in the y-dimension
+ * @param[in] npz the number of points in the z-dimension
+ * @param[in] x0 the origin in the x-dimension
+ * @param[in] y0 the origin in the y-dimension
+ * @param[in] z0 the origin in the x-dimension
+ * @param[in] dx the grid spacing in the x-dimension
+ * @param[in] dy the grid spacing in the y-dimension
+ * @param[in] dz the grid spacing in the z-dimension
+ * @param[in] cellData a vector of cell centered arrays to write
+ * @param[in] pointData a vector of point centered arrays to write
+ * @returns 0 if successful
+ */
+SENSEI_EXPORT
+int WriteVTK(const char *fn, long npx, long npy, long npz,
+  double x0, double y0, double z0, double dx, double dy, double dz,
+  const std::vector<svtkDataArray*> &cellData,
+  const std::vector<svtkDataArray*> &pointData);
+
+
 /** Packs data from a cell array into another cell array keeping track of
  * where to insert into the output array. Use it to serialze verys, lines, polys
  * strips form a polytdata into a single cell array for transport
