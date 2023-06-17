@@ -28,6 +28,20 @@ if (BUILD_TESTING)
     )
 
   ##############################################################################
+  senseiAddTest(testDataBinningSerial
+    SOURCES testDataBinning.cpp
+    LIBS sensei EXEC_NAME testDataBinning
+    COMMAND $<TARGET_FILE:testDataBinning>
+    CUDA_TARGET
+    )
+
+  senseiAddTest(testDataBinningParallel
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:testDataBinning>
+    CUDA_TARGET
+    )
+
+  ##############################################################################
   senseiAddTest(testHDF5Write
     SOURCES testHDF5.cpp LIBS sensei EXEC_NAME testHDF5
     PARALLEL ${TEST_NP}

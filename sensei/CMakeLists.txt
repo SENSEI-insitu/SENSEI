@@ -5,12 +5,14 @@ if (SENSEI_ENABLE_SENSEI)
   # everything but the Python and configurable analysis adaptors.
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
     BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
-    ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
-    Histogram.cxx HistogramInternals.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
-    IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx MemoryUtils.cxx
-    MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx PlanarPartitioner.cxx
-    PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
-    SVTKDataAdaptor.cxx SVTKUtils.cxx XMLUtils.cxx)
+    ConfigurablePartitioner.cxx DataAdaptor.cxx DataBinning.cxx
+    DataRequirements.cxx Error.cxx Histogram.cxx HistogramInternals.cxx
+    InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
+    IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx
+    MemoryUtils.cxx MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx
+    ParticleDensity.cxx PlanarPartitioner.cxx PlanarSlicePartitioner.cxx
+    Profiler.cxx ProgrammableDataAdaptor.cxx SVTKDataAdaptor.cxx SVTKUtils.cxx
+    XMLUtils.cxx)
 
   set(senseiCore_libs pugixml thread sDIY sSVTK sMPI hamr)
 
@@ -89,7 +91,8 @@ if (SENSEI_ENABLE_ADIOS2)
   set(senseiCore_cuda_sources)
   if (SENSEI_ENABLE_CUDA)
     list(APPEND senseiCore_cuda_sources CUDAUtils.cxx MemoryUtils.cxx
-      HistogramInternals.cxx ParticleDensity.cxx)
+      DataBinning.cxx HistogramInternals.cxx ParticleDensity.cxx
+      SVTKUtils.cxx)
   endif()
 
   if (SENSEI_ENABLE_OPENMP)

@@ -21,6 +21,7 @@
 #include "Autocorrelation.h"
 #include "Histogram.h"
 #include "ParticleDensity.h"
+#include "DataBinning.h"
 #ifdef SENSEI_ENABLE_VTK_IO
 #include "VTKPosthocIO.h"
 #ifdef SENSEI_ENABLE_VTK_MPI
@@ -99,6 +100,7 @@ struct ConfigurableAnalysis::InternalsType
   // by rank 0
   int AddHistogram(pugi::xml_node node);
   int AddParticleDensity(pugi::xml_node node);
+  int AddDataBinning(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
@@ -208,6 +210,27 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
     << " bins on " << assocStr << " data array \"" << array
     << "\" on mesh \"" << mesh << "\" writing output to "
     << (fileName.empty() ? "cout" : "file"))
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddDataBinning(pugi::xml_node node)
+{
+  auto dataBin = svtkSmartPointer<DataBinning>::New();
+
+  if (this->Comm != MPI_COMM_NULL)
+    dataBin->SetCommunicator(this->Comm);
+
+  if (this->TimeInitialization(dataBin, [&]() {
+      return dataBin->Initialize(node);
+      }))
+  {
+    SENSEI_ERROR("Failed to initialize DataBinning")
+    return -1;
+  }
+
+  this->Analyses.push_back(dataBin.GetPointer());
 
   return 0;
 }
@@ -1524,6 +1547,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
     std::string type = node.attribute("type").value();
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
       || ((type == "ParticleDensity") && !this->Internals->AddParticleDensity(node))
+      || ((type == "DataBinning") && !this->Internals->AddDataBinning(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "adios2") && !this->Internals->AddAdios2(node))
