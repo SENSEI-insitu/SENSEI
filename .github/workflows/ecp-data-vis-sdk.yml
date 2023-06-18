@@ -13,7 +13,7 @@ jobs:
       CMAKE_CONFIGURATION: ubuntu_ecp_catalyst
       LAUNCHER: /sensei/bin/launch-env.sh
     container:
-      image: ghcr.io/sensei-insitu/ci-ecp@sha256:021fa976435bee980bcb90a0f1b206980c588040d0da4090e479c757f597bb29
+      image: ghcr.io/sensei-insitu/ci-ecp@sha256:ebbcd00f491ec8cd007d3fca8f43906d798bf3122cc60bc0bd9189788d8d5b41
     steps:
     - uses: actions/checkout@v3
     - name: Initialize ccache
