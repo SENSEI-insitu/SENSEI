@@ -5,11 +5,15 @@ set -xe
 export DEBIAN_FRONTEND="noninteractive"
 apt-get update -y
 apt-get install -y file git curl \
-  make gcc g++ gfortran \
+  build-essential software-properties-common \
   tar xz-utils bzip2 gzip unzip \
   python3 python3-pip ccache \
   patch patchelf libtool \
   vim
+
+add-apt-repository ppa:ubuntu-toolchain-r/test -y
+apt-get update -y
+apt-get install -y gcc-11 g++-11 gfortran-11
 
 # Install spack
 mkdir -p ${SPACK_ROOT}

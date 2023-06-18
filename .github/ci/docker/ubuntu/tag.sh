@@ -2,6 +2,7 @@
 
 source ${SPACK_ROOT}/share/spack/setup-env.sh
 
+# echo the compiler/os/arch string for the current environment
 spack env activate ${SENSEI_ENV}
 SPACK_LOCK=$(dirname $(spack config edit --print-file))/spack.lock
 cat ${SPACK_LOCK} | python3 -c \

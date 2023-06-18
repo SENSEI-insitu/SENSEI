@@ -24,7 +24,7 @@ tag_date=$(date +%Y%m%d)
 tag=$1-$tag_date
 
 base_container=ghcr.io/sensei-insitu/ci-ecp
-buildcache_container=ghcr.io/willdunklin/sensei-buildcache
+buildcache_container=ghcr.io/sensei-insitu/sensei-buildcache
 
 echo
 echo "Building container: $base_container:$tag"

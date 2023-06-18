@@ -11,8 +11,9 @@ echo "Using image: ${IMAGE}"
 echo
 
 tag=$(docker run -it --rm --volume "$(pwd):/sensei/cache" ${IMAGE} /sensei/bin/tag.sh | tr -d '\r')
-buildcache_container=ghcr.io/willdunklin/sensei-buildcache
+buildcache_container=ghcr.io/sensei-insitu/sensei-buildcache
 
+# append the buildcache to the prior version
 IMAGE_EXISTS=$(docker manifest inspect $buildcache_container:$tag | grep "layers")
 if [[ -n ${IMAGE_EXISTS} ]]; then
     echo "Found existing buildcache version: $tag"
@@ -28,7 +29,7 @@ else
     echo "Buildcache version $tag not found, using empty buildcache."
 fi
 
-# generate the buildcache
+# generate the buildcache from CI image
 docker run -it --rm --volume "$(pwd):/sensei/cache" ${IMAGE} \
     bin/launch-env.sh \
     spack buildcache create --force --allow-root --unsigned /sensei/cache/buildcache

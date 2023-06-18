@@ -10,12 +10,13 @@ spack:
     unify: true
   packages:
     paraview:
-      require: '@5.10.1 ~examples~qt+osmesa+shared+development_files use_vtkm=off
-        build_edition=catalyst_rendering'
+      require: '@5.11.1 ~examples~qt+catalyst+osmesa+shared+development_files use_vtkm=off build_edition=catalyst_rendering'
     mesa:
       require: ~glx~llvm
     openmpi:
       variants: ~static~vt
+    adios2:
+      require: '@2.8.3'
     all:
       require: target=x86_64
       providers:
