@@ -89,7 +89,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
     svtkDataObject* dobj = nullptr;
     if (dataAdaptor->GetMesh(meshName, false, dobj))
     {
-      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"")
+      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"");
         return -1;
     }
 
@@ -103,37 +103,22 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
         SENSEI_ERROR("Failed to add "
                      << SVTKUtils::GetAttributesName(assoc)
                      << " data array \"" << arrayName << "\" to mesh \""
-                     << meshName << "\"")
+                     << meshName << "\"");
           return -1;
       }
     }
 
-    if (dobj &&
-        std::string(meshName) != "oscillators" &&
-        std::string(meshName) != "ucdmesh" &&
-        std::string(meshName) != "particles" )
+    if (dobj && std::string(meshName) != "ucdmesh")
     {
       vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
       if (auto* mbds = vtkMultiBlockDataSet::SafeDownCast(vdobj))
       {
         for (auto node : vtk::Range(mbds))
         {
-          auto* dataset = vtkDataSet::SafeDownCast(node);
-          if (dataset)
-          {
-            std::cout << meshName
-                      << " type: " << dataset->GetClassName()
-                      << ", point arrays: "
-                      << dataset->GetPointData()->GetNumberOfArrays()
-                      << ", cell arrays: "
-                      << dataset->GetCellData()->GetNumberOfArrays()
-                      << std::endl;
-            auto channel = exec_params[std::string("catalyst/channels/") + meshName];
-            channel["type"].set("mesh");
-            auto mesh = channel["data"];
-            vtkDataObjectToConduit::FillConduitNode(dataset, mesh);
-          }
-          else
+          auto channel = exec_params[std::string("catalyst/channels/") + meshName];
+          channel["type"].set("mesh");
+          auto mesh = channel["data"];
+          if (! vtkDataObjectToConduit::FillConduitNode(node, mesh))
           {
             std::cout << "ingore: " << node->GetClassName() << std::endl;
           }
