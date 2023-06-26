@@ -16,3 +16,15 @@ mpirun -np 1 /path/to/oscillator -g 1 -t 0.01 -f oscillator_catalyst_steering.xm
 With the Oscillator miniapp running, ParaView should automatically detect a new Catalyst connection and add several items to the catalsyt server list in the `Pipeline Browser`. Clicking the icon next to `mesh` and `oscillator` will display the data to the 3D viewport, updating as the miniapp progresses.
 
 Click on the `Steering Parameters` item in the `Pipeline Browser`. The `Properties` panel will display several controls over each oscillator which can be modified, manipulating the oscillator parameters as the miniapp executes.
+
+## Catalyst2 style script with Catalyst1 integration
+```
+mpirun -np 1 <sensei_build_path>/bin/oscillator -p 100 -g 1 -t 0.01 -f oscillator_catalyst_steering2.xml ../../inputs/sample.osc
+```
+This run saves pngs in the datasets subdirectory. It does not work with ParaView live or with steering yet.
+
+## Catalyst2 integration
+```
+CATALYST_IMPLEMENTATION_PATHS=<paraview_install_path>/lib/catalyst/ CATALYST_IMPLEMENTATION_NAME=paraview mpirun -np 1 <sensei_build_path>/bin/oscillator -p 100 -g 1 -t 0.01 -f oscillator_catalyst2_steering2.xml ../../inputs/sample.osc
+```
+This run saves pngs in the datasets subdirectory. It does not work with ParaView live or with steering yet.
