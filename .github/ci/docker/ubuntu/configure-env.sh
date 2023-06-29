@@ -1,7 +1,7 @@
 #!/bin/bash
 . ${SPACK_ROOT}/share/spack/setup-env.sh
 
-SPACK_LMOD_ROOT=$(spack find --paths lmod | grep ^lmod@ | awk '{ print $2 }')
+SPACK_LMOD_ROOT=$(spack find --format {prefix} lmod)
 . ${SPACK_LMOD_ROOT}/lmod/lmod/init/bash
 
 if [[ -z ${SENSEI_ENV} ]]; then
@@ -19,4 +19,4 @@ spack env activate ${SENSEI_ENV}
 module use ${SPACK_ROOT}/share/spack/lmod/linux-ubuntu20.04-x86_64/Core
 module load openmpi ninja swig
 
-. ${SPACK_ROOT}/var/spack/environments/${SENSEI_ENV}/loads
+. /sensei/loads
