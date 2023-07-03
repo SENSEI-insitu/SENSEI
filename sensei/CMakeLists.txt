@@ -32,7 +32,7 @@ if (SENSEI_ENABLE_SENSEI)
   endif()
 
   if(ENABLE_CATALYST2)
-    list(APPEND senseiCore_sources Catalyst2AnalysisAdaptor.cxx)
+    list(APPEND senseiCore_sources Catalyst2AnalysisAdaptor.cxx svtkDataObjectToConduit.cxx)
     list(APPEND senseiCore_libs sCatalyst2)
   endif()
 

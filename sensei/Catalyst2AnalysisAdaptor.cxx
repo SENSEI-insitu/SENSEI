@@ -9,15 +9,13 @@
 #include <catalyst.h>
 #include <catalyst_conduit.hpp>
 
-#include <vtkCellData.h>
-#include <vtkConvertToPartitionedDataSetCollection.h>
-#include <vtkDataObject.h>
-#include <vtkDataObjectTreeRange.h>
-#include <vtkDataObjectToConduit.h>
-#include <vtkDataSet.h>
-#include <vtkMultiBlockDataSet.h>
-#include <vtkPointData.h>
-#include <vtkRange.h>
+#include <svtkDataObject.h>
+#include <svtkDataObjectTreeRange.h>
+#include <svtkDataObjectToConduit.h>
+#include <svtkDataSet.h>
+#include <svtkMultiBlockDataSet.h>
+#include <svtkPointData.h>
+#include <svtkRange.h>
 
 namespace sensei
 {
@@ -82,7 +80,6 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   // Conduit node to fill
   conduit_cpp::Node exec_params;
 
-  vtkNew<vtkConvertToPartitionedDataSetCollection> converter;
   for (auto meta : metadata)
   {
     const char* meshName = meta->MeshName.c_str();
@@ -110,15 +107,14 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 
     if (dobj && std::string(meshName) != "ucdmesh")
     {
-      vtkDataObject *vdobj = SVTKUtils::VTKObjectFactory::New(dobj);
-      if (auto* mbds = vtkMultiBlockDataSet::SafeDownCast(vdobj))
+      if (auto* mbds = svtkMultiBlockDataSet::SafeDownCast(dobj))
       {
-        for (auto node : vtk::Range(mbds))
+        for (auto node : svtk::Range(mbds))
         {
           auto channel = exec_params[std::string("catalyst/channels/") + meshName];
           channel["type"].set("mesh");
           auto mesh = channel["data"];
-          if (! vtkDataObjectToConduit::FillConduitNode(node, mesh))
+          if (! svtkDataObjectToConduit::FillConduitNode(node, mesh))
           {
             std::cout << "ingore: " << node->GetClassName() << std::endl;
           }
