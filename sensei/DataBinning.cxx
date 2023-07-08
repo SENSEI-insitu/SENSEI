@@ -1422,8 +1422,16 @@ void DataBin::Compute()
 
   // accumulate contributions from all ranks
   countDa->Synchronize();
-  MPI_Reduce(MPI_IN_PLACE, countDa->GetData(), xyRes,
-             MPI_UNSIGNED_LONG, MPI_SUM, 0, this->Comm);
+  if (this->Rank == 0)
+  {
+    MPI_Reduce(MPI_IN_PLACE, countDa->GetData(), xyRes,
+               MPI_UNSIGNED_LONG, MPI_SUM, 0, this->Comm);
+  }
+  else
+  {
+    MPI_Reduce(countDa->GetData(), nullptr, xyRes,
+               MPI_UNSIGNED_LONG, MPI_SUM, 0, this->Comm);
+  }
 
   for (int i = 0; i < nBinnedArrays; ++i)
   {
@@ -1447,8 +1455,17 @@ void DataBin::Compute()
 
       array->Synchronize();
 
-      MPI_Reduce(MPI_IN_PLACE, array->GetData(),
-                 xyRes, redType, redOp, 0, this->Comm);
+      if (this->Rank == 0)
+      {
+        MPI_Reduce(MPI_IN_PLACE, array->GetData(),
+                   xyRes, redType, redOp, 0, this->Comm);
+      }
+      else
+      {
+        MPI_Reduce(array->GetData(), nullptr,
+                   xyRes, redType, redOp, 0, this->Comm);
+      }
+
     );}
   }
 

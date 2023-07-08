@@ -186,7 +186,13 @@ protected:
 
 int main(int argc, char **argv)
 {
-  MPI_Init(&argc, &argv);
+  int threadLevel;
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &threadLevel);
+  if (threadLevel != MPI_THREAD_MULTIPLE)
+  {
+    std::cerr << "ERROR: MPI_THREAD_MULTIPLE is required for this program" << std::endl;
+    return -1;
+  }
 
   if (argc < 7)
   {
