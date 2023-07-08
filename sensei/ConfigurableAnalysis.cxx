@@ -82,9 +82,12 @@ using namespace STLUtils; // for operator<< overloads
 struct ConfigurableAnalysis::InternalsType
 {
   InternalsType()
-    : Comm(MPI_COMM_NULL)
+    : Comm(MPI_COMM_NULL), Verbose(0), Asynchronous(0), DeviceId(-1)
   {
   }
+
+  // Parse common attributes and set them on the passed adaptor
+  int SetCommonAttributes(sensei::AnalysisAdaptor *adaptor, pugi::xml_node node);
 
   // Initializes the adaptor by calling the initializer functor,
   // optionally timing how long initialization takes.
@@ -139,9 +142,30 @@ public:
   // doesn't set a communicator correct behavior is insured
   // and superfluous Comm_dup's are avoided.
   MPI_Comm Comm;
+  int Verbose;
+  int Asynchronous;
+  int DeviceId;
 
   std::vector<std::string> LogEventNames;
 };
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::SetCommonAttributes(
+  sensei::AnalysisAdaptor *adaptor, pugi::xml_node node)
+{
+  int verbose = node.attribute("verbose").as_int(this->Verbose);
+  int async = node.attribute("async").as_int(this->Asynchronous);
+  int device = node.attribute("device_id").as_int(this->DeviceId);
+
+  if (this->Comm != MPI_COMM_NULL)
+    adaptor->SetCommunicator(this->Comm);
+
+  adaptor->SetVerbose(verbose);
+  adaptor->SetAsynchronous(async);
+  adaptor->SetDeviceId(device);
+
+  return 0;
+}
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::TimeInitialization(
@@ -196,9 +220,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
   std::string fileName = node.attribute("file").value();
 
   auto histogram = svtkSmartPointer<Histogram>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    histogram->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(histogram.Get(), node);
 
   this->TimeInitialization(histogram, [&]() {
       histogram->Initialize(bins, mesh, association, array, fileName);
@@ -218,9 +240,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 int ConfigurableAnalysis::InternalsType::AddDataBinning(pugi::xml_node node)
 {
   auto dataBin = svtkSmartPointer<DataBinning>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    dataBin->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(dataBin.Get(), node);
 
   if (this->TimeInitialization(dataBin, [&]() {
       return dataBin->Initialize(node);
@@ -258,9 +278,7 @@ int ConfigurableAnalysis::InternalsType::AddParticleDensity(pugi::xml_node node)
   int ret = node.attribute("ret").as_int(0);
 
   auto pden = svtkSmartPointer<ParticleDensity>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    pden->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(pden.Get(), node);
 
   this->TimeInitialization(pden, [&]() {
       pden->Initialize(mesh, xpos, ypos, zpos, mass, proj, xres, yres, odir, ret);
@@ -296,9 +314,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   bool writeOutput = node.attribute("write_output").as_bool(false);
 
   auto contour = svtkSmartPointer<VTKmContourAnalysis>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    contour->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(contour.Get(), node);
 
   this->TimeInitialization(contour, [&]() {
     contour->Initialize(mesh.value(), array.value(), value, writeOutput);
@@ -396,9 +412,7 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
   return( -1 );
 #else
   svtkNew<AscentAnalysisAdaptor> ascent;
-
-  if (this->Comm != MPI_COMM_NULL)
-    ascent->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(ascent.Get(), node);
 
   // get the data requirements for this run
   DataRequirements req;
@@ -453,9 +467,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
   return -1;
 #else
   auto adios = svtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adios->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adios.Get(), node);
 
   pugi::xml_attribute filename = node.attribute("filename");
   if (filename)
@@ -497,9 +509,7 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
   return -1;
 #else
   auto adiosAdaptor = svtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adiosAdaptor->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adiosAdaptor.Get(), node);
 
   if (adiosAdaptor->Initialize(node))
     {
@@ -526,9 +536,7 @@ int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
   return -1;
 #else
   auto dataE = svtkSmartPointer<HDF5AnalysisAdaptor>::New();
-
-  if(this->Comm != MPI_COMM_NULL)
-    dataE->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(dataE.Get(), node);
 
   pugi::xml_attribute filename = node.attribute("filename");
   pugi::xml_attribute methodAttr = node.attribute("method");
@@ -581,9 +589,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
   if (!this->CatalystAdaptor)
     {
     this->CatalystAdaptor = svtkSmartPointer<CatalystAnalysisAdaptor>::New();
-
-    if (this->Comm != MPI_COMM_NULL)
-      this->CatalystAdaptor->SetCommunicator(this->Comm);
+    this->SetCommonAttributes(this->CatalystAdaptor.Get(), node);
 
     this->TimeInitialization(this->CatalystAdaptor);
     this->Analyses.push_back(this->CatalystAdaptor);
@@ -767,9 +773,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   if (!this->LibsimAdaptor)
     {
     this->LibsimAdaptor = svtkSmartPointer<LibsimAnalysisAdaptor>::New();
-
-    if (this->Comm != MPI_COMM_NULL)
-      this->LibsimAdaptor->SetCommunicator(this->Comm);
+    this->SetCommonAttributes(this->LibsimAdaptor.Get(), node);
 
     if(node.attribute("trace"))
       this->LibsimAdaptor->SetTraceFile(node.attribute("trace").value());
@@ -916,9 +920,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
   int numThreads = node.attribute("n-threads").as_int(1);
 
   auto adaptor = svtkSmartPointer<Autocorrelation>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adaptor->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adaptor.Get(), node);
 
   this->TimeInitialization(adaptor, [&]() {
     adaptor->Initialize(window, meshName, assoc, arrayName, kMax);
@@ -955,17 +957,14 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   std::string mode = node.attribute("mode").as_string("visit");
   std::string writer = node.attribute("writer").as_string("xml");
   std::string ghostArrayName = node.attribute("ghost_array_name").as_string("");
-  int verbose = node.attribute("verbose").as_int(0);
   unsigned int frequency = node.attribute("frequency").as_uint(0);
 
   auto adaptor = svtkSmartPointer<VTKPosthocIO>::New();
+  this->SetCommonAttributes(adaptor.Get(), node);
 
-  if (this->Comm != MPI_COMM_NULL)
-    adaptor->SetCommunicator(this->Comm);
+  adaptor->SetFrequency(frequency);
 
   adaptor->SetGhostArrayName(ghostArrayName);
-  adaptor->SetVerbose(verbose);
-  adaptor->SetFrequency(frequency);
 
   if (adaptor->SetOutputDir(outputDir) || adaptor->SetMode(mode) ||
     adaptor->SetWriter(writer) || adaptor->SetDataRequirements(req))
@@ -1226,9 +1225,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
   std::string mode = node.attribute("mode").as_string("visit");
 
   auto adapter = svtkSmartPointer<VTKAmrWriter>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adapter->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adapter.Get(), node);
 
   if (adapter->SetOutputDir(outputDir) || adapter->SetMode(mode) ||
     adapter->SetDataRequirements(req) ||
@@ -1271,9 +1268,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
     initSource = inode.text().as_string();
 
   auto pyAnalysis = svtkSmartPointer<PythonAnalysis>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    pyAnalysis->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(pyAnalysis.Get(), node);
 
   pyAnalysis->SetScriptFile(scriptFile);
   pyAnalysis->SetScriptModule(scriptModule);
@@ -1313,9 +1308,7 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 
   // initialize the slice extract
   auto adaptor = svtkSmartPointer<SliceExtract>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adaptor->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adaptor.Get(), node);
 
   // parse data requirements
   DataRequirements req;
@@ -1457,9 +1450,7 @@ int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
   std::string result = node.attribute("result").value();
 
   auto calculator = svtkSmartPointer<Calculator>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    calculator->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(calculator.Get(), node);
 
   this->TimeInitialization(calculator, [&]() {
       calculator->Initialize(mesh, association, expression, result);
@@ -1509,6 +1500,44 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
   return 0;
 }
 
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetVerbose(int val)
+{
+  this->AnalysisAdaptor::SetVerbose(val);
+
+  this->Internals->Verbose = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetVerbose(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetAsynchronous(int val)
+{
+  this->AnalysisAdaptor::SetAsynchronous(val);
+
+  this->Internals->Asynchronous = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetAsynchronous(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDeviceId(int val)
+{
+  this->AnalysisAdaptor::SetDeviceId(val);
+
+  this->Internals->DeviceId = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDeviceId(val);
+}
 
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)

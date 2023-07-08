@@ -4,7 +4,7 @@ namespace sensei
 {
 
 //----------------------------------------------------------------------------
-AnalysisAdaptor::AnalysisAdaptor() : Verbose(0)
+AnalysisAdaptor::AnalysisAdaptor() : Verbose(0), DeviceId(-1), Asynchronous(0)
 {
   MPI_Comm_dup(MPI_COMM_WORLD, &this->Comm);
 }

@@ -35,6 +35,22 @@ public:
   /// Get the level of verbosity of console output.
   virtual int GetVerbose(){ return this->Verbose; }
 
+  /** When set the analysis should buffer the simulation data and run in the
+   * background returning to the simulation immediately. This mode requires
+   * MPI_THREAD_MULTIPLE and each thread must use a different communictor
+   * or serialize the calls to MPI collectives.
+   */
+  virtual void SetAsynchronous(int val){ this->Asynchronous = val; }
+
+  /// Get asynchronous mode.
+  virtual int GetAsynchronous(){ return this->Asynchronous; }
+
+  /// Set the device that the analysis should run on.
+  virtual void SetDeviceId(int val){ this->DeviceId = val; }
+
+  /// Get the device that the analysis should run on.
+  virtual int GetDeviceId(){ return this->DeviceId; }
+
   /** Set the MPI communicator to be used by the adaptor.
    * The default communicator is a duplicate of MPI_COMMM_WORLD, giving
    * each adaptor a unique communication space. Users wishing to override
@@ -94,6 +110,8 @@ protected:
 
   MPI_Comm Comm;
   int Verbose;
+  int DeviceId;
+  int Asynchronous;
 };
 
 }

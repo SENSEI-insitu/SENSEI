@@ -29,6 +29,8 @@ namespace sensei
  * | sensei::VTKAmrWriter | Writes simulation data to disk in a SVTK format |
  * | sensei::PythonAnalysis | Invokes user provided Pythons scripts that process simulation data |
  * | sensei::SliceExtract | Computes planar slices and iso-surfaces on simulation data |
+ * | sensei::DataBinning | Bins point/particle data onto a cartesian grid with arbitrary axes |
+ * | sensei::ParticleDensity | Computes particle spatial density on a cartesian grid |
  *
  */
 class SENSEI_EXPORT ConfigurableAnalysis : public AnalysisAdaptor
@@ -49,6 +51,18 @@ public:
    * classes should use the communicator returned by GetCommunicator.
    */
   int SetCommunicator(MPI_Comm comm) override;
+
+  /// Set the level of verbosity of console output.
+  void SetVerbose(int val) override;
+
+  /** When set the analysis should buffer the simulation data and run in the
+   * background returning to the simulation immediately. This mode requires
+   * MPI_THREAD_MULTIPLE.
+   */
+  void SetAsynchronous(int val) override;
+
+  /// Set the device that the analysis should run on.
+  void SetDeviceId(int val) override;
 
   /// Initialize the adaptor using the configuration specified.
   int Initialize(const std::string &filename);
