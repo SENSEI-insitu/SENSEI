@@ -10,6 +10,7 @@
 #include "SVTKDataAdaptor.h"
 #include "Error.h"
 
+// lets the compiler find certain overloads
 using namespace sensei::STLUtils;
 
 #include <pugixml.hpp>
@@ -38,7 +39,17 @@ using namespace sensei::STLUtils;
 #include <vector>
 #include <sys/time.h>
 #include <chrono>
+
+// lets the compiler find the time literals
 using namespace std::chrono_literals;
+
+// MPICH claims to be thread safe but without explicit locking reductions
+// output garbage on MPICH 4.0.2 Fedora 37
+#if !defined(THREAD_SAFE_MPI)
+#include <mutex>
+std::mutex g_mpi_mutex;
+using lock_t = std::lock_guard<std::mutex>;
+#endif
 
 namespace
 {
@@ -1422,6 +1433,11 @@ void DataBin::Compute()
 
   // accumulate contributions from all ranks
   countDa->Synchronize();
+
+#if !defined(THREAD_SAFE_MPI)
+  {
+  lock_t lock(g_mpi_mutex);
+#endif
   if (this->Rank == 0)
   {
     MPI_Reduce(MPI_IN_PLACE, countDa->GetData(), xyRes,
@@ -1468,6 +1484,9 @@ void DataBin::Compute()
 
     );}
   }
+#if !defined(THREAD_SAFE_MPI)
+  }
+#endif
 
   // finalize the calculation, and write the results on rank 0
   if (this->Rank == 0)
