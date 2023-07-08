@@ -36,6 +36,12 @@ public:
 
   static ParticleSource *New(long n, double bds) { return new ParticleSource(n, bds); }
 
+  void Increment()
+  {
+    this->SetDataTimeStep(this->GetDataTimeStep() + 1);
+    this->SetDataTime(this->GetDataTime() + 1.);
+  }
+
   int GetNumberOfMeshes(unsigned int &n) override { n = 1; return 0; }
 
   int GetMeshMetadata(unsigned int, sensei::MeshMetadataPtr &md) override
@@ -86,63 +92,94 @@ public:
     auto mbds = dynamic_cast<svtkMultiBlockDataSet*>(mesh);
     auto blk = dynamic_cast<svtkTable*>(mbds->GetBlock(rank));
 
-    svtkStream strm;
-    auto alloc = svtkAllocator::malloc;
-#if defined(SENSEI_ENABLE_CUDA)
-    alloc = svtkAllocator::cuda_host;
-    strm = this->Stream[this->StreamId % 3];
-    ++this->StreamId;
-#endif
-
-    svtkHAMRDoubleArray *arr;
     if (arrayName == "mass")
     {
-      arr = svtkHAMRDoubleArray::New(arrayName, this->NPart,
-              1, alloc, strm, svtkStreamMode::async, 1.);
+      blk->AddColumn(this->Mass);
+    }
+    else if (arrayName == "xpos")
+    {
+      blk->AddColumn(this->XPos);
+    }
+    else if (arrayName == "ypos")
+    {
+      blk->AddColumn(this->YPos);
+    }
+    else if (arrayName == "zpos")
+    {
+      blk->AddColumn(this->ZPos);
     }
     else
     {
-      arr = svtkHAMRDoubleArray::New(arrayName, this->NPart,
-              1, alloc, strm, svtkStreamMode::async);
-
-      genCoords(0, this->NPart, arr->GetData(), this->Bds/2.);
+        SENSEI_ERROR("No array named \"" << arrayName << "\"")
+        return -1;
     }
-
-    blk->AddColumn(arr);
-    arr->Delete();
 
     return 0;
   }
 
-  ~ParticleSource()
-#if defined(SENSEI_ENABLE_CUDA)
+  void GenerateData()
   {
-    for (int i = 0; i < 3; ++i)
-      cudaStreamDestroy(this->Stream[i]);
-  }
-#else
-  {}
+    auto alloc = svtkAllocator::malloc;
+#if defined(SENSEI_ENABLE_CUDA)
+    alloc = svtkAllocator::cuda_host;
+    cudaSetDevice(0);
 #endif
 
-protected:
-  ParticleSource(long nPart, double bds) : NPart(nPart), Bds(bds)
-#if defined(SENSEI_ENABLE_CUDA)
-  , Stream{}, StreamId(0)
-  {
-    for (int i = 0; i < 3; ++i)
-      cudaStreamCreate(&(this->Stream[i]));
+    auto xpos = svtkHAMRDoubleArray::New("xpos", this->NPart,
+             1, alloc, this->Stream[0], svtkStreamMode::async, 1.);
+    genCoords(0, this->NPart, xpos->GetData(), this->Bds/2.);
+    this->XPos = xpos;
+
+    auto ypos = svtkHAMRDoubleArray::New("ypos", this->NPart,
+             1, alloc, this->Stream[0], svtkStreamMode::async, 1.);
+    genCoords(0, this->NPart, ypos->GetData(), this->Bds/2.);
+    this->YPos = ypos;
+
+    auto zpos = svtkHAMRDoubleArray::New("zpos", this->NPart,
+             1, alloc, this->Stream[0], svtkStreamMode::async, 1.);
+    genCoords(0, this->NPart, zpos->GetData(), this->Bds/2.);
+    this->ZPos = zpos;
+
+    this->Mass = svtkHAMRDoubleArray::New("mass", this->NPart,
+                   1, alloc, this->Stream[3], svtkStreamMode::async, 1.);
   }
-#else
-  {}
+
+  ~ParticleSource()
+  {
+    if (this->XPos) this->XPos->Delete();
+    if (this->YPos) this->YPos->Delete();
+    if (this->ZPos) this->ZPos->Delete();
+    if (this->Mass) this->Mass->Delete();
+
+#if defined(SENSEI_ENABLE_CUDA)
+    for (int i = 0; i < 4; ++i)
+      cudaStreamDestroy(this->Stream[i]);
 #endif
+  }
+
+protected:
+  ParticleSource(long nPart, double bds) : NPart(nPart), Bds(bds),
+    XPos(nullptr), YPos(nullptr), ZPos(nullptr), Mass(nullptr)
+  {
+#if defined(SENSEI_ENABLE_CUDA)
+    for (int i = 0; i < 4; ++i)
+    {
+      cudaStream_t strm;
+      cudaStreamCreate(&strm);
+      this->Stream[i] = strm;
+    }
+#endif
+  }
 
   long NPart; ///< total number of particles on all ranks
   double Bds; ///< data is defined on a cube +/- Bds in all directions
-#if defined(SENSEI_ENABLE_CUDA)
-  unsigned StreamId;
-  cudaStream_t Stream[3];
-#endif
 
+  svtkStream Stream[4];
+
+  svtkDataArray *XPos; ///< particle position
+  svtkDataArray *YPos;
+  svtkDataArray *ZPos;
+  svtkDataArray *Mass; ///< particle mass
 };
 
 
@@ -151,20 +188,23 @@ int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
 
-  if (argc < 4)
+  if (argc < 7)
   {
-    std::cerr << "testDataBinning [np] [x/y res] [odir] [op 1] ... [op n]" << std::endl;
+    std::cerr << "testDataBinning [nit] [np] [x/y res] [odir] [dev] [async] [op 1] ... [op n]" << std::endl;
     return -1;
   }
 
-  long np = atoi(argv[1]);
-  long res = atoi(argv[2]);
-  const char *odir = argv[3];
+  long nit = atoi(argv[1]);
+  long np = atoi(argv[2]);
+  long res = atoi(argv[3]);
+  const char *odir = argv[4];
+  int device = atoi(argv[5]);
+  int async = atoi(argv[6]);
 
   std::vector<std::string> array;
   std::vector<std::string> op;
 
-  for (int i = 4; i < argc; ++i)
+  for (int i = 7; i < argc; ++i)
   {
     array.push_back("mass");
     op.push_back(argv[i]);
@@ -172,12 +212,20 @@ int main(int argc, char **argv)
 
   // generate some particle data
   auto da = ParticleSource::New(np, 10.);
+  da->GenerateData();
 
   // process
   auto aa = sensei::DataBinning::New();
   aa->Initialize("particles","xpos","ypos",array,op,res,res,odir,0);
+  aa->SetDeviceId(device);
+  aa->SetAsynchronous(async);
+  aa->SetVerbose(1);
 
-  aa->Execute(da, nullptr);
+  for (long i = 0; i < nit; ++i)
+  {
+    aa->Execute(da, nullptr);
+    da->Increment();
+  }
 
   aa->Finalize();
 

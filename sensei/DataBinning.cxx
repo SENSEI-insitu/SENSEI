@@ -37,6 +37,8 @@ using namespace sensei::STLUtils;
 #include <algorithm>
 #include <vector>
 #include <sys/time.h>
+#include <chrono>
+using namespace std::chrono_literals;
 
 namespace
 {
@@ -486,14 +488,14 @@ struct SumOp {
 template <typename T>
 struct MinOp {
   static constexpr T initial_value() { return std::numeric_limits<T>::max(); }
-  void operator()(T &dest, const T & src) const { std::min(dest, src); }
+  void operator()(T &dest, const T & src) const { dest = std::min(dest, src); }
 };
 
 /// update the max
 template <typename T>
 struct MaxOp {
   static constexpr T initial_value() { return std::numeric_limits<T>::lowest(); }
-  void operator()(T &dest, const T & src) const { std::max(dest, src); }
+  void operator()(T &dest, const T & src) const { dest = std::max(dest, src); }
 };
 
 // given a string naming the operation get the initial value
@@ -647,7 +649,7 @@ senseiNewMacro(DataBinning);
 //-----------------------------------------------------------------------------
 DataBinning::DataBinning() : XRes(128), YRes(128), OutDir("./"),
   Iteration(0), AxisFactor(0.1), MeshName(), XAxisArray(), YAxisArray(),
-  BinnedArray(), Operation(), ReturnData(0)
+  BinnedArray(), Operation(), ReturnData(0), MaxPending(8)
 {
 }
 
@@ -707,7 +709,7 @@ int DataBinning::Initialize(pugi::xml_node node)
   std::string oDir = node.attribute("out_dir").as_string("./");
   int xRes = node.attribute("x_res").as_int(128);
   int yRes = node.attribute("y_res").as_int(-1);
-  int retDat = node.attribute("return_data").as_int(0);
+  int retData = node.attribute("return_data").as_int(0);
 
   // get arrays to bin
   std::vector<std::string> arrays;
@@ -718,7 +720,7 @@ int DataBinning::Initialize(pugi::xml_node node)
   XMLUtils::ParseList(node.child("operations"), ops);
 
   return this->Initialize(mesh, xAxis, yAxis, arrays, ops,
-                          xRes, yRes, oDir, retDat);
+                          xRes, yRes, oDir, retData);
 }
 
 //-----------------------------------------------------------------------------
@@ -772,23 +774,112 @@ int DataBinning::Initialize(const std::string &meshName,
   return 0;
 }
 
-//-----------------------------------------------------------------------------
-bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
+
+/// functor for computing the data binning in the back ground
+struct DataBin
 {
-  TimeEvent<128> mark("DataBinning::Execute");
+  ~DataBin() {}
 
-  int rank = 0;
-  int n_ranks = 1;
-  MPI_Comm comm = this->GetCommunicator();
-  MPI_Comm_rank(comm, &rank);
-  MPI_Comm_size(comm, &n_ranks);
+  DataBin() :
+    XRes{}, YRes{}, OutDir{}, Iteration{}, MeshName{}, XAxisArray{},
+    YAxisArray{}, BinnedArray{}, Operation{}, ReturnData{}, Rank{},
+    NRanks{}, DeviceId{}, Asynchronous{}, Verbose{}, Alloc{}, SMode{},
+    NStream{}, CalcStr{}, Mmd{}, ArrayMmdId{}, Mesh{}, MeshOut{},
+    Step{}, Time{}, Error{}
+ {}
 
-  timeval startTime{};
-  if (rank == 0)
-    gettimeofday(&startTime, nullptr);
+ DataBin(const DataBin &) = delete;
+ void operator=(const DataBin &) = delete;
+ DataBin(const DataBin &&) = delete;
+ void operator=(const DataBin &&) = delete;
 
-  if (dataOut)
-    *dataOut = nullptr;
+  int Initialize(const std::string &meshName,
+    const std::string &xAxisArray, const std::string &yAxisArray,
+    const std::vector<std::string> &binnedArray, const std::vector<int> &operation,
+    long xres, long yres, const std::string &outDir, int returnData, MPI_Comm
+    comm, int rank, int nRanks, int deviceId, int async, unsigned long iteration,
+   int verbose, sensei::DataAdaptor *daIn);
+
+  void Compute();
+
+
+  long XRes;
+  long YRes;
+  std::string OutDir;
+  unsigned long Iteration;
+  std::string MeshName;
+  std::string XAxisArray;
+  std::string YAxisArray;
+  std::vector<std::string> BinnedArray;
+  std::vector<int> Operation;
+  int ReturnData;
+
+  MPI_Comm Comm;
+  int Rank;
+  int NRanks;
+  int DeviceId;
+  int Asynchronous;
+  int Verbose;
+  svtkAllocator Alloc;
+  svtkStreamMode SMode;
+  int NStream;
+  std::vector<svtkStream> CalcStr;
+  MeshMetadataPtr Mmd;
+  std::map<std::string, int> ArrayMmdId;
+  svtkCompositeDataSetPtr Mesh;
+  svtkCompositeDataSetPtr MeshOut;
+  long Step;
+  double Time;
+  int Error;
+};
+
+int DataBin::Initialize(const std::string &meshName,
+  const std::string &xAxisArray, const std::string &yAxisArray,
+  const std::vector<std::string> &binnedArray, const std::vector<int> &operation,
+  long xres, long yres, const std::string &outDir, int returnData, MPI_Comm comm,
+  int rank, int nRanks, int deviceId, int async, unsigned long iteration, int verbose,
+  sensei::DataAdaptor *daIn)
+{
+  this->MeshName = meshName;
+  this->XAxisArray = xAxisArray;
+  this->YAxisArray = yAxisArray;
+  this->BinnedArray = binnedArray;
+  this->Operation = operation;
+  this->XRes = xres;
+  this->YRes = yres;
+  this->OutDir = outDir;
+  this->ReturnData = returnData;
+  this->Comm = comm;
+  this->Rank = rank;
+  this->NRanks = nRanks;
+  this->DeviceId = deviceId;
+  this->Asynchronous = async;
+  this->Iteration = iteration;
+  this->Verbose = verbose;
+  this->Error = 0;
+
+  // determine the allocator and stream to use
+  this->Alloc = svtkAllocator::malloc;
+  this->SMode = svtkStreamMode::async;
+  this->NStream = 4;
+  this->CalcStr.resize(this->NStream);
+#if defined(SENSEI_ENABLE_CUDA)
+  // if we are assigned to a specific GPU make it active and use a GPU
+  // allocator
+  if (this->DeviceId >= 0)
+  {
+    this->Alloc = svtkAllocator::cuda;
+    cudaSetDevice(this->DeviceId);
+
+    // allocate some streams for data movement and computation
+    for (int i = 0; i < this->NStream; ++i)
+    {
+      cudaStream_t strm;
+      cudaStreamCreate(&strm);
+      this->CalcStr[i] = strm;
+    }
+  }
+#endif
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;
@@ -799,87 +890,260 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
   if (mdMap.Initialize(daIn, mdFlags))
   {
     SENSEI_ERROR("Failed to get metadata")
-    MPI_Abort(comm, -1);
-    return false;
+    return -1;
   }
 
-  // get the mesh metadata object
-  MeshMetadataPtr mmd;
-  if (mdMap.GetMeshMetadata(this->MeshName, mmd))
+  // get the this->Mesh metadata object
+  if (mdMap.GetMeshMetadata(this->MeshName, this->Mmd))
   {
-    SENSEI_ERROR("Failed to get metadata for mesh \"" << this->MeshName << "\"")
-    MPI_Abort(comm, -1);
-    return false;
+    SENSEI_ERROR("Failed to get metadata for this->Mesh \"" << this->MeshName << "\"")
+    return -1;
   }
 
   // get the global coordinate axis bounds from the metadata
-  if (!mmd->GlobalView)
-      mmd->GlobalizeView(comm);
+  if (!this->Mmd->GlobalView)
+      this->Mmd->GlobalizeView(this->Comm);
 
   // build a mapping from array name to its metadata
-  std::map<std::string, int> arrayMmdId;
-  for (int i = 0; i < mmd->NumArrays; ++i)
-    arrayMmdId[mmd->ArrayName[i]] = i;
+  for (int i = 0; i < this->Mmd->NumArrays; ++i)
+    this->ArrayMmdId[this->Mmd->ArrayName[i]] = i;
 
   // check the coordinate axis arrays have metadata
-  if (!arrayMmdId.count(this->XAxisArray) || !arrayMmdId.count(this->YAxisArray))
+  if (!this->ArrayMmdId.count(this->XAxisArray) || !this->ArrayMmdId.count(this->YAxisArray))
   {
     SENSEI_ERROR("Failed to get metadata for coordinate arrays \""
       << this->XAxisArray << "\", \"" << this->YAxisArray << "\"")
-    MPI_Abort(comm, -1);
-    return false;
+    return -1;
   }
 
   // check that the binned arrays have metadata
   int nBinnedArrays = this->BinnedArray.size();
   for (int i = 0; i < nBinnedArrays; ++i)
   {
-    if (!arrayMmdId.count(this->BinnedArray[i]))
+    if (!this->ArrayMmdId.count(this->BinnedArray[i]))
     {
       SENSEI_ERROR("Failed to get metadata for binned array \""
         << this->BinnedArray[i] << "\"")
-      MPI_Abort(comm, -1);
-      return false;
+      return -1;
     }
   }
 
-  int xAxisArrayId = arrayMmdId[this->XAxisArray];
-  int yAxisArrayId = arrayMmdId[this->YAxisArray];
+  int xAxisArrayId = this->ArrayMmdId[this->XAxisArray];
+  int yAxisArrayId = this->ArrayMmdId[this->YAxisArray];
 
   // check that the coordinate arrays are not multi-component. supporting
   // multi-component data is something that could be added later if needed
-  int xAxisArrayComps = mmd->ArrayComponents[xAxisArrayId];
-  int yAxisArrayComps = mmd->ArrayComponents[yAxisArrayId];
+  int xAxisArrayComps = this->Mmd->ArrayComponents[xAxisArrayId];
+  int yAxisArrayComps = this->Mmd->ArrayComponents[yAxisArrayId];
   if ((xAxisArrayComps != 1) || (yAxisArrayComps != 1))
   {
     SENSEI_ERROR("Coordinate axes are required to have only one component "
       "but the x cooridnate has " << xAxisArrayComps << " and the y coordinate "
       "has " << yAxisArrayComps << " components.")
-    MPI_Abort(comm, -1);
-    return false;
+    return -1;
   }
 
   // check that the coordinates have the same type
-  int xAxisArrayType = mmd->ArrayType[xAxisArrayId];
-  int yAxisArrayType = mmd->ArrayType[yAxisArrayId];
+  int xAxisArrayType = this->Mmd->ArrayType[xAxisArrayId];
+  int yAxisArrayType = this->Mmd->ArrayType[yAxisArrayId];
   if (xAxisArrayType != yAxisArrayType)
   {
     SENSEI_ERROR("Coordinate arrays do not have the same data type.")
-    MPI_Abort(comm, -1);
-    return false;
+    return -1;
   }
 
   // check that arrays are floating point
   if ((xAxisArrayType != SVTK_DOUBLE) && (xAxisArrayType != SVTK_FLOAT))
   {
     SENSEI_ERROR("Coordinate arrays are required to be floating point")
-    MPI_Abort(comm, -1);
-    return false;
+    return -1;
   }
 
+  // fetch the this->Mesh object from the simulation
+  svtkDataObject *dobj = nullptr;
+  if (daIn->GetMesh(this->MeshName, true, dobj))
+  {
+    SENSEI_ERROR("Failed to get this->Mesh \"" << this->MeshName << "\"")
+    return -1;
+  }
+
+  if (!dobj)
+  {
+    SENSEI_ERROR("DataBinning requires all ranks to have data")
+    return -1;
+  }
+
+  // get the current this->Time and this->Step
+  this->Step = daIn->GetDataTimeStep();
+  this->Time = daIn->GetDataTime();
+
+  // fetch the cooridnate axes from the simulation
+  int xAxisArrayCen = this->Mmd->ArrayCentering[xAxisArrayId];
+  int yAxisArrayCen = this->Mmd->ArrayCentering[yAxisArrayId];
+  if (daIn->AddArray(dobj, this->MeshName, xAxisArrayCen, this->XAxisArray) ||
+    daIn->AddArray(dobj, this->MeshName, yAxisArrayCen, this->YAxisArray))
+  {
+    SENSEI_ERROR(<< daIn->GetClassName()
+      << " failed to fetch the coordinate axis arrays \""
+      << this->XAxisArray << "\", \"" << this->YAxisArray << "\"" )
+    return -1;
+  }
+
+  // fetch the arrays to bin from the simulation
+  for (int i = 0; i < nBinnedArrays; ++i)
+  {
+    const std::string &arrayName = this->BinnedArray[i];
+
+    int arrayId = this->ArrayMmdId[arrayName];
+    int arrayComp = this->Mmd->ArrayComponents[arrayId];
+    int arrayCen = this->Mmd->ArrayCentering[arrayId];
+    int arrayType = this->Mmd->ArrayType[arrayId];
+
+    // check that arrays are floating point
+    if ((arrayType != SVTK_DOUBLE) && (arrayType != SVTK_FLOAT))
+    {
+      SENSEI_ERROR("Binned arrays are required to be floating point")
+      return -1;
+    }
+
+    // check that the binned arrays are not multi-component. supporting
+    // multi-component data is something that could be added if needed
+    if ((arrayComp != 1))
+    {
+      SENSEI_ERROR("Binned arrays are required to have only one component. \""
+        << arrayName << "\" has " << arrayComp << " components")
+      return -1;
+    }
+
+    // fetch the data from the simulation
+    if (daIn->AddArray(dobj, this->MeshName, arrayCen, arrayName))
+    {
+      SENSEI_ERROR(<< daIn->GetClassName()
+        << " failed to fetch the " << i << "th array to bin  \""
+        << this->BinnedArray[i] << "\"")
+      return -1;
+    }
+  }
+
+  // work with composite data from here on out
+  this->Mesh = SVTKUtils::AsCompositeData(this->Comm, dobj, true);
+
+  // if we are running asynchronously or any of the arrays are not HAMR data
+  // arrays make a deep copy
+  svtkSmartPointer<svtkCompositeDataIterator> iter;
+  iter.TakeReference(this->Mesh->NewIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+  {
+    // get the next local block of data.
+    auto curObj = iter->GetCurrentDataObject();
+
+    // downcast to the block type. for simplicity of this example we require
+    // tabular data.
+    auto tab = dynamic_cast<svtkTable*>(curObj);
+    if (!tab)
+    {
+      SENSEI_ERROR("Unsupported dataset type "
+        << (curObj ? curObj->GetClassName() : "nullptr"))
+      return -1;
+    }
+
+    switch (xAxisArrayType)
+    {
+    svtkNestedTemplateMacroFloat(_COORDS,
+
+      using coord_array_t = svtkHAMRDataArray<SVTK_TT_COORDS>;
+
+      // get the x-coordinate arrays.
+      auto xCol = GetColumn(tab, this->XAxisArray);
+      if (!xCol)
+      {
+        SENSEI_ERROR("Failed to get column \"" << this->XAxisArray << "\" from table")
+        return -1;
+      }
+
+      // make the copy and update the this->Mesh data
+      if (async || !dynamic_cast<coord_array_t*>(xCol))
+      {
+        auto xCoord = coord_array_t::New(xCol, this->Alloc, this->CalcStr[1], this->SMode);
+        xCoord->Synchronize();
+        tab->RemoveColumnByName(this->XAxisArray.c_str());
+        tab->AddColumn(xCoord);
+        xCoord->Delete();
+      }
+
+      // get the y-coordinate arrays.
+      auto yCol = GetColumn(tab, this->YAxisArray);
+      if (!yCol)
+      {
+        SENSEI_ERROR("Failed to get column \"" << this->YAxisArray << "\" from table")
+        return -1;
+      }
+
+      // make the copy and update the this->Mesh data
+      if (async || !dynamic_cast<coord_array_t*>(yCol))
+      {
+        auto yCoord = coord_array_t::New(yCol, this->Alloc, this->CalcStr[2], this->SMode);
+        yCoord->Synchronize();
+        tab->RemoveColumnByName(this->YAxisArray.c_str());
+        tab->AddColumn(yCoord);
+        yCoord->Delete();
+      }
+
+      // process each array to bin
+      for (int i = 0; i < nBinnedArrays; ++i)
+      {
+        const std::string &arrayName = this->BinnedArray[i];
+        int arrayId = this->ArrayMmdId[arrayName];
+        int arrayType = this->Mmd->ArrayType[arrayId];
+
+        switch (arrayType)
+        {
+        svtkNestedTemplateMacroFloat(_DATA,
+
+          using array_t = svtkHAMRDataArray<SVTK_TT_DATA>;
+
+          // get the array to bin.
+          auto col = GetColumn(tab, arrayName);
+          if (!col)
+          {
+            SENSEI_ERROR("Failed to get column \"" << arrayName << "\" from table")
+            return -1;
+          }
+
+          // make the copy and update the this->Mesh data. sync up before deleteing the source!
+          if (async || !dynamic_cast<coord_array_t*>(col))
+          {
+            auto arrayIn = array_t::New(col, this->Alloc, this->CalcStr[(i+1)%this->NStream], this->SMode);
+            arrayIn->Synchronize();
+            tab->RemoveColumnByName(arrayName.c_str());
+            tab->AddColumn(arrayIn);
+            arrayIn->Delete();
+          }
+
+        );}
+      }
+    );}
+  }
+
+  return 0;
+}
+
+void DataBin::Compute()
+{
+  timeval startTime{};
+  if (this->Rank == 0)
+    gettimeofday(&startTime, nullptr);
+
+#if defined(SENSEI_ENABLE_CUDA)
+  if (this->DeviceId >= 0)
+    cudaSetDevice(this->DeviceId);
+#endif
+
+  int xAxisArrayId = this->ArrayMmdId[this->XAxisArray];
+  int yAxisArrayId = this->ArrayMmdId[this->YAxisArray];
   // get the coordinate axis range
-  auto [minX, maxX] = mmd->ArrayRange[xAxisArrayId];
-  auto [minY, maxY] = mmd->ArrayRange[yAxisArrayId];
+  auto [minX, maxX] = this->Mmd->ArrayRange[xAxisArrayId];
+  auto [minY, maxY] = this->Mmd->ArrayRange[yAxisArrayId];
 
   // compute the grid spacing
   long xRes = this->XRes;
@@ -907,120 +1171,22 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
 
   long xyRes = xRes * yRes;
 
-  // fetch the mesh object from the simulation
-  svtkDataObject *dobj = nullptr;
-  if (daIn->GetMesh(this->MeshName, true, dobj))
-  {
-    SENSEI_ERROR("Failed to get mesh \"" << this->MeshName << "\"")
-    MPI_Abort(comm, -1);
-    return false;
-  }
-
-  if (!dobj)
-  {
-    SENSEI_ERROR("DataBinning requires all ranks to have data")
-    MPI_Abort(comm, -1);
-    return false;
-  }
-
-  // this lets one load balance across multiple GPU's and CPU's
-  // set -1 to execute on the CPU and 0 to N_CUDA_DEVICES -1 to specify
-  // the specific GPU to run on.
-#if defined(SENSEI_ENABLE_CUDA)
-  int deviceId = 0;
-  const char *aDevId = getenv("SENSEI_DEVICE_ID");
-  if (aDevId)
-    deviceId = atoi(aDevId);
-#else
-  int deviceId = -1;
-#endif
-
-  // get the current time and step
-  int step = daIn->GetDataTimeStep();
-  double time = daIn->GetDataTime();
-
-  // fetch the cooridnate axes from the simulation
-  int xAxisArrayCen = mmd->ArrayCentering[xAxisArrayId];
-  int yAxisArrayCen = mmd->ArrayCentering[yAxisArrayId];
-  if (daIn->AddArray(dobj, this->MeshName, xAxisArrayCen, this->XAxisArray) ||
-    daIn->AddArray(dobj, this->MeshName, yAxisArrayCen, this->YAxisArray))
-  {
-    SENSEI_ERROR(<< daIn->GetClassName()
-      << " failed to fetch the coordinate axis arrays \""
-      << this->XAxisArray << "\", \"" << this->YAxisArray << "\"" )
-
-    MPI_Abort(comm, -1);
-    return false;
-  }
-
-  // determine the allocator and stream to use
-  svtkAllocator alloc = svtkAllocator::malloc;
-  auto smode = svtkStreamMode::async;
-  int nStream = 4;
-#if defined(SENSEI_ENABLE_CUDA)
-  // allocate some streams for data movement and computation
-  std::vector<cudaStream_t> calcStr(nStream);
-  for (int i = 0; i < nStream; ++i)
-    cudaStreamCreate(&calcStr[i]);
-
-  // if we are assigned to a specific GPU make it active and use a GPU
-  // allocator
-  if (deviceId >= 0)
-  {
-    alloc = svtkAllocator::cuda;
-    sensei::CUDAUtils::SetDevice(deviceId);
-  }
-#else
-  std::vector<svtkStream> calcStr(nStream);
-#endif
-
   // allocate the count result array
   auto countDa = svtkHAMRLongArray::New("count", xyRes, 1,
-                                        alloc, calcStr[0], smode, 0);
+                                        this->Alloc, this->CalcStr[0], this->SMode, 0);
 
-  // fetch the arrays to bin from the simulation and allocate the binned result arrays
+  // allocate the binned result arrays
+  int nBinnedArrays = this->BinnedArray.size();
   std::vector<svtkDataArray*> binnedDa(nBinnedArrays);
   for (int i = 0; i < nBinnedArrays; ++i)
   {
     const std::string &arrayName = this->BinnedArray[i];
+    int arrayId = this->ArrayMmdId[arrayName];
+
     int opId = this->Operation[i];
 
-    int arrayId = arrayMmdId[arrayName];
-    int arrayComp = mmd->ArrayComponents[arrayId];
-    int arrayCen = mmd->ArrayCentering[arrayId];
-    int arrayType = mmd->ArrayType[arrayId];
-
-    // check that arrays are floating point
-    if ((arrayType != SVTK_DOUBLE) && (arrayType != SVTK_FLOAT))
-    {
-      SENSEI_ERROR("Binned arrays are required to be floating point")
-      MPI_Abort(comm, -1);
-      return false;
-    }
-
-    // check that the binned arrays are not multi-component. supporting
-    // multi-component data is something that could be added if needed
-    if ((arrayComp != 1))
-    {
-      SENSEI_ERROR("Binned arrays are required to have only one component. \""
-        << arrayName << "\" has " << arrayComp << " components")
-      MPI_Abort(comm, -1);
-      return false;
-    }
-
-    // fetch the data from the simulation
-    if (daIn->AddArray(dobj, this->MeshName, arrayCen, arrayName))
-    {
-      SENSEI_ERROR(<< daIn->GetClassName()
-        << " failed to fetch the " << i << "th array to bin  \""
-        << this->BinnedArray[i] << "\"")
-
-      MPI_Abort(comm, -1);
-      return false;
-    }
-
     // allocate the result array
-    switch (mmd->ArrayType[arrayId])
+    switch (this->Mmd->ArrayType[arrayId])
     {
       svtkTemplateMacroFloat(
 
@@ -1031,21 +1197,20 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
         HostImpl::GetInitialValue(opId, iValue);
 
         std::string opName;
-        GetOperation(opId, opName);
+        DataBinning::GetOperation(opId, opName);
 
-        binnedDa[i] = array_t::New(arrayName + "_" + opName, xyRes, 1, alloc,
-                                   calcStr[(i+1)%nStream], smode, iValue);
+        binnedDa[i] = array_t::New(arrayName + "_" + opName, xyRes, 1, this->Alloc,
+                                   this->CalcStr[(i+1)%this->NStream], this->SMode, iValue);
       );
     }
   }
 
-  // for temporaries if they are needed
-  std::vector<svtkDataArray*> deleteDa;
+  int xAxisArrayType = this->Mmd->ArrayType[xAxisArrayId];
+  //int yAxisArrayType = this->Mmd->ArrayType[yAxisArrayId];
 
   // process the blocks of data
-  svtkCompositeDataSetPtr mesh = SVTKUtils::AsCompositeData(comm, dobj, true);
   svtkSmartPointer<svtkCompositeDataIterator> iter;
-  iter.TakeReference(mesh->NewIterator());
+  iter.TakeReference(this->Mesh->NewIterator());
   for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
   {
     // get the next local block of data.
@@ -1053,15 +1218,7 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
 
     // downcast to the block type. for simplicity of this example we require
     // tabular data.
-    auto tab = dynamic_cast<svtkTable*>(curObj);
-    if (!tab)
-    {
-      SENSEI_ERROR("Unsupported dataset type "
-        << (curObj ? curObj->GetClassName() : "nullptr"))
-      MPI_Abort(comm, -1);
-      return false;
-    }
-
+    auto tab = static_cast<svtkTable*>(curObj);
 
     switch (xAxisArrayType)
     {
@@ -1072,39 +1229,11 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
 
       // get the x-coordinate arrays.
       auto xCol = GetColumn(tab, this->XAxisArray);
-      if (!xCol)
-      {
-        SENSEI_ERROR("Failed to get column \"" << this->XAxisArray << "\" from table")
-        MPI_Abort(comm, -1);
-        return false;
-      }
-
-      // handle the case when the simulation gives us vtkAOSDataArrayTemplate
-      // instances by making a deep copy.
-      auto xCoord = dynamic_cast<coord_array_t*>(xCol);
-      if (!xCoord)
-      {
-        xCoord = coord_array_t::New(xCol, alloc, calcStr[1], smode);
-        deleteDa.push_back(xCoord);
-      }
+      auto xCoord = static_cast<coord_array_t*>(xCol);
 
       // get the y-coordinate arrays.
       auto yCol = GetColumn(tab, this->YAxisArray);
-      if (!yCol)
-      {
-        SENSEI_ERROR("Failed to get column \"" << this->YAxisArray << "\" from table")
-        MPI_Abort(comm, -1);
-        return false;
-      }
-
-      // handle the case when the simulation gives us vtkAOSDataArrayTemplate
-      // instances by making a deep copy.
-      auto yCoord = dynamic_cast<coord_array_t*>(yCol);
-      if (!yCoord)
-      {
-        yCoord = coord_array_t::New(yCol, alloc, calcStr[2], smode);
-        deleteDa.push_back(yCoord);
-      }
+      auto yCoord = static_cast<coord_array_t*>(yCol);
 
       // compute the count
       std::shared_ptr<const coord_t> spXCoord;
@@ -1112,7 +1241,7 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
 
       long nVals = xCoord->GetNumberOfTuples();
 #if defined(SENSEI_ENABLE_CUDA)
-      if (deviceId >= 0)
+      if (this->DeviceId >= 0)
       {
         // make sure the data is on the active GPU
         spXCoord = xCoord->GetDeviceAccessible();
@@ -1123,12 +1252,12 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
         yCoord->Synchronize();
 
         // compute the block's contribution
-        if (::CudaImpl::blockCount(calcStr[0], spXCoord.get(), spYCoord.get(),
+        if (::CudaImpl::blockCount(this->CalcStr[0], spXCoord.get(), spYCoord.get(),
           nVals, minX, minY, dx, dy, xRes, yRes, countDa->GetData()))
         {
           SENSEI_ERROR("Failed to compute the count on the GPU")
-          MPI_Abort(comm, -1);
-          return false;
+          this->Error = 1;
+          return;
         }
       }
       else
@@ -1147,8 +1276,8 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
           nVals, minX, minY, dx, dy, xRes, yRes, countDa->GetData()))
         {
           SENSEI_ERROR("Failed to compute the count on the host")
-          MPI_Abort(comm, -1);
-          return false;
+          this->Error = 1;
+          return;
         }
 #if defined(SENSEI_ENABLE_CUDA)
       }
@@ -1160,8 +1289,8 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
         const std::string &arrayName = this->BinnedArray[i];
         int opId = this->Operation[i];
 
-        int arrayId = arrayMmdId[arrayName];
-        int arrayType = mmd->ArrayType[arrayId];
+        int arrayId = this->ArrayMmdId[arrayName];
+        int arrayType = this->Mmd->ArrayType[arrayId];
 
         switch (arrayType)
         {
@@ -1172,28 +1301,14 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
 
           // get the array to bin.
           auto col = GetColumn(tab, arrayName);
-          if (!col)
-          {
-            SENSEI_ERROR("Failed to get column \"" << arrayName << "\" from table")
-            MPI_Abort(comm, -1);
-            return false;
-          }
-
-          // handle the case when the simulation gives us
-          // vtkAOSDataArrayTemplate instances by making a deep copy.
-          auto arrayIn = dynamic_cast<array_t*>(col);
-          if (!arrayIn)
-          {
-            arrayIn = array_t::New(col, alloc, calcStr[(i+1)%nStream], smode);
-            deleteDa.push_back(arrayIn);
-          }
+          auto arrayIn = static_cast<array_t*>(col);
 
           // get the output
           array_t *arrayOut = static_cast<array_t*>(binnedDa[i]);
 
           int iret = -1;
 #if defined(SENSEI_ENABLE_CUDA)
-          if (deviceId >= 0)
+          if (this->DeviceId >= 0)
           {
             // make sure the data is on the active GPU
             auto spArrayIn = arrayIn->GetDeviceAccessible();
@@ -1204,23 +1319,23 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
             // compute the block's contribution on the GPU
             switch (opId)
             {
-              case BIN_SUM:
-              case BIN_AVG:
-                iret = ::CudaImpl::blockBin(calcStr[(i+1)%nStream], spXCoord.get(),
+              case DataBinning::BIN_SUM:
+              case DataBinning::BIN_AVG:
+                iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
                                             minX, minY, dx, dy, xRes, yRes,
                                             ::CudaImpl::SumOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
-              case BIN_MIN:
-                iret = ::CudaImpl::blockBin(calcStr[(i+1)%nStream], spXCoord.get(),
+              case DataBinning::BIN_MIN:
+                iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
                                             minX, minY, dx, dy, xRes, yRes,
                                             ::CudaImpl::MinOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
-              case BIN_MAX:
-                iret = ::CudaImpl::blockBin(calcStr[(i+1)%nStream], spXCoord.get(),
+              case DataBinning::BIN_MAX:
+                iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
                                             minX, minY, dx, dy, xRes, yRes,
                                             ::CudaImpl::MaxOp<elem_t>(),
@@ -1240,20 +1355,20 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
             // compute the block's contribution on the CPU
             switch (opId)
             {
-              case BIN_SUM:
-              case BIN_AVG:
+              case DataBinning::BIN_SUM:
+              case DataBinning::BIN_AVG:
                 iret = ::HostImpl::blockBin(spXCoord.get(), spYCoord.get(), spArrayIn.get(),
                                             nVals, minX, minY, dx, dy, xRes, yRes,
                                             ::HostImpl::SumOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
-              case BIN_MIN:
+              case DataBinning::BIN_MIN:
                 iret = ::HostImpl::blockBin(spXCoord.get(), spYCoord.get(), spArrayIn.get(),
                                             nVals, minX, minY, dx, dy, xRes, yRes,
                                             ::HostImpl::MinOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
-              case BIN_MAX:
+              case DataBinning::BIN_MAX:
                 iret = ::HostImpl::blockBin(spXCoord.get(), spYCoord.get(), spArrayIn.get(),
                                             nVals, minX, minY, dx, dy, xRes, yRes,
                                             ::HostImpl::MaxOp<elem_t>(),
@@ -1268,134 +1383,28 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
           if (iret)
           {
             std::string opName;
-            GetOperation(opId, opName);
+            DataBinning::GetOperation(opId, opName);
             SENSEI_ERROR("bin " << opName << " failed on array " << i
               << " \"" << arrayName << "\"")
-            MPI_Abort(comm, -1);
-            return false;
+            this->Error = 1;
+            return;
           }
         );}
       }
     );}
   }
 
-  // finalize the calculations
-  countDa->Synchronize();
-
-  for (int i = 0; i < nBinnedArrays; ++i)
-  {
-    const std::string &arrayName = this->BinnedArray[i];
-    int opId = this->Operation[i];
-
-    switch (binnedDa[i]->GetDataType())
-    {
-    svtkTemplateMacroFloat(
-      using elem_t = SVTK_TT;
-      using array_t = svtkHAMRDataArray<SVTK_TT>;
-
-      // get the output
-      array_t *arrayOut = static_cast<array_t*>(binnedDa[i]);
-
-      int iret = 0;
+  // move the results to the CPU for this->Comm and I/O
 #if defined(SENSEI_ENABLE_CUDA)
-      if (deviceId >= 0)
-      {
-        // finalize on the GPU, the same stream is used as before so no
-        // synchronization should be needed.
-        switch (opId)
-        {
-          case BIN_AVG:
-            {
-            iret = ::CudaImpl::scaleElement(calcStr[(i+1)%nStream],
-                                            arrayOut->GetData(), countDa->GetData(),
-                                            xyRes);
-            }
-            break;
-          case BIN_MIN:
-            {
-            elem_t thresh = 0.9999 * CudaImpl::MinOp<elem_t>::initial_value();
-            elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
-
-
-            iret = ::CudaImpl::maskGreater(calcStr[(i+1)%nStream],
-                                           arrayOut->GetData(), xyRes, thresh, qnan);
-            }
-            break;
-          case BIN_MAX:
-            {
-            elem_t thresh = 0.9999 * CudaImpl::MaxOp<elem_t>::initial_value();
-            elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
-
-            iret = ::CudaImpl::maskLess(calcStr[(i+1)%nStream],
-                                        arrayOut->GetData(), xyRes, thresh, qnan);
-            }
-            break;
-        }
-      }
-      else
-      {
-#endif
-        // finalize on the host, the same stream is used as before so no
-        // synchronization should be needed.
-        switch (opId)
-        {
-          case BIN_AVG:
-            {
-            auto finOp = ::HostImpl::ElementScale<elem_t>(countDa->GetData());
-
-            iret = ::HostImpl::finalize(arrayOut->GetData(), xyRes, finOp);
-            }
-            break;
-          case BIN_MIN:
-            {
-            elem_t thresh = 0.9999 * HostImpl::MinOp<elem_t>::initial_value();
-            elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
-
-            auto finOp = ::HostImpl::MaskGreater<elem_t>(thresh, qnan);
-
-            iret = ::HostImpl::finalize(arrayOut->GetData(), xyRes, finOp);
-            }
-            break;
-          case BIN_MAX:
-            {
-            elem_t thresh = 0.9999 * HostImpl::MaxOp<elem_t>::initial_value();
-            elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
-
-            auto finOp = ::HostImpl::MaskLess<elem_t>(thresh, qnan);
-
-            iret = ::HostImpl::finalize(arrayOut->GetData(), xyRes, finOp);
-            }
-            break;
-        }
-#if defined(SENSEI_ENABLE_CUDA)
-      }
-#endif
-
-      // check for error in the calculation
-      if (iret)
-      {
-        std::string opName;
-        GetOperation(opId, opName);
-        SENSEI_ERROR("finalize " << opName << " failed on array " << i
-          << " \"" << arrayName << "\"")
-        MPI_Abort(comm, -1);
-        return false;
-      }
-
-    );}
-  }
-
-  // move the results to the CPU for comm and I/O
-#if defined(SENSEI_ENABLE_CUDA)
-  if (deviceId >= 0)
+  if (this->DeviceId >= 0)
   {
     // wait until all calculations are complete
-    for (int i = 0; i < nStream; ++i)
-      cudaStreamSynchronize(calcStr[i]);
+    for (int i = 0; i < this->NStream; ++i)
+      cudaStreamSynchronize(this->CalcStr[i]);
 
+#if !defined(SENSEI_ENABLE_CUDA_MPI)
     // explcitly move the data to the host
-    alloc = svtkAllocator::cuda_host;
-
+    auto alloc = svtkAllocator::cuda_host;
     countDa->SetAllocator(alloc);
 
     for (int i = 0; i < nBinnedArrays; ++i)
@@ -1407,23 +1416,24 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
         static_cast<array_t*>(binnedDa[i])->SetAllocator(alloc);
       );}
     }
+#endif
   }
 #endif
 
   // accumulate contributions from all ranks
   countDa->Synchronize();
   MPI_Reduce(MPI_IN_PLACE, countDa->GetData(), xyRes,
-             MPI_UNSIGNED_LONG, MPI_SUM, 0, comm);
+             MPI_UNSIGNED_LONG, MPI_SUM, 0, this->Comm);
 
   for (int i = 0; i < nBinnedArrays; ++i)
   {
     MPI_Op redOp = MPI_OP_NULL;
     switch (this->Operation[i])
     {
-      case BIN_SUM: redOp = MPI_SUM; break;
-      case BIN_AVG: redOp = MPI_SUM; break;
-      case BIN_MIN: redOp = MPI_MIN; break;
-      case BIN_MAX: redOp = MPI_MAX; break;
+      case DataBinning::BIN_SUM: redOp = MPI_SUM; break;
+      case DataBinning::BIN_AVG: redOp = MPI_SUM; break;
+      case DataBinning::BIN_MIN: redOp = MPI_MIN; break;
+      case DataBinning::BIN_MAX: redOp = MPI_MAX; break;
     }
 
     switch(binnedDa[i]->GetDataType())
@@ -1438,13 +1448,138 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
       array->Synchronize();
 
       MPI_Reduce(MPI_IN_PLACE, array->GetData(),
-                 xyRes, redType, redOp, 0, comm);
+                 xyRes, redType, redOp, 0, this->Comm);
     );}
   }
 
-  // write the results
-  if (rank == 0)
+  // finalize the calculation, and write the results on rank 0
+  if (this->Rank == 0)
   {
+    // move the results to the GPU for finalization
+#if defined(SENSEI_ENABLE_CUDA)
+    if (this->DeviceId >= 0)
+    {
+#if !defined(SENSEI_ENABLE_CUDA_MPI)
+      auto alloc = svtkAllocator::cuda_async;
+      countDa->SetAllocator(alloc);
+
+      for (int i = 0; i < nBinnedArrays; ++i)
+      {
+        switch (binnedDa[i]->GetDataType())
+        {
+        svtkTemplateMacroFloat(
+          using array_t = svtkHAMRDataArray<SVTK_TT>;
+          static_cast<array_t*>(binnedDa[i])->SetAllocator(alloc);
+        );}
+      }
+#endif
+      countDa->Synchronize();
+    }
+#endif
+
+    for (int i = 0; i < nBinnedArrays; ++i)
+    {
+      const std::string &arrayName = this->BinnedArray[i];
+      int opId = this->Operation[i];
+
+      switch (binnedDa[i]->GetDataType())
+      {
+      svtkTemplateMacroFloat(
+        using elem_t = SVTK_TT;
+        using array_t = svtkHAMRDataArray<SVTK_TT>;
+
+        // get the output
+        array_t *arrayOut = static_cast<array_t*>(binnedDa[i]);
+
+        int iret = 0;
+#if defined(SENSEI_ENABLE_CUDA)
+        arrayOut->Synchronize();
+        if (this->DeviceId >= 0)
+        {
+          // finalize on the GPU
+          switch (opId)
+          {
+            case DataBinning::BIN_AVG:
+              {
+              iret = ::CudaImpl::scaleElement(this->CalcStr[(i+1)%this->NStream],
+                                              arrayOut->GetData(), countDa->GetData(),
+                                              xyRes);
+              }
+              break;
+            case DataBinning::BIN_MIN:
+              {
+              elem_t thresh = 0.9000 * CudaImpl::MinOp<elem_t>::initial_value();
+              elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
+
+
+              iret = ::CudaImpl::maskGreater(this->CalcStr[(i+1)%this->NStream],
+                                             arrayOut->GetData(), xyRes, thresh, qnan);
+              }
+              break;
+            case DataBinning::BIN_MAX:
+              {
+              elem_t thresh = 0.9000 * CudaImpl::MaxOp<elem_t>::initial_value();
+              elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
+
+              iret = ::CudaImpl::maskLess(this->CalcStr[(i+1)%this->NStream],
+                                          arrayOut->GetData(), xyRes, thresh, qnan);
+              }
+              break;
+          }
+        }
+        else
+        {
+#endif
+          // finalize on the host
+          switch (opId)
+          {
+            case DataBinning::BIN_AVG:
+              {
+              auto finOp = ::HostImpl::ElementScale<elem_t>(countDa->GetData());
+
+              iret = ::HostImpl::finalize(arrayOut->GetData(), xyRes, finOp);
+              }
+              break;
+            case DataBinning::BIN_MIN:
+              {
+              elem_t thresh = 0.9000 * HostImpl::MinOp<elem_t>::initial_value();
+              elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
+
+              auto finOp = ::HostImpl::MaskGreater<elem_t>(thresh, qnan);
+
+              iret = ::HostImpl::finalize(arrayOut->GetData(), xyRes, finOp);
+              }
+              break;
+            case DataBinning::BIN_MAX:
+              {
+              elem_t thresh = 0.9000 * HostImpl::MaxOp<elem_t>::initial_value();
+              elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
+
+              auto finOp = ::HostImpl::MaskLess<elem_t>(thresh, qnan);
+
+              iret = ::HostImpl::finalize(arrayOut->GetData(), xyRes, finOp);
+              }
+              break;
+          }
+#if defined(SENSEI_ENABLE_CUDA)
+        }
+#endif
+
+        // check for error in the calculation
+        if (iret)
+        {
+          std::string opName;
+          DataBinning::GetOperation(opId, opName);
+          SENSEI_ERROR("finalize " << opName << " failed on array " << i
+            << " \"" << arrayName << "\"")
+          this->Error = 1;
+          return;
+        }
+
+      );}
+    }
+
+    // write the results
     char fn[512];
     fn[511] = '\0';
 
@@ -1458,18 +1593,17 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
                             minY, 0., dx, dy, 1., cellData, {}))
     {
       SENSEI_ERROR("Failed to write file \"" << fn << "\"")
-      return false;
+      this->Error = 1;
+      return;
     }
-
-    this->Iteration += 1;
   }
 
-  if (this->ReturnData && dataOut)
+  if (this->ReturnData)
   {
     auto mbo = svtkMultiBlockDataSet::New();
-    mbo->SetNumberOfBlocks(n_ranks);
+    mbo->SetNumberOfBlocks(this->NRanks);
 
-    if (rank == 0)
+    if (this->Rank == 0)
     {
       auto imo = svtkImageData::New();
       imo->SetOrigin(minX, minY, 0.0);
@@ -1484,18 +1618,8 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
       imo->Delete();
     }
 
-    auto va = SVTKDataAdaptor::New();
-    va->SetDataObject(this->MeshName, mbo);
-
-    mbo->Delete();
-
-    *dataOut = va;
+    this->MeshOut.Take(mbo);
   }
-
-  // delete any temporaries
-  int nDeleteDa = deleteDa.size();
-  for (int i = 0; i < nDeleteDa; ++i)
-    deleteDa[i]->Delete();
 
   countDa->Delete();
 
@@ -1503,15 +1627,20 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
     binnedDa[i]->Delete();
 
 #if defined(SENSEI_ENABLE_CUDA)
-  // clean up streams
-  for (int i = 0; i < nStream; ++i)
+  if (this->DeviceId >= 0)
   {
-    cudaStreamSynchronize(calcStr[i]);
-    cudaStreamDestroy(calcStr[i]);
+    // clean up streams
+    for (int i = 0; i < this->NStream; ++i)
+    {
+      cudaStreamSynchronize(this->CalcStr[i]);
+      cudaStreamDestroy(this->CalcStr[i]);
+    }
   }
 #endif
 
-  if (rank == 0)
+  this->Mesh = nullptr;
+
+  if (this->Asynchronous && this->Verbose && (this->Rank == 0))
   {
     timeval endTime{};
     gettimeofday(&endTime, nullptr);
@@ -1519,17 +1648,219 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** dataOut)
     double runTimeUs = (endTime.tv_sec * 1e6 + endTime.tv_usec) -
       (startTime.tv_sec * 1e6 + startTime.tv_usec);
 
-    SENSEI_STATUS("DataBinning::Execute Step = " << step << " Time = " << time
-      << "\" using " << (deviceId < 0 ? "the host" : "CUDA GPU")
-      << "(" << deviceId << ") in " << runTimeUs / 1e6 << " s")
+    SENSEI_STATUS("thread:" << std::hex << std::this_thread::get_id() << std::dec
+      << "  step:" << this->Step << "  time:" << this->Time << "  device:"
+      << (this->DeviceId < 0 ? "host" : "CUDA GPU")
+      << "(" << this->DeviceId << ")  t_bin:" << runTimeUs / 1e6 << "s")
+  }
+}
+
+//-----------------------------------------------------------------------------
+bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
+{
+  TimeEvent<128> mark("DataBinning::Execute");
+
+  int rank = 0;
+  int n_ranks = 1;
+  MPI_Comm comm = this->GetCommunicator();
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &n_ranks);
+
+  timeval startExec{}, startFetch{}, endFetch{}, endBin{}, endExec{};
+
+  if (rank == 0)
+    gettimeofday(&startExec, nullptr);
+
+  // always zero this out, if somethig goes wrong the caller will not get and
+  // invalid value
+  if (daOut)
+    *daOut = nullptr;
+
+  // when running asynchronopusly check here for finished threads
+  int retData = this->ReturnData && daOut;
+  int async = this->GetAsynchronous() && !retData;
+
+  if (async && (((this->Iteration + 1) % this->MaxPending) == 0) && this->CheckPending())
+  {
+    SENSEI_ERROR("A thread failed")
+    MPI_Abort(comm, -1);
+    return false;
+  }
+
+  // this lets one load balance across multiple GPU's and CPU's
+  // set -1 to execute on the CPU and 0 to N_CUDA_DEVICES -1 to specify
+  // the specific GPU to run on.
+#if defined(SENSEI_ENABLE_CUDA)
+  const char *aDevId = getenv("SENSEI_DEVICE_ID");
+  if (aDevId)
+    this->DeviceId = atoi(aDevId);
+#else
+  this->DeviceId = -1;
+#endif
+
+  if (rank == 0)
+    gettimeofday(&startFetch, nullptr);
+
+  auto binner = std::make_shared<DataBin>();
+
+  // fetch data from the simulation
+  if (binner->Initialize(this->MeshName, this->XAxisArray, this->YAxisArray,
+    this->BinnedArray, this->Operation, this->XRes, this->YRes, this->OutDir,
+    this->ReturnData, comm, rank, n_ranks, this->GetDeviceId(), async,
+    this->Iteration, this->GetVerbose(), daIn))
+  {
+    SENSEI_ERROR("Failed to intialize the binner")
+    MPI_Abort(comm, -1);
+    return false;
+  }
+
+  if (rank == 0)
+    gettimeofday(&endFetch, nullptr);
+
+  // launch a thread to do the calculation
+  auto pending = std::async(std::launch::async, [binner]() -> int { binner->Compute(); return binner->Error; });
+
+  if (async)
+  {
+    // keep track of the threads so we don't exit before they are complete
+    this->Pending.push_back(std::move(pending));
+  }
+  else
+  {
+    // wait here for the thread to complete
+    int ierr = pending.get();
+    if (ierr)
+    {
+        SENSEI_ERROR("Binning failed")
+        MPI_Abort(comm, -1);
+        return false;
+    }
+  }
+
+  if (rank == 0)
+    gettimeofday(&endBin, nullptr);
+
+  this->Iteration += 1;
+
+  // wrap the returned data in an adaptor
+  if (retData)
+  {
+    auto va = SVTKDataAdaptor::New();
+    va->SetDataObject(this->MeshName, binner->MeshOut.Get());
+    *daOut = va;
+  }
+
+  if (this->GetVerbose() && (rank == 0))
+  {
+    gettimeofday(&endExec, nullptr);
+
+    double fetchTimeUs = (endFetch.tv_sec * 1e6 + endFetch.tv_usec) -
+      (startFetch.tv_sec * 1e6 + startFetch.tv_usec);
+
+    double binTimeUs = (endBin.tv_sec * 1e6 + endBin.tv_usec) -
+      (endFetch.tv_sec * 1e6 + endFetch.tv_usec);
+
+    double runTimeUs = (endExec.tv_sec * 1e6 + endExec.tv_usec) -
+      (startExec.tv_sec * 1e6 + startExec.tv_usec);
+
+    SENSEI_STATUS("DataBinning::Execute  mode:"
+      << (async ? "async" : "sync") << "  device:"
+      << (this->DeviceId < 0 ? "host" : "CUDA GPU")
+      << "(" << this->DeviceId << ")  ret_data:"
+      << (retData ? "yes":"no") << "  t_total:"
+      << runTimeUs / 1e6 << "s  t_fetch:" << fetchTimeUs / 1e6
+      << "s  t_bin:" << binTimeUs / 1e6 << "s")
   }
 
   return true;
 }
 
 //-----------------------------------------------------------------------------
+int DataBinning::WaitPending()
+{
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+  while (!this->Pending.empty())
+  {
+    auto &pending = this->Pending.front();
+    int ierr = pending.get();
+    this->Pending.pop_front();
+    if (ierr)
+    {
+#if defined(SENSEI_DEBUG)
+      SENSEI_ERROR("A thread failed to complete")
+#endif
+      return -1;
+    }
+#if defined(SENSEI_DEBUG)
+    else if (this->GetVerbose() && (rank == 0))
+    {
+      SENSEI_STATUS("A thread completed successfully")
+    }
+#endif
+  }
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+int DataBinning::CheckPending()
+{
+  int iret = 0;
+
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
+  for (auto it = this->Pending.begin(); it != this->Pending.end();)
+  {
+    if (it->wait_for(0s) == std::future_status::ready)
+    {
+      int ierr = it->get();
+      it = this->Pending.erase(it);
+      if (ierr)
+      {
+#if defined(SENSEI_DEBUG)
+        SENSEI_ERROR("A thread failed to complete")
+#endif
+        iret = -1;
+      }
+#if defined(SENSEI_DEBUG)
+      else if (this->GetVerbose() && (rank == 0))
+      {
+        SENSEI_STATUS("A thread completed successfully")
+      }
+#endif
+    }
+    else
+    {
+      ++it;
+    }
+  }
+  return iret;
+}
+
+//-----------------------------------------------------------------------------
 int DataBinning::Finalize()
 {
+  timeval startExec{}, endExec{};
+  gettimeofday(&startExec, nullptr);
+
+  int rank = 0;
+  MPI_Comm_rank(this->GetCommunicator(), &rank);
+
+  // wait for the last thread to finish
+  this->WaitPending();
+
+  // send status message
+  if (this->GetVerbose() && (rank == 0))
+  {
+    gettimeofday(&endExec, nullptr);
+
+    double runTimeUs = (endExec.tv_sec * 1e6 + endExec.tv_usec) -
+      (startExec.tv_sec * 1e6 + startExec.tv_usec);
+
+    SENSEI_STATUS("DataBinning::Finalize  t_total:" << runTimeUs / 1e6 << "s")
+  }
+
   return 0;
 }
 

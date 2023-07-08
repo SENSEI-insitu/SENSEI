@@ -4,6 +4,9 @@
 #include "AnalysisAdaptor.h"
 #include <mpi.h>
 #include <vector>
+#include <thread>
+#include <future>
+#include <list>
 
 /// @cond
 namespace pugi { class xml_node; }
@@ -34,14 +37,14 @@ public:
    * @param[out] opCode the enumerated value
    * @returns zero if successful
    */
-  int GetOperation(const std::string &opName, int &opCode);
+  static int GetOperation(const std::string &opName, int &opCode);
 
   /** converts the enumeration to a string
    * @param[in] opCode the enumerated value(one of: BIN_SUM, BIN_AVG, BIN_MIN, BIN_MAX)
    * @param[out] opName string naming the operation
    * @returns zero if successful
    */
-  int GetOperation(int opCode, std::string &opName);
+  static int GetOperation(int opCode, std::string &opName);
 
   /** set the name of the mesh and arrays to request from the simulation.
    * Sets the output image resolution and the name of a file to write them in.
@@ -96,6 +99,9 @@ protected:
   DataBinning(const DataBinning&) = delete;
   void operator=(const DataBinning&) = delete;
 
+  int CheckPending();
+  int WaitPending();
+
   long XRes;
   long YRes;
   std::string OutDir;
@@ -107,6 +113,8 @@ protected:
   std::vector<std::string> BinnedArray;
   std::vector<int> Operation;
   int ReturnData;
+  int MaxPending;
+  std::list<std::future<int>> Pending;
 };
 
 }
