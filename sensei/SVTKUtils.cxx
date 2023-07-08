@@ -3321,6 +3321,8 @@ int write(FILE *fh, svtkDataArray *da)
     dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
   {
     auto spda = hamrda->GetHostAccessible();
+    hamrda->Synchronize();
+
     memcpy(tmp.data(), spda.get(), nb);
   }
   else if (svtkAOSDataArrayTemplate<SVTK_TT> *aosda =
@@ -3412,6 +3414,7 @@ int WriteVTK(const char *fn, long npx, long npy, long npz,
     for (unsigned int i = 0; i < npa; ++i)
     {
       svtkDataArray *da = pointData[i];
+      assert(np == da->GetNumberOfTuples());
       switch (da->GetDataType())
       {
       svtkTemplateMacro(
@@ -3429,6 +3432,7 @@ int WriteVTK(const char *fn, long npx, long npy, long npz,
     for (unsigned int i = 0; i < nca; ++i)
     {
       svtkDataArray *da = cellData[i];
+      assert(nc == da->GetNumberOfTuples());
       switch (da->GetDataType())
       {
       svtkTemplateMacro(
