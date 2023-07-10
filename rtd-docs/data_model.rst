@@ -53,9 +53,11 @@ universally by all transports and analysis back-ends.
 +-------------------------+--------------------------------------------------------------------+
 | `vtkRectilinearGrid`_   | Blocks of stretched Cartesian geometry                             |
 +-------------------------+--------------------------------------------------------------------+
-| `vtkUnstructuredGrid`_  | Blocks of finite element method cell zoo and particle meshes       |
+| `vtkUnstructuredGrid`_  | Blocks of FEM(finite element method) mesh cells                    |
 +-------------------------+--------------------------------------------------------------------+
-| `vtkPolyData`_          | Blocks of particle meshes                                          |
+| `vtkPolyData`_          | Blocks of polygon, line, or point cells. Can be used for particles |
++-------------------------+--------------------------------------------------------------------+
+| `vtkTable`_             | Blocks of data represted by a collection of columns. eg. particles |
 +-------------------------+--------------------------------------------------------------------+
 | `vtkStructuredGrid`_    | Blocks of logically Cartesian (aka Curvilinear) geometries         |
 +-------------------------+--------------------------------------------------------------------+
@@ -112,6 +114,11 @@ data arrays of interest here are:
 +-----------------------------+--------------------------------------------------------+
 | Class                       | Description                                            |
 +-----------------------------+--------------------------------------------------------+
+| `svtkHAMRDataArray`_        | Platform portable, accelerator aware, array based data |
+|                             | structure for use with scalar, vector and tensor data  |
+|                             | in AOS layout. Can safely be used for zero-copy        |
+|                             | transfer of data allocated on accelerators or the host |
++-----------------------------+--------------------------------------------------------+
 | `vtkAOSDataArrayTemplate`_  | Use with scalar, vector and tensor data in AOS layout  |
 +-----------------------------+--------------------------------------------------------+
 | `vtkSOADataArrayTemplate`_  | Use with vector and tensor data in SOA layout          |
@@ -123,6 +130,7 @@ is the default in VTK and that classes such as `vtkFloatArray`_,
 For simplicity sake one can and should use these aliases anywhere an AOS layout
 is needed.
 
+.. _svtkHAMRDataArray: doxygen/classsvtk_h_a_m_r_data_array.html
 .. _vtkAOSDataArrayTemplate: https://vtk.org/doc/nightly/html/classvtkAOSDataArrayTemplate.html
 .. _vtkSOADataArrayTemplate: https://vtk.org/doc/nightly/html/classvtkSOADataArrayTemplate.html
 .. _vtkFloatArray: https://vtk.org/doc/nightly/html/classvtkFloatArray.html

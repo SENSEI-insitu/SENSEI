@@ -21,9 +21,43 @@ using svtkStream = hamr::stream;
 
 /// get the allocator type most suitable for the current build configuration
 inline svtkAllocator GetDeviceAllocator() { return hamr::get_device_allocator(); }
+
+/// get the allocator type most suitable for the current build configuration
 inline svtkAllocator GetHostAllocator() { return hamr::get_host_allocator(); }
+
+/// get the allocator type most suitable for the current build configuration
 inline svtkAllocator GetCPUAllocator() { return hamr::buffer_allocator::malloc; }
 
+/** An accelerator aware container for array based data.  The svtkHAMRDataArray
+ * can be used to allocate and manage data on the host and on accelerators. The
+ * purpose of the container is to pass data in between simulation and analysis
+ * codes in a platform portable, programming model portable, efficient manner.
+ *
+ * Data can be allocated on the host or a specific accelerator. See  ::New
+ * overloads in the "construct and allocate" group.
+ *
+ * Data can be explicitly moved between devices and between the host and any
+ * device. See ::SetAllocator.
+ *
+ * Zero-copy tansfer of device memory is supported, see ::New overloads in the
+ * "zero-copy construct" group for zero-copy construction and ::SetData overloads
+ * in the "zero-copy data transfer" group.
+ *
+ * When consuming data passed from an unknown sorce, accessibility methods can
+ * be used to access the data on the host or desired device. These may move the
+ * data to the requested device or the host. Data movement is only done if the
+ * data is not in the reqeusted location. Smart pointers are used to automate
+ * and hide the details from the caller.  See ::GetHostAccessible,
+ * ::GetDeviceAccessible and programming model specific overloads
+ * ::GetCUDAAccessible, ::GetHIPAccessible, and ::GetOpenMPAccessible.
+ *
+ * When one knows where data resides direct access methods provide access to
+ * the raw pointers. See ::GetData and ::GetPointer.
+ *
+ * By default all operations including allocations, and data movement, are
+ * asynchronous. Care must be taken before accessing the data to be sure
+ * outstanding operations have been completed. See ::Synchronize.
+ */
 template <typename T>
 class SENSEI_EXPORT svtkHAMRDataArray : public svtkDataArray
 {
@@ -31,15 +65,49 @@ public:
   svtkTypeMacro(svtkHAMRDataArray, svtkDataArray);
   void PrintSelf(ostream& os, svtkIndent indent) override;
 
-  /// allocate a new empty array
+
+  ///@name construct uninitialized
+  ///@{
+
+  /** construct a new instance that is uninitiazed. Before use call
+   * ::SetAllocator (and optionally ::SetStream), and either ::SetData or some
+   * combination of ::SetNumberOfTuples, ::SetNumberOfComponents, and/or
+   * ::Resize.
+   *  @returns an empty instance.
+   */
   static svtkHAMRDataArray *New();
 
-  /// copy construct from the passed instance. this is a deep copy.
+  ///@}
+
+  ///@name copy construct
+  ///@{
+  /** copy construct from the passed instance. this is a deep copy.
+   *
+   * @note the allocator is determined by the passed instance, while the
+   * default svtkStream and svtkStreamMode will be used. Use the overload
+   * that accepts an allocator when you want control over the location of
+   * the copy.
+   *
+   * @param[in] da the array to deep copy.
+   */
   static svtkHAMRDataArray *New(svtkDataArray *da);
 
-  /// copy construct from the passed instance. this is a deep copy.
+  /** copy construct from the passed instance. this is a deep copy.  if the
+   * allocator is a device allocator the memory is allocated on the active
+   * device.
+   *
+   * @param[in] da the array to deep copy.
+   * @param[in] alloc the allocator to use to allocate memory for the copy
+   * @param[in] stream the stream to make the allocation and copy on
+   * @param[in] streamMode the sychnronization behavior of the container.
+   * @returns a new instance with the data copied.
+   */
   static svtkHAMRDataArray *New(svtkDataArray *da, svtkAllocator alloc,
-                              svtkStream stream, svtkStreamMode streamMode);
+                                svtkStream stream, svtkStreamMode streamMode);
+  ///@}
+
+  ///@name zero-copy construct
+  ///@{
 
   /** zero-copy the passed data.
    * @param[in] name the name of the array
@@ -47,10 +115,10 @@ public:
    * @param[in] numTuples the number of data tuples
    * @param[in] numComps the numper of components per tuple
    * @param[in] alloc an ::svtkAllocator instance declaring where the data resides
-   * @param[in] stream an ::svtkStream instance providing an odering on operations
+   * @param[in] stream an ::svtkStream instance providing an ordering on operations
    * @param[in] streamMode an ::svtkStreamMode instance declaring synchronous behavior or not
    * @param[in] owner the device id where the data resides, or -1 for the host
-   * @param[in] take if true the ponited to data will be released using the
+   * @param[in] take if true the pointed to data will be released using the
    *                 deleter associated with the declared ::svtkAllocator alloc
    * @returns a new instance that must be deleted by the caller
    */
@@ -65,7 +133,7 @@ public:
    * @param[in] numTuples the number of data tuples
    * @param[in] numComps the numper of components per tuple
    * @param[in] alloc an ::svtkAllocator instance declaring where the data resides
-   * @param[in] stream an ::svtkStream instance providing an odering on operations
+   * @param[in] stream an ::svtkStream instance providing an ordering on operations
    * @param[in] streamMode an ::svtkStreamMode instance declaring synchronous behavior or not
    * @param[in] owner the device id where the data resides, or -1 for the host
    * @returns a new instance that must be deleted by the caller
@@ -76,13 +144,13 @@ public:
     int owner);
 
   /** zero-copy the passed data. This override gives one direct control over the
-   * method that is used to release the ponited to array.
+   * method that is used to release the pointed to array.
    * @param[in] name the name of the array
    * @param[in] data a smart pointer that manages the pointed to data
    * @param[in] numTuples the number of data tuples
    * @param[in] numComps the numper of components per tuple
    * @param[in] alloc an ::svtkAllocator instance declaring where the data resides
-   * @param[in] stream an ::svtkStream instance providing an odering on operations
+   * @param[in] stream an ::svtkStream instance providing an ordering on operations
    * @param[in] streamMode an ::svtkStreamMode instance declaring synchronous behavior or not
    * @param[in] owner the device id where the data resides, or -1 for the host
    * @returns a new instance that must be deleted by the caller
@@ -92,12 +160,17 @@ public:
     int numComps, svtkAllocator alloc, svtkStream stream, svtkStreamMode streamMode,
     int owner, deleter_t deleter);
 
+  ///@}
+
+  ///@name construct and allocate
+  ///@{
+
   /** Allocate a new array of the specified size using the specified allocator
    * @param[in] name the name of the array
    * @param[in] numTuples the number of data tuples
    * @param[in] numComps the numper of components per tuple
    * @param[in] alloc an ::svtkAllocator instance declaring where the data resides
-   * @param[in] stream an ::svtkStream instance providing an odering on operations
+   * @param[in] stream an ::svtkStream instance providing an ordering on operations
    * @param[in] streamMode an ::svtkStreamMode instance declaring synchronous behavior or not
    * @returns a new instance that must be deleted by the caller
    */
@@ -111,7 +184,7 @@ public:
    * @param[in] numTuples the number of data tuples
    * @param[in] numComps the numper of components per tuple
    * @param[in] alloc an ::svtkAllocator instance declaring where the data resides
-   * @param[in] stream an ::svtkStream instance providing an odering on operations
+   * @param[in] stream an ::svtkStream instance providing an ordering on operations
    * @param[in] streamMode an ::svtkStreamMode instance declaring synchronous behavior or not
    * @param[in] initVal the value to initialize the contents to
    * @returns a new instance that must be deleted by the caller
@@ -120,45 +193,10 @@ public:
     size_t numTuples, int numComps, svtkAllocator alloc, svtkStream stream,
     svtkStreamMode streamMode, const T &initVal);
 
-  /** Convert to an svtkAOSDataArrayTemplate instance. Because SVTK only
-   * supports host based data, a deep-copy is made when this array is located on
-   * the GPU. Otherwise the data is passed via zero-copy
-   * @param[in] zeroCopy if true and the data resides on the host, the data is
-   *                     passed to the new svtkAOSDataArrayTemplate instance by
-   *                     zero-copy. Otehrwise a deep-copy is made.
-   * @returns a new instance that must be deleted by the caller
-   */
-  svtkAOSDataArrayTemplate<T> *AsSvtkAOSDataArray(int zeroCopy);
+  ///@}
 
-  /** Sets or changes the allocator used to manage the menory, this may move
-   * the data from one device to another
-   */
-  void SetAllocator(svtkAllocator alloc)
-  {
-    this->Data->move(alloc);
-  }
-
-  /// sets the stream. mode indicate synchronous behavior or not.
-  void SetStream(const svtkStream &stream, svtkStreamMode &mode)
-  {
-    this->Data->set_stream(stream, mode);
-  }
-
-  /// @eturns the stream
-  svtkStream &GetStream() { return this->Data->get_stream(); }
-  const svtkStream &GetStream() const { return this->Data->get_stream(); }
-
-  /* copy contents of the passed in data. allocator and owner tells the current
-   * location of the passed data. Use ::Resize to allocate space.
-   */
-  //void CopyData(size_t destStart, T *srcData, size_t numTuples,
-  //  svtkAllocator srcAlloc = svtkAllocator::malloc, int owner = -1);
-
-  /* append the contents of the passed in data. allocator and owner tells the current
-   * location of the passed data.
-   */
-  //void AppendData(T *srcData, size_t numTuples,
-  //  svtkAllocator srcAlloc = svtkAllocator::malloc, int owner = -1);
+  ///@name zero-copy data transfer
+  ///@{
 
   /** zero-copy the passed data. the allocator is used to tell where the data
    * resides. the callee (array instance) takes ownership of the pointer.
@@ -181,35 +219,30 @@ public:
     svtkAllocator alloc, svtkStream stream, svtkStreamMode,
     int owner, deleter_t deleter);
 
-  /// synchronizes the internal stream
-  void Synchronize() const { this->Data->synchronize(); }
+  ///@}
 
-  /// returns a pointer to the data that is safe to use on the host
+  ///@name location agnostic access
+  ///@{
+
+  /// @returns a pointer to the data that is safe to use on the host
   std::shared_ptr<const T> GetHostAccessible() const { return this->Data->get_host_accessible(); }
 
-  /// returns a pointer to the data that is safe for the compiled device
+  /// @returns a pointer to the data that is safe for the compiled device
   std::shared_ptr<const T> GetDeviceAccessible() const { return this->Data->get_device_accessible(); }
 
-  /// returns a pointer to the data that is safe to use with CUDA
+  /// @returns a pointer to the data that is safe to use with CUDA
   std::shared_ptr<const T> GetCUDAAccessible() const { return this->Data->get_cuda_accessible(); }
 
-  /// returns a pointer to the data that is safe to use with HIP
+  /// @returns a pointer to the data that is safe to use with HIP
   std::shared_ptr<const T> GetHIPAccessible() const { return this->Data->get_hip_accessible(); }
 
-  /// returns a pointer to the data that is safe to use with OpenMP device off load
+  /// @returns a pointer to the data that is safe to use with OpenMP device off load
   std::shared_ptr<const T> GetOpenMPAccessible() const { return this->Data->get_openmp_accessible(); }
 
-  /// return true if a pooniter to the data is safe to use on the Host
-  bool HostAccessible() { return this->Data->host_accessible(); }
+  ///@}
 
-  /// return true if a pooniter to the data is safe to use with CUDA
-  bool CUDAAccessible() { return this->Data->cuda_accessible(); }
-
-  /// returns a pointer to the data that is safe to use with HIP
-  bool HIPAccessible() { return this->Data->hip_accessible(); }
-
-  /// return true if a pooniter to the data is safe to use with OpenMP device off load
-  bool OpenMPAccessible() { return this->Data->openmp_accessible(); }
+  ///@name direct access
+  ///@{
 
   /** fast access to the internally managed memory. Use this only when you know
    * where the data resides and will access it in that location. This method
@@ -226,6 +259,53 @@ public:
    */
   std::shared_ptr<T> GetDataPointer() { return this->Data->pointer(); }
 
+  ///@}
+
+  ///@name device location
+  ///@{
+  /** Sets or changes the allocator used to manage the menory, this may move
+   * the data from one device to another
+   */
+  void SetAllocator(svtkAllocator alloc)
+  {
+    this->Data->move(alloc);
+  }
+
+  /// return true if a pooniter to the data is safe to use on the Host
+  bool HostAccessible() { return this->Data->host_accessible(); }
+
+  /// return true if a pooniter to the data is safe to use with CUDA
+  bool CUDAAccessible() { return this->Data->cuda_accessible(); }
+
+  /// returns a pointer to the data that is safe to use with HIP
+  bool HIPAccessible() { return this->Data->hip_accessible(); }
+
+  /// return true if a pooniter to the data is safe to use with OpenMP device off load
+  bool OpenMPAccessible() { return this->Data->openmp_accessible(); }
+
+  ///@}
+
+  ///@name synchronization
+  ///@{
+
+  /// sets the stream. mode indicate synchronous behavior or not.
+  void SetStream(const svtkStream &stream, svtkStreamMode &mode)
+  {
+    this->Data->set_stream(stream, mode);
+  }
+
+  /// @returns the stream
+  svtkStream &GetStream() { return this->Data->get_stream(); }
+  const svtkStream &GetStream() const { return this->Data->get_stream(); }
+
+  /// synchronizes on the internal stream
+  void Synchronize() const { this->Data->synchronize(); }
+
+  ///@}
+
+  ///@name modify the size of the array
+  ///@{
+
   /// returns the number of values. this is the current size, not the capacity.
   svtkIdType GetNumberOfValues() const override { return this->Data->size(); }
 
@@ -236,10 +316,32 @@ public:
   /// resize the container using the current allocator
   svtkTypeBool Resize(svtkIdType numTuples) override;
 
+  ///@}
+
+  ///@name conversions
+  ///@{
+
+  /** Convert to an svtkAOSDataArrayTemplate instance. Because SVTK only
+   * supports host based data, a deep-copy is made when this array is located on
+   * the GPU. Otherwise the data is passed via zero-copy
+   * @param[in] zeroCopy if true and the data resides on the host, the data is
+   *                     passed to the new svtkAOSDataArrayTemplate instance by
+   *                     zero-copy. Otehrwise a deep-copy is made.
+   * @returns a new instance that must be deleted by the caller
+   */
+  svtkAOSDataArrayTemplate<T> *AsSvtkAOSDataArray(int zeroCopy);
+
+  ///@}
+
+  ///@cond
+
   /** @name not implemented
-   * These methods are not impelemented. If called they will abort. If you find
-   * yourself needing these then you are likely writing VTK code and should
-   * convert the svtkHAMRDataArray into a svtkDataArray subclass.
+   * These methods are not impelemented, and will abort if called. This is
+   * because these methods assume host accessibility and/or would be
+   * inefficient if implemented for heterogeneous accellerators. An example of
+   * this is the methods dealing with single tuples. Access to a single tuple
+   * stored on an accelerator from the host in a loop would be very
+   * inefficient. Instead the data can be accessed in bulk. See ::GetData.
    */
   ///@{
   svtkTypeBool Allocate(svtkIdType numValues, svtkIdType ext) override;
@@ -348,7 +450,9 @@ public:
   double GetMaxNorm() override;
 
   int GetArrayType() const override;
-  //@}
+  ///@}
+
+  ///@endcond
 
 protected:
   svtkHAMRDataArray();
