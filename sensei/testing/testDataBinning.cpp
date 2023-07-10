@@ -8,21 +8,41 @@
 #include "DataBinning.h"
 #include "DataAdaptor.h"
 
+/// generate a Gaussian distribution of particles
 template<typename n_t>
-int genCoords(long start, long end, n_t *x, n_t a = 5)
+int genCoords(long start, long end, n_t *x, n_t cen, n_t mu, n_t a)
 {
   static unsigned long q = 0;
   q += start;
   std::random_device dev;
   std::mt19937 gen(dev());
-  std::normal_distribution<n_t> dist(0.,1.);
+  gen.seed(q);
+  std::normal_distribution<n_t> dist(cen, mu);
+  n_t twoA = n_t(2)*a;
   for (long i = start; i < end; ++i)
   {
-    do {
-    gen.seed(q);
-    x[i] = dist(gen);
+    double xi = dist(gen);
+    if (xi < 0.0)
+        x[i] = a - fmod(fabs(xi - a), twoA);
+    else
+        x[i] = fmod(xi + a, twoA) - a;
     ++q;
-    } while (!((x[i] >= -a) && (x[i] <= a)));
+  }
+  return 0;
+}
+
+/// shift the particle position by dx
+template<typename n_t>
+int updateCoords(long start, long end, n_t *x, n_t dx, n_t a)
+{
+  n_t twoA = n_t(2)*a;
+  for (long i = start; i < end; ++i)
+  {
+    n_t xi = x[i] + dx;
+    if (xi < 0.0)
+        x[i] = a - fmod(fabs(xi - a), twoA);
+    else
+        x[i] = fmod(xi + a, twoA) - a;
   }
   return 0;
 }
@@ -34,12 +54,16 @@ class ParticleSource : public sensei::DataAdaptor
 {
 public:
 
-  static ParticleSource *New(long n, double bds) { return new ParticleSource(n, bds); }
+  static ParticleSource *New(long n, double bds, double dt) { return new ParticleSource(n, bds, dt); }
 
   void Increment()
   {
     this->SetDataTimeStep(this->GetDataTimeStep() + 1);
-    this->SetDataTime(this->GetDataTime() + 1.);
+    this->SetDataTime(this->GetDataTimeStep() + this->Dt);
+
+    updateCoords(0, this->NPart, this->XPos->GetData(), this->Dt, this->Bds);
+    updateCoords(0, this->NPart, this->YPos->GetData(), this->Dt, this->Bds);
+    updateCoords(0, this->NPart, this->ZPos->GetData(), this->Dt, this->Bds);
   }
 
   int GetNumberOfMeshes(unsigned int &n) override { n = 1; return 0; }
@@ -119,29 +143,6 @@ public:
 
   void GenerateData()
   {
-    auto alloc = svtkAllocator::malloc;
-#if defined(SENSEI_ENABLE_CUDA)
-    alloc = svtkAllocator::cuda_host;
-    cudaSetDevice(0);
-#endif
-
-    auto xpos = svtkHAMRDoubleArray::New("xpos", this->NPart,
-             1, alloc, this->Stream[0], svtkStreamMode::async, 1.);
-    genCoords(0, this->NPart, xpos->GetData(), this->Bds/2.);
-    this->XPos = xpos;
-
-    auto ypos = svtkHAMRDoubleArray::New("ypos", this->NPart,
-             1, alloc, this->Stream[0], svtkStreamMode::async, 1.);
-    genCoords(0, this->NPart, ypos->GetData(), this->Bds/2.);
-    this->YPos = ypos;
-
-    auto zpos = svtkHAMRDoubleArray::New("zpos", this->NPart,
-             1, alloc, this->Stream[0], svtkStreamMode::async, 1.);
-    genCoords(0, this->NPart, zpos->GetData(), this->Bds/2.);
-    this->ZPos = zpos;
-
-    this->Mass = svtkHAMRDoubleArray::New("mass", this->NPart,
-                   1, alloc, this->Stream[3], svtkStreamMode::async, 1.);
   }
 
   ~ParticleSource()
@@ -158,8 +159,8 @@ public:
   }
 
 protected:
-  ParticleSource(long nPart, double bds) : NPart(nPart), Bds(bds),
-    XPos(nullptr), YPos(nullptr), ZPos(nullptr), Mass(nullptr)
+  ParticleSource(long nPart, double bds, double dt) : NPart(nPart), Bds(bds),
+    Dt(dt), XPos(nullptr), YPos(nullptr), ZPos(nullptr), Mass(nullptr)
   {
 #if defined(SENSEI_ENABLE_CUDA)
     for (int i = 0; i < 4; ++i)
@@ -169,17 +170,41 @@ protected:
       this->Stream[i] = strm;
     }
 #endif
+    auto hostAlloc = svtkAllocator::malloc;
+#if defined(SENSEI_ENABLE_CUDA)
+    hostAlloc = svtkAllocator::cuda_host;
+    cudaSetDevice(0);
+#endif
+    auto xpos = svtkHAMRDoubleArray::New("xpos", this->NPart,
+             1, hostAlloc, this->Stream[0], svtkStreamMode::async, 1.);
+    this->XPos = xpos;
+
+    auto ypos = svtkHAMRDoubleArray::New("ypos", this->NPart,
+             1, hostAlloc, this->Stream[0], svtkStreamMode::async, 1.);
+    this->YPos = ypos;
+
+    auto zpos = svtkHAMRDoubleArray::New("zpos", this->NPart,
+             1, hostAlloc, this->Stream[0], svtkStreamMode::async, 1.);
+    this->ZPos = zpos;
+
+    this->Mass = svtkHAMRDoubleArray::New("mass", this->NPart,
+                   1, hostAlloc, this->Stream[3], svtkStreamMode::async, 1.);
+
+    genCoords(0, this->NPart, this->XPos->GetData(), 0.0, this->Bds/3., this->Bds);
+    genCoords(0, this->NPart, this->YPos->GetData(), 0.0, this->Bds/3., this->Bds);
+    genCoords(0, this->NPart, this->ZPos->GetData(), 0.0, this->Bds/3., this->Bds);
   }
 
   long NPart; ///< total number of particles on all ranks
   double Bds; ///< data is defined on a cube +/- Bds in all directions
+  double Dt;  ///< time step
 
   svtkStream Stream[4];
 
-  svtkDataArray *XPos; ///< particle position
-  svtkDataArray *YPos;
-  svtkDataArray *ZPos;
-  svtkDataArray *Mass; ///< particle mass
+  svtkHAMRDoubleArray *XPos; ///< particle position
+  svtkHAMRDoubleArray *YPos;
+  svtkHAMRDoubleArray *ZPos;
+  svtkHAMRDoubleArray *Mass; ///< particle mass
 };
 
 
@@ -196,29 +221,32 @@ int main(int argc, char **argv)
 
   if (argc < 7)
   {
-    std::cerr << "testDataBinning [nit] [np] [x/y res] [odir] [dev] [async] [op 1] ... [op n]" << std::endl;
+    std::cerr << "testDataBinning [nit] [np] [dt] [x/y res] [odir] [dev] [async] [op 1] ... [op n]" << std::endl;
     return -1;
   }
 
   long nit = atoi(argv[1]);
   long np = atoi(argv[2]);
-  long res = atoi(argv[3]);
-  const char *odir = argv[4];
-  int device = atoi(argv[5]);
-  int async = atoi(argv[6]);
+  double dt = atof(argv[3]);
+  long res = atoi(argv[4]);
+  const char *odir = argv[5];
+  int device = atoi(argv[6]);
+  int async = atoi(argv[7]);
+
+  double a = 10.; // box goes from -a to a
+  dt = dt <= 0. ? cos( 3.141592 / 4. ) * 2. * sqrt(2.) * a / (nit - 1) : dt; // finish at the start
 
   std::vector<std::string> array;
   std::vector<std::string> op;
 
-  for (int i = 7; i < argc; ++i)
+  for (int i = 8; i < argc; ++i)
   {
     array.push_back("mass");
     op.push_back(argv[i]);
   }
 
   // generate some particle data
-  auto da = ParticleSource::New(np, 10.);
-  da->GenerateData();
+  auto da = ParticleSource::New(np, a, dt);
 
   // process
   auto aa = sensei::DataBinning::New();
@@ -229,6 +257,7 @@ int main(int argc, char **argv)
 
   for (long i = 0; i < nit; ++i)
   {
+    da->GenerateData();
     aa->Execute(da, nullptr);
     da->Increment();
   }
