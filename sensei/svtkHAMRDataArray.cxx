@@ -1,5 +1,5 @@
 #include "svtkHAMRDataArray.h"
-#include "svtkHAMRDataArray.hxx"
+#include "svtkHAMRDataArrayImpl.h"
 
 template class svtkHAMRDataArray<float>;
 template class svtkHAMRDataArray<double>;

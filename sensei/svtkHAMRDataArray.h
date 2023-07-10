@@ -469,7 +469,7 @@ private:
 };
 
 #if !defined(SENSEI_SEPARATE_IMPL)
-#include "svtkHAMRDataArray.hxx"
+#include "svtkHAMRDataArrayImpl.h"
 #endif
 
 using svtkHAMRDoubleArray = svtkHAMRDataArray<double>;

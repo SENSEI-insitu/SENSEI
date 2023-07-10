@@ -1,5 +1,5 @@
-#ifndef svtkHAMRDataArray_hxx
-#define svtkHAMRDataArray_hxx
+#ifndef svtkHAMRDataArrayImpl_h
+#define svtkHAMRDataArrayImpl_h
 
 #include <svtkCallbackCommand.h>
 #include <svtkCommand.h>
