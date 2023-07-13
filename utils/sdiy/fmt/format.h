@@ -858,9 +858,11 @@ class CharTraits<char> : public BasicCharTraits<char> {
 extern template int CharTraits<char>::format_float<double>
         (char *buffer, std::size_t size,
          const char* format, unsigned width, int precision, double value);
+/*
 extern template int CharTraits<char>::format_float<long double>
         (char *buffer, std::size_t size,
          const char* format, unsigned width, int precision, long double value);
+*/
 #endif
 
 template <>
@@ -878,9 +880,11 @@ class CharTraits<wchar_t> : public BasicCharTraits<wchar_t> {
 extern template int CharTraits<wchar_t>::format_float<double>
         (wchar_t *buffer, std::size_t size,
          const wchar_t* format, unsigned width, int precision, double value);
+/*
 extern template int CharTraits<wchar_t>::format_float<long double>
         (wchar_t *buffer, std::size_t size,
          const wchar_t* format, unsigned width, int precision, long double value);
+*/
 #endif
 
 // Checks if a number is negative - used to avoid warnings.
@@ -1100,7 +1104,9 @@ struct Value {
     LongLong long_long_value;
     ULongLong ulong_long_value;
     double double_value;
+#if !defined(__NVCOMPILER)
     long double long_double_value;
+#endif
     const void *pointer;
     StringValue<char> string;
     StringValue<signed char> sstring;
@@ -1190,7 +1196,7 @@ struct ConvertToInt {
 // Silence warnings about convering float to int.
 FMT_DISABLE_CONVERSION_TO_INT(float);
 FMT_DISABLE_CONVERSION_TO_INT(double);
-FMT_DISABLE_CONVERSION_TO_INT(long double);
+//FMT_DISABLE_CONVERSION_TO_INT(long double);
 
 template<bool B, class T = void>
 struct EnableIf {};
@@ -1349,8 +1355,10 @@ class MakeValue : public Arg {
   FMT_MAKE_VALUE(ULongLong, ulong_long_value, ULONG_LONG)
   FMT_MAKE_VALUE(float, double_value, DOUBLE)
   FMT_MAKE_VALUE(double, double_value, DOUBLE)
+#if !defined(__NVCOMPILER)
   FMT_MAKE_VALUE(long double, long_double_value, LONG_DOUBLE)
-  FMT_MAKE_VALUE(signed char, int_value, INT)
+#endif
+FMT_MAKE_VALUE(signed char, int_value, INT)
   FMT_MAKE_VALUE(unsigned char, uint_value, UINT)
   FMT_MAKE_VALUE(char, int_value, CHAR)
 
@@ -1606,10 +1614,12 @@ class ArgVisitor {
     return FMT_DISPATCH(visit_any_double(value));
   }
 
+#if !defined(__NVCOMPILER)
   /** Visits a ``long double`` argument. **/
   Result visit_long_double(long double value) {
     return FMT_DISPATCH(visit_any_double(value));
   }
+#endif
 
   /** Visits a ``double`` or ``long double`` argument. **/
   template <typename T>
@@ -1670,9 +1680,11 @@ class ArgVisitor {
       return FMT_DISPATCH(visit_char(arg.int_value));
     case Arg::DOUBLE:
       return FMT_DISPATCH(visit_double(arg.double_value));
+#if !defined(__NVCOMPILER)
     case Arg::LONG_DOUBLE:
       return FMT_DISPATCH(visit_long_double(arg.long_double_value));
-    case Arg::CSTRING:
+#endif
+case Arg::CSTRING:
       return FMT_DISPATCH(visit_cstring(arg.string.value));
     case Arg::STRING:
       return FMT_DISPATCH(visit_string(arg.string));
@@ -2545,9 +2557,10 @@ class BasicWriter {
 
   // Appends floating-point length specifier to the format string.
   // The second argument is only used for overload resolution.
-  void append_float_length(Char *&format_ptr, long double) {
+/*  void append_float_length(Char *&format_ptr, long double) {
     *format_ptr++ = 'L';
   }
+*/
 
   template<typename T>
   void append_float_length(Char *&, T) {}
@@ -2672,10 +2685,11 @@ class BasicWriter {
     (``'g'``) and writes it to the stream.
     \endrst
    */
-  BasicWriter &operator<<(long double value) {
+/*  BasicWriter &operator<<(long double value) {
     write_double(value, FormatSpec());
     return *this;
   }
+*/
 
   /**
     Writes a character to the stream.
