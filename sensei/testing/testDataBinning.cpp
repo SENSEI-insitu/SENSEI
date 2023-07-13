@@ -85,6 +85,7 @@ public:
     md->ArrayComponents = {1, 1, 1, 1};
     md->ArrayType = {SVTK_DOUBLE, SVTK_DOUBLE, SVTK_DOUBLE, SVTK_DOUBLE};
     md->ArrayRange = {{-this->Bds, this->Bds}, {-this->Bds, this->Bds}, {-this->Bds, this->Bds}, {-this->Bds, this->Bds}};
+    md->BlockArrayRange = {{{-this->Bds, this->Bds}, {-this->Bds, this->Bds}, {-this->Bds, this->Bds}, {-this->Bds, this->Bds}}};
     md->GlobalView = 0;
     return 0;
   }
@@ -219,27 +220,29 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  if (argc < 7)
+  if (argc < 9)
   {
-    std::cerr << "testDataBinning [nit] [np] [dt] [x/y res] [odir] [dev] [async] [op 1] ... [op n]" << std::endl;
+    std::cerr << "testDataBinning [nit] [np] [dt] [x/y res] [odir] [dev] [async] "
+                 "[x axis] [y axis] [op 1] ... [op n]" << std::endl;
     return -1;
   }
 
   long nit = atoi(argv[1]);
   long np = atoi(argv[2]);
-  double dt = atof(argv[3]);
-  long res = atoi(argv[4]);
-  const char *odir = argv[5];
-  int device = atoi(argv[6]);
-  int async = atoi(argv[7]);
+  long res = atoi(argv[3]);
+  const char *odir = argv[4];
+  int device = atoi(argv[5]);
+  int async = atoi(argv[6]);
+  const char *xAxis = argv[7];
+  const char *yAxis = argv[8];
 
   double a = 10.; // box goes from -a to a
-  dt = dt <= 0. ? cos( 3.141592 / 4. ) * 2. * sqrt(2.) * a / (nit - 1) : dt; // finish at the start
+  double dt = cos( 3.141592 / 4. ) * 2. * sqrt(2.) * a / (nit - 1); // finish at the start
 
   std::vector<std::string> array;
   std::vector<std::string> op;
 
-  for (int i = 8; i < argc; ++i)
+  for (int i = 9; i < argc; ++i)
   {
     array.push_back("mass");
     op.push_back(argv[i]);
@@ -250,10 +253,10 @@ int main(int argc, char **argv)
 
   // process
   auto aa = sensei::DataBinning::New();
-  aa->Initialize("particles","xpos","ypos",array,op,res,res,odir,0);
   aa->SetDeviceId(device);
   aa->SetAsynchronous(async);
   aa->SetVerbose(1);
+  aa->Initialize("particles",xAxis,yAxis,array,op,res,res,odir,0,8);
 
   for (long i = 0; i < nit; ++i)
   {
