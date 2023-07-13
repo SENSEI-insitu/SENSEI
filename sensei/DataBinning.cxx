@@ -30,9 +30,8 @@ using namespace sensei::STLUtils;
 
 #if defined(SENSEI_ENABLE_CUDA)
 #include "CUDAUtils.h"
-#include <thrust/sequence.h>
 #include <thrust/reduce.h>
-#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
 #endif
 
 #include <algorithm>
@@ -894,10 +893,7 @@ int DataBin::Initialize(const std::string &meshName,
 
   // see what the simulation is providing
   MeshMetadataMap mdMap;
-
   MeshMetadataFlags mdFlags;
-  mdFlags.SetBlockBounds();
-
   if (mdMap.Initialize(daIn, mdFlags))
   {
     SENSEI_ERROR("Failed to get metadata")
@@ -910,10 +906,6 @@ int DataBin::Initialize(const std::string &meshName,
     SENSEI_ERROR("Failed to get metadata for this->Mesh \"" << this->MeshName << "\"")
     return -1;
   }
-
-  // get the global coordinate axis bounds from the metadata
-  if (!this->Mmd->GlobalView)
-      this->Mmd->GlobalizeView(this->Comm);
 
   // build a mapping from array name to its metadata
   for (int i = 0; i < this->Mmd->NumArrays; ++i)
@@ -1150,11 +1142,94 @@ void DataBin::Compute()
     cudaSetDevice(this->DeviceId);
 #endif
 
+  // get the block min/max
   int xAxisArrayId = this->ArrayMmdId[this->XAxisArray];
-  int yAxisArrayId = this->ArrayMmdId[this->YAxisArray];
-  // get the coordinate axis range
-  auto [minX, maxX] = this->Mmd->ArrayRange[xAxisArrayId];
-  auto [minY, maxY] = this->Mmd->ArrayRange[yAxisArrayId];
+  int xAxisArrayType = this->Mmd->ArrayType[xAxisArrayId];
+
+  double axesMin[2] = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+  double axesMax[2] = {std::numeric_limits<double>::lowest(), std::numeric_limits<double>::lowest()};
+
+  svtkSmartPointer<svtkCompositeDataIterator> iter;
+  iter.TakeReference(this->Mesh->NewIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
+  {
+    // get the next local block of data.
+    auto curObj = iter->GetCurrentDataObject();
+    auto tab = static_cast<svtkTable*>(curObj);
+
+    switch (xAxisArrayType)
+    {
+    svtkNestedTemplateMacroFloat(_COORDS,
+      using coord_t = SVTK_TT_COORDS;
+      using coord_array_t = svtkHAMRDataArray<SVTK_TT_COORDS>;
+
+      // get the x-coordinate arrays.
+      auto xCol = GetColumn(tab, this->XAxisArray);
+      auto xCoord = static_cast<coord_array_t*>(xCol);
+      long nVals = xCoord->GetNumberOfTuples();
+
+      // get the y-coordinate arrays.
+      auto yCol = GetColumn(tab, this->YAxisArray);
+      auto yCoord = static_cast<coord_array_t*>(yCol);
+
+#if defined(SENSEI_ENABLE_CUDA)
+      if (this->DeviceId >= 0)
+      {
+        // compute the min/max x-axis
+        auto spx = xCoord->GetDeviceAccessible();
+        auto px = spx.get();
+
+        axesMin[0] = thrust::reduce(thrust::device, px, px + nVals,
+                                    coord_t(axesMin[0]), thrust::minimum<coord_t>());
+
+        axesMax[0] = thrust::reduce(thrust::device, px, px + nVals,
+                                    coord_t(axesMax[0]), thrust::maximum<coord_t>());
+
+        // compute the min/max y-axis
+        auto spy = yCoord->GetDeviceAccessible();
+        auto py = spy.get();
+
+        axesMin[1] = thrust::reduce(thrust::device, py, py + nVals,
+                                    coord_t(axesMin[1]), thrust::minimum<coord_t>());
+
+        axesMax[1] = thrust::reduce(thrust::device, py, py + nVals,
+                                    coord_t(axesMax[1]), thrust::maximum<coord_t>());
+      }
+      else
+      {
+#endif
+        // compute the min/max x-axis
+        auto spx = xCoord->GetHostAccessible();
+        auto px = spx.get();
+        for (long i = 0; i < nVals; ++i)
+        {
+            axesMin[0] = std::min(coord_t(axesMin[0]), px[i]);
+            axesMax[0] = std::max(coord_t(axesMax[0]), px[i]);
+        }
+
+        // compute the min/max y-axis
+        auto spy = yCoord->GetHostAccessible();
+        auto py = spy.get();
+        for (long i = 0; i < nVals; ++i)
+        {
+            axesMin[1] = std::min(coord_t(axesMin[1]), py[i]);
+            axesMax[1] = std::max(coord_t(axesMax[1]), py[i]);
+        }
+#if defined(SENSEI_ENABLE_CUDA)
+      }
+#endif
+    );}
+  }
+
+  // get the global min/max
+  switch (xAxisArrayType)
+  {
+  svtkNestedTemplateMacroFloat(_COORDS,
+    using coord_t = SVTK_TT_COORDS;
+    auto redType = MPIUtils::mpi_tt<coord_t>::datatype();
+    MPI_Allreduce(MPI_IN_PLACE, axesMin, 2, redType, MPI_MIN, this->Comm);
+    MPI_Allreduce(MPI_IN_PLACE, axesMax, 2, redType, MPI_MAX, this->Comm);
+  );}
 
   // compute the grid spacing
   long xRes = this->XRes;
@@ -1163,8 +1238,8 @@ void DataBin::Compute()
   double dx = 0.;
   double dy = 0.;
 
-  dx = maxX - minX;
-  dy = maxY - minY;
+  dx = axesMax[0] - axesMin[0];
+  dy = axesMax[1] - axesMin[1];
 
   // setting either x or y res negative tell us to make a grid of square cells
   // using the non-negative res
@@ -1216,12 +1291,7 @@ void DataBin::Compute()
     }
   }
 
-  int xAxisArrayType = this->Mmd->ArrayType[xAxisArrayId];
-  //int yAxisArrayType = this->Mmd->ArrayType[yAxisArrayId];
-
   // process the blocks of data
-  svtkSmartPointer<svtkCompositeDataIterator> iter;
-  iter.TakeReference(this->Mesh->NewIterator());
   for (iter->InitTraversal(); !iter->IsDoneWithTraversal(); iter->GoToNextItem())
   {
     // get the next local block of data.
@@ -1241,6 +1311,7 @@ void DataBin::Compute()
       // get the x-coordinate arrays.
       auto xCol = GetColumn(tab, this->XAxisArray);
       auto xCoord = static_cast<coord_array_t*>(xCol);
+      long nVals = xCoord->GetNumberOfTuples();
 
       // get the y-coordinate arrays.
       auto yCol = GetColumn(tab, this->YAxisArray);
@@ -1250,7 +1321,6 @@ void DataBin::Compute()
       std::shared_ptr<const coord_t> spXCoord;
       std::shared_ptr<const coord_t> spYCoord;
 
-      long nVals = xCoord->GetNumberOfTuples();
 #if defined(SENSEI_ENABLE_CUDA)
       if (this->DeviceId >= 0)
       {
@@ -1264,7 +1334,7 @@ void DataBin::Compute()
 
         // compute the block's contribution
         if (::CudaImpl::blockCount(this->CalcStr[0], spXCoord.get(), spYCoord.get(),
-          nVals, minX, minY, dx, dy, xRes, yRes, countDa->GetData()))
+          nVals, axesMin[0], axesMin[1], dx, dy, xRes, yRes, countDa->GetData()))
         {
           SENSEI_ERROR("Failed to compute the count on the GPU")
           this->Error = 1;
@@ -1284,7 +1354,7 @@ void DataBin::Compute()
 
         // compute the projections on the host
         if (::HostImpl::blockCount(spXCoord.get(), spYCoord.get(),
-          nVals, minX, minY, dx, dy, xRes, yRes, countDa->GetData()))
+          nVals, axesMin[0], axesMin[1], dx, dy, xRes, yRes, countDa->GetData()))
         {
           SENSEI_ERROR("Failed to compute the count on the host")
           this->Error = 1;
@@ -1334,21 +1404,21 @@ void DataBin::Compute()
               case DataBinning::BIN_AVG:
                 iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
-                                            minX, minY, dx, dy, xRes, yRes,
+                                            axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::CudaImpl::SumOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
               case DataBinning::BIN_MIN:
                 iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
-                                            minX, minY, dx, dy, xRes, yRes,
+                                            axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::CudaImpl::MinOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
               case DataBinning::BIN_MAX:
                 iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
-                                            minX, minY, dx, dy, xRes, yRes,
+                                            axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::CudaImpl::MaxOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
@@ -1369,19 +1439,19 @@ void DataBin::Compute()
               case DataBinning::BIN_SUM:
               case DataBinning::BIN_AVG:
                 iret = ::HostImpl::blockBin(spXCoord.get(), spYCoord.get(), spArrayIn.get(),
-                                            nVals, minX, minY, dx, dy, xRes, yRes,
+                                            nVals, axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::HostImpl::SumOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
               case DataBinning::BIN_MIN:
                 iret = ::HostImpl::blockBin(spXCoord.get(), spYCoord.get(), spArrayIn.get(),
-                                            nVals, minX, minY, dx, dy, xRes, yRes,
+                                            nVals, axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::HostImpl::MinOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
               case DataBinning::BIN_MAX:
                 iret = ::HostImpl::blockBin(spXCoord.get(), spYCoord.get(), spArrayIn.get(),
-                                            nVals, minX, minY, dx, dy, xRes, yRes,
+                                            nVals, axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::HostImpl::MaxOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
@@ -1619,14 +1689,16 @@ void DataBin::Compute()
     char fn[512];
     fn[511] = '\0';
 
-    snprintf(fn, 511, "%s/data_bin_%s_%06ld.vtk", this->OutDir.c_str(),
-             this->MeshName.c_str(), this->Iteration);
+    snprintf(fn, 511, "%s/data_bin_%s_%s_%s_%06ld.vtk",
+             this->OutDir.c_str(), this->MeshName.c_str(),
+             this->XAxisArray.c_str(), this->YAxisArray.c_str(),
+             this->Iteration);
 
     std::vector<svtkDataArray*> cellData(binnedDa.begin(), binnedDa.end());
     cellData.push_back(countDa);
 
-    if (SVTKUtils::WriteVTK(fn, xRes + 1, yRes + 1, 1, minX,
-                            minY, 0., dx, dy, 1., cellData, {}))
+    if (SVTKUtils::WriteVTK(fn, xRes + 1, yRes + 1, 1, axesMin[0],
+                            axesMin[1], 0., dx, dy, 1., cellData, {}))
     {
       SENSEI_ERROR("Failed to write file \"" << fn << "\"")
       this->Error = 1;
@@ -1642,7 +1714,7 @@ void DataBin::Compute()
     if (this->Rank == 0)
     {
       auto imo = svtkImageData::New();
-      imo->SetOrigin(minX, minY, 0.0);
+      imo->SetOrigin(axesMin[0], axesMin[1], 0.0);
       imo->SetSpacing(dx, dy, 0.0);
       imo->SetDimensions(xRes, yRes, 1);
       imo->GetPointData()->AddArray(countDa);
