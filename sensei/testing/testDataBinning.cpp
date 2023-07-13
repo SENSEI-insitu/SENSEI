@@ -248,6 +248,11 @@ int main(int argc, char **argv)
     op.push_back(argv[i]);
   }
 
+#if defined(SENSEI_ENABLE_CUDA)
+  if (device >= 0)
+    cudaSetDevice(device);
+#endif
+
   // generate some particle data
   auto da = ParticleSource::New(np, a, dt);
 
