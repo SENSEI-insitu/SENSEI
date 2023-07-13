@@ -26,25 +26,10 @@ class SENSEI_EXPORT DataBinning : public AnalysisAdaptor
 public:
   /// allocates a new instance
   static DataBinning* New();
-
   senseiTypeMacro(DataBinning, AnalysisAdaptor);
 
-  /// supported binning operations
-  enum {INVALID_OP, BIN_SUM, BIN_AVG, BIN_MIN, BIN_MAX};
-
-  /** converts the string to the corresponding enumeration.
-   * @param[in] opName string naming the operation(one of: "sum", "avg", "min", "max")
-   * @param[out] opCode the enumerated value
-   * @returns zero if successful
-   */
-  static int GetOperation(const std::string &opName, int &opCode);
-
-  /** converts the enumeration to a string
-   * @param[in] opCode the enumerated value(one of: BIN_SUM, BIN_AVG, BIN_MIN, BIN_MAX)
-   * @param[out] opName string naming the operation
-   * @returns zero if successful
-   */
-  static int GetOperation(int opCode, std::string &opName);
+  /// When set binning runs in a thread and ::Execute returns immediately
+  void SetAsynchronous(int val) override;
 
   /** set the name of the mesh and arrays to request from the simulation.
    * Sets the output image resolution and the name of a file to write them in.
@@ -58,7 +43,7 @@ public:
     const std::vector<std::string> &binnedArray,
     const std::vector<std::string> &operation,
     long xres, long yres, const std::string &outDir,
-    int returnData);
+    int returnData, int maxThreads);
 
   /** Initialize from XML
    * Input mesh, coordinate axis arrays, grid resolution, and output path are
@@ -74,6 +59,7 @@ public:
    * | x_res | the grid resolution to bin to in the x-direction |
    * | y_res | the grid resolution to bin to in the y-direction |
    * | return_data | set to 1 to return a data adaptor w/ the results |
+   * | max_threads | the max number of threads to use |
    *
    * Nested elements:
    * | element | description |
@@ -92,6 +78,23 @@ public:
   /// finalize the run
   int Finalize() override;
 
+  /// The supported binning operations
+  enum {INVALID_OP, BIN_SUM, BIN_AVG, BIN_MIN, BIN_MAX};
+
+  /** converts the string to the corresponding enumeration.
+   * @param[in] opName string naming the operation(one of: "sum", "avg", "min", "max")
+   * @param[out] opCode the enumerated value
+   * @returns zero if successful
+   */
+  static int GetOperation(const std::string &opName, int &opCode);
+
+  /** converts the enumeration to a string
+   * @param[in] opCode the enumerated value(one of: BIN_SUM, BIN_AVG, BIN_MIN, BIN_MAX)
+   * @param[out] opName string naming the operation
+   * @returns zero if successful
+   */
+  static int GetOperation(int opCode, std::string &opName);
+
 protected:
   DataBinning();
   ~DataBinning();
@@ -99,8 +102,8 @@ protected:
   DataBinning(const DataBinning&) = delete;
   void operator=(const DataBinning&) = delete;
 
-  int CheckPending();
-  int WaitPending();
+  void InitializeThreads();
+  int WaitThreads();
 
   long XRes;
   long YRes;
@@ -113,8 +116,9 @@ protected:
   std::vector<std::string> BinnedArray;
   std::vector<int> Operation;
   int ReturnData;
-  int MaxPending;
-  std::list<std::future<int>> Pending;
+  int MaxThreads;
+  std::vector<std::future<int>> Threads;
+  std::vector<MPI_Comm> ThreadComm;
 };
 
 }

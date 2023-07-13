@@ -42,14 +42,6 @@ using namespace sensei::STLUtils;
 // lets the compiler find the time literals
 using namespace std::chrono_literals;
 
-// MPICH claims to be thread safe but without explicit locking reductions
-// output garbage on MPICH 4.0.2 Fedora 37
-#if !defined(THREAD_SAFE_MPI)
-#include <mutex>
-std::mutex g_mpi_mutex;
-using lock_t = std::lock_guard<std::mutex>;
-#endif
-
 namespace
 {
 #if defined(SENSEI_ENABLE_CUDA)
@@ -659,13 +651,16 @@ senseiNewMacro(DataBinning);
 //-----------------------------------------------------------------------------
 DataBinning::DataBinning() : XRes(128), YRes(128), OutDir("./"),
   Iteration(0), AxisFactor(0.1), MeshName(), XAxisArray(), YAxisArray(),
-  BinnedArray(), Operation(), ReturnData(0), MaxPending(8)
+  BinnedArray(), Operation(), ReturnData(0), MaxThreads(4)
 {
 }
 
 //-----------------------------------------------------------------------------
 DataBinning::~DataBinning()
 {
+  int n = this->ThreadComm.size();
+  for (int i = 0; i < n; ++i)
+    MPI_Comm_free(&this->ThreadComm[i]);
 }
 
 //-----------------------------------------------------------------------------
@@ -703,6 +698,29 @@ int DataBinning::GetOperation(int opCode, std::string &opName)
 }
 
 //-----------------------------------------------------------------------------
+void DataBinning::SetAsynchronous(int val)
+{
+  sensei::AnalysisAdaptor::SetAsynchronous(val);
+  this->InitializeThreads();
+}
+
+//-----------------------------------------------------------------------------
+void DataBinning::InitializeThreads()
+{
+  bool async = this->GetAsynchronous() && !this->ReturnData;
+  if (async && (int(this->Threads.size()) != this->MaxThreads))
+  {
+    this->Threads.resize(this->MaxThreads);
+
+    // make a communicator for each threads
+    MPI_Comm comm = this->GetCommunicator();
+    this->ThreadComm.resize(this->MaxThreads);
+    for (int i = 0; i < this->MaxThreads; ++i)
+      MPI_Comm_dup(comm, &this->ThreadComm[i]);
+  }
+}
+
+//-----------------------------------------------------------------------------
 int DataBinning::Initialize(pugi::xml_node node)
 {
   // get the required attributes
@@ -716,10 +734,11 @@ int DataBinning::Initialize(pugi::xml_node node)
   std::string yAxis = node.attribute("y_axis").value();
 
   // get the optional attributes
-  std::string oDir = node.attribute("out_dir").as_string("./");
-  int xRes = node.attribute("x_res").as_int(128);
-  int yRes = node.attribute("y_res").as_int(-1);
-  int retData = node.attribute("return_data").as_int(0);
+  std::string oDir = node.attribute("out_dir").as_string(this->OutDir.c_str());
+  int xRes = node.attribute("x_res").as_int(this->XRes);
+  int yRes = node.attribute("y_res").as_int(this->YRes);
+  int retData = node.attribute("return_data").as_int(this->ReturnData);
+  int maxThreads = node.attribute("max_threads").as_int(this->MaxThreads);
 
   // get arrays to bin
   std::vector<std::string> arrays;
@@ -730,7 +749,7 @@ int DataBinning::Initialize(pugi::xml_node node)
   XMLUtils::ParseList(node.child("operations"), ops);
 
   return this->Initialize(mesh, xAxis, yAxis, arrays, ops,
-                          xRes, yRes, oDir, retData);
+                          xRes, yRes, oDir, retData, maxThreads);
 }
 
 //-----------------------------------------------------------------------------
@@ -739,7 +758,7 @@ int DataBinning::Initialize(const std::string &meshName,
   const std::vector<std::string> &binnedArray,
   const std::vector<std::string> &operation,
   long xres, long yres, const std::string &outDir,
-  int returnData)
+  int returnData, int maxThreads)
 {
   this->MeshName = meshName;
   this->XAxisArray = xAxisArray;
@@ -769,6 +788,10 @@ int DataBinning::Initialize(const std::string &meshName,
   this->YRes = yres;
   this->OutDir = outDir;
   this->ReturnData = returnData;
+  this->MaxThreads = maxThreads;
+
+  // each thread needs a communicator
+  this->InitializeThreads();
 
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
@@ -776,9 +799,9 @@ int DataBinning::Initialize(const std::string &meshName,
   {
     SENSEI_STATUS(<< "Configured DataBinning: MeshName=" << meshName
       << " XAxisArray=" << xAxisArray << " YAxisArray=" << yAxisArray
-      << " BinnedArray={" << binnedArray << "} Operations={" << operation << "}"
+      << " BinnedArray=" << binnedArray << " Operations=" << operation
       << " XRes=" << xres << " YRes=" << yres << " OutDir=" << outDir
-      << "ReturnData=" << returnData)
+      << " ReturnData=" << returnData << " MaxThreads=" << maxThreads)
   }
 
   return 0;
@@ -1504,10 +1527,6 @@ void DataBin::Compute()
   // accumulate contributions from all ranks
   countDa->Synchronize();
 
-#if !defined(THREAD_SAFE_MPI)
-  {
-  lock_t lock(g_mpi_mutex);
-#endif
   if (this->Rank == 0)
   {
     MPI_Reduce(MPI_IN_PLACE, countDa->GetData(), xyRes,
@@ -1554,9 +1573,6 @@ void DataBin::Compute()
 
     );}
   }
-#if !defined(THREAD_SAFE_MPI)
-  }
-#endif
 
   // finalize the calculation, and write the results on rank 0
   if (this->Rank == 0)
@@ -1784,16 +1800,21 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   if (daOut)
     *daOut = nullptr;
 
-  // when running asynchronopusly check here for finished threads
   int retData = this->ReturnData && daOut;
   int async = this->GetAsynchronous() && !retData;
 
-  if (async && (((this->Iteration + 1) % this->MaxPending) == 0) && this->CheckPending())
+  // if this thread is pending wait for it and check for an error
+  int threadId = this->Iteration % this->MaxThreads;
+  if (async && this->Threads[threadId].valid() && this->Threads[threadId].get())
   {
-    SENSEI_ERROR("A thread failed")
+    SENSEI_ERROR("Async binning failed at iteration " << this->Iteration
+      << " thread " << threadId)
     MPI_Abort(comm, -1);
     return false;
   }
+
+  // get this thread's communicator
+  MPI_Comm threadComm = async ? this->ThreadComm[threadId] : comm;
 
   // this lets one load balance across multiple GPU's and CPU's
   // set -1 to execute on the CPU and 0 to N_CUDA_DEVICES -1 to specify
@@ -1814,8 +1835,8 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   // fetch data from the simulation
   if (binner->Initialize(this->MeshName, this->XAxisArray, this->YAxisArray,
     this->BinnedArray, this->Operation, this->XRes, this->YRes, this->OutDir,
-    this->ReturnData, comm, rank, n_ranks, this->GetDeviceId(), async,
-    this->Iteration, this->GetVerbose(), daIn))
+    this->ReturnData, threadComm, rank, n_ranks, this->GetDeviceId(),
+    async, this->Iteration, this->GetVerbose(), daIn))
   {
     SENSEI_ERROR("Failed to intialize the binner")
     MPI_Abort(comm, -1);
@@ -1831,24 +1852,21 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   if (async)
   {
     // keep track of the threads so we don't exit before they are complete
-    this->Pending.push_back(std::move(pending));
+    this->Threads[threadId] = std::move(pending);
   }
   else
   {
     // wait here for the thread to complete
-    int ierr = pending.get();
-    if (ierr)
+    if (pending.get())
     {
-        SENSEI_ERROR("Binning failed")
-        MPI_Abort(comm, -1);
-        return false;
+      SENSEI_ERROR("Binning failed at iteration " << this->Iteration)
+      MPI_Abort(comm, -1);
+      return false;
     }
   }
 
   if (rank == 0)
     gettimeofday(&endBin, nullptr);
-
-  this->Iteration += 1;
 
   // wrap the returned data in an adaptor
   if (retData)
@@ -1871,76 +1889,34 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     double runTimeUs = (endExec.tv_sec * 1e6 + endExec.tv_usec) -
       (startExec.tv_sec * 1e6 + startExec.tv_usec);
 
-    SENSEI_STATUS("DataBinning::Execute  mode:"
-      << (async ? "async" : "sync") << "  device:"
-      << (this->DeviceId < 0 ? "host" : "CUDA GPU")
-      << "(" << this->DeviceId << ")  ret_data:"
-      << (retData ? "yes":"no") << "  t_total:"
-      << runTimeUs / 1e6 << "s  t_fetch:" << fetchTimeUs / 1e6
-      << "s  t_bin:" << binTimeUs / 1e6 << "s")
+    SENSEI_STATUS("DataBinning::Execute  iteration:"
+      << this->Iteration << " mode:" << (async ? "async" : "sync")
+      << "  device:" << (this->DeviceId < 0 ? "host" : "CUDA GPU")
+      << "(" << this->DeviceId << ")  ret_data:" << (retData ? "yes":"no")
+      << "  t_total:" << runTimeUs / 1e6 << "s  t_fetch:"
+      << fetchTimeUs / 1e6 << "s  t_bin:" << binTimeUs / 1e6 << "s")
   }
+
+  this->Iteration += 1;
 
   return true;
 }
 
 //-----------------------------------------------------------------------------
-int DataBinning::WaitPending()
-{
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-  while (!this->Pending.empty())
-  {
-    auto &pending = this->Pending.front();
-    int ierr = pending.get();
-    this->Pending.pop_front();
-    if (ierr)
-    {
-#if defined(SENSEI_DEBUG)
-      SENSEI_ERROR("A thread failed to complete")
-#endif
-      return -1;
-    }
-#if defined(SENSEI_DEBUG)
-    else if (this->GetVerbose() && (rank == 0))
-    {
-      SENSEI_STATUS("A thread completed successfully")
-    }
-#endif
-  }
-  return 0;
-}
-
-//-----------------------------------------------------------------------------
-int DataBinning::CheckPending()
+int DataBinning::WaitThreads()
 {
   int iret = 0;
-
-  int rank = 0;
-  MPI_Comm_rank(this->GetCommunicator(), &rank);
-
-  for (auto it = this->Pending.begin(); it != this->Pending.end();)
+  if (this->GetAsynchronous() && !this->ReturnData)
   {
-    if (it->wait_for(0s) == std::future_status::ready)
+    int nThreads = this->Threads.size();
+    for (int i = 0; i < nThreads; ++i)
     {
-      int ierr = it->get();
-      it = this->Pending.erase(it);
-      if (ierr)
+      if (this->Threads[i].valid() && this->Threads[i].get())
       {
-#if defined(SENSEI_DEBUG)
-        SENSEI_ERROR("A thread failed to complete")
-#endif
+        SENSEI_ERROR("Asynchronous binning failed at iteration " << this->Iteration
+          << " thread id " << i)
         iret = -1;
       }
-#if defined(SENSEI_DEBUG)
-      else if (this->GetVerbose() && (rank == 0))
-      {
-        SENSEI_STATUS("A thread completed successfully")
-      }
-#endif
-    }
-    else
-    {
-      ++it;
     }
   }
   return iret;
@@ -1956,7 +1932,7 @@ int DataBinning::Finalize()
   MPI_Comm_rank(this->GetCommunicator(), &rank);
 
   // wait for the last thread to finish
-  this->WaitPending();
+  this->WaitThreads();
 
   // send status message
   if (this->GetVerbose() && (rank == 0))
