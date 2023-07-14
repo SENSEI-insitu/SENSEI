@@ -1772,9 +1772,9 @@ void DataBin::Compute()
     double runTimeUs = (endTime.tv_sec * 1e6 + endTime.tv_usec) -
       (startTime.tv_sec * 1e6 + startTime.tv_usec);
 
-    SENSEI_STATUS("thread:" << std::hex << std::this_thread::get_id() << std::dec
-      << "  step:" << this->Step << "  time:" << this->Time << "  device:"
-      << (this->DeviceId < 0 ? "host" : "CUDA GPU")
+    SENSEI_STATUS_ALL("thread:" << std::hex << std::this_thread::get_id()
+      << std::dec << "  step:" << this->Step << "  time:" << this->Time
+      << "  device:" << (this->DeviceId < 0 ? "host" : "CUDA GPU")
       << "(" << this->DeviceId << ")  t_bin:" << runTimeUs / 1e6 << "s")
   }
 }
@@ -1815,17 +1815,6 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
 
   // get this thread's communicator
   MPI_Comm threadComm = async ? this->ThreadComm[threadId] : comm;
-
-  // this lets one load balance across multiple GPU's and CPU's
-  // set -1 to execute on the CPU and 0 to N_CUDA_DEVICES -1 to specify
-  // the specific GPU to run on.
-#if defined(SENSEI_ENABLE_CUDA)
-  const char *aDevId = getenv("SENSEI_DEVICE_ID");
-  if (aDevId)
-    this->DeviceId = atoi(aDevId);
-#else
-  this->DeviceId = -1;
-#endif
 
   if (rank == 0)
     gettimeofday(&startFetch, nullptr);
@@ -1889,7 +1878,7 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     double runTimeUs = (endExec.tv_sec * 1e6 + endExec.tv_usec) -
       (startExec.tv_sec * 1e6 + startExec.tv_usec);
 
-    SENSEI_STATUS("DataBinning::Execute  iteration:"
+    SENSEI_STATUS_ALL("DataBinning::Execute  iteration:"
       << this->Iteration << " mode:" << (async ? "async" : "sync")
       << "  device:" << (this->DeviceId < 0 ? "host" : "CUDA GPU")
       << "(" << this->DeviceId << ")  ret_data:" << (retData ? "yes":"no")
