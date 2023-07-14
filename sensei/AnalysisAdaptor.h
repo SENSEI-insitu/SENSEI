@@ -9,17 +9,17 @@ namespace sensei
 {
 class DataAdaptor;
 
-/** The base class for data consumers. Implementors will override Eexcute,
- * and Finalize and can choose to implement an Initialze method. In Execute
- * the DataAdaptor API is used to fetch simulation data. The fetched data is
- * transformed as needed by the underlying processing, movement or I/O library.
- * Simulations invoke in situ processing by calling the Execute method.
- * Typically simulations will make use of the ConfigurableAnalysis.
+/** The base class for data consumers. Implementors will override ::Eexcute,
+ * and ::Finalize and can choose to implement an Initialze method. In ::Execute
+ * the sensei::DataAdaptor API is used to fetch simulation data. The fetched
+ * data is transformed as needed by the underlying processing, movement or I/O
+ * library.  Simulations invoke in situ processing by calling the ::Execute
+ * method.  Typically simulations will make use of the
+ * sensei::ConfigurableAnalysis.
  *
- * An analysis adaptor can optionally generate output data in Execute, and
- * return it via a DataAdaptor instance. Such an output may be used for further
- * analysis or provide feedback and other control information  back to the
- * simulation itself.
+ * An analysis adaptor can optionally return a sensei::DataAdaptor instance
+ * from ::Execute. Such an output may be used for further analysis or provide
+ * feedback and other control information  back to the simulation itself.
  */
 class SENSEI_EXPORT AnalysisAdaptor : public svtkObjectBase
 {
@@ -28,28 +28,6 @@ public:
 
   /// Prints the current state of the adaptor.
   void PrintSelf(ostream& os, svtkIndent indent) override;
-
-  /// Set the level of verbosity of console output.
-  virtual void SetVerbose(int val){ this->Verbose = val; }
-
-  /// Get the level of verbosity of console output.
-  virtual int GetVerbose(){ return this->Verbose; }
-
-  /** When set the analysis should buffer the simulation data and run in the
-   * background returning to the simulation immediately. This mode requires
-   * MPI_THREAD_MULTIPLE and each thread must use a different communictor
-   * or serialize the calls to MPI collectives.
-   */
-  virtual void SetAsynchronous(int val){ this->Asynchronous = val; }
-
-  /// Get asynchronous mode.
-  virtual int GetAsynchronous(){ return this->Asynchronous; }
-
-  /// Set the device that the analysis should run on.
-  virtual void SetDeviceId(int val){ this->DeviceId = val; }
-
-  /// Get the device that the analysis should run on.
-  virtual int GetDeviceId(){ return this->DeviceId; }
 
   /** Set the MPI communicator to be used by the adaptor.
    * The default communicator is a duplicate of MPI_COMMM_WORLD, giving
@@ -61,6 +39,70 @@ public:
 
   /// returns the MPI communicator to be used for all communication
   MPI_Comm GetCommunicator() { return this->Comm; }
+
+  /** Set the level of verbosity of console output. The environment variable
+   * `SENSEI_VERBOSE` provides the initial value if set. Otherwise the default
+   * is 0.
+   */
+  virtual void SetVerbose(int val){ this->Verbose = val; }
+
+  /// Get the level of verbosity of console output.
+  virtual int GetVerbose(){ return this->Verbose; }
+
+  /** When set the analysis should buffer the simulation data and run in the
+   * background returning to the simulation immediately. This mode requires
+   * MPI_THREAD_MULTIPLE and each thread must use a different communictor
+   * or serialize the calls to MPI collectives. The environment variable
+   * `SENSEI_ASYNCHRONOUS` provides the initial value. Oterwise the default
+   * is 0.
+   */
+  virtual void SetAsynchronous(int val){ this->Asynchronous = val; }
+
+  /// Get asynchronous mode.
+  virtual int GetAsynchronous(){ return this->Asynchronous; }
+
+  /// values controling device selection
+  enum {DEVICE_HOST=-1, DEVICE_AUTO=-2};
+
+  /** Set the device that the analysis should run on. A value of DEVICE_HOST
+   * (-1) indicates that the analysis should run on the host while a value
+   * greater or equal to 0 specifies the device explicitly. The special value
+   * of DEVICE_AUTO (-2) is reserved for automatic device selection. The
+   * environment variable `SENSEI_DEVICE_ID` provides the initial value.
+   * Otherwise the default is DEVICE_HOST. See ::GetDeviceId for an explanation
+   * of the automatic device selection algorithm.
+   */
+  virtual void SetDeviceId(int val){ this->DeviceId = val; }
+
+  /** Get the device that the analysis should run on. When ::SetDeviceId has
+   * the special value of DEVICE_AUTO (-2) the * following algorithm is used:
+   * ```
+   * DeviceId = MPI rank % DevicesPerNode + DeviceStart
+   * ```
+   * See ::SetDeviceId.
+   */
+  virtual int GetDeviceId();
+
+  /** Set the number of devices to use per node. This value can be smaller than
+   * the number of actual devices but should not exceed it. The environment
+   * variable `SENSEI_DEVICES_PER_NODE` provides the initial value. Otherwise the
+   * default is the number of actual devices available. See ::SetDeviceId for
+   * an explanation of automatic device selection.
+   */
+  virtual void SetDevicesPerNode(int val){ this->DevicesPerNode = val; }
+
+  /// Get the number of devices to use per node.
+  virtual int GetDevicesPerNode(){ return this->DevicesPerNode; }
+
+  /** Set the first on node device to use in automatic device selection.  The
+   * environment variable `SENSEI_DEVICE_START` provides the initial value.
+   * Otherwise the default is 0.  See ::SetDeviceId for an explanation of
+   * automatic device selection.
+   */
+  virtual void SetDeviceStart(int val){ this->DeviceStart = val; }
+
+  /// Get the number of devices to use per node.
+  virtual int GetDeviceStart(){ return this->DeviceStart; }
 
   /** Invokes in situ processing, data movement or I/O. The simulation will
    * call this method when data is ready to be processed. Callers will pass a
@@ -111,6 +153,8 @@ protected:
   MPI_Comm Comm;
   int Verbose;
   int DeviceId;
+  int DevicesPerNode;
+  int DeviceStart;
   int Asynchronous;
 };
 
