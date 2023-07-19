@@ -31,38 +31,38 @@ if (BUILD_TESTING)
   senseiAddTest(testDataBinningHostSync
     SOURCES testDataBinning.cpp
     LIBS sensei EXEC_NAME testDataBinning
-    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 0 sum min max avg
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 0 xpos ypos sum min max avg
     CUDA_TARGET
     )
 
   senseiAddTest(testDataBinningHostAsync
-    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 1 sum min max avg
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 1 xpos ypos sum min max avg
     )
 
   senseiAddTest(testDataBinningHostSyncParallel
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 0 sum min max avg
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 0 xpos ypos sum min max avg
     )
 
   senseiAddTest(testDataBinningHostAsyncParallel
     PARALLEL ${TEST_NP}
-    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 1 sum min max avg
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 1 xpos ypos sum min max avg
     )
 
   if (SENSEI_ENABLE_CUDA)
     senseiAddTest(testDataBinningCUDAAsync
-      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 1 sum min max avg
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 1 xpos ypos sum min max avg
       )
     senseiAddTest(testDataBinningCUDASync
-      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 0 sum min max avg
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 0 xpos ypos sum min max avg
       )
     senseiAddTest(testDataBinningCUDAAsyncParallel
       PARALLEL ${TEST_NP}
-      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 1 sum min max avg
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 1 xpos ypos sum min max avg
       )
     senseiAddTest(testDataBinningCUDASyncParallel
       PARALLEL ${TEST_NP}
-      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 0 sum min max avg
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 0 xpos ypos sum min max avg
       )
   endif()
 
