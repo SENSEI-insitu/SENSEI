@@ -22,6 +22,7 @@
 
 #cmakedefine SENSEI_ENABLE_SENSEI
 #cmakedefine SENSEI_ENABLE_CUDA
+#cmakedefine SENSEI_ENABLE_CUDA_MPI
 #cmakedefine SENSEI_NVHPC_CUDA
 #cmakedefine SENSEI_NVCC_CUDA
 #cmakedefine SENSEI_CLANG_CUDA

@@ -2,9 +2,11 @@ include(CMakeDependentOption)
 
 option(SENSEI_ENABLE_SENSEI "Enable Sensei infrastucture" ON)
 
-cmake_dependent_option(SENSEI_ENABLE_CUDA
-  "Enable analysis methods that use CUDA" OFF
-  "SENSEI_ENABLE_SENSEI" OFF)
+option(SENSEI_ENABLE_CUDA "Enable the use of CUDA" OFF)
+
+cmake_dependent_option(SENSEI_ENABLE_CUDA_MPI
+  "Enable the use of CUDA aware MPI" OFF
+  "SENSEI_ENABLE_CUDA" OFF)
 
 cmake_dependent_option(SENSEI_ENABLE_HIP
   "Enable analysis methods that use HIP" OFF
