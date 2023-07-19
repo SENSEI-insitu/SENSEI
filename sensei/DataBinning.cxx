@@ -1498,7 +1498,7 @@ void DataBin::Compute()
     );}
   }
 
-  // move the results to the CPU for this->Comm and I/O
+  // move the results to the CPU for communication and I/O
 #if defined(SENSEI_ENABLE_CUDA)
   if (this->DeviceId >= 0)
   {
