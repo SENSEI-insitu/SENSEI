@@ -17,6 +17,7 @@ using AnalysisAdaptorPtr = svtkSmartPointer<sensei::ConfigurableAnalysis>;
 
 int main(int argc, char **argv)
 {
+  sensei::Profiler::Initialize();
   sensei::MPIManager mpiMan(argc, argv);
   int rank = mpiMan.GetCommRank();
 

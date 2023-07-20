@@ -1,0 +1,9 @@
+<sensei>
+  <analysis type="PosthocIO"
+    output_dir="./vtkfiles" file_name="output" mode="paraview"
+    enabled="1">
+    <mesh name="mesh" structure_only="0" ghost_cells="1" ghost_nodes="0">
+      <cell_arrays>data</cell_arrays>
+    </mesh>
+  </analysis>
+</sensei>
