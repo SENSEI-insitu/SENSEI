@@ -10,7 +10,7 @@
 #include <catalyst_conduit.hpp>
 
 #include <svtkDataObject.h>
-#include <svtkDataObjectTreeRange.h>
+#include <svtkCompositeDataSetRange.h>
 #include <svtkDataObjectToConduit.h>
 #include <svtkDataSet.h>
 #include <svtkMultiBlockDataSet.h>
@@ -19,6 +19,9 @@
 
 namespace sensei
 {
+
+// #define Catalyst2DebugMacro(x) std::cerr x << std::endl;
+#define Catalyst2DebugMacro(x)
 
 //-----------------------------------------------------------------------------
 senseiNewMacro(Catalyst2AnalysisAdaptor);
@@ -105,18 +108,26 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
       }
     }
 
-    if (dobj && std::string(meshName) != "ucdmesh")
+    if (dobj)
     {
-      if (auto* mbds = svtkMultiBlockDataSet::SafeDownCast(dobj))
+      MPI_Comm comm = this->GetCommunicator();
+      if (auto mbds = SVTKUtils::AsCompositeData(comm, dobj, false))
       {
         for (auto node : svtk::Range(mbds))
         {
+          auto ds = svtkDataSet::SafeDownCast(node);
+          if (ds)
+          {
+            Catalyst2DebugMacro(
+              << "node: " << ds->GetClassName() << " # points: " << ds->GetNumberOfPoints()
+              << " # cells: " << ds->GetNumberOfCells());
+          }
           auto channel = exec_params[std::string("catalyst/channels/") + meshName];
           channel["type"].set("mesh");
           auto mesh = channel["data"];
           if (! svtkDataObjectToConduit::FillConduitNode(node, mesh))
           {
-            std::cout << "ingore: " << node->GetClassName() << std::endl;
+            std::cerr << "ignore: " << node->GetClassName() << std::endl;
           }
         }
       }
@@ -129,7 +140,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   auto state = exec_params["catalyst/state"];
   state["timestep"].set(long(timeStep));
   state["time"].set(time);
-
+  Catalyst2DebugMacro( << "time: " << time);
   catalyst_execute(conduit_cpp::c_node(&exec_params));
 
   return true;

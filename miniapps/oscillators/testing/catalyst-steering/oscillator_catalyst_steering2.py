@@ -56,9 +56,16 @@ oscillators = PVTrivialProducer(registrationName='oscillators')
 # create a new 'PVTrivialProducer'
 mesh = PVTrivialProducer(registrationName='mesh')
 
+ucdmesh = PVTrivialProducer(registrationName='ucdmesh')
+
 # ----------------------------------------------------------------
 # setup the visualization in view 'renderView2'
 # ----------------------------------------------------------------
+
+# show data from ucdmesh
+ucdmeshDisplay = Show(ucdmesh, renderView2, 'UnstructuredGridRepresentation')
+ucdmeshDisplay.Representation = 'Outline'
+
 
 # show data from mesh
 meshDisplay = Show(mesh, renderView2, 'UniformGridRepresentation')
@@ -252,6 +259,7 @@ SetActiveSource(pNG1)
 from paraview import catalyst
 options = catalyst.Options()
 options.GlobalTrigger = 'TimeStep'
+options.EnableCatalystLive = 1
 options.CatalystLiveTrigger = 'TimeStep'
 
 # ------------------------------------------------------------------------------
