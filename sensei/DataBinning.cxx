@@ -801,7 +801,9 @@ int DataBinning::Initialize(const std::string &meshName,
       << " XAxisArray=" << xAxisArray << " YAxisArray=" << yAxisArray
       << " BinnedArray=" << binnedArray << " Operations=" << operation
       << " XRes=" << xres << " YRes=" << yres << " OutDir=" << outDir
-      << " ReturnData=" << returnData << " MaxThreads=" << maxThreads)
+      << " ReturnData=" << returnData << " MaxThreads=" << maxThreads
+      << " Asynchronous=" << this->GetAsynchronous()
+      << " DeviceId=" << this->GetDeviceId())
   }
 
   return 0;
