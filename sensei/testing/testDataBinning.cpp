@@ -244,7 +244,12 @@ int main(int argc, char **argv)
 
   for (int i = 9; i < argc; ++i)
   {
+    array.push_back(xAxis);
+    array.push_back(yAxis);
     array.push_back("mass");
+
+    op.push_back(argv[i]);
+    op.push_back(argv[i]);
     op.push_back(argv[i]);
   }
 
