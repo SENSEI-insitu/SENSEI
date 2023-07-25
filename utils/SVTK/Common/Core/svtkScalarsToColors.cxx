@@ -1036,7 +1036,7 @@ void svtkScalarsToColorsRGBAToRGBA(const T* inPtr, unsigned char* outPtr, svtkId
 unsigned char* svtkScalarsToColorsUnpackBits(void* inPtr, svtkIdType numValues)
 {
   svtkIdType n = (numValues + 7) % 8;
-  unsigned char* newPtr = new unsigned char[n];
+  unsigned char* newPtr = new unsigned char[n+1];
 
   unsigned char* tmpPtr = newPtr;
   unsigned char* bitdata = static_cast<unsigned char*>(inPtr);

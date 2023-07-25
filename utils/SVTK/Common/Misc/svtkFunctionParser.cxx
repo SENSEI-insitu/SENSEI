@@ -2432,9 +2432,9 @@ bool svtkFunctionParser::GetVectorVariableNeeded(const char* inVariableName)
   char* variableName = this->RemoveSpacesFrom(inVariableName);
   std::vector<std::string>::const_iterator iter = std::find(
     this->VectorVariableNames.begin(), this->VectorVariableNames.end(), std::string(variableName));
-  delete[] variableName;
   if (iter != this->VectorVariableNames.end())
   {
+    delete[] variableName;
     return this->GetVectorVariableNeeded(
       static_cast<int>(iter - this->VectorVariableNames.begin()));
   }
@@ -2442,6 +2442,7 @@ bool svtkFunctionParser::GetVectorVariableNeeded(const char* inVariableName)
   {
     svtkErrorMacro(
       "GetVectorVariableNeeded: scalar variable name " << variableName << " does not exist");
+    delete[] variableName;
     return false;
   }
 }
