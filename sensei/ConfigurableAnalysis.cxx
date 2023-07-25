@@ -82,7 +82,8 @@ using namespace STLUtils; // for operator<< overloads
 struct ConfigurableAnalysis::InternalsType
 {
   InternalsType()
-    : Comm(MPI_COMM_NULL), Verbose(0), Asynchronous(0), DeviceId(-1)
+    : Comm(MPI_COMM_NULL), Verbose(0), Asynchronous(0),
+      DeviceId(-1), DevicesPerNode(0), DeviceStart(0)
   {
   }
 
@@ -145,6 +146,8 @@ public:
   int Verbose;
   int Asynchronous;
   int DeviceId;
+  int DevicesPerNode;
+  int DeviceStart;
 
   std::vector<std::string> LogEventNames;
 };
@@ -156,6 +159,8 @@ int ConfigurableAnalysis::InternalsType::SetCommonAttributes(
   int verbose = node.attribute("verbose").as_int(this->Verbose);
   int async = node.attribute("async").as_int(this->Asynchronous);
   int device = node.attribute("device_id").as_int(this->DeviceId);
+  int deviceStart = node.attribute("device_start").as_int(this->DeviceStart);
+  int devicesPerNode =  node.attribute("devices_per_node").as_int(this->DevicesPerNode);
 
   if (this->Comm != MPI_COMM_NULL)
     adaptor->SetCommunicator(this->Comm);
@@ -163,6 +168,8 @@ int ConfigurableAnalysis::InternalsType::SetCommonAttributes(
   adaptor->SetVerbose(verbose);
   adaptor->SetAsynchronous(async);
   adaptor->SetDeviceId(device);
+  adaptor->SetDevicesPerNode(devicesPerNode);
+  adaptor->SetDeviceStart(deviceStart);
 
   return 0;
 }
@@ -1473,6 +1480,10 @@ senseiNewMacro(ConfigurableAnalysis);
 ConfigurableAnalysis::ConfigurableAnalysis()
   : Internals(new ConfigurableAnalysis::InternalsType())
 {
+  // get the defaults from the base class which examines environment variables
+  this->Internals->DeviceId = this->DeviceId;
+  this->Internals->DevicesPerNode = this->DevicesPerNode;
+  this->Internals->DeviceStart = this->DeviceStart;
 }
 
 //----------------------------------------------------------------------------
@@ -1537,6 +1548,32 @@ void ConfigurableAnalysis::SetDeviceId(int val)
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter)
     (*iter)->SetDeviceId(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDevicesPerNode(int val)
+{
+  this->AnalysisAdaptor::SetDevicesPerNode(val);
+
+  this->Internals->DevicesPerNode = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDevicesPerNode(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDeviceStart(int val)
+{
+  this->AnalysisAdaptor::SetDeviceStart(val);
+
+  this->Internals->DeviceStart = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDeviceStart(val);
 }
 
 //----------------------------------------------------------------------------

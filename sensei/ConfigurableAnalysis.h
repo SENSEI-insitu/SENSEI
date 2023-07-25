@@ -41,28 +41,17 @@ public:
 
   senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
 
-  /// Prints the current adaptor state
   void PrintSelf(ostream& os, svtkIndent indent) override;
 
-  /** Set the communicator used by the adaptor.
-   * The default communicator is a duplicate of MPI_COMM_WORLD, giving
-   * each adaptor a unique communication space. Users wishing to override
-   * this should set the communicator before doing anything else. Derived
-   * classes should use the communicator returned by GetCommunicator.
-   */
   int SetCommunicator(MPI_Comm comm) override;
 
-  /// Set the level of verbosity of console output.
   void SetVerbose(int val) override;
 
-  /** When set the analysis should buffer the simulation data and run in the
-   * background returning to the simulation immediately. This mode requires
-   * MPI_THREAD_MULTIPLE.
-   */
   void SetAsynchronous(int val) override;
 
-  /// Set the device that the analysis should run on.
   void SetDeviceId(int val) override;
+  void SetDevicesPerNode(int val) override;
+  void SetDeviceStart(int val) override;
 
   /// Initialize the adaptor using the configuration specified.
   int Initialize(const std::string &filename);
