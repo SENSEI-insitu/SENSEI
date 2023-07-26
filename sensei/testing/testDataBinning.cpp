@@ -227,6 +227,9 @@ int main(int argc, char **argv)
     return -1;
   }
 
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   long nit = atoi(argv[1]);
   long np = atoi(argv[2]);
   long res = atoi(argv[3]);
@@ -254,8 +257,7 @@ int main(int argc, char **argv)
   }
 
 #if defined(SENSEI_ENABLE_CUDA)
-  if (device >= 0)
-    cudaSetDevice(device);
+  cudaSetDevice(0);
 #endif
 
   // generate some particle data
@@ -266,7 +268,7 @@ int main(int argc, char **argv)
   aa->SetDeviceId(device);
   aa->SetAsynchronous(async);
   aa->SetVerbose(1);
-  aa->Initialize("particles",xAxis,yAxis,array,op,res,res,odir,0,8);
+  aa->Initialize("particles", xAxis, yAxis, array, op, res, res, odir, 0, 8);
 
   for (long i = 0; i < nit; ++i)
   {
