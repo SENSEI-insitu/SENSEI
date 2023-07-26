@@ -795,7 +795,7 @@ int DataBinning::Initialize(const std::string &meshName,
 
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
-  if (rank == 0)
+  if (this->GetVerbose() && (rank == 0))
   {
     SENSEI_STATUS(<< "Configured DataBinning: MeshName=" << meshName
       << " XAxisArray=" << xAxisArray << " YAxisArray=" << yAxisArray
