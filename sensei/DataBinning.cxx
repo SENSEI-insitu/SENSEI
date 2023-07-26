@@ -1880,10 +1880,12 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     double runTimeUs = (endExec.tv_sec * 1e6 + endExec.tv_usec) -
       (startExec.tv_sec * 1e6 + startExec.tv_usec);
 
+    int deviceId = this->GetDeviceId();
+
     SENSEI_STATUS_ALL("DataBinning::Execute  iteration:"
       << this->Iteration << " mode:" << (async ? "async" : "sync")
-      << "  device:" << (this->DeviceId < 0 ? "host" : "CUDA GPU")
-      << "(" << this->DeviceId << ")  ret_data:" << (retData ? "yes":"no")
+      << "  device:" << (deviceId < 0 ? "host" : "CUDA GPU")
+      << "(" << deviceId << ")  ret_data:" << (retData ? "yes":"no")
       << "  t_total:" << runTimeUs / 1e6 << "s  t_fetch:"
       << fetchTimeUs / 1e6 << "s  t_bin:" << binTimeUs / 1e6 << "s")
   }
