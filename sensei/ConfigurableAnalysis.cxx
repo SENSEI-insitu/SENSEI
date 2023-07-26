@@ -81,9 +81,9 @@ using namespace STLUtils; // for operator<< overloads
 
 struct ConfigurableAnalysis::InternalsType
 {
-  InternalsType()
-    : Comm(MPI_COMM_NULL), Verbose(0), Asynchronous(0),
-      DeviceId(-1), DevicesPerNode(0), DeviceStart(0)
+  InternalsType() : Comm(MPI_COMM_NULL), Verbose(0),
+    Asynchronous(0), DeviceId(-2), DevicesToUse(0), DeviceStart(0),
+    DeviceStride(0)
   {
   }
 
@@ -146,8 +146,9 @@ public:
   int Verbose;
   int Asynchronous;
   int DeviceId;
-  int DevicesPerNode;
+  int DevicesToUse;
   int DeviceStart;
+  int DeviceStride;
 
   std::vector<std::string> LogEventNames;
 };
@@ -159,8 +160,9 @@ int ConfigurableAnalysis::InternalsType::SetCommonAttributes(
   int verbose = node.attribute("verbose").as_int(this->Verbose);
   int async = node.attribute("async").as_int(this->Asynchronous);
   int device = node.attribute("device_id").as_int(this->DeviceId);
+  int devicesToUse = node.attribute("devices_to_use").as_int(this->DevicesToUse);
   int deviceStart = node.attribute("device_start").as_int(this->DeviceStart);
-  int devicesPerNode =  node.attribute("devices_per_node").as_int(this->DevicesPerNode);
+  int deviceStride = node.attribute("device_stride").as_int(this->DeviceStride);
 
   if (this->Comm != MPI_COMM_NULL)
     adaptor->SetCommunicator(this->Comm);
@@ -168,8 +170,9 @@ int ConfigurableAnalysis::InternalsType::SetCommonAttributes(
   adaptor->SetVerbose(verbose);
   adaptor->SetAsynchronous(async);
   adaptor->SetDeviceId(device);
-  adaptor->SetDevicesPerNode(devicesPerNode);
+  adaptor->SetDevicesToUse(devicesToUse);
   adaptor->SetDeviceStart(deviceStart);
+  adaptor->SetDeviceStride(deviceStride);
 
   return 0;
 }
@@ -1482,8 +1485,9 @@ ConfigurableAnalysis::ConfigurableAnalysis()
 {
   // get the defaults from the base class which examines environment variables
   this->Internals->DeviceId = this->DeviceId;
-  this->Internals->DevicesPerNode = this->DevicesPerNode;
+  this->Internals->DevicesToUse = this->DevicesToUse;
   this->Internals->DeviceStart = this->DeviceStart;
+  this->Internals->DeviceStride = this->DeviceStride;
 }
 
 //----------------------------------------------------------------------------
@@ -1551,16 +1555,16 @@ void ConfigurableAnalysis::SetDeviceId(int val)
 }
 
 //----------------------------------------------------------------------------
-void ConfigurableAnalysis::SetDevicesPerNode(int val)
+void ConfigurableAnalysis::SetDevicesToUse(int val)
 {
-  this->AnalysisAdaptor::SetDevicesPerNode(val);
+  this->AnalysisAdaptor::SetDevicesToUse(val);
 
-  this->Internals->DevicesPerNode = val;
+  this->Internals->DevicesToUse = val;
 
   AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter)
-    (*iter)->SetDevicesPerNode(val);
+    (*iter)->SetDevicesToUse(val);
 }
 
 //----------------------------------------------------------------------------
@@ -1574,6 +1578,19 @@ void ConfigurableAnalysis::SetDeviceStart(int val)
   AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
   for (; iter != end; ++iter)
     (*iter)->SetDeviceStart(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDeviceStride(int val)
+{
+  this->AnalysisAdaptor::SetDeviceStride(val);
+
+  this->Internals->DeviceStride = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDeviceStride(val);
 }
 
 //----------------------------------------------------------------------------

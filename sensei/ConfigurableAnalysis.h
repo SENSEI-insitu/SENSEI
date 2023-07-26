@@ -50,8 +50,9 @@ public:
   void SetAsynchronous(int val) override;
 
   void SetDeviceId(int val) override;
-  void SetDevicesPerNode(int val) override;
+  void SetDevicesToUse(int val) override;
   void SetDeviceStart(int val) override;
+  void SetDeviceStride(int val) override;
 
   /// Initialize the adaptor using the configuration specified.
   int Initialize(const std::string &filename);

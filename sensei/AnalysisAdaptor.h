@@ -77,7 +77,7 @@ public:
   /** Get the device that the analysis should run on. When ::SetDeviceId has
    * the special value of DEVICE_AUTO (-2) the * following algorithm is used:
    * ```
-   * DeviceId = MPI rank % DevicesPerNode + DeviceStart
+   * DeviceId = ( MPI rank % DevicesInUse * DeviceStride + DeviceStart ) % DevicesPerNode
    * ```
    * See ::SetDeviceId.
    */
@@ -85,14 +85,14 @@ public:
 
   /** Set the number of devices to use per node. This value can be smaller than
    * the number of actual devices but should not exceed it. The environment
-   * variable `SENSEI_DEVICES_PER_NODE` provides the initial value. Otherwise the
+   * variable `SENSEI_DEVICES_TO_USE` provides the initial value. Otherwise the
    * default is the number of actual devices available. See ::SetDeviceId for
    * an explanation of automatic device selection.
    */
-  virtual void SetDevicesPerNode(int val){ this->DevicesPerNode = val; }
+  virtual void SetDevicesToUse(int val){ this->DevicesToUse = val; }
 
   /// Get the number of devices to use per node.
-  virtual int GetDevicesPerNode(){ return this->DevicesPerNode; }
+  virtual int GetDevicesToUse(){ return this->DevicesToUse; }
 
   /** Set the first on node device to use in automatic device selection.  The
    * environment variable `SENSEI_DEVICE_START` provides the initial value.
@@ -101,8 +101,19 @@ public:
    */
   virtual void SetDeviceStart(int val){ this->DeviceStart = val; }
 
-  /// Get the number of devices to use per node.
+  /// Get the first device to use
   virtual int GetDeviceStart(){ return this->DeviceStart; }
+
+  /** Set the number of devices to skip in automatic device selection.  The
+   * environment variable `SENSEI_DEVICE_STRIDE` provides the initial value.
+   * Otherwise the default is 0.  See ::SetDeviceId for an explanation of
+   * automatic device selection.
+   */
+  virtual void SetDeviceStride(int val){ this->DeviceStride = val; }
+
+  /// Get the number of devices to skip
+  virtual int GetDeviceStride(){ return this->DeviceStride; }
+
 
   /** Invokes in situ processing, data movement or I/O. The simulation will
    * call this method when data is ready to be processed. Callers will pass a
@@ -154,7 +165,9 @@ protected:
   int Verbose;
   int DeviceId;
   int DevicesPerNode;
+  int DevicesToUse;
   int DeviceStart;
+  int DeviceStride;
   int Asynchronous;
 };
 
