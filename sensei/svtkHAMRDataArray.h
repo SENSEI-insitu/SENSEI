@@ -288,6 +288,9 @@ public:
   ///@name synchronization
   ///@{
 
+  /// get the device where the memory was allocated.
+  int GetOwner() const { return this->Data->get_owner(); }
+
   /// sets the stream. mode indicate synchronous behavior or not.
   void SetStream(const svtkStream &stream, svtkStreamMode &mode)
   {
