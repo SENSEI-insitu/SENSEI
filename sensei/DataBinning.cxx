@@ -1089,8 +1089,16 @@ int DataBin::Initialize(const std::string &meshName,
         return -1;
       }
 
+      // when changing devices, use streams from the active device
+      coord_array_t *xCoordIn = dynamic_cast<coord_array_t*>(xCol);
+      if (xCoordIn && (xCoordIn->GetOwner() != this->DeviceId))
+      {
+        xCoordIn->Synchronize();
+        xCoordIn->SetStream(this->CalcStr[1], this->SMode);
+      }
+
       // make the copy and update the this->Mesh data
-      if (async || !dynamic_cast<coord_array_t*>(xCol))
+      if (async || !xCoordIn)
       {
         auto xCoord = coord_array_t::New(xCol, this->Alloc, this->CalcStr[1], this->SMode);
         xCoord->Synchronize();
@@ -1107,8 +1115,16 @@ int DataBin::Initialize(const std::string &meshName,
         return -1;
       }
 
+      // when changing devices, use streams from the active device
+      coord_array_t *yCoordIn = dynamic_cast<coord_array_t*>(yCol);
+      if (yCoordIn && (yCoordIn->GetOwner() != this->DeviceId))
+      {
+        yCoordIn->Synchronize();
+        yCoordIn->SetStream(this->CalcStr[2], this->SMode);
+      }
+
       // make the copy and update the this->Mesh data
-      if (async || !dynamic_cast<coord_array_t*>(yCol))
+      if (async || !yCoordIn)
       {
         auto yCoord = coord_array_t::New(yCol, this->Alloc, this->CalcStr[2], this->SMode);
         yCoord->Synchronize();
@@ -1138,10 +1154,20 @@ int DataBin::Initialize(const std::string &meshName,
             return -1;
           }
 
-          // make the copy and update the this->Mesh data. sync up before deleteing the source!
-          if (async || !dynamic_cast<coord_array_t*>(col))
+          // when changing devices, use streams from the active device
+          auto strm = this->CalcStr[(i+1)%this->NStream];
+
+          coord_array_t *colIn = dynamic_cast<coord_array_t*>(col);
+          if (colIn && (colIn->GetOwner() != this->DeviceId))
           {
-            auto arrayIn = array_t::New(col, this->Alloc, this->CalcStr[(i+1)%this->NStream], this->SMode);
+            colIn->Synchronize();
+            colIn->SetStream(strm, this->SMode);
+          }
+
+          // make the copy and update the this->Mesh data. sync up before deleteing the source!
+          if (async || !colIn)
+          {
+            auto arrayIn = array_t::New(col, this->Alloc, strm, this->SMode);
             arrayIn->Synchronize();
             tab->RemoveColumnByName(arrayName.c_str());
             tab->AddColumn(arrayIn);
