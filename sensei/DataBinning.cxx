@@ -795,7 +795,8 @@ int DataBinning::Initialize(const std::string &meshName,
 
   int rank = 0;
   MPI_Comm_rank(this->GetCommunicator(), &rank);
-  if (this->GetVerbose() && (rank == 0))
+  int verbose = this->GetVerbose();
+  if ((verbose && (rank == 0)) || (verbose > 1))
   {
     SENSEI_STATUS(<< "Configured DataBinning: MeshName=" << meshName
       << " XAxisArray=" << xAxisArray << " YAxisArray=" << yAxisArray
@@ -1792,7 +1793,7 @@ void DataBin::Compute()
 
   this->Mesh = nullptr;
 
-  if (this->Asynchronous && this->Verbose && (this->Rank == 0))
+  if (this->Asynchronous && (this->Verbose && (this->Rank == 0)) || (this->Verbose > 1))
   {
     timeval endTime{};
     gettimeofday(&endTime, nullptr);
@@ -1850,10 +1851,11 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   auto binner = std::make_shared<DataBin>();
 
   // fetch data from the simulation
+  int verbose = this->GetVerbose();
   if (binner->Initialize(this->MeshName, this->XAxisArray, this->YAxisArray,
     this->BinnedArray, this->Operation, this->XRes, this->YRes, this->OutDir,
     this->ReturnData, threadComm, rank, n_ranks, this->GetDeviceId(),
-    async, this->Iteration, this->GetVerbose(), daIn))
+    async, this->Iteration, verbose, daIn))
   {
     SENSEI_ERROR("Failed to intialize the binner")
     MPI_Abort(comm, -1);
@@ -1893,7 +1895,7 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     *daOut = va;
   }
 
-  if (this->GetVerbose() && (rank == 0))
+  if ((verbose && (rank == 0)) || (verbose > 1))
   {
     gettimeofday(&endExec, nullptr);
 
