@@ -1844,6 +1844,14 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   if (rank == 0)
     gettimeofday(&startExec, nullptr);
 
+  // save and restore the current device id
+  int curDeviceId = -1;
+  int deviceId = this->GetDeviceId();
+#if defined(SENSEI_ENABLE_CUDA)
+  if (deviceId >= 0)
+    cudaGetDevice(&curDeviceId);
+#endif
+
   // always zero this out, if somethig goes wrong the caller will not get and
   // invalid value
   if (daOut)
@@ -1874,8 +1882,8 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   int verbose = this->GetVerbose();
   if (binner->Initialize(this->MeshName, this->XAxisArray, this->YAxisArray,
     this->BinnedArray, this->Operation, this->XRes, this->YRes, this->OutDir,
-    this->ReturnData, threadComm, rank, n_ranks, this->GetDeviceId(),
-    async, this->Iteration, verbose, daIn))
+    this->ReturnData, threadComm, rank, n_ranks, deviceId, async,
+    this->Iteration, verbose, daIn))
   {
     SENSEI_ERROR("Failed to intialize the binner")
     MPI_Abort(comm, -1);
@@ -1886,7 +1894,8 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     gettimeofday(&endFetch, nullptr);
 
   // launch a thread to do the calculation
-  auto pending = std::async(std::launch::async, [binner]() -> int { binner->Compute(); return binner->Error; });
+  auto pending = std::async(std::launch::async,
+                   [binner]() -> int { binner->Compute(); return binner->Error; });
 
   if (async)
   {
@@ -1928,8 +1937,6 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     double runTimeUs = (endExec.tv_sec * 1e6 + endExec.tv_usec) -
       (startExec.tv_sec * 1e6 + startExec.tv_usec);
 
-    int deviceId = this->GetDeviceId();
-
     SENSEI_STATUS_ALL("DataBinning::Execute  iteration:"
       << this->Iteration << " mode:" << (async ? "async" : "sync")
       << "  device:" << (deviceId < 0 ? "host" : "CUDA GPU")
@@ -1939,6 +1946,11 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
   }
 
   this->Iteration += 1;
+
+#if defined(SENSEI_ENABLE_CUDA)
+  if (deviceId >= 0)
+     cudaSetDevice(curDeviceId);
+#endif
 
   return true;
 }
