@@ -42,6 +42,9 @@ using namespace sensei::STLUtils;
 // lets the compiler find the time literals
 using namespace std::chrono_literals;
 
+// undefine this to use default streams
+#define DATA_BIN_STREAMS
+
 namespace
 {
 #if defined(SENSEI_ENABLE_CUDA)
@@ -899,20 +902,28 @@ int DataBin::Initialize(const std::string &meshName,
   this->SMode = svtkStreamMode::async;
   this->NStream = 4;
   this->CalcStr.resize(this->NStream);
+
 #if defined(SENSEI_ENABLE_CUDA)
   // if we are assigned to a specific GPU make it active and use a GPU
   // allocator
   if (this->DeviceId >= 0)
   {
+    // use a CUDA allocator
     this->Alloc = svtkAllocator::cuda;
+
+    // activate the assigned device
     cudaSetDevice(this->DeviceId);
 
     // allocate some streams for data movement and computation
     for (int i = 0; i < this->NStream; ++i)
     {
+#if defined(DATA_BIN_STREAMS)
       cudaStream_t strm;
       cudaStreamCreate(&strm);
       this->CalcStr[i] = strm;
+#else
+      this->CalcStr[i] = cudaStreamPerThread;
+#endif
     }
   }
 #endif
@@ -1780,6 +1791,7 @@ void DataBin::Compute()
     binnedDa[i]->Delete();
 
 #if defined(SENSEI_ENABLE_CUDA)
+#if defined(DATA_BIN_STREAMS)
   if (this->DeviceId >= 0)
   {
     // clean up streams
@@ -1789,6 +1801,7 @@ void DataBin::Compute()
       cudaStreamDestroy(this->CalcStr[i]);
     }
   }
+#endif
 #endif
 
   this->Mesh = nullptr;
