@@ -1813,7 +1813,7 @@ void DataBin::Compute()
 
   this->Mesh = nullptr;
 
-  if (this->Asynchronous && (this->Verbose && (this->Rank == 0)) || (this->Verbose > 1))
+  if (this->Asynchronous && ((this->Verbose && (this->Rank == 0)) || (this->Verbose > 1)))
   {
     timeval endTime{};
     gettimeofday(&endTime, nullptr);
@@ -1822,8 +1822,8 @@ void DataBin::Compute()
       (startTime.tv_sec * 1e6 + startTime.tv_usec);
 
     SENSEI_STATUS_ALL("thread:" << std::hex << std::this_thread::get_id()
-      << std::dec << "  step:" << this->Step << "  time:" << this->Time
-      << "  device:" << (this->DeviceId < 0 ? "host" : "CUDA GPU")
+      << std::dec << "  iteration:" << this->Iteration << "  time:"
+      << this->Time << "  device:" << (this->DeviceId < 0 ? "host" : "CUDA GPU")
       << "(" << this->DeviceId << ")  t_bin:" << runTimeUs / 1e6 << "s")
   }
 }
