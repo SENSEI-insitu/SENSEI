@@ -286,6 +286,12 @@ if (BUILD_TESTING)
     senseiAddTest(testHAMRDataArrayHost
       COMMAND $<TARGET_FILE:testHAMRDataArray> -1)
 
+    senseiAddTest(testHAMRDataArrayMultiGPU
+      SOURCES testHAMRDataArrayMultiGPU.cpp LIBS sensei EXEC_NAME testHAMRDataArrayMultiGPU
+      COMMAND $<TARGET_FILE:testHAMRDataArray> 0
+      CUDA_TARGET
+      )
+
   else()
 
     senseiAddTest(testHAMRDataArrayHost
