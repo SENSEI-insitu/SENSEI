@@ -47,7 +47,7 @@ struct indirectGhostMin
     indirectGhostMin(const data_t *data, const unsigned char *ghosts) :
       Data(data), Ghosts(ghosts) {}
 
-    __device__
+    __host__ __device__
     size_t operator()(const size_t &l, const size_t &r) const
     {
       if (Ghosts[l] != 0)         // left is ghosted
@@ -74,7 +74,7 @@ struct indirectGhostMax
     indirectGhostMax(const data_t *data, const unsigned char *ghosts) :
       Data(data), Ghosts(ghosts) {}
 
-    __device__
+    __host__ __device__
     size_t operator()(const size_t &l, const size_t &r) const
     {
       if (Ghosts[l] != 0)         // left is ghosted
