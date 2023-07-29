@@ -1245,20 +1245,24 @@ void DataBin::Compute()
         auto spx = xCoord->GetDeviceAccessible();
         auto px = spx.get();
 
-        axesMin[0] = thrust::reduce(thrust::device, px, px + nVals,
+        auto xDevStrm = thrust::cuda::par.on(xCoord->GetStream());
+
+        axesMin[0] = thrust::reduce(xDevStrm, px, px + nVals,
                                     coord_t(axesMin[0]), thrust::minimum<coord_t>());
 
-        axesMax[0] = thrust::reduce(thrust::device, px, px + nVals,
+        axesMax[0] = thrust::reduce(xDevStrm, px, px + nVals,
                                     coord_t(axesMax[0]), thrust::maximum<coord_t>());
 
         // compute the min/max y-axis
         auto spy = yCoord->GetDeviceAccessible();
         auto py = spy.get();
 
-        axesMin[1] = thrust::reduce(thrust::device, py, py + nVals,
+        auto yDevStrm = thrust::cuda::par.on(yCoord->GetStream());
+
+        axesMin[1] = thrust::reduce(yDevStrm, py, py + nVals,
                                     coord_t(axesMin[1]), thrust::minimum<coord_t>());
 
-        axesMax[1] = thrust::reduce(thrust::device, py, py + nVals,
+        axesMax[1] = thrust::reduce(yDevStrm, py, py + nVals,
                                     coord_t(axesMax[1]), thrust::maximum<coord_t>());
       }
       else
