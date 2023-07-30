@@ -166,6 +166,9 @@ int blockCount(cudaStream_t strm,
   grid_t minX, grid_t minY, grid_t dx, grid_t dy,
   long resX, long resY, long *cnt)
 {
+  // empty block
+  if (nVals == 0) return 0;
+
   // determine kernel launch parameters
   dim3 blockGrid;
   int nBlocks = 0;
@@ -274,6 +277,9 @@ int blockBin(cudaStream_t strm,
   const long nVals, grid_t minX, grid_t minY, grid_t dx, grid_t dy,
   long resX, long resY, const op_t<array_t> &binOp, array_t *binF)
 {
+  // empty block
+  if (nVals == 0) return 0;
+
   // determine kernel launch parameters
   dim3 blockGrid;
   int nBlocks = 0;
@@ -1234,6 +1240,9 @@ void DataBin::Compute()
       auto xCoord = static_cast<coord_array_t*>(xCol);
       long nVals = xCoord->GetNumberOfTuples();
 
+      // skip empty blocks
+      if (nVals == 0) continue;
+
       // get the y-coordinate arrays.
       auto yCol = GetColumn(tab, this->YAxisArray);
       auto yCoord = static_cast<coord_array_t*>(yCol);
@@ -1382,6 +1391,9 @@ void DataBin::Compute()
       auto xCol = GetColumn(tab, this->XAxisArray);
       auto xCoord = static_cast<coord_array_t*>(xCol);
       long nVals = xCoord->GetNumberOfTuples();
+
+      // skip empty blocks
+      if (nVals == 0) continue;
 
       // get the y-coordinate arrays.
       auto yCol = GetColumn(tab, this->YAxisArray);
