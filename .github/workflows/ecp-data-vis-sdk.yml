@@ -16,6 +16,8 @@ jobs:
       image: ghcr.io/sensei-insitu/ci-ecp@sha256:f55ec48bb2e01738b52c71e8fb08d2cadbbf0a34f12db30f6809dae75b810e42
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
     - name: Initialize ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
@@ -25,7 +27,10 @@ jobs:
     - name: Build
       run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_build.cmake
     - name: Test
-      run: ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_test.cmake
+      run: |
+        set -x
+        . /__w/SENSEI/build/bin/sensei-env.sh
+        ${{ env.LAUNCHER }} ctest -VV -S .github/ci/ctest_test.cmake
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
