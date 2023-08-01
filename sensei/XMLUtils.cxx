@@ -3,6 +3,7 @@
 
 #include <pugixml.hpp>
 
+#include <sstream>
 #include <cstdio>
 #include <cstring>
 #include <errno.h>
