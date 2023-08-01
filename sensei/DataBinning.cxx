@@ -1857,9 +1857,9 @@ bool DataBinning::Execute(DataAdaptor* daIn, DataAdaptor** daOut)
     gettimeofday(&startExec, nullptr);
 
   // save and restore the current device id
-  int curDeviceId = -1;
   int deviceId = this->GetDeviceId();
 #if defined(SENSEI_ENABLE_CUDA)
+  int curDeviceId = -1;
   if (deviceId >= 0)
     cudaGetDevice(&curDeviceId);
 #endif
