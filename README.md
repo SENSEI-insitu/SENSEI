@@ -71,6 +71,7 @@ SENSEI comes with a number of ready to use in situ processing options. These inc
 | [sensei::VTKAmrWriter](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_vtk_amr_writer.html) | Writes simulation data to disk in a VTK format |
 | [sensei::PythonAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_python_analysis.html) | Invokes user provided Pythons scripts that process simulation data |
 | [sensei::SliceExtract](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_slice_extract.html) | Computes planar slices and iso-surfaces on simulation data |
+| sense::Fft | Computes Fast Fourier Transform |
 
 ### User defined in situ processing
 A unique feature of SENSEI is the ability to invoke user provided code written
@@ -117,6 +118,21 @@ End points are programs that receive and analyze simulation data through transpo
 layers such as ADIOS and LibIS. The SENSEI end point uses the transport's data adaptor to
 read data being serialized by the transport's analysis adaptor and pass it back
 into a SENSEI analysis for further processing.
+#### AnalysisAdaptors
+| Class                   | Description |
+|-------------------------|-------------|
+| AnalysisAdaptor         | Base class declaring analysis adaptor API |
+| ADIOS1AnalysisAdaptor   | Implementation for using ADIOS 1 from your simulation. |
+| HDF5AnalysisAdaptor     | Implementation for using HDF5 from your simulation. |
+| LibsimAnalysisAdaptor   | Implementation for using Libsim from your simulation. |
+| CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulation. |
+| AscentAnalysisAdaptor   | Implementation for using Ascent from your simulation. |
+| Autocorrelation         | Implementation that computes [autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation)  |
+| Histogram               | Implementation that computes histograms. |
+| VTKPosthocIO            | Implementation that writes VTK data sets using VTK XML format to the ".visit" format readable by VisIt,  or ".pvd" format readable by ParaView. |
+| VTKAmrWriter            | Implementation that writes AMR data in VTK's XML format. Consumable by ParaView. |
+| ConfigurableAnalysis    | Implementation that reads an XML configuration to select and configure one or more of the other analysis adaptors. This can be used to quickly switch between the analysis adaptors at run time. |
+| FFT                     | Implementation for performing [Fast Fourier Transform](https://en.wikipedia.org/wiki/Fast_Fourier_transform) |
 
 ### Mini-apps
 SENSEI ships with a number of mini-apps that demonstrate use of the SENSEI
@@ -167,6 +183,7 @@ $ make install
 | `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
 | `ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
 | `ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
+| `ENABLE_FFT` | OFF | Enables FFT analysis adaptor. Requires [fftw library.](https://www.fftw.org/) |
 | `VTK_DIR` | | Set to the directory containing VTKConfig.cmake. |
 | `ParaView_DIR` | | Set to the directory containing ParaViewConfig.cmake. |
 | `ADIOS_DIR` | | Set to the directory containing ADIOSConfig.cmake |

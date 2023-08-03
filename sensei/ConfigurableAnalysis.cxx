@@ -20,6 +20,7 @@
 
 #include "Autocorrelation.h"
 #include "Histogram.h"
+#include "Fft.h"
 #ifdef ENABLE_VTK_IO
 #include "VTKPosthocIO.h"
 #ifdef ENABLE_VTK_MPI
@@ -97,6 +98,7 @@ struct ConfigurableAnalysis::InternalsType
   // a status message indicating success/failure is printed
   // by rank 0
   int AddHistogram(pugi::xml_node node);
+  int AddFft(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
@@ -209,6 +211,38 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 
   return 0;
 }
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddFft(pugi::xml_node node)
+{
+  // Read XML configuration and get values from it
+  if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "direction") || XMLUtils::RequireAttribute(node, "python_xml"))
+    {
+    SENSEI_ERROR("Failed to initialize Fft");
+    return -1;
+    }
+
+  std::string mesh = node.attribute("mesh").value();
+  std::string array = node.attribute("array").value();
+  std::string direction = node.attribute("direction").value();
+  std::string python_xml = node.attribute("python_xml").value();
+  
+  // check for valid direction:
+  if (direction != "FFTW_FORWARD" && direction != "FFTW_BACKWARD")
+  {
+    SENSEI_ERROR("Invalid direction specified in XML (" + direction + "). Acceptable options are 'FFTW_FORWARD' or 'FFTW_BACKWARD'.")
+    return -1;
+  }
+
+  // Create FFT analysis adaptor and initialize with direction
+  auto fft = svtkSmartPointer<Fft>::New();
+  fft->Initialize(direction, python_xml, mesh, array);
+
+  this->Analyses.push_back(fft.GetPointer());
+
+  SENSEI_STATUS("Configured Fft.")
+  return 0;
+} 
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
@@ -1481,7 +1515,9 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       }
 
     std::string type = node.attribute("type").value();
+
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
+      || ((type == "fft") && !this->Internals->AddFft(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "adios2") && !this->Internals->AddAdios2(node))

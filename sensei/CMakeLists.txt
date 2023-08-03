@@ -15,6 +15,11 @@ if (ENABLE_SENSEI)
   set(senseiCore_libs pugixml thread sDIY sSVTK sMPI)
 
   set(senseiCore_cuda_sources)
+  if (ENABLE_FFT)
+    list(APPEND senseiCore_sources Fft.cxx)
+    # list(APPEND senseiCore_libs sFft)
+  endif()
+
   if (ENABLE_CUDA)
     list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu HistogramInternals.cxx)
   endif ()

@@ -1,6 +1,12 @@
 if (BUILD_TESTING)
 
   ##############################################################################
+  senseiAddTest(testFftSerial
+    SOURCES testFft.cpp LIBS sensei EXEC_NAME testFft
+    COMMAND $<TARGET_FILE:testFft>
+    LABELS FFT)
+
+  ##############################################################################
   senseiAddTest(testHistogramSerial
     SOURCES testHistogram.cpp LIBS sensei EXEC_NAME testHistogram
     COMMAND $<TARGET_FILE:testHistogram>
