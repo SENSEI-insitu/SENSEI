@@ -829,7 +829,7 @@ struct DataBin
     XRes{}, YRes{}, OutDir{}, Iteration{}, MeshName{}, XAxisArray{},
     YAxisArray{}, BinnedArray{}, Operation{}, ReturnData{}, Rank{},
     NRanks{}, DeviceId{}, Asynchronous{}, Verbose{}, Alloc{}, SMode{},
-    NStream{}, CalcStr{}, Mmd{}, ArrayMmdId{}, Mesh{}, MeshOut{},
+    NStream{}, Streams{}, Mmd{}, ArrayMmdId{}, Mesh{}, MeshOut{},
     Step{}, Time{}, Error{}
  {}
 
@@ -868,7 +868,7 @@ struct DataBin
   svtkAllocator Alloc;
   svtkStreamMode SMode;
   int NStream;
-  std::vector<svtkStream> CalcStr;
+  std::vector<svtkStream> Streams;
   MeshMetadataPtr Mmd;
   std::map<std::string, int> ArrayMmdId;
   svtkCompositeDataSetPtr Mesh;
@@ -907,7 +907,7 @@ int DataBin::Initialize(const std::string &meshName,
   this->Alloc = svtkAllocator::malloc;
   this->SMode = svtkStreamMode::async;
   this->NStream = 4;
-  this->CalcStr.resize(this->NStream);
+  this->Streams.resize(this->NStream);
 
 #if defined(SENSEI_ENABLE_CUDA)
   // if we are assigned to a specific GPU make it active and use a GPU
@@ -926,9 +926,9 @@ int DataBin::Initialize(const std::string &meshName,
 #if defined(DATA_BIN_STREAMS)
       cudaStream_t strm;
       cudaStreamCreate(&strm);
-      this->CalcStr[i] = strm;
+      this->Streams[i] = strm;
 #else
-      this->CalcStr[i] = cudaStreamPerThread;
+      this->Streams[i] = cudaStreamPerThread;
 #endif
     }
   }
@@ -1095,9 +1095,9 @@ int DataBin::Initialize(const std::string &meshName,
 
     switch (xAxisArrayType)
     {
-    svtkNestedTemplateMacroFloat(_COORDS,
+    svtkTemplateMacroFloat(
 
-      using coord_array_t = svtkHAMRDataArray<SVTK_TT_COORDS>;
+      using coord_array_t = svtkHAMRDataArray<SVTK_TT>;
 
       // get the x-coordinate arrays.
       auto xCol = GetColumn(tab, this->XAxisArray);
@@ -1113,13 +1113,13 @@ int DataBin::Initialize(const std::string &meshName,
       if (deviceChanged)
       {
         xCoordIn->Synchronize();
-        xCoordIn->SetStream(this->CalcStr[1], this->SMode);
+        xCoordIn->SetStream(this->Streams[1], this->SMode);
       }
 
       // make the copy and update the this->Mesh data
       if (deviceChanged || async || !xCoordIn)
       {
-        auto xCoord = coord_array_t::New(xCol, this->Alloc, this->CalcStr[1], this->SMode);
+        auto xCoord = coord_array_t::New(xCol, this->Alloc, this->Streams[1], this->SMode);
         xCoord->Synchronize();
         tab->RemoveColumnByName(this->XAxisArray.c_str());
         tab->AddColumn(xCoord);
@@ -1140,64 +1140,64 @@ int DataBin::Initialize(const std::string &meshName,
       if (deviceChanged)
       {
         yCoordIn->Synchronize();
-        yCoordIn->SetStream(this->CalcStr[2], this->SMode);
+        yCoordIn->SetStream(this->Streams[2], this->SMode);
       }
 
       // make the copy and update the this->Mesh data
       if (deviceChanged || async || !yCoordIn)
       {
-        auto yCoord = coord_array_t::New(yCol, this->Alloc, this->CalcStr[2], this->SMode);
+        auto yCoord = coord_array_t::New(yCol, this->Alloc, this->Streams[2], this->SMode);
         yCoord->Synchronize();
         tab->RemoveColumnByName(this->YAxisArray.c_str());
         tab->AddColumn(yCoord);
         yCoord->Delete();
       }
-
-      // process each array to bin
-      for (int i = 0; i < nBinnedArrays; ++i)
-      {
-        const std::string &arrayName = this->BinnedArray[i];
-        int arrayId = this->ArrayMmdId[arrayName];
-        int arrayType = this->Mmd->ArrayType[arrayId];
-
-        switch (arrayType)
-        {
-        svtkNestedTemplateMacroFloat(_DATA,
-
-          using array_t = svtkHAMRDataArray<SVTK_TT_DATA>;
-
-          // get the array to bin.
-          auto col = GetColumn(tab, arrayName);
-          if (!col)
-          {
-            SENSEI_ERROR("Failed to get column \"" << arrayName << "\" from table")
-            return -1;
-          }
-
-          // when changing devices, use streams from the active device
-          auto strm = this->CalcStr[(i+1)%this->NStream];
-
-          coord_array_t *colIn = dynamic_cast<coord_array_t*>(col);
-          deviceChanged = colIn ? colIn->GetOwner() != this->DeviceId : false;
-          if (deviceChanged)
-          {
-            colIn->Synchronize();
-            colIn->SetStream(strm, this->SMode);
-          }
-
-          // make the copy and update the this->Mesh data. sync up before deleteing the source!
-          if (deviceChanged || async || !colIn)
-          {
-            auto arrayIn = array_t::New(col, this->Alloc, strm, this->SMode);
-            arrayIn->Synchronize();
-            tab->RemoveColumnByName(arrayName.c_str());
-            tab->AddColumn(arrayIn);
-            arrayIn->Delete();
-          }
-
-        );}
-      }
     );}
+
+    // process each array to bin
+    for (int i = 0; i < nBinnedArrays; ++i)
+    {
+      const std::string &arrayName = this->BinnedArray[i];
+      int arrayId = this->ArrayMmdId[arrayName];
+      int arrayType = this->Mmd->ArrayType[arrayId];
+
+      switch (arrayType)
+      {
+      svtkTemplateMacroFloat(
+
+        using array_t = svtkHAMRDataArray<SVTK_TT>;
+
+        // get the array to bin.
+        auto col = GetColumn(tab, arrayName);
+        if (!col)
+        {
+          SENSEI_ERROR("Failed to get column \"" << arrayName << "\" from table")
+          return -1;
+        }
+
+        // when changing devices, use streams from the active device
+        auto strm = this->Streams[(i+1)%this->NStream];
+
+        array_t *colIn = dynamic_cast<array_t*>(col);
+        bool deviceChanged = colIn ? colIn->GetOwner() != this->DeviceId : false;
+        if (deviceChanged)
+        {
+          colIn->Synchronize();
+          colIn->SetStream(strm, this->SMode);
+        }
+
+        // make the copy and update the this->Mesh data. sync up before deleteing the source!
+        if (deviceChanged || async || !colIn)
+        {
+          auto arrayIn = array_t::New(col, this->Alloc, strm, this->SMode);
+          arrayIn->Synchronize();
+          tab->RemoveColumnByName(arrayName.c_str());
+          tab->AddColumn(arrayIn);
+          arrayIn->Delete();
+        }
+
+      );}
+    }
   }
 
   return 0;
@@ -1338,7 +1338,7 @@ void DataBin::Compute()
 
   // allocate the count result array
   auto countDa = svtkHAMRLongArray::New("count", xyRes, 1,
-                                        this->Alloc, this->CalcStr[0], this->SMode, 0);
+                                        this->Alloc, this->Streams[0], this->SMode, 0);
 
   // allocate the binned result arrays
   int nBinnedArrays = this->BinnedArray.size();
@@ -1365,7 +1365,7 @@ void DataBin::Compute()
         DataBinning::GetOperation(opId, opName);
 
         binnedDa[i] = array_t::New(arrayName + "_" + opName, xyRes, 1, this->Alloc,
-                                   this->CalcStr[(i+1)%this->NStream], this->SMode, iValue);
+                                   this->Streams[(i+1)%this->NStream], this->SMode, iValue);
       );
     }
   }
@@ -1415,7 +1415,7 @@ void DataBin::Compute()
         yCoord->Synchronize();
 
         // compute the block's contribution
-        if (::CudaImpl::blockCount(this->CalcStr[0], spXCoord.get(), spYCoord.get(),
+        if (::CudaImpl::blockCount(this->Streams[0], spXCoord.get(), spYCoord.get(),
           nVals, axesMin[0], axesMin[1], dx, dy, xRes, yRes, countDa->GetData()))
         {
           SENSEI_ERROR("Failed to compute the count on the GPU")
@@ -1484,21 +1484,21 @@ void DataBin::Compute()
             {
               case DataBinning::BIN_SUM:
               case DataBinning::BIN_AVG:
-                iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
+                iret = ::CudaImpl::blockBin(this->Streams[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
                                             axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::CudaImpl::SumOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
               case DataBinning::BIN_MIN:
-                iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
+                iret = ::CudaImpl::blockBin(this->Streams[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
                                             axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::CudaImpl::MinOp<elem_t>(),
                                             arrayOut->GetData());
                 break;
               case DataBinning::BIN_MAX:
-                iret = ::CudaImpl::blockBin(this->CalcStr[(i+1)%this->NStream], spXCoord.get(),
+                iret = ::CudaImpl::blockBin(this->Streams[(i+1)%this->NStream], spXCoord.get(),
                                             spYCoord.get(), spArrayIn.get(), nVals,
                                             axesMin[0], axesMin[1], dx, dy, xRes, yRes,
                                             ::CudaImpl::MaxOp<elem_t>(),
@@ -1563,7 +1563,7 @@ void DataBin::Compute()
   {
     // wait until all calculations are complete
     for (int i = 0; i < this->NStream; ++i)
-      cudaStreamSynchronize(this->CalcStr[i]);
+      cudaStreamSynchronize(this->Streams[i]);
 
 #if !defined(SENSEI_ENABLE_CUDA_MPI)
     // explcitly move the data to the host
@@ -1682,7 +1682,7 @@ void DataBin::Compute()
           {
             case DataBinning::BIN_AVG:
               {
-              iret = ::CudaImpl::scaleElement(this->CalcStr[(i+1)%this->NStream],
+              iret = ::CudaImpl::scaleElement(this->Streams[(i+1)%this->NStream],
                                               arrayOut->GetData(), countDa->GetData(),
                                               xyRes);
               }
@@ -1693,7 +1693,7 @@ void DataBin::Compute()
               elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
 
 
-              iret = ::CudaImpl::maskGreater(this->CalcStr[(i+1)%this->NStream],
+              iret = ::CudaImpl::maskGreater(this->Streams[(i+1)%this->NStream],
                                              arrayOut->GetData(), xyRes, thresh, qnan);
               }
               break;
@@ -1702,7 +1702,7 @@ void DataBin::Compute()
               elem_t thresh = 0.9000 * CudaImpl::MaxOp<elem_t>::initial_value();
               elem_t qnan = std::numeric_limits<elem_t>::quiet_NaN();
 
-              iret = ::CudaImpl::maskLess(this->CalcStr[(i+1)%this->NStream],
+              iret = ::CudaImpl::maskLess(this->Streams[(i+1)%this->NStream],
                                           arrayOut->GetData(), xyRes, thresh, qnan);
               }
               break;
@@ -1816,8 +1816,8 @@ void DataBin::Compute()
     // clean up streams
     for (int i = 0; i < this->NStream; ++i)
     {
-      cudaStreamSynchronize(this->CalcStr[i]);
-      cudaStreamDestroy(this->CalcStr[i]);
+      cudaStreamSynchronize(this->Streams[i]);
+      cudaStreamDestroy(this->Streams[i]);
     }
   }
 #endif
