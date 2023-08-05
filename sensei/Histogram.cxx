@@ -156,7 +156,7 @@ bool Histogram::Execute(DataAdaptor* data, DataAdaptor** dataOut)
   // TODO : this lets one laod balance across multiple GPU's and CPU's
   // set -1 to execute on the CPU and 0 to N_CUDA_DEVICES -1 to specify
   // the specific GPU to run on.
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
   const char *aDevId = getenv("HISTOGRAM_DEVICE_ID");
   aDevId = aDevId ? aDevId : "0";
   int deviceId = atoi(aDevId);

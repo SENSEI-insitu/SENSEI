@@ -22,6 +22,7 @@
 #include "svtkAOSDataArrayTemplate.h"
 #include "svtkDataArrayMeta.h"
 #include "svtkDataArrayTupleRange_Generic.h"
+#include "svtkIterator.h"
 
 #include <algorithm>
 #include <cassert>
@@ -542,7 +543,7 @@ protected:
 // Const tuple iterator
 template <typename ValueType, ComponentIdType TupleSize>
 struct ConstTupleIterator<svtkAOSDataArrayTemplate<ValueType>, TupleSize>
-  : public std::iterator<std::random_access_iterator_tag,
+  : public svtkIterator<std::random_access_iterator_tag,
       ConstTupleReference<svtkAOSDataArrayTemplate<ValueType>, TupleSize>, TupleIdType,
       ConstTupleReference<svtkAOSDataArrayTemplate<ValueType>, TupleSize>,
       ConstTupleReference<svtkAOSDataArrayTemplate<ValueType>, TupleSize> >
@@ -550,7 +551,7 @@ struct ConstTupleIterator<svtkAOSDataArrayTemplate<ValueType>, TupleSize>
 private:
   using ArrayType = svtkAOSDataArrayTemplate<ValueType>;
   using NumCompsType = GenericTupleSize<TupleSize>;
-  using Superclass = std::iterator<std::random_access_iterator_tag,
+  using Superclass = svtkIterator<std::random_access_iterator_tag,
     ConstTupleReference<ArrayType, TupleSize>, TupleIdType,
     ConstTupleReference<ArrayType, TupleSize>, ConstTupleReference<ArrayType, TupleSize> >;
 
@@ -698,7 +699,7 @@ private:
 // Tuple iterator
 template <typename ValueType, ComponentIdType TupleSize>
 struct TupleIterator<svtkAOSDataArrayTemplate<ValueType>, TupleSize>
-  : public std::iterator<std::random_access_iterator_tag,
+  : public svtkIterator<std::random_access_iterator_tag,
       TupleReference<svtkAOSDataArrayTemplate<ValueType>, TupleSize>, TupleIdType,
       TupleReference<svtkAOSDataArrayTemplate<ValueType>, TupleSize>,
       TupleReference<svtkAOSDataArrayTemplate<ValueType>, TupleSize> >
@@ -707,7 +708,7 @@ private:
   using ArrayType = svtkAOSDataArrayTemplate<ValueType>;
   using NumCompsType = GenericTupleSize<TupleSize>;
   using Superclass =
-    std::iterator<std::random_access_iterator_tag, TupleReference<ArrayType, TupleSize>,
+    svtkIterator<std::random_access_iterator_tag, TupleReference<ArrayType, TupleSize>,
       TupleIdType, TupleReference<ArrayType, TupleSize>, TupleReference<ArrayType, TupleSize> >;
 
 public:

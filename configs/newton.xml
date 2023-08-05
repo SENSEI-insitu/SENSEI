@@ -3,18 +3,18 @@
   <analysis type="histogram" mesh="bodies" array="v" association="point"
     bins="10" enabled="0" />
 
-  <!-- Available with ENABLE_VTK_IO -->
+  <!-- Available with SENSEI_ENABLE_VTK_IO -->
   <analysis type="PosthocIO" mode="paraview" output_dir="./" enabled="0">
     <mesh name="bodies">
         <point_arrays> ids, m, v, f </point_arrays>
     </mesh>
   </analysis>
 
-  <!-- Avalailable with ENABLE_CATALYST -->
+  <!-- Avalailable with SENSEI_ENABLE_CATALYST -->
   <analysis type="catalyst" pipeline="pythonscript"
     filename="../sensei/miniapps/newton/newton_catalyst.py" enabled="1" />
 
-  <!-- Available with ENABLE_LIBSIM -->
+  <!-- Available with SENSEI_ENABLE_LIBSIM -->
   <analysis type="libsim" plots="Pseudocolor" plotvars="bodies/point/ids"
     image-filename="newton_%ts" image-width="800" image-height="800"
     slice-project="1" image-format="png" enabled="0"/>

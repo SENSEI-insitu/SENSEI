@@ -6,9 +6,9 @@ solar system with a number of of planets of varying masses at randomly chosen
 locations. A sun sized body is placed at the center of the domain.
 
 Unlike other miniapps, this one requires you to build the project with
-`ENABLE_SENSEI` turned on; the python script must be able to import the
+`SENSEI_ENABLE_SENSEI` turned on; the python script must be able to import the
 sensei module. (The other mini-apps will run a fixed, non-configurable
-analysis when `ENABLE_SENSEI` is off.)
+analysis when `SENSEI_ENABLE_SENSEI` is off.)
 
 ## Command line options
 ```bash

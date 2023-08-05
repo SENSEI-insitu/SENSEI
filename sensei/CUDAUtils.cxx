@@ -183,7 +183,7 @@ int PartitionThreadBlocks(size_t arraySize,
             ++blockGrid.y;
         }
 
-        if (blockGrid.y > blockGridMax[1])
+        if (blockGrid.y > (unsigned)blockGridMax[1])
         {
             // 3d decomp
             unsigned long blockGridMax01 = blockGridMax[0] * blockGridMax[1];
@@ -193,7 +193,7 @@ int PartitionThreadBlocks(size_t arraySize,
             if (nBlocks % blockGridMax01)
                 ++blockGrid.z;
 
-            if (blockGrid.z > blockGridMax[2])
+            if (blockGrid.z > (unsigned)blockGridMax[2])
             {
                 SENSEI_ERROR("Too many blocks " << nBlocks << " of size " << blockSize
                     << " are required for a grid of (" << blockGridMax[0] << ", "

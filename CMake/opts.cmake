@@ -1,4 +1,4 @@
-if(ENABLE_OPTS)
+if(SENSEI_ENABLE_OPTS)
   add_library(sOPTS INTERFACE)
 
   target_include_directories(sOPTS SYSTEM INTERFACE

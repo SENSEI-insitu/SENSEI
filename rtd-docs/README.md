@@ -29,7 +29,8 @@ SENSEI is open source and freely available on github at https://github.com/SENSE
 
 ### Data model
 SENSEI makes use of a heavily stripped down and mangled version of the
-[VTK](https://vtk.org) 9.0.0 data model.
+[VTK](https://vtk.org) 9.0.0 data model. The best source of documentation for
+SENSEI's data model is VTK itself ([VTK doxygen](https://vtk.org/doc/nightly/html/classvtkDataObject.html)).
 
 ### Instrumenting a simulation
 Instrumenting a simulation typically involves creating and initializing an
@@ -40,6 +41,7 @@ simulation specific sensei::DataAdaptor when in situ processing is invoked.
 | ----- | ----------- |
 | sensei::ConfigurableAnalysis | uses a run time provided XML file to slect and confgure one or more library specific data consumers or in transit transports |
 | sensei::DataAdaptor | simulations implement an instance that packages simulation data into SENSEI's data model |
+| sensei::SVTKDataAdaptor | An adaptor that can manage and serve SVTK data objects. Use this to return data from an analysis  |
 
 ### In situ data processing
 SENSEI comes with a number of ready to use in situ processing options. These include:

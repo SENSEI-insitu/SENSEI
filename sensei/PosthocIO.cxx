@@ -23,7 +23,7 @@
 #include <fstream>
 #include <cassert>
 
-#if defined(ENABLE_VTK_IO)
+#if defined(SENSEI_ENABLE_VTK_IO)
 #include <vtkAlgorithm.h>
 #include <vtkCompositeDataPipeline.h>
 #include <vtkXMLMultiBlockDataWriter.h>
@@ -212,7 +212,7 @@ bool PosthocIO::Execute(DataAdaptor* data)
 int PosthocIO::WriteXMLP(vtkCompositeDataSet *cd,
     vtkInformation *info, int timeStep)
 {
-#if defined(ENABLE_VTK_XMLP)
+#if defined(SENSEI_ENABLE_VTK_XMLP)
   (void)info;
 
   std::ostringstream fprefix;

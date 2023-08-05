@@ -643,11 +643,11 @@ void svtkGenericEdgeTable::InsertPointAndScalar(svtkIdType ptId, double pt[3], d
 
   // Need to check size first
   // this->HashPoints->Resize( pos );
-  if (!(static_cast<unsigned>(pos) < this->HashPoints->PointVector.size()))
+  /*if (!(static_cast<unsigned>(pos) < this->HashPoints->PointVector.size()))
   {
     int kk = 2;
     kk++;
-  }
+  }*/
 
   // Be careful with reference the equal is not overloaded
   svtkEdgeTablePoints::VectorPointTableType& vect = this->HashPoints->PointVector[pos];

@@ -1,11 +1,11 @@
-if(ENABLE_ASCENT)
+if(SENSEI_ENABLE_ASCENT)
   if (ASCENT_DIR)
     find_package(Ascent REQUIRED NO_DEFAULT_PATH PATHS ${ASCENT_DIR}/lib/cmake)
   else ()
     find_package(Ascent REQUIRED)
   endif ()
 
-  if(NOT ENABLE_CONDUIT)
+  if(NOT SENSEI_ENABLE_CONDUIT)
     add_library(sConduit INTERFACE)
   endif()
 

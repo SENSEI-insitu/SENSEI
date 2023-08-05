@@ -29,6 +29,8 @@ namespace sensei
  * | sensei::VTKAmrWriter | Writes simulation data to disk in a SVTK format |
  * | sensei::PythonAnalysis | Invokes user provided Pythons scripts that process simulation data |
  * | sensei::SliceExtract | Computes planar slices and iso-surfaces on simulation data |
+ * | sensei::DataBinning | Bins point/particle data onto a cartesian grid with arbitrary axes |
+ * | sensei::ParticleDensity | Computes particle spatial density on a cartesian grid |
  *
  */
 class SENSEI_EXPORT ConfigurableAnalysis : public AnalysisAdaptor
@@ -39,16 +41,18 @@ public:
 
   senseiTypeMacro(ConfigurableAnalysis, AnalysisAdaptor);
 
-  /// Prints the current adaptor state
   void PrintSelf(ostream& os, svtkIndent indent) override;
 
-  /** Set the communicator used by the adaptor.
-   * The default communicator is a duplicate of MPI_COMMM_WORLD, giving
-   * each adaptor a unique communication space. Users wishing to override
-   * this should set the communicator before doing anything else. Derived
-   * classes should use the communicator returned by GetCommunicator.
-   */
   int SetCommunicator(MPI_Comm comm) override;
+
+  void SetVerbose(int val) override;
+
+  void SetAsynchronous(int val) override;
+
+  void SetDeviceId(int val) override;
+  void SetDevicesToUse(int val) override;
+  void SetDeviceStart(int val) override;
+  void SetDeviceStride(int val) override;
 
   /// Initialize the adaptor using the configuration specified.
   int Initialize(const std::string &filename);

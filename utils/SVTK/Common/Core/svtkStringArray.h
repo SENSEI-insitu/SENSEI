@@ -193,8 +193,6 @@ public:
     this->SetNumberOfValues(this->NumberOfComponents * number);
   }
 
-  svtkIdType GetNumberOfValues() { return this->MaxId + 1; }
-
   int GetNumberOfElementComponents() { return 0; }
   int GetElementComponentSize() const override
   {

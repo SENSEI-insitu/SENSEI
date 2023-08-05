@@ -20,52 +20,54 @@
 
 #include "Autocorrelation.h"
 #include "Histogram.h"
-#ifdef ENABLE_VTK_IO
+#include "ParticleDensity.h"
+#include "DataBinning.h"
+#ifdef SENSEI_ENABLE_VTK_IO
 #include "VTKPosthocIO.h"
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
 #include "VTKAmrWriter.h"
 #endif
 #endif
-#ifdef ENABLE_VTK_ACCELERATORS
+#ifdef SENSEI_ENABLE_VTK_ACCELERATORS
 #include "VTKmContourAnalysis.h"
 #endif
-#ifdef ENABLE_VTKM
+#ifdef SENSEI_ENABLE_VTKM
 #include "VTKmVolumeReductionAnalysis.h"
 #include "VTKmCDFAnalysis.h"
 #endif
-#ifdef ENABLE_ADIOS1
+#ifdef SENSEI_ENABLE_ADIOS1
 #include "ADIOS1AnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_ADIOS2
+#ifdef SENSEI_ENABLE_ADIOS2
 #include "ADIOS2AnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_HDF5
+#ifdef SENSEI_ENABLE_HDF5
 #include "HDF5AnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 #include "CatalystAnalysisAdaptor.h"
 #include "CatalystParticle.h"
 #include "CatalystSlice.h"
 #include <vtkNew.h>
 #endif
-#ifdef ENABLE_ASCENT
+#ifdef SENSEI_ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_LIBSIM
+#ifdef SENSEI_ENABLE_LIBSIM
 #include "LibsimAnalysisAdaptor.h"
 #include "LibsimImageProperties.h"
 #endif
-#ifdef ENABLE_OSPRAY
+#ifdef SENSEI_ENABLE_OSPRAY
 #include "OSPRayAnalysisAdaptor.h"
 #endif
-#ifdef ENABLE_PYTHON
+#ifdef SENSEI_ENABLE_PYTHON
 #include "PythonAnalysis.h"
 #endif
-#if defined(ENABLE_VTK_IO) && defined(ENABLE_VTK_FILTERS)
-#define ENABLE_SLICE_EXTRACT
+#if defined(SENSEI_ENABLE_VTK_IO) && defined(SENSEI_ENABLE_VTK_FILTERS)
+#define SENSEI_ENABLE_SLICE_EXTRACT
 #include "SliceExtract.h"
 #endif
-#if defined(ENABLE_VTK_FILTERS)
+#if defined(SENSEI_ENABLE_VTK_FILTERS)
 #include "Calculator.h"
 #endif
 
@@ -79,10 +81,14 @@ using namespace STLUtils; // for operator<< overloads
 
 struct ConfigurableAnalysis::InternalsType
 {
-  InternalsType()
-    : Comm(MPI_COMM_NULL)
+  InternalsType() : Comm(MPI_COMM_NULL), Verbose(0),
+    Asynchronous(0), DeviceId(-2), DevicesToUse(0), DeviceStart(0),
+    DeviceStride(0)
   {
   }
+
+  // Parse common attributes and set them on the passed adaptor
+  int SetCommonAttributes(sensei::AnalysisAdaptor *adaptor, pugi::xml_node node);
 
   // Initializes the adaptor by calling the initializer functor,
   // optionally timing how long initialization takes.
@@ -97,6 +103,8 @@ struct ConfigurableAnalysis::InternalsType
   // a status message indicating success/failure is printed
   // by rank 0
   int AddHistogram(pugi::xml_node node);
+  int AddParticleDensity(pugi::xml_node node);
+  int AddDataBinning(pugi::xml_node node);
   int AddVTKmContour(pugi::xml_node node);
   int AddVTKmVolumeReduction(pugi::xml_node node);
   int AddVTKmCDF(pugi::xml_node node);
@@ -122,10 +130,10 @@ public:
   // special analyses. these apear in the above list, however
   // they require special treatment which is simplified by
   // storing an additional pointer.
-#ifdef ENABLE_LIBSIM
+#ifdef SENSEI_ENABLE_LIBSIM
   svtkSmartPointer<LibsimAnalysisAdaptor> LibsimAdaptor;
 #endif
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
   svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
 #endif
 
@@ -135,9 +143,39 @@ public:
   // doesn't set a communicator correct behavior is insured
   // and superfluous Comm_dup's are avoided.
   MPI_Comm Comm;
+  int Verbose;
+  int Asynchronous;
+  int DeviceId;
+  int DevicesToUse;
+  int DeviceStart;
+  int DeviceStride;
 
   std::vector<std::string> LogEventNames;
 };
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::SetCommonAttributes(
+  sensei::AnalysisAdaptor *adaptor, pugi::xml_node node)
+{
+  int verbose = node.attribute("verbose").as_int(this->Verbose);
+  int async = node.attribute("async").as_int(this->Asynchronous);
+  int device = node.attribute("device_id").as_int(this->DeviceId);
+  int devicesToUse = node.attribute("devices_to_use").as_int(this->DevicesToUse);
+  int deviceStart = node.attribute("device_start").as_int(this->DeviceStart);
+  int deviceStride = node.attribute("device_stride").as_int(this->DeviceStride);
+
+  if (this->Comm != MPI_COMM_NULL)
+    adaptor->SetCommunicator(this->Comm);
+
+  adaptor->SetVerbose(verbose);
+  adaptor->SetAsynchronous(async);
+  adaptor->SetDeviceId(device);
+  adaptor->SetDevicesToUse(devicesToUse);
+  adaptor->SetDeviceStart(deviceStart);
+  adaptor->SetDeviceStride(deviceStride);
+
+  return 0;
+}
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::TimeInitialization(
@@ -192,9 +230,7 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
   std::string fileName = node.attribute("file").value();
 
   auto histogram = svtkSmartPointer<Histogram>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    histogram->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(histogram.Get(), node);
 
   this->TimeInitialization(histogram, [&]() {
       histogram->Initialize(bins, mesh, association, array, fileName);
@@ -211,9 +247,65 @@ int ConfigurableAnalysis::InternalsType::AddHistogram(pugi::xml_node node)
 }
 
 // --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddDataBinning(pugi::xml_node node)
+{
+  auto dataBin = svtkSmartPointer<DataBinning>::New();
+  this->SetCommonAttributes(dataBin.Get(), node);
+
+  if (this->TimeInitialization(dataBin, [&]() {
+      return dataBin->Initialize(node);
+      }))
+  {
+    SENSEI_ERROR("Failed to initialize DataBinning")
+    return -1;
+  }
+
+  this->Analyses.push_back(dataBin.GetPointer());
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddParticleDensity(pugi::xml_node node)
+{
+  if (XMLUtils::RequireAttribute(node, "mesh") ||
+    XMLUtils::RequireAttribute(node, "xpos") || XMLUtils::RequireAttribute(node, "ypos") ||
+    XMLUtils::RequireAttribute(node, "zpos") || XMLUtils::RequireAttribute(node, "mass"))
+    {
+    SENSEI_ERROR("Failed to initialize ParticleDensity");
+    return -1;
+    }
+
+  std::string mesh = node.attribute("mesh").value();
+  std::string xpos = node.attribute("xpos").value();
+  std::string ypos = node.attribute("ypos").value();
+  std::string zpos = node.attribute("zpos").value();
+  std::string mass = node.attribute("mass").value();
+  std::string proj = node.attribute("proj").as_string("xy");
+  std::string odir = node.attribute("odir").as_string("./");
+  int xres = node.attribute("xres").as_int(256);
+  int yres = node.attribute("yres").as_int(256);
+  int ret = node.attribute("ret").as_int(0);
+
+  auto pden = svtkSmartPointer<ParticleDensity>::New();
+  this->SetCommonAttributes(pden.Get(), node);
+
+  this->TimeInitialization(pden, [&]() {
+      pden->Initialize(mesh, xpos, ypos, zpos, mass, proj, xres, yres, odir, ret);
+      return 0;
+    });
+
+  this->Analyses.push_back(pden.GetPointer());
+
+  SENSEI_STATUS("Configured ParticleDensity")
+
+  return 0;
+}
+
+// --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 {
-#ifndef ENABLE_VTK_ACCELERATORS
+#ifndef SENSEI_ENABLE_VTK_ACCELERATORS
   (void)node;
   SENSEI_ERROR("svtkAcceleratorsVtkm was requested but is disabled in this build")
   return -1;
@@ -232,9 +324,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
   bool writeOutput = node.attribute("write_output").as_bool(false);
 
   auto contour = svtkSmartPointer<VTKmContourAnalysis>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    contour->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(contour.Get(), node);
 
   this->TimeInitialization(contour, [&]() {
     contour->Initialize(mesh.value(), array.value(), value, writeOutput);
@@ -251,7 +341,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmContour(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKM
+#ifndef SENSEI_ENABLE_VTKM
   (void)node;
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
@@ -286,7 +376,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKmVolumeReduction(pugi::xml_node n
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 {
-#ifndef ENABLE_VTKM
+#ifndef SENSEI_ENABLE_VTKM
   (void)node;
   SENSEI_ERROR("VTK-m analysis was requested but is disabled in this build")
   return -1;
@@ -326,15 +416,13 @@ int ConfigurableAnalysis::InternalsType::AddVTKmCDF(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 {
-#ifndef ENABLE_ASCENT
+#ifndef SENSEI_ENABLE_ASCENT
   (void)node;
   SENSEI_ERROR("Ascent was requested but is disabled in this build")
   return( -1 );
 #else
   svtkNew<AscentAnalysisAdaptor> ascent;
-
-  if (this->Comm != MPI_COMM_NULL)
-    ascent->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(ascent.Get(), node);
 
   // get the data requirements for this run
   DataRequirements req;
@@ -383,15 +471,13 @@ int ConfigurableAnalysis::InternalsType::AddAscent(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
 {
-#ifndef ENABLE_ADIOS1
+#ifndef SENSEI_ENABLE_ADIOS1
   (void)node;
   SENSEI_ERROR("ADIOS 1 was requested but is disabled in this build")
   return -1;
 #else
   auto adios = svtkSmartPointer<ADIOS1AnalysisAdaptor>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adios->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adios.Get(), node);
 
   pugi::xml_attribute filename = node.attribute("filename");
   if (filename)
@@ -427,15 +513,13 @@ int ConfigurableAnalysis::InternalsType::AddAdios1(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
 {
-#ifndef ENABLE_ADIOS2
+#ifndef SENSEI_ENABLE_ADIOS2
   (void)node;
   SENSEI_ERROR("ADIOS 2 was requested but is disabled in this build")
   return -1;
 #else
   auto adiosAdaptor = svtkSmartPointer<ADIOS2AnalysisAdaptor>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adiosAdaptor->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adiosAdaptor.Get(), node);
 
   if (adiosAdaptor->Initialize(node))
     {
@@ -456,15 +540,13 @@ int ConfigurableAnalysis::InternalsType::AddAdios2(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
 {
-#ifndef ENABLE_HDF5
+#ifndef SENSEI_ENABLE_HDF5
   (void)node;
   SENSEI_ERROR("HDF5 was requested but is disabled in this build");
   return -1;
 #else
   auto dataE = svtkSmartPointer<HDF5AnalysisAdaptor>::New();
-
-  if(this->Comm != MPI_COMM_NULL)
-    dataE->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(dataE.Get(), node);
 
   pugi::xml_attribute filename = node.attribute("filename");
   pugi::xml_attribute methodAttr = node.attribute("method");
@@ -508,7 +590,7 @@ int ConfigurableAnalysis::InternalsType::AddHDF5(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 {
-#ifndef ENABLE_CATALYST
+#ifndef SENSEI_ENABLE_CATALYST
   (void)node;
   SENSEI_ERROR("Catalyst was requested but is disabled in this build")
   return -1;
@@ -517,9 +599,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
   if (!this->CatalystAdaptor)
     {
     this->CatalystAdaptor = svtkSmartPointer<CatalystAnalysisAdaptor>::New();
-
-    if (this->Comm != MPI_COMM_NULL)
-      this->CatalystAdaptor->SetCommunicator(this->Comm);
+    this->SetCommonAttributes(this->CatalystAdaptor.Get(), node);
 
     this->TimeInitialization(this->CatalystAdaptor);
     this->Analyses.push_back(this->CatalystAdaptor);
@@ -657,7 +737,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     }
   else if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {
-#ifndef ENABLE_CATALYST_PYTHON
+#ifndef SENSEI_ENABLE_CATALYST_PYTHON
     SENSEI_ERROR("Catalyst Python was requested but is disabled in this build")
 #else
     if (node.attribute("filename"))
@@ -685,14 +765,14 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
   SENSEI_STATUS("Configured CatalystAnalysisAdaptor "
     << node.attribute("pipeline").value() << " "
     << (node.attribute("filename") ? node.attribute("filename").value() : ""))
-#endif
   return 0;
+#endif
 }
 
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
 {
-#ifndef ENABLE_LIBSIM
+#ifndef SENSEI_ENABLE_LIBSIM
   (void)node;
   SENSEI_ERROR("Libsim was requested but is disabled in this build")
   return -1;
@@ -703,9 +783,7 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
   if (!this->LibsimAdaptor)
     {
     this->LibsimAdaptor = svtkSmartPointer<LibsimAnalysisAdaptor>::New();
-
-    if (this->Comm != MPI_COMM_NULL)
-      this->LibsimAdaptor->SetCommunicator(this->Comm);
+    this->SetCommonAttributes(this->LibsimAdaptor.Get(), node);
 
     if(node.attribute("trace"))
       this->LibsimAdaptor->SetTraceFile(node.attribute("trace").value());
@@ -823,8 +901,8 @@ int ConfigurableAnalysis::InternalsType::AddLibsim(pugi::xml_node node)
     SENSEI_STATUS("configured LibsimAnalysisAdaptor render")
   }
 
-#endif
   return 0;
+#endif
 }
 
 // --------------------------------------------------------------------------
@@ -852,9 +930,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
   int numThreads = node.attribute("n-threads").as_int(1);
 
   auto adaptor = svtkSmartPointer<Autocorrelation>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adaptor->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adaptor.Get(), node);
 
   this->TimeInitialization(adaptor, [&]() {
     adaptor->Initialize(window, meshName, assoc, arrayName, kMax);
@@ -874,7 +950,7 @@ int ConfigurableAnalysis::InternalsType::AddAutoCorrelation(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 {
-#ifndef ENABLE_VTK_IO
+#ifndef SENSEI_ENABLE_VTK_IO
   (void)node;
   SENSEI_ERROR("VTK I/O was requested but is disabled in this build")
   return -1;
@@ -891,17 +967,14 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
   std::string mode = node.attribute("mode").as_string("visit");
   std::string writer = node.attribute("writer").as_string("xml");
   std::string ghostArrayName = node.attribute("ghost_array_name").as_string("");
-  int verbose = node.attribute("verbose").as_int(0);
   unsigned int frequency = node.attribute("frequency").as_uint(0);
 
   auto adaptor = svtkSmartPointer<VTKPosthocIO>::New();
+  this->SetCommonAttributes(adaptor.Get(), node);
 
-  if (this->Comm != MPI_COMM_NULL)
-    adaptor->SetCommunicator(this->Comm);
+  adaptor->SetFrequency(frequency);
 
   adaptor->SetGhostArrayName(ghostArrayName);
-  adaptor->SetVerbose(verbose);
-  adaptor->SetFrequency(frequency);
 
   if (adaptor->SetOutputDir(outputDir) || adaptor->SetMode(mode) ||
     adaptor->SetWriter(writer) || adaptor->SetDataRequirements(req))
@@ -923,7 +996,7 @@ int ConfigurableAnalysis::InternalsType::AddPosthocIO(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddOSPRay(pugi::xml_node node)
 {
-#ifndef ENABLE_OSPRAY
+#ifndef SENSEI_ENABLE_OSPRAY
   (void)node;
   SENSEI_ERROR("OSPRay was requested but is disabled in this build")
   return -1;
@@ -1144,7 +1217,7 @@ int ConfigurableAnalysis::InternalsType::AddOSPRay(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 {
-#if !defined(ENABLE_VTK_IO) || !defined(ENABLE_VTK_MPI)
+#if !defined(SENSEI_ENABLE_VTK_IO) || !defined(SENSEI_ENABLE_VTK_MPI)
   (void)node;
   SENSEI_ERROR("VTK AMR Writer was requested but is disabled in this build")
   return -1;
@@ -1162,9 +1235,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
   std::string mode = node.attribute("mode").as_string("visit");
 
   auto adapter = svtkSmartPointer<VTKAmrWriter>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adapter->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adapter.Get(), node);
 
   if (adapter->SetOutputDir(outputDir) || adapter->SetMode(mode) ||
     adapter->SetDataRequirements(req) ||
@@ -1186,7 +1257,7 @@ int ConfigurableAnalysis::InternalsType::AddVTKAmrWriter(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
 {
-#if !defined(ENABLE_PYTHON)
+#if !defined(SENSEI_ENABLE_PYTHON)
   (void)node;
   SENSEI_ERROR("The PythonAnalysis was requested but is disabled in this build")
   return -1;
@@ -1207,9 +1278,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
     initSource = inode.text().as_string();
 
   auto pyAnalysis = svtkSmartPointer<PythonAnalysis>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    pyAnalysis->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(pyAnalysis.Get(), node);
 
   pyAnalysis->SetScriptFile(scriptFile);
   pyAnalysis->SetScriptModule(scriptModule);
@@ -1238,7 +1307,7 @@ int ConfigurableAnalysis::InternalsType::AddPythonAnalysis(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 {
-#ifndef ENABLE_SLICE_EXTRACT
+#ifndef SENSEI_ENABLE_SLICE_EXTRACT
   (void)node;
   SENSEI_ERROR("SliceExtract requested but is disabled in this build")
   return -1;
@@ -1249,9 +1318,7 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 
   // initialize the slice extract
   auto adaptor = svtkSmartPointer<SliceExtract>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    adaptor->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(adaptor.Get(), node);
 
   // parse data requirements
   DataRequirements req;
@@ -1368,7 +1435,7 @@ int ConfigurableAnalysis::InternalsType::AddSliceExtract(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
 {
-#if !defined(ENABLE_VTK_FILTERS)
+#if !defined(SENSEI_ENABLE_VTK_FILTERS)
   (void)node;
   SENSEI_ERROR("Calculator requested but is disabled in this build")
   return -1;
@@ -1393,9 +1460,7 @@ int ConfigurableAnalysis::InternalsType::AddCalculator(pugi::xml_node node)
   std::string result = node.attribute("result").value();
 
   auto calculator = svtkSmartPointer<Calculator>::New();
-
-  if (this->Comm != MPI_COMM_NULL)
-    calculator->SetCommunicator(this->Comm);
+  this->SetCommonAttributes(calculator.Get(), node);
 
   this->TimeInitialization(calculator, [&]() {
       calculator->Initialize(mesh, association, expression, result);
@@ -1418,6 +1483,11 @@ senseiNewMacro(ConfigurableAnalysis);
 ConfigurableAnalysis::ConfigurableAnalysis()
   : Internals(new ConfigurableAnalysis::InternalsType())
 {
+  // get the defaults from the base class which examines environment variables
+  this->Internals->DeviceId = this->DeviceId;
+  this->Internals->DevicesToUse = this->DevicesToUse;
+  this->Internals->DeviceStart = this->DeviceStart;
+  this->Internals->DeviceStride = this->DeviceStride;
 }
 
 //----------------------------------------------------------------------------
@@ -1445,6 +1515,83 @@ int ConfigurableAnalysis::SetCommunicator(MPI_Comm comm)
   return 0;
 }
 
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetVerbose(int val)
+{
+  this->AnalysisAdaptor::SetVerbose(val);
+
+  this->Internals->Verbose = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetVerbose(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetAsynchronous(int val)
+{
+  this->AnalysisAdaptor::SetAsynchronous(val);
+
+  this->Internals->Asynchronous = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetAsynchronous(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDeviceId(int val)
+{
+  this->AnalysisAdaptor::SetDeviceId(val);
+
+  this->Internals->DeviceId = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDeviceId(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDevicesToUse(int val)
+{
+  this->AnalysisAdaptor::SetDevicesToUse(val);
+
+  this->Internals->DevicesToUse = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDevicesToUse(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDeviceStart(int val)
+{
+  this->AnalysisAdaptor::SetDeviceStart(val);
+
+  this->Internals->DeviceStart = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDeviceStart(val);
+}
+
+//----------------------------------------------------------------------------
+void ConfigurableAnalysis::SetDeviceStride(int val)
+{
+  this->AnalysisAdaptor::SetDeviceStride(val);
+
+  this->Internals->DeviceStride = val;
+
+  AnalysisAdaptorVector::iterator iter = this->Internals->Analyses.begin();
+  AnalysisAdaptorVector::iterator end = this->Internals->Analyses.end();
+  for (; iter != end; ++iter)
+    (*iter)->SetDeviceStride(val);
+}
 
 //----------------------------------------------------------------------------
 int ConfigurableAnalysis::Initialize(const std::string& filename)
@@ -1482,6 +1629,8 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
 
     std::string type = node.attribute("type").value();
     if (!(((type == "histogram") && !this->Internals->AddHistogram(node))
+      || ((type == "ParticleDensity") && !this->Internals->AddParticleDensity(node))
+      || ((type == "DataBinning") && !this->Internals->AddDataBinning(node))
       || ((type == "autocorrelation") && !this->Internals->AddAutoCorrelation(node))
       || ((type == "adios1") && !this->Internals->AddAdios1(node))
       || ((type == "adios2") && !this->Internals->AddAdios2(node))

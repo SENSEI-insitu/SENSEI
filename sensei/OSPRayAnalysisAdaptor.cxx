@@ -32,7 +32,7 @@
 #include <svtkUnsignedCharArray.h>
 #include <svtkUnstructuredGrid.h>
 
-#ifdef ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
+#ifdef SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
 #include <SVTKUtils.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPDistributedDataFilter.h>
@@ -808,7 +808,7 @@ void OSPRayAnalysisAdaptor::RenderAsUGridImpl(svtkDataObject *dataObject, int ra
   }
   unstructuredGrid->Register(this);
 
-#ifdef ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
+#ifdef SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY
   // Optionally redistribute the vtkUnstructuredGrid with D3 filter.
   if (UseD3) {
     using Filter = vtkPDistributedDataFilter;

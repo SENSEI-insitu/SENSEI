@@ -43,7 +43,7 @@
 #include <vtkSMIdTypeVectorProperty.h>
 #include <vtkSMIntVectorProperty.h>
 #include <vtkSMPluginManager.h>
-#ifdef ENABLE_CATALYST_PYTHON
+#ifdef SENSEI_ENABLE_CATALYST_PYTHON
 #include <vtkCPPythonScriptPipeline.h>
 #endif
 
@@ -51,7 +51,7 @@
 
 namespace sensei
 {
-#ifdef ENABLE_CATALYST_PYTHON
+#ifdef SENSEI_ENABLE_CATALYST_PYTHON
 
 template <typename PropertyType>
 struct PropertyCopier
@@ -343,7 +343,7 @@ private:
 };
 
 vtkStandardNewMacro(CatalystScriptPipeline);
-#endif // ENABLE_CATALYST_PYTHON
+#endif // SENSEI_ENABLE_CATALYST_PYTHON
 
 static int vtkCPAdaptorAPIInitializationCounter = 0;
 
@@ -390,7 +390,7 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
   const std::string& resultMesh,
   int versionHint)
 {
-#ifdef ENABLE_CATALYST_PYTHON
+#ifdef SENSEI_ENABLE_CATALYST_PYTHON
 #if PARAVIEW_VERSION_MAJOR > 5 || (PARAVIEW_VERSION_MAJOR == 5 && PARAVIEW_VERSION_MINOR >= 9)
   // detect if we are given a Catalyst 1 or 2 script
   vtkSmartPointer<vtkCPPythonPipeline> pythonPipeline =
@@ -427,7 +427,7 @@ void CatalystAnalysisAdaptor::AddPythonScriptPipeline(
   (void)fileName;
   (void)resultProducer;
   SENSEI_ERROR("Failed to add Python script pipeline. "
-    "Re-compile with ENABLE_CATALYST_PYTHON=ON")
+    "Re-compile with SENSEI_ENABLE_CATALYST_PYTHON=ON")
 #endif
 }
 

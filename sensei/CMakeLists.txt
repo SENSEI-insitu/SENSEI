@@ -1,107 +1,126 @@
-if (ENABLE_SENSEI)
-  message(STATUS "Enabled: sensei library")
+if (SENSEI_ENABLE_SENSEI)
+  message(STATUS "SENSEI: Enabled: sensei library")
 
   # senseiCore
   # everything but the Python and configurable analysis adaptors.
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
     BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
-    ConfigurablePartitioner.cxx DataAdaptor.cxx DataRequirements.cxx Error.cxx
-    Histogram.cxx HistogramInternals.cxx InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
-    IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx MemoryUtils.cxx
-    MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx PlanarPartitioner.cxx
-    PlanarSlicePartitioner.cxx Profiler.cxx ProgrammableDataAdaptor.cxx
-    SVTKDataAdaptor.cxx SVTKUtils.cxx XMLUtils.cxx)
+    ConfigurablePartitioner.cxx DataAdaptor.cxx DataBinning.cxx
+    DataRequirements.cxx Error.cxx Histogram.cxx HistogramInternals.cxx
+    InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
+    IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx
+    MemoryUtils.cxx MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx
+    ParticleDensity.cxx PlanarPartitioner.cxx PlanarSlicePartitioner.cxx
+    Profiler.cxx ProgrammableDataAdaptor.cxx SVTKDataAdaptor.cxx SVTKUtils.cxx
+    XMLUtils.cxx)
 
-  set(senseiCore_libs pugixml thread sDIY sSVTK sMPI)
+  set(senseiCore_libs pugixml thread sDIY sSVTK sMPI hamr)
 
-  set(senseiCore_cuda_sources)
-  if (ENABLE_CUDA)
-    list(APPEND senseiCore_cuda_sources CUDAUtils.cu MemoryUtils.cu HistogramInternals.cxx)
-  endif ()
-
-  if (ENABLE_CONDUIT)
+  if (SENSEI_ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
     list(APPEND senseiCore_libs sConduit)
   endif()
 
-  if(ENABLE_ASCENT)
+  if(SENSEI_ENABLE_ASCENT)
     list(APPEND senseiCore_sources AscentAnalysisAdaptor.cxx)
     list(APPEND senseiCore_libs sAscent)
   endif()
 
-  if(ENABLE_CATALYST)
+  if(SENSEI_ENABLE_CATALYST)
     list(APPEND senseiCore_sources CatalystAnalysisAdaptor.cxx
       CatalystParticle.cxx CatalystSlice.cxx CatalystUtilities.cxx)
   endif()
 
-  if (ENABLE_VTKM)
+  if (SENSEI_ENABLE_VTKM)
     list(APPEND senseiCore_sources VTKmVolumeReductionAnalysis.cxx
       VTKmCDFAnalysis.cxx CDFReducer.cxx CinemaHelper.cxx)
     list(APPEND senseiCore_libs sVTKm)
   endif()
 
-  if (ENABLE_ADIOS1)
+  if (SENSEI_ENABLE_ADIOS1)
     list(APPEND senseiCore_sources ADIOS1Schema.cxx ADIOS1AnalysisAdaptor.cxx
       ADIOS1DataAdaptor.cxx)
     list(APPEND senseiCore_libs sADIOS1)
   endif()
 
-if (ENABLE_ADIOS2)
+if (SENSEI_ENABLE_ADIOS2)
     list(APPEND senseiCore_sources ADIOS2Schema.cxx ADIOS2AnalysisAdaptor.cxx
       ADIOS2DataAdaptor.cxx)
     list(APPEND senseiCore_libs sADIOS2)
   endif()
 
- if (ENABLE_HDF5)
+ if (SENSEI_ENABLE_HDF5)
        list(APPEND senseiCore_sources HDF5DataAdaptor.cxx HDF5AnalysisAdaptor.cxx
         HDF5Schema.cxx)
     list(APPEND senseiCore_libs sHDF5)
   endif()
 
-  if (ENABLE_OSPRAY)
+  if (SENSEI_ENABLE_OSPRAY)
     list(APPEND senseiCore_sources OSPRayAnalysisAdaptor.cxx)
     list(APPEND senseiCore_libs sOSPRay)
   endif()
 
-  if (ENABLE_VTK_ACCELERATORS)
+  if (SENSEI_ENABLE_VTK_ACCELERATORS)
     list(APPEND senseiCore_sources VTKmContourAnalysis.cxx)
   endif()
 
-  if (ENABLE_LIBSIM)
+  if (SENSEI_ENABLE_LIBSIM)
     list(APPEND senseiCore_sources LibsimAnalysisAdaptor.cxx
       LibsimImageProperties.cxx)
     list(APPEND senseiCore_libs sLibsim)
   endif()
 
-  if (ENABLE_VTK_IO)
+  if (SENSEI_ENABLE_VTK_IO)
     list(APPEND senseiCore_sources VTKPosthocIO.cxx)
-    if (ENABLE_VTK_MPI)
+    if (SENSEI_ENABLE_VTK_MPI)
       list(APPEND senseiCore_sources VTKAmrWriter.cxx)
     endif()
-    if (ENABLE_VTK_FILTERS)
+    if (SENSEI_ENABLE_VTK_FILTERS)
       list(APPEND senseiCore_sources SliceExtract.cxx)
     endif()
   endif()
 
-  if (ENABLE_VTK_FILTERS)
+  if (SENSEI_ENABLE_VTK_FILTERS)
     list(APPEND senseiCore_sources Calculator.cxx)
   endif()
 
-  if (ENABLE_VTK_CORE)
+  if (SENSEI_ENABLE_VTK_CORE)
     list(APPEND senseiCore_libs sVTK)
   endif()
 
-  add_library(senseiCore ${senseiCore_sources} ${senseiCore_cuda_sources})
+  set(senseiCore_cuda_sources)
+  if (SENSEI_ENABLE_CUDA)
+    list(APPEND senseiCore_cuda_sources CUDAUtils.cxx MemoryUtils.cxx
+      DataBinning.cxx HistogramInternals.cxx ParticleDensity.cxx
+      SVTKUtils.cxx)
+  endif()
 
-  if (ENABLE_CUDA)
-    sensei_cuda_target(TARGET senseiCore SOURCES ${senseiCore_cuda_sources})
-  endif ()
+  if (SENSEI_ENABLE_OPENMP)
+    list(APPEND senseiCore_libs OpenMP::OpenMP_CXX)
+  endif()
 
-  if (ENABLE_CATALYST)
+  if (SENSEI_SEPARATE_IMPL)
+    if (SENSEI_ENABLE_CUDA)
+      list(APPEND senseiCore_cuda_sources svtkHAMRDataArray.cxx)
+    else()
+      list(APPEND senseiCore_sources svtkHAMRDataArray.cxx)
+    endif()
+  endif()
+
+  add_target(LIB
+    NAME senseiCore
+    CXX_SOURCES ${senseiCore_sources}
+    CU_SOURCES ${senseiCore_cuda_sources}
+    CU_ARCH "${SENSEI_CUDA_ARCHITECTURES}"
+    LINK_LIBS ${senseiCore_libs}
+    LINK_OPTS ${SENSEI_OPENMP_LINK_FLAGS}
+    )
+
+  if (SENSEI_ENABLE_CATALYST)
     target_compile_definitions(senseiCore PRIVATE PARAVIEW_VERSION_MAJOR=${ParaView_VERSION_MAJOR} PARAVIEW_VERSION_MINOR=${ParaView_VERSION_MINOR})
   endif()
 
-  if (ENABLE_VTK_IO)
+  if (SENSEI_ENABLE_VTK_IO)
     target_compile_definitions(senseiCore PRIVATE VTK_MAJOR_VERSION=${VTK_MAJOR_VERSION} VTK_MINOR_VERSION=${VTK_MINOR_VERSION} VTK_BUILD_VERSION=${VTK_BUILD_VERSION})
   endif()
 
@@ -122,7 +141,7 @@ if (ENABLE_ADIOS2)
   set(sensei_libs senseiCore)
 
   # PythonAnalysis
-  if (ENABLE_PYTHON)
+  if (SENSEI_ENABLE_PYTHON)
     set_property(SOURCE PythonAnalysis.i PROPERTY CPLUSPLUS ON)
     set_property(SOURCE PythonAnalysis.i PROPERTY SWIG_MODULE_NAME PythonAnalysis)
     set_property(SOURCE PythonAnalysis.i PROPERTY DEPENDS DataAdaptor.i)
@@ -144,6 +163,10 @@ if (ENABLE_ADIOS2)
 
     set_property(TARGET PythonAnalysis
       PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON)
+
+    if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA AND NOT SENSEI_NVHPC_CUDA)
+      target_link_options(PythonAnalysis PUBLIC ${SENSEI_OPENMP_LINK_FLAGS})
+    endif ()
 
     # install the Python module
     install(TARGETS PythonAnalysis DESTINATION ${SENSEI_PYTHON_DIR})
@@ -185,13 +208,18 @@ if (ENABLE_ADIOS2)
   # sensei
   # world facing library that users will link to
   # contains senseiCore classes, PythonAnalysis, and ConfigurableAnalysis
-  add_library(sensei ${sensei_sources})
+  add_target(LIB
+    NAME sensei
+    CXX_SOURCES ${sensei_sources}
+    LINK_LIBS ${sensei_libs}
+    LINK_OPTS ${SENSEI_OPENMP_LINK_FLAGS}
+    )
+  #add_library(sensei ${sensei_sources})
+  #target_link_libraries(sensei PUBLIC ${sensei_libs})
 
   target_include_directories(sensei PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>)
-
-  target_link_libraries(sensei PUBLIC ${sensei_libs})
 
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
     DESTINATION include FILES_MATCHING PATTERN "*.h")

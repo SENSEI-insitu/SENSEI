@@ -256,8 +256,7 @@ public:
     PyObject *args = Py_BuildValue("Nsis", pyMesh, meshName.c_str(),
       association, arrayName.c_str());
 
-    PyObject *ret = nullptr;
-    if (!(ret = PyObject_CallObject(f, args)) || PyErr_Occurred())
+    if (!PyObject_CallObject(f, args) || PyErr_Occurred())
       {
       SENSEI_PY_CALLBACK_ERROR(DataAdaptor::AddArrayCallback, f)
       return -1;

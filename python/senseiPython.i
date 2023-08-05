@@ -258,14 +258,14 @@ SENSEI_WRAP_ANALYSIS_ADAPTOR(Autocorrelation)
 /****************************************************************************
  * CatalystAnalysisAdaptor
  ***************************************************************************/
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
 SENSEI_WRAP_ANALYSIS_ADAPTOR(CatalystAnalysisAdaptor)
 #endif
 
 /****************************************************************************
  * LibsimAnalysisAdaptor
  ***************************************************************************/
-#ifdef ENABLE_LIBSIM
+#ifdef SENSEI_ENABLE_LIBSIM
 SENSEI_WRAP_ANALYSIS_ADAPTOR(LibsimAnalysisAdaptor)
 %include "LibsimImageProperties.h"
 #endif
@@ -273,7 +273,7 @@ SENSEI_WRAP_ANALYSIS_ADAPTOR(LibsimAnalysisAdaptor)
 /****************************************************************************
  * ADIOS1AnalysisAdaptor/DataAdaptor
  ***************************************************************************/
-#ifdef ENABLE_ADIOS1
+#ifdef SENSEI_ENABLE_ADIOS1
 SENSEI_WRAP_ANALYSIS_ADAPTOR(ADIOS1AnalysisAdaptor)
 SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(ADIOS1DataAdaptor)
 #endif
@@ -281,13 +281,13 @@ SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(ADIOS1DataAdaptor)
 /****************************************************************************
  * ADIOS2AnalysisAdaptor/DataAdaptor
  ***************************************************************************/
-#ifdef ENABLE_ADIOS2
+#ifdef SENSEI_ENABLE_ADIOS2
 SENSEI_WRAP_ANALYSIS_ADAPTOR(ADIOS2AnalysisAdaptor)
 SENSEI_WRAP_IN_TRANSIT_DATA_ADAPTOR(ADIOS2DataAdaptor)
 #endif
 
 
-#ifdef ENABLE_VTK_IO
+#ifdef SENSEI_ENABLE_VTK_IO
 /****************************************************************************
  * VTKPosthocIO
  ***************************************************************************/
@@ -296,14 +296,19 @@ SENSEI_WRAP_ANALYSIS_ADAPTOR(VTKPosthocIO)
 /****************************************************************************
  * VTKAmrWriter
  ***************************************************************************/
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
 SENSEI_WRAP_ANALYSIS_ADAPTOR(VTKAmrWriter)
 #endif
 
 /****************************************************************************
  * SliceExtract
  ***************************************************************************/
-#ifdef ENABLE_VTK_FILTERS
+#ifdef SENSEI_ENABLE_VTK_FILTERS
 SENSEI_WRAP_ANALYSIS_ADAPTOR(SliceExtract)
 #endif
 #endif
+
+/****************************************************************************
+ * ParticleDensity
+ ***************************************************************************/
+SENSEI_WRAP_ANALYSIS_ADAPTOR(ParticleDensity)

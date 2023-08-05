@@ -13,7 +13,7 @@
 #include "patch.h"
 #include "simulation_data.h"
 #include "senseiConfig.h"
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
 #include <svtkNew.h>
 #include <svtkSmartPointer.h>
 
@@ -696,7 +696,7 @@ int main(int argc, char **argv)
     // Handle any command line args. 
     handle_command_line(argc, argv, &sim, max_iter, config_file);
 
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
     sensei::Profiler::Initialize();
 
     sensei::Profiler::StartEvent("vortex::initialize");
@@ -760,7 +760,7 @@ int main(int argc, char **argv)
         sim.patch.nx = sim.dims[0];
         sim.patch.ny = sim.dims[1];
         sim.patch.nz = sim.dims[2];
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
         sensei::Profiler::StartEvent("vortex::compute");
 #endif
         calculate_amr(MPI_COMM_WORLD, &sim);
@@ -772,7 +772,7 @@ int main(int argc, char **argv)
                 log << i << " " << sim.npatches_per_rank[i] << std::endl;
         }
 
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
         sensei::Profiler::EndEvent("vortex::compute");
 
         // Do in situ 
@@ -804,7 +804,7 @@ int main(int argc, char **argv)
     // Cleanup
     if(sim.log && sim.par_rank == 0)
         log.close();
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
     sensei::Profiler::StartEvent("vortex::finalize");
     analysisAdaptor->Finalize();
     analysisAdaptor = NULL;

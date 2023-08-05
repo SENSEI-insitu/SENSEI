@@ -1,6 +1,7 @@
 #ifndef Histogram_h
 #define Histogram_h
 
+#include "senseiConfig.h"
 #include "AnalysisAdaptor.h"
 #include <mpi.h>
 #include <vector>

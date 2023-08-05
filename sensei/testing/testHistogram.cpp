@@ -1,6 +1,7 @@
 #include <random>
 #include <iostream>
 #include <mpi.h>
+#include <svtkHAMRDataArray.h>
 #include <svtkDoubleArray.h>
 #include <svtkImageData.h>
 #include <svtkPointData.h>
@@ -112,11 +113,15 @@ int main(int argc, char **argv)
   getSequence(vals);
   unsigned int nVals = vals.size();
 
-  svtkDoubleArray *da = svtkDoubleArray::New();
-  da->SetNumberOfTuples(nVals);
-  da->SetName("normal");
-  for (unsigned int i = 0; i < nVals; ++i)
-    *da->GetPointer(i) = vals[i];
+  std::shared_ptr<double> pVals(vals.data(), [](void*){});
+
+  svtkAllocator alloc = svtkAllocator::malloc;
+#if defined(SENSEI_ENABLE_CUDA)
+  alloc = svtkAllocator::cuda_host;
+#endif
+
+  auto da = svtkHAMRDoubleArray::New("normal", pVals, nVals,
+    1, alloc, svtkStream(), svtkStreamMode::sync_host, -1);
 
   svtkImageData *im = svtkImageData::New();
   im->SetDimensions(gNx, gNy, gNz);

@@ -11,7 +11,7 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_histogram.xml
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc)
 
-  if (ENABLE_PYTHON)
+  if (SENSEI_ENABLE_PYTHON)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_python_histogram.xml.in
       ${CMAKE_CURRENT_BINARY_DIR}/oscillator_python_histogram.xml @ONLY)
   endif()
@@ -59,7 +59,7 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES VTK_FILTERS)
 
-  if (ENABLE_CATALYST)
+  if (SENSEI_ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_catalyst.xml.in
       ${CMAKE_CURRENT_BINARY_DIR}/oscillator_catalyst.xml @ONLY)
 
@@ -93,7 +93,7 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES CATALYST)
 
-  if (ENABLE_LIBSIM)
+  if (SENSEI_ENABLE_LIBSIM)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml.in
       ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_libsim.xml @ONLY)
   endif()
@@ -111,7 +111,7 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/simple.osc
     FEATURES LIBSIM)
 
-  if (ENABLE_ASCENT)
+  if (SENSEI_ENABLE_ASCENT)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml.in
       ${CMAKE_CURRENT_SOURCE_DIR}/oscillator_ascent.xml @ONLY)
   endif()
@@ -129,7 +129,7 @@ if (BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/random_2d_64.osc
     FEATURES ASCENT)
 
-  if (ENABLE_VTK_IO AND ENABLE_VTK_FILTERS)
+  if (SENSEI_ENABLE_VTK_IO AND SENSEI_ENABLE_VTK_FILTERS)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/oscillator_iso_pipeline.xml.in
       ${CMAKE_CURRENT_BINARY_DIR}/oscillator_iso_pipeline.xml @ONLY)
   endif()
@@ -148,7 +148,7 @@ if (BUILD_TESTING)
     FEATURES VTK_IO VTK_FILTERS)
 
   # TODO -- this test breaks dashboard builds
-  #if (ENABLE_CATALYST)
+  #if (SENSEI_ENABLE_CATALYST)
   #  add_test(NAME testCatalystSlice
   #    COMMAND ${CMAKE_COMMAND}
   #     -DCATALYST_TEST_DRIVER:FILEPATH=$<TARGET_FILE:$<TARGET_FILE:oscillator>>

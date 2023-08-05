@@ -20,7 +20,7 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_vtkwriter.xml
     FEATURES VTK_IO VTK_MPI)
 
-  if (ENABLE_CATALYST)
+  if (SENSEI_ENABLE_CATALYST)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_catalyst.xml.in
       ${CMAKE_CURRENT_BINARY_DIR}/mandelbrot_catalyst.xml @ONLY)
   endif()
@@ -37,7 +37,7 @@ if (BUILD_TESTING)
       -f ${CMAKE_CURRENT_BINARY_DIR}/mandelbrot_catalyst.xml
       FEATURES CATALYST)
 
-  if (ENABLE_LIBSIM)
+  if (SENSEI_ENABLE_LIBSIM)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml.in
       ${CMAKE_CURRENT_SOURCE_DIR}/mandelbrot_libsim.xml @ONLY)
   endif()

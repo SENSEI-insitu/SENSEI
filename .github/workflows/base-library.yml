@@ -16,6 +16,7 @@ jobs:
       - name: Install Deps
         run: |
           set -x
+          git submodule update --init --recursive
           export DEBIAN_FRONTEND="noninteractive"
           export TZ="America/Los_Angeles"
           sudo apt-get update -qq
@@ -29,7 +30,10 @@ jobs:
       - name: Build
         run: ctest -VV -S .github/ci/ctest_build.cmake
       - name: Test
-        run: ctest -VV -S .github/ci/ctest_test.cmake
+        run: |
+          set -x
+          source ../build/bin/sensei-env.sh
+          ctest -VV -S .github/ci/ctest_test.cmake
 
   base-macos:
     runs-on: macos-latest
@@ -40,6 +44,7 @@ jobs:
       - name: Install Deps
         run: |
           set -x
+          git submodule update --init --recursive
           brew install ninja openmpi swig openssl python@3.9
           brew unlink python
           brew link --force python@3.9
@@ -53,4 +58,7 @@ jobs:
       - name: Build
         run: ctest -VV -S .github/ci/ctest_build.cmake
       - name: Test
-        run: ctest -VV -S .github/ci/ctest_test.cmake
+        run: |
+          set -x
+          source ../build/bin/sensei-env.sh
+          ctest -VV -S .github/ci/ctest_test.cmake

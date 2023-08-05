@@ -1,29 +1,29 @@
-set(ENABLE_VTK_CORE OFF)
-if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
-  ENABLE_VTK_RENDERING OR ENABLE_VTK_ACCELERATORS OR
-  ENABLE_VTK_FILTERS OR ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY)
+set(SENSEI_ENABLE_VTK_CORE OFF)
+if (SENSEI_ENABLE_VTK_MPI OR SENSEI_ENABLE_VTK_IO OR SENSEI_ENABLE_VTK_MPI OR
+  SENSEI_ENABLE_VTK_RENDERING OR SENSEI_ENABLE_VTK_ACCELERATORS OR
+  SENSEI_ENABLE_VTK_FILTERS OR SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY)
 
-  set(ENABLE_VTK_CORE ON)
+  set(SENSEI_ENABLE_VTK_CORE ON)
 
   # lets build the list of modules for VTK pre-8.90 and post 8.90
   set(sensei_vtk_components_legacy)
   set(sensei_vtk_components_modern CommonDataModel)
 
-  if (ENABLE_VTK_MPI)
+  if (SENSEI_ENABLE_VTK_MPI)
     list(APPEND sensei_vtk_components_legacy vtkParallelMPI)
     list(APPEND sensei_vtk_components_modern ParallelMPI)
   endif()
 
-  if (ENABLE_VTK_IO)
+  if (SENSEI_ENABLE_VTK_IO)
     list(APPEND sensei_vtk_components_legacy vtkIOXML vtkIOLegacy)
     list(APPEND sensei_vtk_components_modern IOXML IOLegacy)
-    if (ENABLE_VTK_MPI)
+    if (SENSEI_ENABLE_VTK_MPI)
       list(APPEND sensei_vtk_components_legacy vtkIOParallelXML)
       list(APPEND sensei_vtk_components_modern IOParallelXML)
     endif()
   endif()
 
-  if (ENABLE_VTK_RENDERING)
+  if (SENSEI_ENABLE_VTK_RENDERING)
     list(APPEND sensei_vtk_components_legacy vtkRenderingCore)
     list(APPEND sensei_vtk_components_modern RenderingCore)
     if (TARGET vtkRenderingOpenGL2)
@@ -36,25 +36,25 @@ if (ENABLE_VTK_MPI OR ENABLE_VTK_IO OR ENABLE_VTK_MPI OR
     endif()
   endif()
 
-  if (ENABLE_VTK_ACCELERATORS)
+  if (SENSEI_ENABLE_VTK_ACCELERATORS)
     list(APPEND sensei_vtk_components_legacy vtkAcceleratorsVTKm vtkIOLegacy
       vtkFiltersGeometry vtkImagingCore)
     list(APPEND sensei_vtk_components_modern AcceleratorsVTKm IOLegacy
       FiltersGeometry ImagingCore)
   endif()
 
-  if (ENABLE_VTK_FILTERS)
+  if (SENSEI_ENABLE_VTK_FILTERS)
     list(APPEND sensei_vtk_components_legacy vtkFiltersGeneral)
     list(APPEND sensei_vtk_components_modern FiltersGeneral)
   endif()
 
-  if (ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY)
+  if (SENSEI_ENABLE_VTK_FILTERS_PARALLEL_GEOMETRY)
     list(APPEND sensei_vtk_components_legacy vtkFiltersParallelGeometry)
     list(APPEND sensei_vtk_components_modern FiltersParallelGeometry)
   endif()
 
   if (sensei_vtk_components_modern)
-    if (NOT ENABLE_CATALYST)
+    if (NOT SENSEI_ENABLE_CATALYST)
       add_library(sVTK INTERFACE)
 
       find_package(VTK CONFIG REQUIRED)

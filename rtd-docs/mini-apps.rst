@@ -45,7 +45,7 @@ The oscillator mini-application computes a sum of damped, decaying, or periodic 
 
 The oscillators' locations and parameters are specified in an input file (see `input <https://gitlab.kitware.com/sensei/sensei/tree/master/miniapps/oscillators/inputs>`_ folder for examples). 
 
-.. code-block::
+.. code-block:: shell
 
    # type      center      r       omega0      zeta
    damped      32 32 32    10.     3.14        .3
@@ -60,7 +60,7 @@ The simulation code is in `main.cpp <https://gitlab.kitware.com/sensei/sensei/tr
 
 To run:
 
-.. code-block::
+.. code-block:: shell
 
    mpiexec -n 4 oscillator -b 4 -t 0.25 -s 64,64,64 -g 1 -p 0 -f sample.xml sample.osc
 

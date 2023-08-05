@@ -155,18 +155,18 @@ $ make install
 ### Build Options
 | Build Option | Default | Description                     |
 |--------------|---------|---------------------------------|
-| `ENABLE_CUDA` | OFF | Enables CUDA accelerated codes. Requires compute capability 7.5 and CUDA 11 or later. |
-| `ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
-| `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
-| `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
-| `ENABLE_ASCENT` | OFF | Enables the Ascent analysis adaptor. |
-| `ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
-| `ENABLE_HDF5` | OFF | Enables HDF5 adaptors and endpoints. Set `HDF5_DIR`. |
-| `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
-| `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
-| `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
-| `ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
-| `ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
+| `SENSEI_ENABLE_CUDA` | OFF | Enables CUDA accelerated codes. Requires compute capability 7.5 and CUDA 11 or later. |
+| `SENSEI_ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
+| `SENSEI_ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
+| `SENSEI_ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
+| `SENSEI_ENABLE_ASCENT` | OFF | Enables the Ascent analysis adaptor. |
+| `SENSEI_ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
+| `SENSEI_ENABLE_HDF5` | OFF | Enables HDF5 adaptors and endpoints. Set `HDF5_DIR`. |
+| `SENSEI_ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
+| `SENSEI_ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
+| `SENSEI_ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
+| `SENSEI_ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
+| `SENSEI_ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
 | `VTK_DIR` | | Set to the directory containing VTKConfig.cmake. |
 | `ParaView_DIR` | | Set to the directory containing ParaViewConfig.cmake. |
 | `ADIOS_DIR` | | Set to the directory containing ADIOSConfig.cmake |
@@ -195,7 +195,7 @@ cmake -DENABLE_SENSEI=ON -DENABLE_CATALYST=ON -DParaView_DIR=[your path] ..
 ```
 Optionally, `-DENABLE_CATALYST_PYTHON=ON` will enable Catalyst Python scripts.
 Note that a development version of ParaView is required when building with
-both `ENABLE_CATALYST` and `ENABLE_VTKM` are enabled as released versions of
+both `SENSEI_ENABLE_CATALYST` and `SENSEI_ENABLE_VTKM` are enabled as released versions of
 ParaView (5.5.2 and earlier) do not include a modern-enough version of vtk-m.
 
 ### For use with ADIOS 1
@@ -225,7 +225,7 @@ Can be used with either `ParaView_DIR` or `VTK_DIR`.
 cmake -DENABLE_SENSEI=ON -DENABLE_VTKM=ON -DVTK_DIR=[your path] ..
 ```
 Note that a development version of VTK is required when building with
-both `ENABLE_SENSEI` and `ENABLE_VTKM` are enabled as released versions of
+both `SENSEI_ENABLE_SENSEI` and `SENSEI_ENABLE_VTKM` are enabled as released versions of
 VTK (8.1.1 and earlier) do not include a modern-enough version of vtk-m.
 
 ## Using the SENSEI library from another project

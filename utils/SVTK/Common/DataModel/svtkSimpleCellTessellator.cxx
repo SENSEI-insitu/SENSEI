@@ -2173,7 +2173,7 @@ void svtkSimpleCellTessellator::Tessellate(svtkGenericAdaptorCell* cell,
   }
 
   // refine loop
-  int count = 0;
+  //int count = 0;
   while (!work.empty())
   {
     svtkTetraTile piece[8];
@@ -2189,7 +2189,7 @@ void svtkSimpleCellTessellator::Tessellate(svtkGenericAdaptorCell* cell,
 
     // We are done we should clean ourself from the hash table:
     this->RemoveEdgesFromEdgeTable(curr);
-    ++count;
+    //++count;
   }
 
   // remove the points of the complex cell from the hashtable

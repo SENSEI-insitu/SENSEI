@@ -127,7 +127,7 @@ public:
    * Adjust the bounding box so it contains the specified bounds (defined by
    * the SVTK representation (xmin,xmax, ymin,ymax, zmin,zmax).
    */
-  void AddBounds(const double bounds[]);
+  void AddBounds(const double bounds[6]);
 
   /**
    * Intersect this box with bbox. The method returns 1 if both boxes are

@@ -5,6 +5,12 @@ SENSEI_VERSION_MAJOR=@SENSEI_VERSION_MAJOR@
 SENSEI_VERSION_MINOR=@SENSEI_VERSION_MINOR@
 SENSEI_VERSION_PATCH=@SENSEI_VERSION_PATCH@
 
+SENSEI_PREFIX=@SENSEI_DIR@
+SENSEI_LIBDIR=@SENSEI_DIR@/@CMAKE_INSTALL_LIBDIR@
+SENSEI_INCLUDEDIR=@SENSEI_DIR@/@CMAKE_INSTALL_INCLUDEDIR@
+SENSEI_PYTHON_SITE=@SENSEI_PYTHON_SITE@
+SENSEI_PYTHON_DIR=@SENSEI_PYTHON_DIR@
+
 SENSEI_INCLUDES=@SENSEI_INCLUDES@
 SENSEI_CFLAGS=`echo ${SENSEI_INCLUDES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d' | sed -s 's/^/-I /g' | tr '\n' ' '`
 SENSEI_INCLUDES=`echo ${SENSEI_INCLUDES} | sed -s 's/:/\n/g' | sed -s '/^[^/].*$/d' | tr '\n' ' '`
@@ -16,9 +22,15 @@ if [[ $# > 0 ]]
 then
     for a in $@
     do
-        if [[ "$a" ==  "--libs" ]]
+        if [[ "$a" == "--lib-dir" ]]
+        then
+            echo -n "${SENSEI_LIBDIR} "
+        elif [[ "$a" ==  "--libs" ]]
         then
             echo -n "${SENSEI_LIBRARIES} "
+        elif [[ "$a" == "--include-dir" ]]
+        then
+            echo -n "${SENSEI_INCLUDEDIR} "
         elif [[ "$a" == "--includes" ]]
         then
             echo -n "${SENSEI_INCLUDES} "
@@ -28,9 +40,15 @@ then
         elif [[ "$a" == "--version" ]]
         then
             echo -n "-DSENSEI_VERSION=${SENSEI_VERSION_MAJOR}.${SENSEI_VERSION_MINOR}.${SENSEI_VERSION_PATCH} "
+        elif [[ "$a" == "--python-site" ]]
+        then
+            echo -n "${SENSEI_PYTHON_SITE} "
+        elif [[ "$a" == "--python-dir" ]]
+        then
+            echo -n "${SENSEI_PYTHON_DIR} "
         fi
     done
     echo
 fi
 
-export SENSEI_VERSION SENSEI_VERSION_MAJOR SENSEI_VERSION_MINOR SENSEI_VERSION_PATCH SENSEI_CFLAGS SENSEI_INCLUDES SENSEI_LIBRARIES
+export SENSEI_VERSION SENSEI_VERSION_MAJOR SENSEI_VERSION_MINOR SENSEI_VERSION_PATCH SENSEI_CFLAGS SENSEI_INCLUDES SENSEI_LIBRARIES SENSEI_LIBDIR SENSEI_INCLUDEDIR SENSEI_PYTHON_SITE SENSEI_PYTHON_DIR

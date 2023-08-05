@@ -1,4 +1,4 @@
-if(ENABLE_OSPRAY)
+if (SENSEI_ENABLE_OSPRAY)
   find_package(ospray REQUIRED)
   add_library(sOSPRay INTERFACE)
   message(STATUS "Using OSPRay library: \"${OSPRAY_LIBRARY}\"")

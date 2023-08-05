@@ -23,7 +23,7 @@
 
 namespace impl
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
 
 // container for data captured in a timing Event
 struct Event
@@ -92,7 +92,7 @@ Event::Event() : Time{0,0,0}, NumBytes(-1ll), Depth(0),
 //-----------------------------------------------------------------------------
 void Event::ToStream(std::ostream &str) const
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   int rank = 0;
 #if defined(SENSEI_HAS_MPI)
   int ini = 0, fin = 0;
@@ -120,7 +120,7 @@ namespace sensei
 // ----------------------------------------------------------------------------
 void Profiler::SetCommunicator(MPI_Comm comm)
 {
-#if defined(ENABLE_PROFILER) && defined(SENSEI_HAS_MPI)
+#if defined(SENSEI_ENABLE_PROFILER) && defined(SENSEI_HAS_MPI)
   int ok = 0;
   MPI_Initialized(&ok);
   if (ok)
@@ -138,7 +138,7 @@ void Profiler::SetCommunicator(MPI_Comm comm)
 // ----------------------------------------------------------------------------
 void Profiler::SetTimerLogFile(const std::string &file)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   impl::timerLogFile = file;
 #else
   (void)file;
@@ -148,7 +148,7 @@ void Profiler::SetTimerLogFile(const std::string &file)
 // ----------------------------------------------------------------------------
 void Profiler::SetMemProfLogFile(const std::string &file)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   impl::memProf.SetFilename(file);
 #else
   (void)file;
@@ -158,7 +158,7 @@ void Profiler::SetMemProfLogFile(const std::string &file)
 // ----------------------------------------------------------------------------
 void Profiler::SetMemProfInterval(int interval)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   impl::memProf.SetInterval(interval);
 #else
   (void)interval;
@@ -169,7 +169,7 @@ void Profiler::SetMemProfInterval(int interval)
 int Profiler::Validate()
 {
   int ierr = 0;
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   if (impl::loggingEnabled & 0x01)
     {
 #if !defined(NDEBUG)
@@ -200,7 +200,7 @@ int Profiler::Validate()
 // ----------------------------------------------------------------------------
 int Profiler::ToStream(std::ostream &os)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   if (impl::loggingEnabled & 0x01)
     {
     // serialize the logged events in CSV format
@@ -224,7 +224,7 @@ int Profiler::ToStream(std::ostream &os)
 // ----------------------------------------------------------------------------
 int Profiler::Initialize()
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
 
   int rank = 0;
 #if defined(SENSEI_HAS_MPI)
@@ -276,7 +276,7 @@ int Profiler::Initialize()
 int Profiler::WriteMpiIo(MPI_Comm comm, const char *fileName,
   const std::string &str)
 {
-#if defined(ENABLE_PROFILER) && defined(SENSEI_HAS_MPI)
+#if defined(SENSEI_ENABLE_PROFILER) && defined(SENSEI_HAS_MPI)
   if (impl::loggingEnabled & 0x01)
     {
     // compute the file offset
@@ -329,7 +329,7 @@ int Profiler::WriteMpiIo(MPI_Comm comm, const char *fileName,
 // ----------------------------------------------------------------------------
 int Profiler::Flush()
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   std::ostringstream oss;
   Profiler::ToStream(oss);
   Profiler::WriteCStdio(impl::timerLogFile.c_str(), "a", oss.str());
@@ -343,7 +343,7 @@ int Profiler::Flush()
 int Profiler::WriteCStdio(const char *fileName, const char *mode,
   const std::string &str)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   if (impl::loggingEnabled & 0x01)
     {
     FILE *fh = fopen(fileName, mode);
@@ -377,7 +377,7 @@ int Profiler::WriteCStdio(const char *fileName, const char *mode,
 // ----------------------------------------------------------------------------
 int Profiler::Finalize()
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   int ok = 0;
 #if defined(SENSEI_HAS_MPI)
   MPI_Initialized(&ok);
@@ -424,7 +424,7 @@ int Profiler::Finalize()
 //-----------------------------------------------------------------------------
 bool Profiler::Enabled()
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   std::lock_guard<std::mutex> lock(impl::eventLogMutex);
   return impl::loggingEnabled & 0x01;
 #else
@@ -435,7 +435,7 @@ bool Profiler::Enabled()
 //-----------------------------------------------------------------------------
 void Profiler::Enable(int arg)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   std::lock_guard<std::mutex> lock(impl::eventLogMutex);
   impl::loggingEnabled = arg;
 #else
@@ -446,7 +446,7 @@ void Profiler::Enable(int arg)
 //-----------------------------------------------------------------------------
 void Profiler::Disable()
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   std::lock_guard<std::mutex> lock(impl::eventLogMutex);
   impl::loggingEnabled = 0x00;
 #endif
@@ -455,7 +455,7 @@ void Profiler::Disable()
 //-----------------------------------------------------------------------------
 int Profiler::StartEvent(const char* eventname, long long nbytes)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   if (impl::loggingEnabled & 0x01)
     {
     impl::Event evt;
@@ -476,7 +476,7 @@ int Profiler::StartEvent(const char* eventname, long long nbytes)
 //-----------------------------------------------------------------------------
 int Profiler::EndEvent(const char* eventname, long long nbytes)
 {
-#if defined(ENABLE_PROFILER)
+#if defined(SENSEI_ENABLE_PROFILER)
   if (impl::loggingEnabled & 0x01)
     {
     // get end Time
