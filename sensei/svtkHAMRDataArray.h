@@ -263,12 +263,30 @@ public:
 
   ///@name device location
   ///@{
+
+  /// get the device where the memory was allocated.
+  int GetOwner() const { return this->Data->get_owner(); }
+
+  /** Set the device id that owns the memory to the currently aactive device.
+   * this may be used to move the data from one device to another.
+   */
+  void SetOwner()
+  {
+    this->Data->move(this->GetAllocator());
+  }
+
   /** Sets or changes the allocator used to manage the menory, this may move
    * the data from one device to another
    */
   void SetAllocator(svtkAllocator alloc)
   {
     this->Data->move(alloc);
+  }
+
+  /// @returns the current allocator
+  svtkAllocator GetAllocator()
+  {
+    return this->Data->get_allocator();
   }
 
   /// return true if a pooniter to the data is safe to use on the Host
@@ -287,9 +305,6 @@ public:
 
   ///@name synchronization
   ///@{
-
-  /// get the device where the memory was allocated.
-  int GetOwner() const { return this->Data->get_owner(); }
 
   /// sets the stream. mode indicate synchronous behavior or not.
   void SetStream(const svtkStream &stream, svtkStreamMode &mode)
