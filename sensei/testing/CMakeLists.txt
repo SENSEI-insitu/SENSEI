@@ -288,7 +288,7 @@ if (BUILD_TESTING)
 
     senseiAddTest(testHAMRDataArrayMultiGPU
       SOURCES testHAMRDataArrayMultiGPU.cpp LIBS sensei EXEC_NAME testHAMRDataArrayMultiGPU
-      COMMAND $<TARGET_FILE:testHAMRDataArray> 0
+      COMMAND $<TARGET_FILE:testHAMRDataArrayMultiGPU> 0
       CUDA_TARGET
       )
 
@@ -300,5 +300,17 @@ if (BUILD_TESTING)
       )
 
   endif()
+
+  ##############################################################################
+  if (SENSEI_ENABLE_OPENMP)
+
+    senseiAddTest(testHAMRDataArrayOpenMP
+      SOURCES testHAMRDataArrayOpenMP.cpp LIBS sensei EXEC_NAME testHAMRDataArrayOpenMP
+      COMMAND $<TARGET_FILE:testHAMRDataArrayOpenMP> 0
+      CUDA_TARGET
+      )
+
+  endif()
+
 
 endif()
