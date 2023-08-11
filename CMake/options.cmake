@@ -24,7 +24,7 @@ cmake_dependent_option(SENSEI_ENABLE_CATALYST
   "Enable analysis methods that use Catalyst" OFF
   "SENSEI_ENABLE_SENSEI" OFF)
 
-cmake_dependent_option(ENABLE_CATALYST2
+cmake_dependent_option(SENSEI_ENABLE_CATALYST2
   "Enable analysis methods that use Catalyst2" OFF
   "ENABLE_SENSEI" OFF)
 

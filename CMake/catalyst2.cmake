@@ -1,4 +1,4 @@
-if (ENABLE_CATALYST2)
+if (SENSEI_ENABLE_CATALYST2)
   if (${ENABLE_CONDUIT})
     message(FATAL_ERROR "Catalyst2 bring its own conduit, please set ENABLE_CONDUIT to OFF")
   endif()

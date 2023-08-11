@@ -50,7 +50,7 @@
 #include "CatalystSlice.h"
 #include <vtkNew.h>
 #endif
-#ifdef ENABLE_CATALYST2
+#ifdef SENSEI_ENABLE_CATALYST2
 #include "Catalyst2AnalysisAdaptor.h"
 #endif
 #ifdef SENSEI_ENABLE_ASCENT
@@ -140,7 +140,7 @@ public:
 #ifdef SENSEI_ENABLE_CATALYST
   svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
 #endif
-#ifdef ENABLE_CATALYST2
+#ifdef SENSEI_ENABLE_CATALYST2
   svtkSmartPointer<Catalyst2AnalysisAdaptor> Catalyst2Adaptor;
 #endif
 
@@ -779,7 +779,7 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
 // --------------------------------------------------------------------------
 int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
 {
-#ifndef ENABLE_CATALYST2
+#ifndef SENSEI_ENABLE_CATALYST2
   (void)node;
   SENSEI_ERROR("Catalyst2 was requested but is disabled in this build")
   return -1;
