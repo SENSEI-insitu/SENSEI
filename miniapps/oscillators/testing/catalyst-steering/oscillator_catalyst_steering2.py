@@ -259,7 +259,9 @@ SetActiveSource(pNG1)
 from paraview import catalyst
 options = catalyst.Options()
 options.GlobalTrigger = 'TimeStep'
-options.EnableCatalystLive = 1
+# there is a bug in Catalyst2 that prevents extracts to work together with
+# ParaView Live
+options.EnableCatalystLive = 0
 options.CatalystLiveTrigger = 'TimeStep'
 
 # ------------------------------------------------------------------------------
