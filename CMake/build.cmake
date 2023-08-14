@@ -53,7 +53,7 @@ if (NOT CMAKE_CXX_FLAGS)
 
     if (SENSEI_NVHPC_CUDA)
         set(tmp "${tmp} -cuda -gpu=cc${SENSEI_CUDA_ARCHITECTURES}")
-        set(tmp "${tmp} ---diag_suppress=extra_semicolon,code_is_unreachable")
+        set(tmp "${tmp} --diag_suppress=extra_semicolon,code_is_unreachable")
     endif()
 
     if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
