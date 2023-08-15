@@ -302,15 +302,16 @@ if (BUILD_TESTING)
   endif()
 
   ##############################################################################
-  if (SENSEI_ENABLE_OPENMP)
+  if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA)
+    if (NOT SENSEI_NVHPC_CUDA OR
+     (SENSEI_NVHPC_CUDA AND (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 23.2)))
 
     senseiAddTest(testHAMRDataArrayOpenMP
       SOURCES testHAMRDataArrayOpenMP.cpp LIBS sensei EXEC_NAME testHAMRDataArrayOpenMP
       COMMAND $<TARGET_FILE:testHAMRDataArrayOpenMP> 0
       CUDA_TARGET
       )
-
+    endif()
   endif()
-
 
 endif()
