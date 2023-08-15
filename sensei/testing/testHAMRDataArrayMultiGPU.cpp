@@ -10,14 +10,29 @@
 #endif
 
 
+void print(std::ostream & os, svtkHAMRDoubleArray *da)
+{
+    // get a view of the data on the host
+    auto spDa = da->GetHostAccessible();
+
+    size_t nElem = da->GetNumberOfTuples();
+    auto pDa = spDa.get();
+
+    os << da->GetName() << "(owner=" << da->GetOwner() << ") = ";
+
+    da->Synchronize();
+
+    os << pDa[0];
+    for (size_t i = 1; i < nElem; ++i)
+        os << ", " << pDa[i];
+
+    os << std::endl;
+}
+
+
+
 int main(int argc, char **argv)
 {
-    /*if (argc != 2)
-    {
-        std::cerr << "usage: testAOSDataArray [device id]" << std::endl;
-        return -1;
-    }*/
-
     size_t nTups = 64;
 
     int nDev = 0;
@@ -25,78 +40,75 @@ int main(int argc, char **argv)
 
     std::cerr << "a total of " << nDev << " devices are present" << std::endl;
 
-    if (nDev < 4)
-    {
-        std::cerr << "test skipped: 4 devices are needed for this test" << std::endl;
-        return 0;
-    }
+    std::cerr << "creating some data on device 0 ... ";
 
     // create an array on GPU 0
     cudaSetDevice(0);
-
     cudaStream_t s0 = cudaStreamPerThread;
     cudaStreamCreate(&s0);
 
-    auto a0 = svtkHAMRDoubleArray::New("host", nTups, 1, svtkAllocator::cuda_async,
+    auto a0 = svtkHAMRDoubleArray::New("data", nTups, 1, svtkAllocator::cuda_async,
                                        s0, svtkStreamMode::async, -3.14);
 
+    // make sure data is ready
     a0->Synchronize();
 
-    // copy construct on GPU 1
-    cudaSetDevice(1);
+    std::cerr << "OK!" << std::endl;
 
-    cudaStream_t s1 = cudaStreamPerThread;
-    cudaStreamCreate(&s1);
+    // copy construct on each device
+    cudaStream_t strm[nDev] = {cudaStreamPerThread};
 
-    auto a1 = svtkHAMRDoubleArray::New(a0, svtkAllocator::cuda_async,
-                                       s1, svtkStreamMode::async);
+    svtkHAMRDoubleArray *src = a0;
+    svtkHAMRDoubleArray *dest = nullptr;
 
-    a1->Synchronize();
+    for (int i = 0; i < nDev; ++i)
+    {
+      std::cerr << "copy construct on device " << i << " ... ";
 
-    // copy construct on GPU 2
-    cudaSetDevice(2);
+      // copy construct on GPU i
+      cudaSetDevice(i);
+      cudaStreamCreate(&strm[i]);
+      dest = svtkHAMRDoubleArray::New(src, svtkAllocator::cuda_async,
+                                      strm[i], svtkStreamMode::async);
 
+      // make sure copy finished
+      dest->Synchronize();
+
+      // get rid of the source
+      src->Delete();
+
+      std::cerr << "OK!" << std::endl;
+
+      // print the data
+      print(std::cerr, dest);
+      /*dest->Print(std::cerr);
+      dest->Synchronize();*/
+
+      src = dest;
+    }
+
+    // copy construct on host
+    //cudaSetDevice(0);
     cudaStream_t s2 = cudaStreamPerThread;
     cudaStreamCreate(&s2);
 
-    auto a2 = svtkHAMRDoubleArray::New(a1, svtkAllocator::cuda_async,
+    auto a2 = svtkHAMRDoubleArray::New(dest, svtkAllocator::cuda_host,
                                        s2, svtkStreamMode::async);
 
+    // make sure data movement finished
     a2->Synchronize();
 
-    // copy construct on host
-    cudaStream_t s3 = cudaStreamPerThread;
-    cudaStreamCreate(&s3);
-
-    auto a3 = svtkHAMRDoubleArray::New(a2, svtkAllocator::cuda_host,
-                                       s3, svtkStreamMode::async);
-
-    a3->Synchronize();
-
-
-    // print
-    auto sp3 = a3->GetHostAccessible();
-    auto p3 = sp3.get();
-
-    a3->Synchronize();
-
-    for (int i = 0; i < nTups; ++i)
-    {
-        std::cerr << p3[i] << ", ";
-    }
-    std::cerr << std::endl;
-
+    // print the data
+    a2->Print(std::cerr);
+    a2->Synchronize();
 
     // clean up
-    a0->Delete();
-    a1->Delete();
-    a2->Delete();
-    a3->Delete();
+    dest->Delete();
 
     cudaStreamDestroy(s0);
-    cudaStreamDestroy(s1);
     cudaStreamDestroy(s2);
-    cudaStreamDestroy(s3);
+    for (int i = 0; i < nDev; ++i)
+      cudaStreamDestroy(strm[i]);
 
     return 0;
 }
