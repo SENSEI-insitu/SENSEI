@@ -54,6 +54,14 @@ void Catalyst2AnalysisAdaptor::AddPythonScriptPipeline(const std::string& fileNa
   }
 }
 
+//-----------------------------------------------------------------------------
+void Catalyst2AnalysisAdaptor::SetMeshes(const std::vector<std::string>& a)
+{
+  std::copy(a.begin(),
+            a.end(),
+            std::inserter(this->meshes, this->meshes.end()));
+}
+
 //----------------------------------------------------------------------------
 bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 {
@@ -82,61 +90,72 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 
   // Conduit node to fill
   conduit_cpp::Node exec_params;
+  int timeStep = dataAdaptor->GetDataTimeStep();
 
   for (auto meta : metadata)
   {
     const char* meshName = meta->MeshName.c_str();
-    svtkDataObject* dobj = nullptr;
-    if (dataAdaptor->GetMesh(meshName, false, dobj))
+    // get the mesh only if it specified or no meshes are specified in the XML
+    if (this->meshes.empty() || this->meshes.find(meshName) != this->meshes.end())
     {
-      SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"");
+      svtkDataObject* dobj = nullptr;
+      if (dataAdaptor->GetMesh(meshName, false, dobj))
+      {
+        SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"");
         return -1;
-    }
-
-    for (int j = 0; j < meta->NumArrays; ++j)
-    {
-      int assoc = meta->ArrayCentering[j];
-      const char *arrayName = meta->ArrayName[j].c_str();
-
-      if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
-      {
-        SENSEI_ERROR("Failed to add "
-                     << SVTKUtils::GetAttributesName(assoc)
-                     << " data array \"" << arrayName << "\" to mesh \""
-                     << meshName << "\"");
-          return -1;
       }
-    }
 
-    if (dobj)
-    {
-      MPI_Comm comm = this->GetCommunicator();
-      if (auto mbds = SVTKUtils::AsCompositeData(comm, dobj, false))
+      for (int j = 0; j < meta->NumArrays; ++j)
       {
-        for (auto node : svtk::Range(mbds))
+        int assoc = meta->ArrayCentering[j];
+        const char *arrayName = meta->ArrayName[j].c_str();
+
+        if (dataAdaptor->AddArray(dobj, meshName, assoc, arrayName))
         {
-          auto ds = svtkDataSet::SafeDownCast(node);
-          if (ds)
+          SENSEI_ERROR("Failed to add "
+                       << SVTKUtils::GetAttributesName(assoc)
+                       << " data array \"" << arrayName << "\" to mesh \""
+                       << meshName << "\"");
+          return -1;
+        }
+      }
+
+      if (dobj)
+      {
+        MPI_Comm comm = this->GetCommunicator();
+        if (auto mbds = SVTKUtils::AsCompositeData(comm, dobj, false))
+        {
+          for (auto node : svtk::Range(mbds))
           {
-            Catalyst2DebugMacro(
-              << "node: " << ds->GetClassName() << " # points: " << ds->GetNumberOfPoints()
-              << " # cells: " << ds->GetNumberOfCells());
-          }
-          auto channel = exec_params[std::string("catalyst/channels/") + meshName];
-          channel["type"].set("mesh");
-          auto mesh = channel["data"];
-          if (! svtkDataObjectToConduit::FillConduitNode(node, mesh))
-          {
-            std::cerr << "ignore: " << node->GetClassName() << std::endl;
+            auto ds = svtkDataSet::SafeDownCast(node);
+            if (ds)
+            {
+              Catalyst2DebugMacro(
+                << "node: " << ds->GetClassName() << " # points: " << ds->GetNumberOfPoints()
+                                 << " # cells: " << ds->GetNumberOfCells());
+            }
+            auto channel = exec_params[std::string("catalyst/channels/") + meshName];
+            channel["type"].set("mesh");
+            auto mesh = channel["data"];
+            if (! svtkDataObjectToConduit::FillConduitNode(node, mesh))
+            {
+              std::cerr << "ignore: " << node->GetClassName() << std::endl;
+            }
           }
         }
+      }
+    }
+    else
+    {
+      if (! timeStep)
+      {
+        SENSEI_STATUS(<< meshName << ": not specified in the XML. Skipping ...");
       }
     }
   }
 
   // Time description
   double time = dataAdaptor->GetDataTime();
-  int timeStep = dataAdaptor->GetDataTimeStep();
   auto state = exec_params["catalyst/state"];
   state["timestep"].set(long(timeStep));
   state["time"].set(time);

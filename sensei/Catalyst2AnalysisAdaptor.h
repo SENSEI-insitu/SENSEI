@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <vector>
+#include <set>
 
 namespace sensei
 {
@@ -23,6 +24,9 @@ public:
 
   /// Adds a pipeline initialized from a Catalyst python script
   virtual void AddPythonScriptPipeline(const std::string &fileName);
+  /// Specifies what meshes are needed by the analysis script. If its
+  /// not called, all meshes are assumed to be needed.
+  void SetMeshes(const std::vector<std::string>& meshes);
 
   bool Execute(DataAdaptor* data, DataAdaptor** dataOut = nullptr) override;
 
@@ -33,6 +37,8 @@ protected:
   ~Catalyst2AnalysisAdaptor() override;
 
   void Initialize();
+  /// meshes needed by the analysis. If empty, all meshes are needed.
+  std::set<std::string> meshes;
 
 private:
   Catalyst2AnalysisAdaptor(const Catalyst2AnalysisAdaptor&); // Not implemented.

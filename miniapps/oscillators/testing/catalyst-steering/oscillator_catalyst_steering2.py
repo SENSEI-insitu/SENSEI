@@ -56,15 +56,15 @@ oscillators = PVTrivialProducer(registrationName='oscillators')
 # create a new 'PVTrivialProducer'
 mesh = PVTrivialProducer(registrationName='mesh')
 
-ucdmesh = PVTrivialProducer(registrationName='ucdmesh')
+# ucdmesh = PVTrivialProducer(registrationName='ucdmesh')
 
 # ----------------------------------------------------------------
 # setup the visualization in view 'renderView2'
 # ----------------------------------------------------------------
 
 # show data from ucdmesh
-ucdmeshDisplay = Show(ucdmesh, renderView2, 'UnstructuredGridRepresentation')
-ucdmeshDisplay.Representation = 'Outline'
+# ucdmeshDisplay = Show(ucdmesh, renderView2, 'UnstructuredGridRepresentation')
+# ucdmeshDisplay.Representation = 'Outline'
 
 
 # show data from mesh
