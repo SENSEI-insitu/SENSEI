@@ -795,6 +795,12 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
     this->TimeInitialization(this->Catalyst2Adaptor);
     this->Analyses.push_back(this->Catalyst2Adaptor);
     }
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize Catalyst2.")
+    return -1;
+    }
 
   if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
     {
@@ -804,20 +810,12 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
       this->Catalyst2Adaptor->AddPythonScriptPipeline(fileName);
       }
     }
-  if(node.attribute("meshes") != NULL)
-  {
-    std::string meshesString = node.attribute("meshes").value();
-    std::stringstream ss(meshesString);
-    std::vector<std::string> meshes;
-    while(ss.good())
-    {
-      std::string substr;
-      getline(ss, substr, ',' );
-      meshes.push_back(substr);
-    }
-    this->Catalyst2Adaptor->SetMeshes(meshes);
-  }
 
+  if (this->Catalyst2Adaptor->SetDataRequirements(req))
+    {
+      SENSEI_ERROR("Failed to initialize the VTKPosthocIO analysis")
+        return -1;
+    }
   SENSEI_STATUS("Configured Catalyst2AnalysisAdaptor "
     << node.attribute("pipeline").value() << " "
     << (node.attribute("filename") ? node.attribute("filename").value() : ""))

@@ -2,6 +2,7 @@
 #define Catalyst2AnalysisAdaptor_h
 
 #include "AnalysisAdaptor.h"
+#include "DataRequirements.h"
 #include "MeshMetadata.h"
 
 #include <memory>
@@ -24,9 +25,12 @@ public:
 
   /// Adds a pipeline initialized from a Catalyst python script
   virtual void AddPythonScriptPipeline(const std::string &fileName);
-  /// Specifies what meshes are needed by the analysis script. If its
-  /// not called, all meshes are assumed to be needed.
-  void SetMeshes(const std::vector<std::string>& meshes);
+  /** Adds a set of sensei::DataRequirements, typically this will come from an XML
+   * configuratiopn file. Data requirements tell the adaptor what to fetch from
+   * the simulation and write to disk. If none are given then all available
+   * data is fetched and written.
+   */
+  int SetDataRequirements(const DataRequirements &reqs);
 
   bool Execute(DataAdaptor* data, DataAdaptor** dataOut = nullptr) override;
 
@@ -38,7 +42,7 @@ protected:
 
   void Initialize();
   /// meshes needed by the analysis. If empty, all meshes are needed.
-  std::set<std::string> meshes;
+  DataRequirements Requirements;
 
 private:
   Catalyst2AnalysisAdaptor(const Catalyst2AnalysisAdaptor&); // Not implemented.
