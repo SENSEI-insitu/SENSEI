@@ -38,7 +38,6 @@ Catalyst2AnalysisAdaptor::Catalyst2AnalysisAdaptor()
 //-----------------------------------------------------------------------------
 Catalyst2AnalysisAdaptor::~Catalyst2AnalysisAdaptor()
 {
-  this->Finalize();
 }
 
 //-----------------------------------------------------------------------------
@@ -98,6 +97,9 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 
   // Conduit node to fill
   conduit_cpp::Node exec_params;
+  // Store the simulation data so that it is kept until catalyst_execute and
+  // it is deleted at the end of the function
+  std::vector<svtkCompositeDataSetPtr> simulation_data;
   while(mit)
   {
     //const char* meshName = mmd->MeshName.c_str();
@@ -153,8 +155,9 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
     }
 
     MPI_Comm comm = this->GetCommunicator();
-    if (auto mbds = SVTKUtils::AsCompositeData(comm, dobj, false/*take*/))
+    if (svtkCompositeDataSetPtr mbds = SVTKUtils::AsCompositeData(comm, dobj, true/*take*/))
     {
+      simulation_data.push_back(mbds);
       for (auto node : svtk::Range(mbds))
       {
         auto ds = svtkDataSet::SafeDownCast(node);
@@ -184,7 +187,6 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
   state["time"].set(time);
   Catalyst2DebugMacro( << "time: " << time);
   catalyst_execute(conduit_cpp::c_node(&exec_params));
-
   return true;
 }
 
