@@ -69,28 +69,6 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 {
   TimeEvent<128> mark("Catalyst2AnalysisAdaptor::Execute");
 
-  // Get a description of the simulation metadata
-  unsigned int nMeshes = 0;
-  if (dataAdaptor->GetNumberOfMeshes(nMeshes))
-  {
-    SENSEI_ERROR("Failed to get the number of meshes")
-      return false;
-  }
-
-  std::vector<MeshMetadataPtr> metadata(nMeshes);
-  for (unsigned int i = 0; i < nMeshes; ++i)
-  {
-    MeshMetadataPtr mmd = MeshMetadata::New();
-
-    if (dataAdaptor->GetMeshMetadata(i, mmd))
-    {
-      SENSEI_ERROR("Failed to get metadata for mesh " << i << " of " << nMeshes)
-        return false;
-    }
-    metadata[i] = mmd;
-  }
-
-
   // see what the simulation is providing
   MeshMetadataFlags flags;
   flags.SetBlockDecomp();
@@ -120,7 +98,6 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 
   // Conduit node to fill
   conduit_cpp::Node exec_params;
-  //for (auto mmd : metadata)
   while(mit)
   {
     //const char* meshName = mmd->MeshName.c_str();
@@ -134,7 +111,7 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
     }
 
     svtkDataObject* dobj = nullptr;
-    if (dataAdaptor->GetMesh(meshName, false, dobj))
+    if (dataAdaptor->GetMesh(meshName, false/*structureOnly*/, dobj))
     {
       SENSEI_ERROR("Failed to get mesh \"" << meshName << "\"");
       return -1;
@@ -175,27 +152,24 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
       ++ait;
     }
 
-    if (dobj)
+    MPI_Comm comm = this->GetCommunicator();
+    if (auto mbds = SVTKUtils::AsCompositeData(comm, dobj, false/*take*/))
     {
-      MPI_Comm comm = this->GetCommunicator();
-      if (auto mbds = SVTKUtils::AsCompositeData(comm, dobj, false))
+      for (auto node : svtk::Range(mbds))
       {
-        for (auto node : svtk::Range(mbds))
+        auto ds = svtkDataSet::SafeDownCast(node);
+        if (ds)
         {
-          auto ds = svtkDataSet::SafeDownCast(node);
-          if (ds)
-          {
-            Catalyst2DebugMacro(
-              << "node: " << ds->GetClassName() << " # points: " << ds->GetNumberOfPoints()
-                               << " # cells: " << ds->GetNumberOfCells());
-          }
-          auto channel = exec_params[std::string("catalyst/channels/") + meshName];
-          channel["type"].set("mesh");
-          auto mesh = channel["data"];
-          if (! svtkDataObjectToConduit::FillConduitNode(node, mesh))
-          {
-            std::cerr << "ignore: " << node->GetClassName() << std::endl;
-          }
+          Catalyst2DebugMacro(
+            << "node: " << ds->GetClassName() << " # points: " << ds->GetNumberOfPoints()
+                             << " # cells: " << ds->GetNumberOfCells());
+        }
+        auto channel = exec_params[std::string("catalyst/channels/") + meshName];
+        channel["type"].set("mesh");
+        auto mesh = channel["data"];
+        if (! svtkDataObjectToConduit::FillConduitNode(node, mesh))
+        {
+          std::cerr << "ignore: " << node->GetClassName() << std::endl;
         }
       }
     }
@@ -217,6 +191,14 @@ bool Catalyst2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**)
 //-----------------------------------------------------------------------------
 int Catalyst2AnalysisAdaptor::Finalize()
 {
+  conduit_cpp::Node node;
+  auto error_code = catalyst_finalize(conduit_cpp::c_node(&node));
+  if (error_code != catalyst_status_ok)
+  {
+    // you are in trouble young man
+    std::cerr << "catalyst finalize failed with code: " << error_code << std::endl;
+    return 1;
+  }
   return 0;
 }
 
