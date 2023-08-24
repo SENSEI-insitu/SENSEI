@@ -1,6 +1,11 @@
 <ServerManagerConfiguration>
   <ProxyGroup name="sensei_internals">
     <!-- ==================================================================== -->
+    <!--
+        Proxy used to define the type of element stored in each array that
+        is edited in ParaView Catalyst Live. The type is used to create
+        the appropriate UI elements.
+    -->
     <Proxy name="OscillatorPrototype" label="Oscillator" >
       <DoubleVectorProperty name="Center"
                             number_of_elements="3"
@@ -52,6 +57,16 @@
 
   <ProxyGroup name="sources">
     <!-- ==================================================================== -->
+    <!--
+        Create a SteeringParameters ParaViews source and specifies the
+        mapping between the UI elements and the mesh (oscillators) and arrays
+        that are edited (coords, type, radius, omega0 and zeta). Coords is
+        a reserved name that refers to the points of the mesh instead of
+        refering to an array.
+        It refers to OscillatorPrototype Proxy that
+        defines the type of the element of each array which in turn is
+        used to create the UI.
+    -->
     <SourceProxy class="vtkSteeringDataGenerator" name="Oscillators">
 
       <IntVectorProperty name="PartitionType"
@@ -140,6 +155,13 @@
           Zeta for the oscillator.
         </Documentation>
       </DoubleVectorProperty>
+      <!--
+          Specifies the UI for the Oscillators: Oscillator #1,
+          Oscillator #2, ...
+          It refers to OscillatorPrototype Proxy
+          that defines the type (which results in a specific UI) of
+          each property of an oscillator.
+      -->
       <PropertyGroup label="Oscillators" panel_widget="PropertyCollection">
         <Property name="Center" />
         <Property name="Type" />
@@ -151,6 +173,12 @@
         </Hints>
       </PropertyGroup>
       <Hints>
+        <!--
+            Specifies the mesh (oscillators) and arrays (coords,
+            type, raidus, omega0 and zeta) that are modified when
+            Properties (SteeringParameters) are updated. Coords
+            is a reserved name that refers to the points of the dataset.
+        -->
         <SenseiInitializePropertiesWithMesh mesh="oscillators">
           <Property name="Center" association="point" array="coords" />
           <Property name="Type"   association="point" array="type" />
