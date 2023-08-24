@@ -1,0 +1,15 @@
+<sensei>
+  <analysis type="catalyst2" pipeline="pythonscript"
+            filename="oscillator_catalyst_steering2.py" enabled="1">
+    <!-- used to restrict the meshes and arrays requested -->
+    <mesh name="particles" structure_only="0" ghost_cells="0" ghost_nodes="0">
+      <point_arrays>velocity</point_arrays>
+    </mesh>
+    <mesh name="oscillators" structure_only="0" ghost_cells="0" ghost_nodes="0">
+      <point_arrays>omega0</point_arrays>
+    </mesh>
+    <mesh name="mesh" structure_only="0" ghost_cells="0" ghost_nodes="0">
+      <cell_arrays>data</cell_arrays>
+    </mesh>
+  </analysis>
+</sensei>

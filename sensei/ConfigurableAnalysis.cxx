@@ -50,6 +50,9 @@
 #include "CatalystSlice.h"
 #include <vtkNew.h>
 #endif
+#ifdef SENSEI_ENABLE_CATALYST2
+#include "Catalyst2AnalysisAdaptor.h"
+#endif
 #ifdef SENSEI_ENABLE_ASCENT
 #include "AscentAnalysisAdaptor.h"
 #endif
@@ -113,6 +116,7 @@ struct ConfigurableAnalysis::InternalsType
   int AddHDF5(pugi::xml_node node);
   int AddAscent(pugi::xml_node node);
   int AddCatalyst(pugi::xml_node node);
+  int AddCatalyst2(pugi::xml_node node);
   int AddLibsim(pugi::xml_node node);
   int AddAutoCorrelation(pugi::xml_node node);
   int AddOSPRay(pugi::xml_node node);
@@ -135,6 +139,9 @@ public:
 #endif
 #ifdef SENSEI_ENABLE_CATALYST
   svtkSmartPointer<CatalystAnalysisAdaptor> CatalystAdaptor;
+#endif
+#ifdef SENSEI_ENABLE_CATALYST2
+  svtkSmartPointer<Catalyst2AnalysisAdaptor> Catalyst2Adaptor;
 #endif
 
   // the communicator that is used to initialize new analyses.
@@ -767,6 +774,53 @@ int ConfigurableAnalysis::InternalsType::AddCatalyst(pugi::xml_node node)
     << (node.attribute("filename") ? node.attribute("filename").value() : ""))
   return 0;
 #endif
+}
+
+// --------------------------------------------------------------------------
+int ConfigurableAnalysis::InternalsType::AddCatalyst2(pugi::xml_node node)
+{
+#ifndef SENSEI_ENABLE_CATALYST2
+  (void)node;
+  SENSEI_ERROR("Catalyst2 was requested but is disabled in this build")
+  return -1;
+#else
+  // a single adaptor used with multiple pipelines
+  if (!this->Catalyst2Adaptor)
+    {
+    this->Catalyst2Adaptor = svtkSmartPointer<Catalyst2AnalysisAdaptor>::New();
+
+    if (this->Comm != MPI_COMM_NULL)
+      this->Catalyst2Adaptor->SetCommunicator(this->Comm);
+
+    this->TimeInitialization(this->Catalyst2Adaptor);
+    this->Analyses.push_back(this->Catalyst2Adaptor);
+    }
+  DataRequirements req;
+  if (req.Initialize(node))
+    {
+    SENSEI_ERROR("Failed to initialize Catalyst2.")
+    return -1;
+    }
+
+  if (strcmp(node.attribute("pipeline").value(), "pythonscript") == 0)
+    {
+    if (node.attribute("filename"))
+      {
+      std::string fileName = node.attribute("filename").value();
+      this->Catalyst2Adaptor->AddPythonScriptPipeline(fileName);
+      }
+    }
+
+  if (this->Catalyst2Adaptor->SetDataRequirements(req))
+    {
+      SENSEI_ERROR("Failed to initialize the VTKPosthocIO analysis")
+        return -1;
+    }
+  SENSEI_STATUS("Configured Catalyst2AnalysisAdaptor "
+    << node.attribute("pipeline").value() << " "
+    << (node.attribute("filename") ? node.attribute("filename").value() : ""))
+#endif
+  return 0;
 }
 
 // --------------------------------------------------------------------------
@@ -1636,6 +1690,7 @@ int ConfigurableAnalysis::Initialize(const pugi::xml_node &root)
       || ((type == "adios2") && !this->Internals->AddAdios2(node))
       || ((type == "ascent") && !this->Internals->AddAscent(node))
       || ((type == "catalyst") && !this->Internals->AddCatalyst(node))
+      || ((type == "catalyst2") && !this->Internals->AddCatalyst2(node))
       || ((type == "hdf5") && !this->Internals->AddHDF5(node))
       || ((type == "libsim") && !this->Internals->AddLibsim(node))
       || ((type == "ospray") && !this->Internals->AddOSPRay(node))

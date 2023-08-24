@@ -156,7 +156,7 @@ public:
 
 protected:
   AnalysisAdaptor();
-  ~AnalysisAdaptor();
+  ~AnalysisAdaptor() override;
 
   AnalysisAdaptor(const AnalysisAdaptor&) = delete;
   void operator=(const AnalysisAdaptor&) = delete;
