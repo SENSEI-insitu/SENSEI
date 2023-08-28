@@ -56,7 +56,9 @@ int main(int argc, char **argv)
     std::cerr << "OK!" << std::endl;
 
     // copy construct on each device
-    cudaStream_t strm[nDev] = {cudaStreamPerThread};
+    cudaStream_t strm[nDev];
+    for (int i = 0; i < nDev; ++i)
+      strm[i] = cudaStreamPerThread;
 
     svtkHAMRDoubleArray *src = a0;
     svtkHAMRDoubleArray *dest = nullptr;
