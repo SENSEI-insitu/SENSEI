@@ -56,10 +56,6 @@ if (NOT CMAKE_CXX_FLAGS)
         set(tmp "${tmp} --diag_suppress=extra_semicolon,code_is_unreachable")
     endif()
 
-    if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
-        set(tmp "${tmp} -O3 -march=native -mtune=native")
-    endif()
-
     if (SENSEI_ENABLE_OPENMP)
         set(tmp_flags)
 
@@ -81,7 +77,12 @@ if (NOT CMAKE_CXX_FLAGS)
     set(CMAKE_CXX_FLAGS "${tmp}"
         CACHE STRING "SENSEI C++ compiler defaults"
         FORCE)
+
+    # release build
+    set(tmp)
     string(REGEX REPLACE "-O[0-9]" "-O3" tmp "${CMAKE_CXX_FLAGS_RELEASE}")
+    set(tmp "${tmp} -O3 -march=native -mtune=native")
+
     set(CMAKE_CXX_FLAGS_RELEASE "${tmp}"
         CACHE STRING "SENSEI C++ compiler defaults"
         FORCE)
