@@ -9,6 +9,10 @@
 #include <cuda_runtime.h>
 #endif
 
+#if defined(SENSEI_ENABLE_OPENMP)
+#include <omp.h>
+#endif
+
 void example1(size_t nElem, int devId)
 {
   // OpenMP allocates this array on device memory
