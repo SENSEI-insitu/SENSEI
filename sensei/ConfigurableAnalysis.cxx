@@ -840,7 +840,6 @@ int ConfigurableAnalysis::InternalsType::AddKombyne(pugi::xml_node node)
   std::string pipeline = node.attribute("pipeline").as_string("kombyne.yaml");
   std::string mode = node.attribute("mode").as_string("in-situ");
   int verbose = node.attribute("verbose").as_int(0);
-  unsigned int frequency = node.attribute("frequency").as_uint(0);
 
   // TODO: Support multiple pipelines in a single instance?
   auto adaptor = svtkSmartPointer<KombyneAnalysisAdaptor>::New();

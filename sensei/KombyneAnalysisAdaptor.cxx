@@ -131,16 +131,16 @@ static int svtkToKombyneCellType(unsigned char svtkcelltype)
     for (int i =0; i < SVTK_NUMBER_OF_CELL_TYPES; ++i)
       celltypeMap[i] = -1;
 
-      celltypeMap[SVTK_LINE] = KB_CELLTYPE_EDGE;
-      celltypeMap[SVTK_TRIANGLE] = KB_CELLTYPE_TRI;
-      celltypeMap[SVTK_QUAD] = KB_CELLTYPE_QUAD;
-      celltypeMap[SVTK_TETRA] = KB_CELLTYPE_TET;
-      celltypeMap[SVTK_PYRAMID] = KB_CELLTYPE_PYR;
-      celltypeMap[SVTK_WEDGE] = KB_CELLTYPE_WEDGE;
-      celltypeMap[SVTK_HEXAHEDRON] = KB_CELLTYPE_HEX;
-      celltypeMap[SVTK_VERTEX] = KB_CELLTYPE_VERTEX;
+    celltypeMap[SVTK_LINE] = KB_CELLTYPE_EDGE;
+    celltypeMap[SVTK_TRIANGLE] = KB_CELLTYPE_TRI;
+    celltypeMap[SVTK_QUAD] = KB_CELLTYPE_QUAD;
+    celltypeMap[SVTK_TETRA] = KB_CELLTYPE_TET;
+    celltypeMap[SVTK_PYRAMID] = KB_CELLTYPE_PYR;
+    celltypeMap[SVTK_WEDGE] = KB_CELLTYPE_WEDGE;
+    celltypeMap[SVTK_HEXAHEDRON] = KB_CELLTYPE_HEX;
+    celltypeMap[SVTK_VERTEX] = KB_CELLTYPE_VERTEX;
 
-      celltypeMapInitialized = true;
+    celltypeMapInitialized = true;
   }
   return celltypeMap[svtkcelltype];
 }
@@ -194,7 +194,6 @@ static kb_fields_handle svtkDataSet_Variables(
         continue;
       }
 
-      int nc = mdptr->ArrayComponents[j];
       kb_centering vc = (centering == svtkDataObject::POINT) ?
         KB_CENTERING_POINTS : KB_CENTERING_CELLS;
 
@@ -436,9 +435,11 @@ static kb_mesh_handle svtkDataSet_Mesh(
           kb_ugrid_set_fields(hugrid, svtkDataSet_Variables(dobj, mdptr));
           mesh = (kb_mesh_handle) hugrid;
         }
-        else
-          kb_ugrid_free(hugrid);
+	err = true;
       }
+
+      if (err)
+	kb_ugrid_free(hugrid);
     }
   }
   else if (ugrid != nullptr)
@@ -825,8 +826,6 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
     dataOut = nullptr;
 
   kb_pipeline_data_handle hpd;
-  kb_mesh_handle hmesh;
-  kb_return ierr;
 
   if (this->hp == KB_HANDLE_NULL)
     return false; // we already printed an error during initialization
@@ -857,7 +856,7 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
   if (staticMesh)
     promises |= KB_PROMISE_STATIC_GRID;
 
-  ierr = kb_pipeline_data_set_promises(hpd, promises);
+  kb_pipeline_data_set_promises(hpd, promises);
 
   MPI_Comm comm = this->GetCommunicator();
   int rank, size;
@@ -917,7 +916,7 @@ bool KombyneAnalysisAdaptor::Execute(DataAdaptor* data, DataAdaptor** dataOut)
       if (hmesh != KB_HANDLE_NULL)
       {
         // Add mesh to pipeline_data
-        ierr = kb_pipeline_data_add(hpd, domain, numdom, timestep, time, hmesh);
+        kb_pipeline_data_add(hpd, domain, numdom, timestep, time, hmesh);
       }
     }
   }
