@@ -71,6 +71,7 @@ SENSEI comes with a number of ready to use in situ processing options. These inc
 | [sensei::VTKAmrWriter](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_vtk_amr_writer.html) | Writes simulation data to disk in a VTK format |
 | [sensei::PythonAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_python_analysis.html) | Invokes user provided Pythons scripts that process simulation data |
 | [sensei::SliceExtract](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_slice_extract.html) | Computes planar slices and iso-surfaces on simulation data |
+| sensei::Fft | Computes 2D Fast Fourier Transform
 
 ### User defined in situ processing
 A unique feature of SENSEI is the ability to invoke user provided code written
@@ -171,6 +172,7 @@ $ make install
 | `ParaView_DIR` | | Set to the directory containing ParaViewConfig.cmake. |
 | `ADIOS_DIR` | | Set to the directory containing ADIOSConfig.cmake |
 | `LIBSIM_DIR` | | Path to libsim install. |
+| `SENSEI_ENABLE_FFT` | OFF | Enable FFT analysis adaptor.
 
 ### For use with Ascent
 ```bash
