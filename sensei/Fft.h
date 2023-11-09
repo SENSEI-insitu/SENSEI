@@ -21,8 +21,7 @@ public:
   /// @param direction FFTW_FORWARD / FFTW_INVERSE (based on fftw lib.)
   /// @param python_xml XML for further python based image display
   /// @param mesh_name name of the mesh in simulation
-  /// @param array_name name of array in mesh
-  void Initialize(std::string const& direction, std::string const& python_xml, std::string const& mesh_name, std::string const& array_name);
+  void Initialize(std::string const& direction, std::string const& python_xml, std::string const& mesh_name);
 
   /// @brief Execute the FFTW analysis endpoint
   /// @param data Data Adaptor input with simulation data

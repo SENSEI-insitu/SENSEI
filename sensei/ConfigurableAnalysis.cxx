@@ -222,12 +222,11 @@ int ConfigurableAnalysis::InternalsType::AddFft(pugi::xml_node node)
   // Read XML configuration and get values from it
   if (XMLUtils::RequireAttribute(node, "mesh") || XMLUtils::RequireAttribute(node, "direction") || XMLUtils::RequireAttribute(node, "python_xml"))
     {
-    SENSEI_ERROR("Failed to initialize Fft");
+    SENSEI_ERROR("Failed to initialize Fft. Missing Mesh / Direction / Python XML");
     return -1;
     }
 
   std::string mesh = node.attribute("mesh").value();
-  std::string array = node.attribute("array").value();
   std::string direction = node.attribute("direction").value();
   std::string python_xml = node.attribute("python_xml").value();
 
@@ -240,12 +239,11 @@ int ConfigurableAnalysis::InternalsType::AddFft(pugi::xml_node node)
 
   // Create FFT analysis adaptor and initialize with direction
   auto fft = svtkSmartPointer<Fft>::New();
-  fft->Initialize(direction, python_xml, mesh, array);
+  fft->Initialize(direction, python_xml, mesh);
 
   this->Analyses.push_back(fft.GetPointer());
 
-  SENSEI_STATUS("Configured FFT with " << direction << " on array \'" << array 
-                << "\' and mesh \'" << mesh << "\'.")
+  SENSEI_STATUS("Configured FFT with " << direction << " and mesh \'" << mesh << "\'.")
   return 0;
 } 
 

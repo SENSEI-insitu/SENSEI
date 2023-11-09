@@ -2,10 +2,10 @@
 FFT ENDPOINT
 
 Perform FORWARD & INVERSE FFT on data ingested by simulation. Requires fftw library.
-Needs an XML configuration file for data ingesion, with following parameters:
+Needs an XML configuration file passed to SENSEI Configurable Analysis Adaptor, 
+with following parameters:
 - mesh: mesh name
-- direction: FFTW_FORWARD / FFTW_INVERSE
-- array: array name
+- direction: FFTW_FORWARD / FFTW_BACKWARD
 - python_xml: XML file denoting python_endpoint config for displaying the image of FFT output
 
 Project:
@@ -48,10 +48,11 @@ S. Kulkarni, E. Wes Bethel, B. Loring
 #include <fftw3-mpi.h>
 
 /* Writing output instead of SENSEI Endpoint 
-NOT USED ANY MORE, included for debugging. */
+NOT USED ANY MORE, included for debugging and legacy purposes. */
 void
 write_to_file(long int data_size, std::string outputFileName, std::vector<double> output_data_floats = {}, std::vector<int> output_labels = {})
 {   
+    // DEBUG
     printf("\nWriting output -> %s \t(size %ld)\n", outputFileName.c_str(), data_size);
     
     // open the input file
@@ -73,9 +74,18 @@ write_to_file(long int data_size, std::string outputFileName, std::vector<double
     fclose(f);
 }
 
-/* Send over to Python */ 
+/**
+ * @brief Send over to Python
+ * 
+* @param data Data which has to be sent
+* @param xDim x dimension of the data
+* @param yDim y dimension of the data
+* @param xmlFileName xml to be used for python configuration with SENSEI Configurable Analysis
+* @param myrank rank of local process
+* @param extent BlockExtents for SENSEI MeshMetaData
+ */
 static void
-send_with_sensei(std::vector <double> data, ptrdiff_t xDim, ptrdiff_t yDim, std::string const& xmlFileName)
+send_with_sensei(std::vector <double> const& data, ptrdiff_t const& xDim, ptrdiff_t const& yDim, std::string const& xmlFileName, int const& myrank, int (&extent)[6])
 {
     // initialize xml for python
     sensei::ConfigurableAnalysis *aa = sensei::ConfigurableAnalysis::New();
@@ -89,23 +99,19 @@ send_with_sensei(std::vector <double> data, ptrdiff_t xDim, ptrdiff_t yDim, std:
     da->SetName("data");
     for (unsigned int i = 0; i < nVals; ++i)
         *da->GetPointer(i) = data.at(i);
-    
-    // DEBUG:
-    // printf("\n-> FFT to Python :: Setting up data in svtkDoubleArray of size %d", nVals);
 
     // Setting up image data
     svtkImageData *im = svtkImageData::New(); 
     im->SetDimensions(xDim, yDim, 1);
     im->GetPointData()->AddArray(da);
+    im->SetExtent(extent);
     da->Delete();
     
-    // DEBUG:
-    // printf("\n-> FFT to Python :: Setting up data in svtkImageData");
 
     // Setting up MultiBlockDataSet    
     svtkMultiBlockDataSet* mb = svtkMultiBlockDataSet::New();
     mb->SetNumberOfBlocks(1);
-    mb->SetBlock(0, im);
+    mb->SetBlock(myrank, im);
 
     // Add to Data Adaptor
     sensei::SVTKDataAdaptor *dataAdaptor = sensei::SVTKDataAdaptor::New();
@@ -120,20 +126,23 @@ send_with_sensei(std::vector <double> data, ptrdiff_t xDim, ptrdiff_t yDim, std:
     im->Delete();
     mb->Delete();
 
-    // DEBUG:
-    // printf("\n-> FFT to Python :: Setting up data in svtkDataAdaptor");
-
-    // printf("MESHMETADATA CON-PY: (valid- %d) \n", mmd->Validate(MPI_COMM_WORLD, mmd->Flags));
-    // mmd->ToStream(std::cout);
-
     // Send via configurable analysis adaptor
     aa->Execute(dataAdaptor, nullptr);
 }
 
 
-/* Perform FFTW */
+/**
+ * @brief Perform FFT
+ * 
+ * @param direction FFTW_FORWARD / FFTW_BACKWARD
+ * @param input_data Input data on which FFT has to be performed
+ * @param rnk number of dimensions of data (FFTW format)
+ * @param n array of dimensions with 'rnk' number of entries (FFTW format)
+ * @param block0 custom block size to be assigned to maximum number of processes
+ * @return std::vector<double> Output data in spectral domain
+ */
 std::vector<double>
-fftw(ptrdiff_t N0, ptrdiff_t N1, std::string direction, std::vector<double> input_data)
+fftw(std::string direction, std::vector<double> input_data, int rnk, const ptrdiff_t *n, int& block0)
 {
     /* FFTW MPI Stuff */
     ptrdiff_t alloc_local, local_n0, local_n0_start, y, x;
@@ -143,95 +152,85 @@ fftw(ptrdiff_t N0, ptrdiff_t N1, std::string direction, std::vector<double> inpu
 
     fftw_mpi_init();
 
-    /* get local data size and allocate */
-    alloc_local = fftw_mpi_local_size_2d(N0, N1, MPI_COMM_WORLD, &local_n0, &local_n0_start);
+    // Get size of fftw_buffer based on local block size
+    alloc_local = fftw_mpi_local_size_many(rnk, n, 1, block0, MPI_COMM_WORLD, &local_n0, &local_n0_start);
     fftw_buffer = fftw_alloc_complex(alloc_local);
-
-    // TODO: Multi dimension:
-    // alloc_local = fftw_mpi_local_size_many(dimension, &n, 1, FFTW_MPI_DEFAULT_BLOCK(0),
-    //                                MPI_COMM_WORLD, &local_n0, &local_0_start);
 
     /* create plan for in-place DFT */
     if (direction == "FFTW_FORWARD")
-        plan = fftw_mpi_plan_dft_2d(N0, N1, fftw_buffer, fftw_buffer, MPI_COMM_WORLD, FFTW_FORWARD, FFTW_ESTIMATE);  
-        // plan = fftw_mpi_plan_dft(dimension, &n, fftw_buffer, fftw_buffer, MPI_COMM_WORLD, FFTW_FORWARD, FFTW_ESTIMATE);  
+        plan = fftw_mpi_plan_dft(rnk, n, fftw_buffer, fftw_buffer, MPI_COMM_WORLD, FFTW_FORWARD, FFTW_ESTIMATE);  
         
     else
-        plan = fftw_mpi_plan_dft_2d(N0, N1, fftw_buffer, fftw_buffer, MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_ESTIMATE);  
-        // plan = fftw_mpi_plan_dft(dimension, &n, fftw_buffer, fftw_buffer, MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_ESTIMATE);  
+        plan = fftw_mpi_plan_dft(rnk, n, fftw_buffer, fftw_buffer, MPI_COMM_WORLD, FFTW_BACKWARD, FFTW_ESTIMATE);  
 
 
-    /* Adding input data to FFTW data buffer */
+    // Adding input data to FFTW data buffer
     for (y = 0; y < local_n0; ++y) 
-        for (x = 0; x < N1; ++x){
-            fftw_buffer[y*N1 + x][0] = input_data[y*N1 + x];
-            fftw_buffer[y*N1 + x][1] = 0;
-
-            //TODO: Find ways to move n-dim data in fftw_buffer
+        for (x = 0; x < n[1]; ++x){
+            fftw_buffer[y*n[1] + x][0] = input_data[y*n[1] + x];
+            fftw_buffer[y*n[1] + x][1] = 0;
         }
 
     // DEBUG:
-    // printf("\nINPUT DATA: (rank %d) [%ld x %ld] at offet %ld\n", myrank, local_n0, N1, local_n0_start);
+    // printf("\nINPUT DATA: [%ld x %ld] at offet %ld\n", local_n0, N1, local_n0_start);
     // for (y = 0; y < local_n0; ++y) {
     //     for (x = 0; x < N1; ++x)
     //     {
-    //         printf("`(%d)%f\t", myrank, data[y*N1 + x][0]);
+    //         printf("%f\t", fftw_buffer[y*N1 + x][0]);
     //     }
     //     printf("\n");
     // }
     
-    /* compute transforms, in-place, as many times as desired */
+    // compute transforms, in-place, as many times as desired
     fftw_execute(plan);
 
     // DEBUG:
-    // printf("\nAFTER Forward FFT: (rank %d) [%ld x %ld]\n", myrank, local_n0, N1);
+    // printf("\nAFTER Forward FFT: [%ld x %ld]\n", local_n0, N1);
     // for (y = 0; y < local_n0; ++y) {
     //     for (x = 0; x < N1; ++x){
-    //         printf("~(%d)%f\t", myrank, data[y*N1 + x][0]);
+    //         printf("%f\t", fftw_buffer[y*N1 + x][0]);
     //     }
     //     printf("\n");
     // }
 
+    // get output in spectral domain
     std::vector<double> fftw_out;
-    fftw_out.reserve(local_n0*N1);
+    fftw_out.reserve(local_n0*n[1]);
 
-    // Adding FFT output data to source buffer
     if (direction == "FFTW_FORWARD"){
-        for(x = 0; x < local_n0*N1; ++x)
+        for(x = 0; x < local_n0*n[1]; ++x)
             fftw_out.push_back(fftw_buffer[x][0]);
     }
     else{
         // FFTW_BACKWARD data is scaled: https://www.fftw.org/faq/section3.html#whyscaled
-        for(x = 0; x < local_n0*N1; ++x)
-            fftw_out.push_back(fftw_buffer[x][0]/(N0*N1));
+        for(x = 0; x < local_n0*n[1]; ++x)
+            fftw_out.push_back(fftw_buffer[x][0]/(n[0]*n[1]));
     }
 
+    // DEBUG: Getting maximum and minimum of output
     // auto getMinMaxRow  = std::minmax_element(std::begin(fftw_out), std::end(fftw_out));
-    // std::cout << "min = " << *getMinMaxRow.first << ", max = " << *getMinMaxRow.second << '\n';
+    // std::cout << "min = " << *getMinMaxRow.first << ", max = " << *getMinMaxRow.second << ", SIZE: " << fftw_out.size() << '\n';
 
     fftw_mpi_cleanup();
     
     return fftw_out;
 }
 
-/* ANALYSIS ENDPOINT */
+/* FFT ANALYSIS ENDPOINT */
 namespace sensei
 {
 struct Fft::InternalsType
 {
-  InternalsType() : N0(12), N1(12), direction("FFTW_FORWARD"), python_xml(""), mesh_name(""), array_name("") {}
+  InternalsType() : direction("FFTW_FORWARD"), python_xml(""), mesh_name(""), array_name(""), globalDimension(), blockDimension() {}
   ~InternalsType() {}
 
-  ptrdiff_t N0, N1;
   std::string direction;
   std::vector <double> data;
   std::string python_xml;
   std::string mesh_name;
   std::string array_name;
-  
-// TODO
-//   int dimension;
-//   std::vector <ptrdiff_t> n;
+  std::vector<ptrdiff_t> globalDimension;
+  std::vector<ptrdiff_t> blockDimension;
 
 };
 
@@ -251,25 +250,20 @@ Fft::~Fft()
 
 //----------------------------------------------------------------------------
 // Setup internal struct
-void Fft::Initialize(std::string const& direction, std::string const& python_xml, std::string const& mesh_name, std::string const& array_name){
+void Fft::Initialize(std::string const& direction, std::string const& python_xml, std::string const& mesh_name){
     this->Internals->direction = direction;
     this->Internals->python_xml = python_xml;
     this->Internals->mesh_name = mesh_name;
-    this->Internals->array_name = array_name;
 }
 
 //----------------------------------------------------------------------------
 bool Fft::Execute(sensei::DataAdaptor* dataIn, sensei::DataAdaptor** dataOut)
 {
-    SENSEI_STATUS("Executing FFT ENDPOINT.");
-
-    // MPI_Comm comm = this->GetCommunicator();
-
     int myrank, nranks; 
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
     
-    // we do not return anything yet
+    // we do not return anything YET
     if (dataOut)
     {
         *dataOut = nullptr;
@@ -279,11 +273,12 @@ bool Fft::Execute(sensei::DataAdaptor* dataIn, sensei::DataAdaptor** dataOut)
     // Check if we can cast the data adaptor to an in-transit data adaptor.
     // InTransitDataAdaptor *itDataAdaptor = dynamic_cast<InTransitDataAdaptor*>(dataIn); 
 
+    // see what metaData, the simulation is providing
     MeshMetadataFlags flags;
     flags.SetBlockDecomp();
     flags.SetBlockBounds();
+    flags.SetBlockExtents();
 
-    // see what the simulation is providing
     MeshMetadataMap mdMap;
     if (mdMap.Initialize(dataIn, flags)){
         SENSEI_ERROR("Failed to get metadata")
@@ -295,11 +290,31 @@ bool Fft::Execute(sensei::DataAdaptor* dataIn, sensei::DataAdaptor** dataOut)
     if (mdMap.GetMeshMetadata(this->Internals->mesh_name, mmd)){
         SENSEI_ERROR("Failed to get metadata for mesh \"" << this->Internals->mesh_name << "\"")
         return false;
-    }
+    }   
 
-    // TODO
-    // printf("MESHMETADATA CON: (valid- %d) \n", mmd->Validate(this->Comm, mmd->Flags));
-    // mmd->ToStream(std::cout);
+    // Getting array name from metadata
+    this->Internals->array_name = mmd->ArrayName[0];
+
+    // Globalize view
+    mmd->GlobalizeView(MPI_COMM_WORLD);
+
+    // Get block size of rank 0 for block0 parameter of FFTW
+    int block0 = mmd->BlockBounds[0][1] - mmd->BlockBounds[0][0] + 1;
+
+    // Get dimensions for this block from BlockBounds in MeshMetaData
+    for (int i = 0; i < 6; i=i+2){
+        if (mmd->BlockBounds[myrank][i] != 0 || mmd->BlockBounds[myrank][i+1] != 0){
+            this->Internals->blockDimension.push_back(std::abs(mmd->BlockBounds[myrank][i+1] - mmd->BlockBounds[myrank][i] + 1));
+        }
+    }
+    
+    // Create globalDimensions:
+    // Get global dimensions from Extent in MeshMetaData
+    for (int i = 0; i < 6; i=i+2){
+        if (mmd->Extent[i] != 0 || mmd->Extent[i+1] != 0){
+            this->Internals->globalDimension.push_back(std::abs(mmd->Extent[i+1] - mmd->Extent[i] + 1));
+        }
+    }
 
     // get the mesh object
     svtkDataObject *dobj = nullptr;
@@ -339,23 +354,9 @@ bool Fft::Execute(sensei::DataAdaptor* dataIn, sensei::DataAdaptor** dataOut)
                 << this->Internals->array_name << "\"")
             continue;
         }
-
-        // Check if the input data object is actually an image data and fetch dimensions from it
-        svtkImageData* imageData = svtkImageData::SafeDownCast(curObj);
-        if (imageData){
-            int dims[3];
-            imageData->GetDimensions(dims);	
-
-            this->Internals->N0 = dims[0];
-            this->Internals->N1 = dims[1];
-        }
-        else{
-            SENSEI_WARNING("Image Data has no dimensions.");
-            continue;
-        }
         
         // Copy data into Internals
-        for (int i = 0; i < (this->Internals->N0 * this->Internals->N1); ++i){
+        for (int i = 0; i < (this->Internals->globalDimension[0] * this->Internals->globalDimension[1]); ++i){
             this->Internals->data.push_back(*da->GetTuple(i));
         }  
     }
@@ -369,21 +370,21 @@ bool Fft::Execute(sensei::DataAdaptor* dataIn, sensei::DataAdaptor** dataOut)
     //     printf("\n");
     // }
 
-    if (myrank == 0){
-        printf(":: FFTW ::\n-> %ld x %ld domain in %s direction with %d way parallel execution.\n", this->Internals->N0, this->Internals->N1, this->Internals->direction.c_str(), nranks);
-    }
+    printf("\n:: FFT Endpoint ::\n-> %ld x %ld domain in %s direction. (Rank %d out of %d)\n", this->Internals->globalDimension[0], this->Internals->globalDimension[1], this->Internals->direction.c_str(), myrank, nranks-1);
+
     // Perform FFT
-    std::vector<double> fftw_data = fftw(this->Internals->N0, this->Internals->N1, this->Internals->direction, this->Internals->data);
+    std::vector<double> fftw_data = fftw(this->Internals->direction, this->Internals->data, static_cast<int>(this->Internals->globalDimension.size()), this->Internals->globalDimension.data(), block0);
 
     // DEBUG:
-    // printf("\n-> FFT :: ALL fftw DATA === [%ld x %ld] on rank {%d}\n", this->Internals->N0, this->Internals->N1, myrank);
-    // for (ptrdiff_t y = 0; y < this->Internals->N0; ++y) {
-    //     for (ptrdiff_t x = 0; x < this->Internals->N1; ++x){
-    //         printf("%f\t", fftw_data.at(y*this->Internals->N1 + x));
+    // printf("\n-> FFT :: ALL fftw DATA === [%ld x %ld] on rank {%d}\n", this->Internals->blockDimension[0], this->Internals->blockDimension[1], myrank);
+    // for (ptrdiff_t y = 0; y < this->Internals->blockDimension[0]; ++y) {
+    //     for (ptrdiff_t x = 0; x < this->Internals->blockDimension[1]; ++x){
+    //         printf("%f\t", fftw_data.at(y*this->Internals->blockDimension[1] + x));
     //     }
     //     printf("\n");
     // }
 
+    /* In case we need to write to a file */
     // std::string output_file_name;
     // output_file_name = "spectral_";
     // output_file_name += this->Internals->direction;
@@ -397,8 +398,13 @@ bool Fft::Execute(sensei::DataAdaptor* dataIn, sensei::DataAdaptor** dataOut)
     // write_to_file(this->Internals->N0*this->Internals->N1, output_file_name, fftw_data, {});
 
     // TODO: Only if python-xml provided
+
+    // generate extents
+    int extents[6];
+    std::copy(mmd->BlockExtents[myrank].begin(), mmd->BlockExtents[myrank].end(), extents);
+    
     // Send to python
-    send_with_sensei(fftw_data, this->Internals->N1, this->Internals->N0, this->Internals->python_xml);
+    send_with_sensei(fftw_data, this->Internals->blockDimension[0], this->Internals->blockDimension[1], this->Internals->python_xml, myrank, extents);
     return true;
 }
 
