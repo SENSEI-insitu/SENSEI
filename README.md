@@ -133,8 +133,43 @@ mini-app's source directory.
   generates time varying data on a uniform mesh and demonstrates usage with in
   situ infrasturctures, histogram, and autocorrelation analyses.
 
-* [Newton](miniapps/newton/README.md) This Python n-body miniapp demonstrates
-  usage of in situ infrastructures and custom analyses from Python.
+* [Newton++](https://github.com/SENSEI-insitu/newtonpp) A complete re-write of
+  the original in C++ using OpenMP target offload for platform portable
+  acceleration. This mini app demonstrates zero-copy data transfer from GPUs and
+  accelerators. 
+
+* [Newton Python](miniapps/newton/README.md) This Python n-body miniapp demonstrates
+  usage of in situ infrastructures and custom analyses from Python. This has been replaced by
+  the C++ port Newton++.
+
+### Data Model
+SENSEI makes use of a fork of VTK 9.0.0 that has been mangled and minified.
+Minification has removed all source code from our fork except for the data
+model and its dependencies. This substantially reduces the overheads associated
+with VTK providing only the features we need for our data model.  VTK filters
+and I/O can be used by pointing the build to an install of standard VTK as
+released by Kitware.
+Mangling changed the character sequences VTK and vtk to SVTK and svtk this
+allows for interoberability with VTK as released by Kitware.
+
+### Support for Heterogeneous Architectures
+Extensions to SENSEI's execution and data model have been introduced to support
+in situ on heterogeneous architectures. 
+Extensions to the data model make zero-copy transfer of accelerator backed
+memory possible.
+Simply use
+[svtkHAMRDataArray](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsvtk_h_a_m_r_data_array.html)
+when passing array based data in your data adaptor and initialize it using one of
+the zero-copy constructors.
+Extensions to SENSEI's execution model provide placement controls as well as
+control over synchronous or asynchronous execution method.
+The controls for our execution model extensions are accessed through the APIs defined in
+[sensei::AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_analysis_adaptor.html) or via XML attributes defined in
+[sensei::ConfigurableAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_analysis.html). 
+
+For more details including source code examples, XML, and a demonstration at
+scale on NERSC's Cray NVIDIA system Perlmutter please see our [SC23
+paper](https://arxiv.org/pdf/2310.02926.pdf).
 
 ## Build and Install
 The SENSEI project uses CMake 3.0 or later. The CMake build options allow you
