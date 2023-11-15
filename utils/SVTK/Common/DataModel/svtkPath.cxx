@@ -93,7 +93,7 @@ void svtkPath::PrintSelf(ostream& os, svtkIndent indent)
 }
 
 //----------------------------------------------------------------------------
-void svtkPath::InsertNextPoint(float pts[], int code)
+void svtkPath::InsertNextPoint(float pts[3], int code)
 {
   this->Points->InsertNextPoint(pts);
 
@@ -103,7 +103,7 @@ void svtkPath::InsertNextPoint(float pts[], int code)
 }
 
 //----------------------------------------------------------------------------
-void svtkPath::InsertNextPoint(double pts[], int code)
+void svtkPath::InsertNextPoint(double pts[3], int code)
 {
   this->InsertNextPoint(pts[0], pts[1], pts[2], code);
 }

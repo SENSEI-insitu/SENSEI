@@ -508,9 +508,11 @@ template FMT_API int internal::CharTraits<char>::format_float(
     char *buffer, std::size_t size, const char *format,
     unsigned width, int precision, double value);
 
+#if !defined(__NVCOMPILER)
 template FMT_API int internal::CharTraits<char>::format_float(
     char *buffer, std::size_t size, const char *format,
     unsigned width, int precision, long double value);
+#endif
 
 // Explicit instantiations for wchar_t.
 
@@ -522,9 +524,11 @@ template FMT_API int internal::CharTraits<wchar_t>::format_float(
     wchar_t *buffer, std::size_t size, const wchar_t *format,
     unsigned width, int precision, double value);
 
+#if !defined(__NVCOMPILER)
 template FMT_API int internal::CharTraits<wchar_t>::format_float(
     wchar_t *buffer, std::size_t size, const wchar_t *format,
     unsigned width, int precision, long double value);
+#endif
 
 #endif  // FMT_HEADER_ONLY
 

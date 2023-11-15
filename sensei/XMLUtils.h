@@ -121,6 +121,20 @@ int ParseNumeric(const pugi::xml_node &node, std::array<num_t,n> &numData)
 int ParseNameValuePairs(const pugi::xml_node &node,
   std::vector<std::string> &names, std::vector<std::string> &values);
 
+/** process a list in a node's text. List elements should be
+ * space or comma delimited. Give the following XML
+ *
+ * ```XML
+ * <some_elem>
+ *   list1, list2, ... , listN
+ * </some_elem>
+ * ```
+ *
+ * extract list1 ... listN and return as a vector of strings. returns the number
+ * of elements found or < 0 on error.
+ */
+int ParseList(pugi::xml_node node, std::vector<std::string> &listOut);
+
 }
 }
 #endif

@@ -109,8 +109,7 @@ struct InputStream
 {
   InputStream() : Handles(), Adios(nullptr),
     ReadEngine(""), FileName(""), FileSeries(0),
-    StepsPerFile(0), FileIndex(0), StepIndex(0),
-    DebugMode(0) {}
+    StepsPerFile(0), FileIndex(0), StepIndex(0) {}
 
   // pass engine parameters to ADIOS2 in key value pairs
   void AddParameter(const std::string &key, const std::string &value);
@@ -119,10 +118,6 @@ struct InputStream
   // the write side.
   void SetReadEngine(const std::string &engine)
   { this->ReadEngine = engine; }
-
-  // set debug mode 0 off, 1 on
-  void SetDebugMode(int mode)
-  { this->DebugMode = mode; }
 
   /// @brief Set the filename.
   /// Default value is "sensei.bp" which is suitable for use with streams or
@@ -165,7 +160,6 @@ struct InputStream
   int FileIndex;
   int StepIndex;
   std::vector<std::pair<std::string,std::string>> Parameters;
-  int DebugMode;
 };
 
 }

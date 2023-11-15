@@ -2,6 +2,13 @@
     <analysis type="catalyst" pipeline="pythonscript"
         filename="oscillator_catalyst_steering.py" enabled="1"
         plugin_xml="oscillator_catalyst_steering_proxies.xml">
+    <!--
+        Creates an additional dataset in the ParaView UI, under
+        catalyst, called SteeringParameters The dataset is defined in
+        oscillator_catalyst_steering_proxies.xml, as the Oscillators
+        SourceProxy. The dataset is defined by using arrays from the
+        oscillators mesh.
+    -->
     <result steerable_source_type="Oscillators" mesh="oscillators" />
   </analysis>
 </sensei>

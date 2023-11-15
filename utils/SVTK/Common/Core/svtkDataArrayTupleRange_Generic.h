@@ -23,6 +23,7 @@
 #include "svtkAssume.h"
 #include "svtkDataArrayAccessor.h"
 #include "svtkDataArrayMeta.h"
+#include "svtkIterator.h"
 
 #include <algorithm>
 #include <cassert>
@@ -373,7 +374,7 @@ protected:
 // Const component iterator
 template <typename ArrayType, ComponentIdType TupleSize>
 struct ConstComponentIterator
-  : public std::iterator<std::random_access_iterator_tag, GetAPIType<ArrayType>, ComponentIdType,
+  : public svtkIterator<std::random_access_iterator_tag, GetAPIType<ArrayType>, ComponentIdType,
       // expected types don't have members, no op->().
       void, ConstComponentReference<ArrayType, TupleSize> >
 {
@@ -382,7 +383,7 @@ private:
   static_assert(IsVtkDataArray<ArrayType>::value, "Invalid array type.");
 
   using NumCompsType = GenericTupleSize<TupleSize>;
-  using Superclass = std::iterator<std::random_access_iterator_tag, GetAPIType<ArrayType>,
+  using Superclass = svtkIterator<std::random_access_iterator_tag, GetAPIType<ArrayType>,
     ComponentIdType, void, ConstComponentReference<ArrayType, TupleSize> >;
 
 public:
@@ -562,7 +563,7 @@ private:
 // Component iterator
 template <typename ArrayType, ComponentIdType TupleSize>
 struct ComponentIterator
-  : public std::iterator<std::random_access_iterator_tag, GetAPIType<ArrayType>, ComponentIdType,
+  : public svtkIterator<std::random_access_iterator_tag, GetAPIType<ArrayType>, ComponentIdType,
       ComponentReference<ArrayType, TupleSize>, ComponentReference<ArrayType, TupleSize> >
 {
 private:
@@ -571,7 +572,7 @@ private:
 
   using NumCompsType = GenericTupleSize<TupleSize>;
   using APIType = GetAPIType<ArrayType>;
-  using Superclass = std::iterator<std::random_access_iterator_tag, APIType, ComponentIdType,
+  using Superclass = svtkIterator<std::random_access_iterator_tag, APIType, ComponentIdType,
     ComponentReference<ArrayType, TupleSize>, ComponentReference<ArrayType, TupleSize> >;
 
 public:
@@ -1272,7 +1273,7 @@ protected:
 // Const tuple iterator
 template <typename ArrayType, ComponentIdType TupleSize>
 struct ConstTupleIterator
-  : public std::iterator<std::random_access_iterator_tag, ConstTupleReference<ArrayType, TupleSize>,
+  : public svtkIterator<std::random_access_iterator_tag, ConstTupleReference<ArrayType, TupleSize>,
       TupleIdType, ConstTupleReference<ArrayType, TupleSize>,
       ConstTupleReference<ArrayType, TupleSize> >
 {
@@ -1281,7 +1282,7 @@ private:
   static_assert(IsVtkDataArray<ArrayType>::value, "Invalid array type.");
 
   using NumCompsType = GenericTupleSize<TupleSize>;
-  using Superclass = std::iterator<std::random_access_iterator_tag,
+  using Superclass = svtkIterator<std::random_access_iterator_tag,
     ConstTupleReference<ArrayType, TupleSize>, TupleIdType,
     ConstTupleReference<ArrayType, TupleSize>, ConstTupleReference<ArrayType, TupleSize> >;
 
@@ -1459,7 +1460,7 @@ private:
 // Tuple iterator
 template <typename ArrayType, ComponentIdType TupleSize>
 struct TupleIterator
-  : public std::iterator<std::random_access_iterator_tag, TupleReference<ArrayType, TupleSize>,
+  : public svtkIterator<std::random_access_iterator_tag, TupleReference<ArrayType, TupleSize>,
       TupleIdType, TupleReference<ArrayType, TupleSize>, TupleReference<ArrayType, TupleSize> >
 {
 private:
@@ -1468,7 +1469,7 @@ private:
 
   using NumCompsType = GenericTupleSize<TupleSize>;
   using Superclass =
-    std::iterator<std::random_access_iterator_tag, TupleReference<ArrayType, TupleSize>,
+    svtkIterator<std::random_access_iterator_tag, TupleReference<ArrayType, TupleSize>,
       TupleIdType, TupleReference<ArrayType, TupleSize>, TupleReference<ArrayType, TupleSize> >;
 
 public:

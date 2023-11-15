@@ -19,7 +19,7 @@ MPIManager::MPIManager(int &argc, char **&argv)
   Profiler::StartEvent("AppInitialize");
 
 #if defined(SENSEI_HAS_MPI)
-  int required = MPI_THREAD_SERIALIZED;
+  int required = MPI_THREAD_MULTIPLE;
   int provided = 0;
   MPI_Init_thread(&argc, &argv, required, &provided);
   if (provided < required)

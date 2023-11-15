@@ -75,9 +75,6 @@ public:
   void SetStepsPerFile(long steps)
   { this->StepsPerFile = steps; }
 
-  /// Enable/disable debugging output. The default value is 0.
-  void SetDebugMode(int mode)
-  { this->DebugMode = mode; }
 
   /** Adds a set of sensei::DataRequirements, typically this will come from an XML
    * configuratiopn file. Data requirements tell the adaptor what to fetch from
@@ -102,7 +99,7 @@ public:
   /** Controls how many calls to Execute do nothing between actual I/O and
    * streaming.
    */
-  int SetFrequency(unsigned int frequency);
+  int SetFrequency(long frequency);
 
   /// @}
 
@@ -146,11 +143,10 @@ protected:
   senseiADIOS2::AdiosHandle Handles;
   adios2_adios *Adios;
   std::vector<std::pair<std::string,std::string>> Parameters;
-  int DebugMode;
   long StepsPerFile;
   long StepIndex;
   long FileIndex;
-  unsigned int Frequency;
+  long Frequency;
 
 private:
   ADIOS2AnalysisAdaptor(const ADIOS2AnalysisAdaptor&) = delete;

@@ -1,45 +1,76 @@
-if(ENABLE_CUDA)
-  include(CheckLanguage)
-  set(CMAKE_CUDA_STANDARD 11)
-  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-  if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 75)
-  endif()
-  check_language(CUDA)
-  if (CMAKE_CUDA_COMPILER)
-    enable_language(CUDA)
-  else()
-    message(FATAL_ERROR "CUDA is required by ENABLE_CUDA but CUDA was not found")
-  endif()
+if (SENSEI_ENABLE_CUDA)
 
-  if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "11")
-    message(FATAL_ERROR "CUDA >= 11 is required by ENABLE_CUDA")
-  endif ()
+  set(BASE_CUDA_ARCH 75)
+  set(CMAKE_CUDA_ARCHITECTURES ${BASE_CUDA_ARCH})
 
-  # Use this function to make sure targets and sources compile on CUDA.
-  # arguments:
-
-  # TARGET - the name of the target to use CUDA with
-  # SOURCES - an optional list of source files that need to be compiled with the
-  #           CUDA compiler
-  function(sensei_cuda_target)
-    set(OPTS "")
-    set(NVPO TARGET)
-    set(MVO SOURCES)
-    cmake_parse_arguments(PARSE_ARGV 0 CUDA_TGT "${OPTS}" "${NVPO}" "${MVO}")
-
-    message(STATUS "Created CUDA target ${CUDA_TGT_TARGET}")
-
-    target_compile_features(${CUDA_TGT_TARGET} PUBLIC cxx_std_17)
-
-    set_target_properties(${CUDA_TGT_TARGET} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    set_target_properties(${CUDA_TGT_TARGET} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    set_target_properties(${CUDA_TGT_TARGET} PROPERTIES CUDA_ARCHITECTURES "75")
-
-    if (CUDA_TGT_SOURCES)
-       message(STATUS "Compiling ${CUDA_TGT_SOURCES} with the CUDA compiler")
-       set_source_files_properties(${CUDA_TGT_SOURCES} PROPERTIES LANGUAGE CUDA)
+  set(tmp_nvcc FALSE)
+  set(tmp_clang FALSE)
+  set(tmp_nvhpc FALSE)
+  set(tmp_cuda_arch "${BASE_CUDA_ARCH}")
+  if (SENSEI_ENABLE_CUDA)
+    set(tmp_have_cuda FALSE)
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "NVHPC")
+      set(tmp_have_cuda TRUE)
+      set(tmp_cuda_arch "cc${BASE_CUDA_ARCH}")
+      set(tmp_nvhpc TRUE)
+    else()
+      include(CheckLanguage)
+      check_language(CUDA)
+      if (CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+        set(tmp_have_cuda TRUE)
+        if ("${CMAKE_CUDA_COMPILER_ID}" MATCHES "Clang")
+          set(tmp_cuda_arch "${BASE_CUDA_ARCH}")
+          set(tmp_clang TRUE)
+        elseif ("${CMAKE_CUDA_COMPILER_ID}" MATCHES "NVIDIA")
+          set(tmp_nvcc TRUE)
+        endif()
+      endif()
     endif()
-  endfunction()
+    find_package(CUDAToolkit REQUIRED)
+  endif()
+
+  set(SENSEI_NVCC_CUDA ${tmp_nvcc} CACHE
+    STRING "Internal: set if the CUDA compiler is nvcc")
+
+  set(SENSEI_NVHPC_CUDA ${tmp_nvhpc} CACHE
+    STRING "Internal: set if the CUDA compiler is nvc++")
+
+  set(SENSEI_CLANG_CUDA ${tmp_clang} CACHE
+    STRING "Internal: set if the CUDA compiler is clang++")
+
+  set(SENSEI_CUDA_ARCHITECTURES ${tmp_cuda_arch} CACHE
+    STRING "Compile for these CUDA virtual and real architectures")
+
+  if (SENSEI_ENABLE_CUDA)
+    if (tmp_have_cuda)
+      message(STATUS "SENSEI: CUDA features -- enabled (${CMAKE_CUDA_COMPILER_ID}:${SENSEI_CUDA_ARCHITECTURES})")
+
+      set(CMAKE_CUDA_STANDARD 17)
+      set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+      set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+      set(CMAKE_CUDA_VISIBILITY_PRESET hidden)
+      set(CMAKE_CUDA_ARCHITECTURES ${SENSEI_CUDA_ARCHITECTURES})
+      #set(CMAKE_CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+    else()
+      message(FATAL_ERROR "CUDA is required for SENSEI but was not found")
+    endif()
+  else()
+    message(STATUS "SENSEI: CUDA features -- disabled")
+  endif()
+
+  # separate implementations
+  set(tmp OFF)
+  if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA AND NOT SENSEI_NVHPC_CUDA)
+    set(tmp ON)
+  endif()
+  set(SENSEI_SEPARATE_IMPL ${tmp} CACHE BOOL
+    "Compile to a library with explicit instantiatons for POD types")
+  if (SENSEI_SEPARATE_IMPL)
+    message(STATUS "SENSEI: Separate implementations -- enabled")
+  else()
+    message(STATUS "SENSEI: Separate implementations -- disabled")
+  endif()
 
 endif()

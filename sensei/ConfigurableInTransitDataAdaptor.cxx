@@ -2,13 +2,13 @@
 #include "InTransitDataAdaptor.h"
 #include "XMLUtils.h"
 #include "Error.h"
-#ifdef ENABLE_ADIOS1
+#ifdef SENSEI_ENABLE_ADIOS1
 #include "ADIOS1DataAdaptor.h"
 #endif
-#ifdef ENABLE_ADIOS2
+#ifdef SENSEI_ENABLE_ADIOS2
 #include "ADIOS2DataAdaptor.h"
 #endif
-#ifdef ENABLE_HDF5
+#ifdef SENSEI_ENABLE_HDF5
 #include "HDF5DataAdaptor.h"
 #endif
 
@@ -88,7 +88,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
   InTransitDataAdaptor *adaptor = nullptr;
   if (type == "adios1")
     {
-#ifndef ENABLE_ADIOS1
+#ifndef SENSEI_ENABLE_ADIOS1
     SENSEI_ERROR("ADIOS1 transport requested but is disabled in this build")
     return -1;
 #else
@@ -97,7 +97,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     }
   else if (type == "adios2")
     {
-#ifndef ENABLE_ADIOS2
+#ifndef SENSEI_ENABLE_ADIOS2
     SENSEI_ERROR("ADIOS2 transport requested but is disabled in this build")
     return -1;
 #else
@@ -106,7 +106,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     }
   else if (type == "hdf5")
     {
-#ifndef ENABLE_HDF5
+#ifndef SENSEI_ENABLE_HDF5
     SENSEI_ERROR("HDF5 transport requested but is disabled in this build")
     return -1;
 #else
@@ -115,7 +115,7 @@ int ConfigurableInTransitDataAdaptor::Initialize(pugi::xml_node &root)
     }
   else if (type == "libis")
     {
-#ifndef ENABLE_LIBIS
+#ifndef SENSEI_ENABLE_LIBIS
     SENSEI_ERROR("libis transport requested but is disabled in this build")
     return -1;
 #else

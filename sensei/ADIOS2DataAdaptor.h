@@ -30,9 +30,6 @@ public:
   // given to the write side analysis adaptor
   void SetReadEngine(const std::string &readEngine);
 
-  // enable/disable adios internal debug messages
-  void SetDebugMode(int mode);
-
   // add name value pairs to pass into ADIOS after the
   // engine has been created
   void AddParameter(const std::string &name, const std::string &value);

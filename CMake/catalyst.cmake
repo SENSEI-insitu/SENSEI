@@ -1,7 +1,7 @@
-if (ENABLE_CATALYST)
+if (SENSEI_ENABLE_CATALYST)
 
   set(SENSEI_PV_COMPONENTS Catalyst RemotingViews)
-  if(ENABLE_CATALYST_PYTHON)
+  if(SENSEI_ENABLE_CATALYST_PYTHON)
     list(APPEND SENSEI_PV_COMPONENTS PythonCatalyst)
   endif()
 
@@ -17,8 +17,8 @@ if (ENABLE_CATALYST)
 
   # this helps thre user know what we've tested. OK to expand at any point if
   # it has been tested.
-  if (ParaView_VERSION VERSION_LESS "5.9" OR ParaView_VERSION VERSION_GREATER_EQUAL "5.11")
-    message(FATAL_ERROR "This release of SENSEI requires ParaView 5.9 - 5.10")
+  if (ParaView_VERSION VERSION_LESS "5.9" OR ParaView_VERSION VERSION_GREATER "5.11.1")
+    message(FATAL_ERROR "This release of SENSEI requires ParaView 5.9 - 5.11.1")
   endif()
 
   # find the paraview libraries

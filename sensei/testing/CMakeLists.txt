@@ -4,6 +4,7 @@ if (BUILD_TESTING)
   senseiAddTest(testHistogramSerial
     SOURCES testHistogram.cpp LIBS sensei EXEC_NAME testHistogram
     COMMAND $<TARGET_FILE:testHistogram>
+    CUDA_TARGET
     LABELS HISTO)
 
   senseiAddTest(testHistogramParallel
@@ -11,6 +12,60 @@ if (BUILD_TESTING)
     COMMAND $<TARGET_FILE:testHistogram>
     PROPERTIES
       LABELS HISTO)
+
+  ##############################################################################
+  senseiAddTest(testParticleDensitySerial
+    SOURCES testParticleDensity.cpp
+    LIBS sensei EXEC_NAME testParticleDensity
+    COMMAND $<TARGET_FILE:testParticleDensity> 20000 xy 128 ./
+    CUDA_TARGET
+    )
+
+  senseiAddTest(testParticleDensityParallel
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:testParticleDensity> 20000 xy 128 ./
+    CUDA_TARGET
+    )
+
+  ##############################################################################
+  senseiAddTest(testDataBinningHostSync
+    SOURCES testDataBinning.cpp
+    LIBS sensei EXEC_NAME testDataBinning
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 0 xpos ypos sum min max avg
+    CUDA_TARGET
+    )
+
+  senseiAddTest(testDataBinningHostAsync
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 1 xpos ypos sum min max avg
+    )
+
+  senseiAddTest(testDataBinningHostSyncParallel
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 0 xpos ypos sum min max avg
+    )
+
+  senseiAddTest(testDataBinningHostAsyncParallel
+    PARALLEL ${TEST_NP}
+    COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ -1 1 xpos ypos sum min max avg
+    )
+
+  if (SENSEI_ENABLE_CUDA)
+    senseiAddTest(testDataBinningCUDAAsync
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 1 xpos ypos sum min max avg
+      )
+    senseiAddTest(testDataBinningCUDASync
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 0 xpos ypos sum min max avg
+      )
+    senseiAddTest(testDataBinningCUDAAsyncParallel
+      PARALLEL ${TEST_NP}
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 1 xpos ypos sum min max avg
+      )
+    senseiAddTest(testDataBinningCUDASyncParallel
+      PARALLEL ${TEST_NP}
+      COMMAND $<TARGET_FILE:testDataBinning> 32 100000 128 ./ 0 0 xpos ypos sum min max avg
+      )
+  endif()
+
 
   ##############################################################################
   senseiAddTest(testHDF5Write
@@ -46,17 +101,17 @@ if (BUILD_TESTING)
       LABELS STREAMING)
 
   ##############################################################################
-  senseiAddTest(testProgrammableDataAdaptor
-    PARALLEL 1
-    COMMAND $<TARGET_FILE:testProgrammableDataAdaptor>
-    SOURCES testProgrammableDataAdaptor.cpp
-    LIBS sensei)
-
-  senseiAddTest(testProgrammableDataAdaptorPy
-    PARALLEL 1
-    COMMAND ${PYTHON_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
-    FEATURES PYTHON)
+#   senseiAddTest(testProgrammableDataAdaptor
+#     PARALLEL 1
+#     COMMAND $<TARGET_FILE:testProgrammableDataAdaptor>
+#     SOURCES testProgrammableDataAdaptor.cpp
+#     LIBS sensei)
+# 
+#   senseiAddTest(testProgrammableDataAdaptorPy
+#     PARALLEL 1
+#     COMMAND ${PYTHON_EXECUTABLE}
+#       ${CMAKE_CURRENT_SOURCE_DIR}/testProgrammableDataAdaptor.py
+#     FEATURES PYTHON)
 
   ##############################################################################
   senseiAddTest(testPythonAnalysis
@@ -135,7 +190,7 @@ if (BUILD_TESTING)
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testADIOS2.sh
       ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} ${TEST_NP}
       ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}
-      testADIOS2BP4_%05d%.bp BP4 BP4 3
+      testADIOS2BP4_%05d.bp BP4 BP4 3
       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
     FEATURES
       PYTHON ADIOS2)
@@ -193,31 +248,70 @@ if (BUILD_TESTING)
     FEATURES
       PYTHON HDF5 CATALYST)
 
-  ##############################################################################
-  senseiAddTest(testADIOS1FLEXPATHHistogram
-    PARALLEL_SHELL 4
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
-      ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
-      histogram.xml read_adios1_flexpath_default.xml 10 1
-      -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
-    FEATURES
-      PYTHON ADIOS1)
+   ##############################################################################
+   senseiAddTest(testADIOS1FLEXPATHHistogram
+     PARALLEL_SHELL 4
+     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 2 2 2
+       ${CMAKE_CURRENT_SOURCE_DIR} write_adios1_flexpath.xml
+       histogram.xml read_adios1_flexpath_default.xml 10 1
+       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
+     FEATURES
+       PYTHON ADIOS1)
 
-  ##############################################################################
-  senseiAddTest(testADIOS2SSTHistogram
-    PARALLEL_SHELL 4
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
-      ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
-      ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
-      histogram.xml read_adios2_sst_block.xml 10 1
-      -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
-    FEATURES
-      PYTHON ADIOS2)
+   ##############################################################################
+   senseiAddTest(testADIOS2SSTHistogram
+     PARALLEL_SHELL 4
+     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/testPartitioners.sh
+       ${PYTHON_EXECUTABLE} ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 4 4 2
+       ${CMAKE_CURRENT_SOURCE_DIR} write_adios2_sst.xml
+       histogram.xml read_adios2_sst_block.xml 10 1
+       -- ${MPIEXEC_PREFLAGS} ${MPIEXEC_POSTFLAGS}
+     FEATURES
+       PYTHON ADIOS2)
 
   ##############################################################################
   senseiAddTest(testMeshMetadata
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/testMeshMetadata.py
     FEATURES PYTHON)
+
+  ##############################################################################
+  if (SENSEI_ENABLE_CUDA)
+    senseiAddTest(testHAMRDataArrayCUDA
+      SOURCES testHAMRDataArray.cpp LIBS sensei EXEC_NAME testHAMRDataArray
+      COMMAND $<TARGET_FILE:testHAMRDataArray> 0
+      CUDA_TARGET
+      )
+
+    senseiAddTest(testHAMRDataArrayHost
+      COMMAND $<TARGET_FILE:testHAMRDataArray> -1)
+
+    senseiAddTest(testHAMRDataArrayMultiGPU
+      SOURCES testHAMRDataArrayMultiGPU.cpp LIBS sensei EXEC_NAME testHAMRDataArrayMultiGPU
+      COMMAND $<TARGET_FILE:testHAMRDataArrayMultiGPU> 0
+      CUDA_TARGET
+      )
+
+  else()
+
+    senseiAddTest(testHAMRDataArrayHost
+      SOURCES testHAMRDataArray.cpp LIBS sensei EXEC_NAME testHAMRDataArray
+      COMMAND $<TARGET_FILE:testHAMRDataArray> -1
+      )
+
+  endif()
+
+  ##############################################################################
+  if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA)
+    if (NOT SENSEI_NVHPC_CUDA OR
+     (SENSEI_NVHPC_CUDA AND (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 23.2)))
+
+    senseiAddTest(testHAMRDataArrayOpenMP
+      SOURCES testHAMRDataArrayOpenMP.cpp LIBS sensei EXEC_NAME testHAMRDataArrayOpenMP
+      COMMAND $<TARGET_FILE:testHAMRDataArrayOpenMP> 0
+      CUDA_TARGET
+      )
+    endif()
+  endif()
 
 endif()

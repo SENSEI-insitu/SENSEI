@@ -1,3 +1,4 @@
+# script-version: 1
 from paraview.simple import *
 from paraview import coprocessing
 
@@ -33,6 +34,7 @@ def CreateCoProcessor():
       # create a producer from a simulation input
       oscillators = coprocessor.CreateProducer(datadescription, 'oscillators')
       meshpvd = coprocessor.CreateProducer(datadescription, 'mesh')
+      particles = coprocessor.CreateProducer(datadescription, 'particles')
 
       # ----------------------------------------------------------------
       # finally, restore active source
@@ -46,7 +48,7 @@ def CreateCoProcessor():
 
   coprocessor = CoProcessor()
   # these are the frequencies at which the coprocessor updates.
-  freqs = {'oscillators': [1], 'mesh': [1]}
+  freqs = {'oscillators': [1], 'mesh': [1], 'particles': [1]}
   coprocessor.SetUpdateFrequencies(freqs)
   return coprocessor
 
@@ -89,6 +91,7 @@ def DoCoProcessing(datadescription):
     coprocessor.UpdateProducers(datadescription)
 
     coprocessor.Pipeline.meshpvd.UpdatePipeline(datadescription.GetTime())
+    coprocessor.Pipeline.particles.UpdatePipeline(datadescription.GetTime())
     coprocessor.Pipeline.oscillators.UpdatePipeline(datadescription.GetTime())
 
     # Write output data, if appropriate.

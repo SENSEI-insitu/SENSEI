@@ -1,0 +1,59 @@
+<!-- example command
+  mpiexec -np 2 bin/oscillator \
+  -p 100 \
+  -f $sensei/src/miniapps/oscillators/testing/oscillator_ospray_spheres.xml
+  $sensei/src/miniapps/oscillators/inputs/periodic-1024.osc
+  -->
+<sensei>
+  <analysis type="ospray"
+    output_dir="./output_ospray_spheres" file_name="moe" enabled="1">
+    <mesh name="particles"
+      render_as="SPHERES"
+      array_assoc="point"
+      array_name="velocityMagnitude"
+      colormap_name="carson"
+    >
+      <radius>1.0</radius>
+      <color>0.04 0.32 0.6</color>
+    </mesh>
+    <colormap>
+      <name>carson</name>
+      <points>
+        1.8648648262023926,
+        0.0,
+        0.5,
+        0.0,
+        100.0,
+        1.0,
+        0.5,
+        0.0
+      </points>
+      <rgb_points>
+        1.8648648262023926,
+        0.0,
+        0.0,
+        0.0,
+        41.118918895721436,
+        0.90196078431399995,
+        0.0,
+        0.0,
+        80.372972965240479,
+        0.90196078431399995,
+        0.90196078431399995,
+        0.0,
+        100.0,
+        1.0,
+        1.0,
+        1.0
+      </rgb_points>
+      <range>0 100.0</range>
+    </colormap>
+    <camera>
+      <position>30 30 250</position>
+      <direction>0 0 -1</direction>
+      <up>0 1 0</up>
+      <fovy>35.0</fovy>
+      <focusDistance>0.0</focusDistance>
+    </camera>
+  </analysis>
+</sensei>

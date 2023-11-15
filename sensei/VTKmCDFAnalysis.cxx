@@ -12,7 +12,7 @@
 #include <vtkSortDataArray.h>
 #include <vtkDoubleArray.h>
 #include <vtkImageData.h>
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
 #  include <vtkMPICommunicator.h>
 #  include <vtkMPIController.h>
 #endif
@@ -83,7 +83,7 @@ void VTKmCDFAnalysis::Initialize(
   this->NumberOfQuantiles = numberOfQuantiles;
   this->RequestSize = requestSize;
 
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
   vtkNew<vtkMPIController> con;
   con->Initialize(0, 0, 1); // initialized externally
   vtkMultiProcessController::SetGlobalController(con.GetPointer());
@@ -192,7 +192,7 @@ bool VTKmCDFAnalysis::Execute(DataAdaptor* data, DataAdaptor** dataOut)
   sorted->DeepCopy(array);
   vtkSortDataArray::SortArrayByComponent(sorted, 0);
 
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
   vtkNew<vtkMPIController> controller;
 #else
   vtkNew<vtkMultiProcessController> controller;

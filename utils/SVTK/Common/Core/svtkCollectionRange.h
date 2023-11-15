@@ -22,6 +22,7 @@
 #include "svtkMeta.h"
 #include "svtkRange.h"
 #include "svtkSmartPointer.h"
+#include "svtkIterator.h"
 
 #include <cassert>
 
@@ -100,7 +101,7 @@ public:
 // svtkObjects consts makes them unusable.
 template <typename CollectionType>
 struct CollectionIterator
-  : public std::iterator<std::forward_iterator_tag,
+  : public svtkIterator<std::forward_iterator_tag,
       typename GetCollectionItemType<CollectionType>::Type*, int,
       typename GetCollectionItemType<CollectionType>::Type*,
       typename GetCollectionItemType<CollectionType>::Type*>
@@ -109,7 +110,7 @@ struct CollectionIterator
 
 private:
   using ItemType = typename GetCollectionItemType<CollectionType>::Type;
-  using Superclass = std::iterator<std::forward_iterator_tag, ItemType*, int, ItemType*, ItemType*>;
+  using Superclass = svtkIterator<std::forward_iterator_tag, ItemType*, int, ItemType*, ItemType*>;
 
 public:
   using iterator_category = typename Superclass::iterator_category;

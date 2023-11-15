@@ -46,8 +46,8 @@ senseiNewMacro(ADIOS2AnalysisAdaptor);
 
 //----------------------------------------------------------------------------
 ADIOS2AnalysisAdaptor::ADIOS2AnalysisAdaptor() :
-    Schema(nullptr), FileName("sensei.bp"), DebugMode(0),
-    StepsPerFile(0), StepIndex(0), FileIndex(0)
+    Schema(nullptr), FileName("sensei.bp"),
+    StepsPerFile(0), StepIndex(0), FileIndex(0), Frequency(1)
 {
   this->Handles.io = nullptr;
   this->Handles.engine = nullptr;
@@ -181,9 +181,9 @@ int ADIOS2AnalysisAdaptor::FetchFromProducer(
 }
 
 //----------------------------------------------------------------------------
-int ADIOS2AnalysisAdaptor::SetFrequency(unsigned int frequency)
+int ADIOS2AnalysisAdaptor::SetFrequency(long frequency)
 {
-  this->Frequency = frequency;
+  this->Frequency = std::max(1l, frequency);
   return 0;
 }
 
@@ -238,6 +238,9 @@ bool ADIOS2AnalysisAdaptor::Execute(DataAdaptor* dataAdaptor, DataAdaptor**daOut
     this->WriteTimestep(timeStep, time, metadata, objects))
     return false;
 
+  if (this->GetVerbose())
+      SENSEI_STATUS("ADIOS2AnalysisAdaptor wrote step " << timeStep)
+
   return true;
 }
 
@@ -269,9 +272,6 @@ int ADIOS2AnalysisAdaptor::Initialize(pugi::xml_node &node)
   std::string bufferMode = node.attribute("buffer_mode").as_string("");
   if (!bufferMode.empty())
     this->AddParameter("QueueFullPolicy", bufferMode);
-
-  // turn on/off debug output
-  this->SetDebugMode(node.attribute("debug_mode").as_int(0));
 
   // enable file series for file based engines
   this->SetStepsPerFile(node.attribute("steps_per_file").as_int(0));
@@ -329,8 +329,13 @@ int ADIOS2AnalysisAdaptor::InitializeADIOS2()
     }
 
   // initialize adios2
+#if ADIOS2_VERSION_MAJOR > 2 || (ADIOS2_VERSION_MAJOR == 2 && ADIOS2_VERSION_MINOR >= 9)
+  // adios2_init()'s signature changed in version 2.9.0
+  this->Adios = adios2_init(this->GetCommunicator());
+#else
   this->Adios = adios2_init(this->GetCommunicator(),
     adios2_debug_mode(this->DebugMode));
+#endif
 
   if (this->Adios == nullptr)
     {

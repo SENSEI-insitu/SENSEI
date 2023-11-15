@@ -746,8 +746,7 @@ void svtkBoundingBox::ComputeBounds(svtkPoints* pts, double bounds[6])
 void svtkBoundingBox::ComputeBounds(svtkPoints* pts, const unsigned char* ptUses, double bounds[6])
 {
   // Check for valid
-  svtkIdType numPts;
-  if (pts == nullptr || (numPts = pts->GetNumberOfPoints()) < 1)
+  if (pts == nullptr || pts->GetNumberOfPoints() < 1)
   {
     bounds[0] = bounds[2] = bounds[4] = SVTK_DOUBLE_MAX;
     bounds[1] = bounds[3] = bounds[5] = SVTK_DOUBLE_MIN;

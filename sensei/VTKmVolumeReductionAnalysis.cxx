@@ -7,7 +7,7 @@
 #include <vtkCellData.h>
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
 #  include <vtkMPICommunicator.h>
 #  include <vtkMPIController.h>
 #endif
@@ -217,7 +217,7 @@ void VTKmVolumeReductionAnalysis::Initialize(
   this->Communicator = comm;
   this->Reduction = reductionFactor;
 
-#ifdef ENABLE_VTK_MPI
+#ifdef SENSEI_ENABLE_VTK_MPI
   vtkNew<vtkMPIController> con;
   con->Initialize(0, 0, 1); // initialized externally
   vtkMultiProcessController::SetGlobalController(con.GetPointer());

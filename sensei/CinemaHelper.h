@@ -35,10 +35,10 @@ public:
     // Camera handling
     void SetCameraConfig(const std::string& config);
     int GetNumberOfCameraPositions();
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
     void ApplyCameraPosition(vtkSMViewProxy* view, int cameraPositionIndex);
 #endif
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
     void ApplyCameraPosition(vtkCamera* camera, int cameraPositionIndex);
 #endif
 
@@ -55,22 +55,22 @@ public:
 
     // Composite dataset handling
     // => FIXME: Assume => intensity + constant coloring
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
     int RegisterLayer(const std::string& name, vtkSMRepresentationProxy* representation, double scalarValue);
 #endif
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
     int RegisterLayer(const std::string& name, vtkActor* actor, double scalarValue);
 #endif
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
     void CaptureSortedCompositeData(vtkSMRenderViewProxy* view);
     void CaptureSortedCompositeData(vtkRenderWindow* renderWindow, vtkRenderer* renderer, vtkIceTCompositePass* compositePass);
 #endif
-#if defined(ENABLE_CATALYST) || defined (ENABLE_VTK_RENDERING)
+#if defined(SENSEI_ENABLE_CATALYST) || defined (SENSEI_ENABLE_VTK_RENDERING)
     void Render(vtkRenderWindow* renderWindow);
     vtkImageData* CaptureWindow(vtkRenderWindow* renderWindow);
 #endif
 
-#ifdef ENABLE_CATALYST
+#ifdef SENSEI_ENABLE_CATALYST
     // Image handling
     void CaptureImage(vtkSMViewProxy* view, const std::string fileName, const std::string writerName, double scale = 1, bool createDirectory = true);
 

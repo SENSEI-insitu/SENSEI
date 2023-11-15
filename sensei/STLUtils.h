@@ -97,6 +97,11 @@ void ReduceRange(const std::vector<std::vector<std::array<con_t,n>>> &in,
     }
 }
 
+}
+}
+
+
+namespace std {
 
 // --------------------------------------------------------------------------
 template<typename T, std::size_t N>
@@ -148,7 +153,6 @@ ostream &operator<<(ostream &os, const std::map<K,V> &amap)
   return os;
 }
 
-}
 }
 
 #endif

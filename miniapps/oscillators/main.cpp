@@ -19,7 +19,7 @@
 #include "MemoryUtils.h"
 #include "senseiConfig.h"
 #include "MPIManager.h"
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
 #include "bridge.h"
 #else
 #include "analysis.h"
@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     float                       t_end     = 10;
     float                       dt        = .01;
     float                       velocity_scale = 50.0f;
-#ifndef ENABLE_SENSEI
+#ifndef SENSEI_ENABLE_SENSEI
     size_t                      window    = 10;
     size_t                      k_max     = 3;
 #endif
@@ -82,13 +82,13 @@ int main(int argc, char** argv)
         >> Option('s', "shape",  shape,     "global number of cells in the domain")
         >> Option('e', "bounds", bounds,    "global bounds of the domain")
         >> Option('t', "dt",     dt,        "time step")
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
         >> Option('f', "config", config_file, "Sensei analysis configuration xml (required)")
 #else
         >> Option('w', "window", window,    "analysis window")
         >> Option('k', "k-max",  k_max,     "number of strongest autocorrelations to report")
 #endif
-        >> Option(     "t-end",  t_end,     "end time")
+        >> Option('E', "t-end",  t_end,     "end time")
         >> Option('j', "jobs",   threads,   "number of threads to use")
         >> Option('o', "output", out_prefix, "prefix to save output")
         >> Option('g', "ghost-cells", ghostCells, "number of ghost cells")
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
     std::string infn;
     if (  ops >> Present('h', "help", "show help") ||
         !(ops >> PosOption(infn))
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
         || config_file.empty()
 #endif
         )
@@ -240,7 +240,7 @@ int main(int argc, char** argv)
 
     Profiler::EndEvent("oscillators::initialize");
 
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
     {
     TimeEvent<128>("oscillators::initialize_in_situ");
     bridge::initialize(nblocks, gids.size(), origin.data(), spacing.data(),
@@ -285,7 +285,7 @@ int main(int argc, char** argv)
                                 b->handle_incoming_particles(p);
                               });
         }
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
         {
         TimeEvent<128> event("oscillators::invoke_in_situ");
         // do the analysis using sensei
@@ -340,7 +340,7 @@ int main(int argc, char** argv)
         ++t_count;
     }
 
-#ifdef ENABLE_SENSEI
+#ifdef SENSEI_ENABLE_SENSEI
     {
     TimeEvent<128> event("oscillators::in_situ_finalize");
     bridge::finalize();

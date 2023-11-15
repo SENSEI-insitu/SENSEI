@@ -4,8 +4,9 @@
 #include "MemoryUtils.h"
 #include "Error.h"
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
 #include "CUDAUtils.h"
+#include <thrust/sequence.h>
 #include <thrust/reduce.h>
 #include <thrust/device_vector.h>
 #endif
@@ -24,6 +25,7 @@
 #include <svtkUnsignedCharArray.h>
 #include <svtkAOSDataArrayTemplate.h>
 #include <svtkSOADataArrayTemplate.h>
+#include <svtkHAMRDataArray.h>
 #include <svtkCompositeDataIterator.h>
 #include <svtkCompositeDataSet.h>
 #include <svtkDataObject.h>
@@ -32,7 +34,7 @@
 
 namespace sensei
 {
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
 namespace HistogramInternalsCUDA
 {
 /** given a data array a ghost array and two indices, looks up
@@ -42,10 +44,10 @@ namespace HistogramInternalsCUDA
 template <typename data_t>
 struct indirectGhostMin
 {
-    indirectGhostMin(data_t *data, unsigned char *ghosts) :
+    indirectGhostMin(const data_t *data, const unsigned char *ghosts) :
       Data(data), Ghosts(ghosts) {}
 
-    __device__
+    __host__ __device__
     size_t operator()(const size_t &l, const size_t &r) const
     {
       if (Ghosts[l] != 0)         // left is ghosted
@@ -58,8 +60,8 @@ struct indirectGhostMin
           return r;               // right is less than left
     }
 
-    data_t *Data;
-    unsigned char *Ghosts;
+    const data_t *Data;
+    const unsigned char *Ghosts;
 };
 
 /** given a data array a ghost array and two indices, looks up
@@ -69,10 +71,10 @@ struct indirectGhostMin
 template <typename data_t>
 struct indirectGhostMax
 {
-    indirectGhostMax(data_t *data, unsigned char *ghosts) :
+    indirectGhostMax(const data_t *data, const unsigned char *ghosts) :
       Data(data), Ghosts(ghosts) {}
 
-    __device__
+    __host__ __device__
     size_t operator()(const size_t &l, const size_t &r) const
     {
       if (Ghosts[l] != 0)         // left is ghosted
@@ -85,20 +87,20 @@ struct indirectGhostMax
           return r;               // right is greater than left
     }
 
-    data_t *Data;
-    unsigned char *Ghosts;
+    const data_t *Data;
+    const unsigned char *Ghosts;
 };
 
 
 // **************************************************************************
 template <typename data_t>
-int ComputeRange(std::shared_ptr<data_t> &pdata,
-    std::shared_ptr<unsigned char> &pGhosts, size_t nVals,
+int ComputeRange(std::shared_ptr<const data_t> &pdata,
+    std::shared_ptr<const unsigned char> &pGhosts, size_t nVals,
     data_t &dataMin, data_t &dataMax)
 {
   // wrap pointers for thrust
-  thrust::device_ptr<data_t> tpdata(pdata.get());
-  thrust::device_ptr<unsigned char> tpGhosts(pGhosts.get());
+  thrust::device_ptr<const data_t> tpdata(pdata.get());
+  thrust::device_ptr<const unsigned char> tpGhosts(pGhosts.get());
 
   // generate ordinal sequence
   thrust::device_vector<size_t> indices(nVals);
@@ -145,7 +147,7 @@ int ComputeRange(std::shared_ptr<data_t> &pdata,
  */
 template <typename data_t>
 __global__
-void histogram(data_t *data, unsigned char *ghosts,
+void histogram(const data_t *data, const unsigned char *ghosts,
   size_t nVals, data_t minVal, data_t width, unsigned int *hist,
   size_t nBins)
 {
@@ -187,7 +189,7 @@ void histogram(data_t *data, unsigned char *ghosts,
 
 /** launch the histogram kernel */
 template <typename data_t>
-int block_local_histogram(data_t *data, unsigned char *ghosts,
+int block_local_histogram(const data_t *data, const unsigned char *ghosts,
   size_t nVals, data_t minVal, data_t width, unsigned int *hist,
   size_t nBins)
 {
@@ -217,9 +219,9 @@ int block_local_histogram(data_t *data, unsigned char *ghosts,
 }
 #endif
 
-namespace HistogramInternalsCPU
+namespace HistogramInternalsHost
 {
-/** Computes a histogram on the CPU. The histgoram must be pre-initialized to
+/** Computes a histogram on the Host. The histgoram must be pre-initialized to
  * zero multiple invokations of the kernel accumulate results for new data.
  *
  * @param[in] data      the array to calculate the histogram for
@@ -231,7 +233,7 @@ namespace HistogramInternalsCPU
  * @param[in,out] hist  the histogram
  */
 template <typename data_t>
-void block_local_histogram(data_t *data, unsigned char *ghosts,
+void block_local_histogram(const data_t *data, const unsigned char *ghosts,
   size_t nVals, data_t minVal, data_t width, unsigned int *hist,
   size_t nBins)
 {
@@ -293,11 +295,11 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
 
   // if ghost zones were provided use them, otherwise generate
   size_t nVals = da->GetNumberOfTuples();
-  std::shared_ptr<unsigned char> pGhosts;
+  std::shared_ptr<const unsigned char> pGhosts;
   if (ghosts)
     {
     // we have ghosts
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
     if (this->DeviceId >= 0)
       {
 #if defined(SENSEI_DEBUG)
@@ -307,24 +309,44 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       sensei::CUDAUtils::SetDevice(this->DeviceId);
 
       // get a pointer accessible on the GPU
-      pGhosts = sensei::MemoryUtils::MakeCudaAccessible(ghosts->GetPointer(0), nVals);
+      if (dynamic_cast<svtkHAMRDataArray<unsigned char>*>(((svtkDataArray*)ghosts)))
+        {
+        svtkHAMRDataArray<unsigned char> *tGhosts =
+          static_cast<svtkHAMRDataArray<unsigned char>*>(((svtkDataArray*)ghosts));
+
+        pGhosts = tGhosts->GetCUDAAccessible();
+        }
+      else
+        {
+        pGhosts = sensei::MemoryUtils::MakeCudaAccessible(ghosts->GetPointer(0), nVals);
+        }
       }
     else
       {
 #endif
 #if defined(SENSEI_DEBUG)
-      std::cerr << "HistogramInternals::AddLocalData ghosts CPU" << std::endl;
+      std::cerr << "HistogramInternals::AddLocalData ghosts Host" << std::endl;
 #endif
-      // get a pointer accessible on the CPU
-      pGhosts = sensei::MemoryUtils::MakeCpuAccessible(ghosts->GetPointer(0), nVals);
-#if defined(ENABLE_CUDA)
+      // get a pointer accessible on the Host
+      if (dynamic_cast<svtkHAMRDataArray<unsigned char>*>((svtkDataArray*)ghosts))
+        {
+        svtkHAMRDataArray<unsigned char> *tGhosts =
+          static_cast<svtkHAMRDataArray<unsigned char>*>((svtkDataArray*)ghosts);
+
+        pGhosts = tGhosts->GetHostAccessible();
+        }
+      else
+        {
+        pGhosts = sensei::MemoryUtils::MakeHostAccessible(ghosts->GetPointer(0), nVals);
+        }
+#if defined(SENSEI_ENABLE_CUDA)
       }
 #endif
     }
   else
     {
     // we don't have ghosts
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
     if (this->DeviceId >= 0)
       {
 #if defined(SENSEI_DEBUG)
@@ -334,37 +356,29 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
       // make the requested GPU the active one
       sensei::CUDAUtils::SetDevice(this->DeviceId);
 
-      // generate ghosts on the GPU
-      unsigned char *devpGhosts = nullptr;
-      cudaError_t ierr = cudaSuccess;
-      if ((ierr = cudaMalloc(&devpGhosts, nVals)) != cudaSuccess)
-        {
-        SENSEI_ERROR("Failed to allocate ghost zones on the GPU. "
-          << cudaGetErrorString(ierr))
-        return -1;
-        }
-      if ((ierr = cudaMemset(devpGhosts, 0, nVals)) != cudaSuccess)
-        {
-        SENSEI_ERROR("Failed to zero ghost zones on the GPU. "
-          << cudaGetErrorString(ierr))
-        return -1;
-        }
-      pGhosts = std::shared_ptr<unsigned char>(devpGhosts,
-        sensei::MemoryUtils::FreeCudaPtr);
+      // generate ghosts on the GPU, and get a shared pointer to the buffer
+      auto tGhosts = svtkHAMRUnsignedCharArray::New("vtkGhostType",
+        nVals, 1, svtkAllocator::cuda_async, svtkStream(), svtkStreamMode::sync_host, 0);
+
+      pGhosts = tGhosts->GetDataPointer();
+
+      tGhosts->Delete();
       }
     else
       {
 #endif
 #if defined(SENSEI_DEBUG)
       std::cerr << "HistogramInternals::AddLocalData ghosts were not provided,"
-        " allocating on the CPU" << std::endl;
+        " allocating on the Host" << std::endl;
 #endif
-      // generate ghosts on the CPU
-      pGhosts = std::shared_ptr<unsigned char>(
-        (unsigned char*)malloc(nVals), sensei::MemoryUtils::FreeCpuPtr);
+      // generate ghosts on the Host, and get a shared pointer to the buffer
+      auto tGhosts = svtkHAMRUnsignedCharArray::New("vtkGhostType",
+        nVals, 1, svtkAllocator::malloc, svtkStream(), svtkStreamMode::sync, 0);
 
-      memset(pGhosts.get(), 0, nVals);
-#if defined(ENABLE_CUDA)
+      pGhosts = tGhosts->GetDataPointer();
+
+      tGhosts->Delete();
+#if defined(SENSEI_ENABLE_CUDA)
       }
 #endif
     }
@@ -377,8 +391,8 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
     {
     svtkTemplateMacro(
 
-      std::shared_ptr<SVTK_TT> pDa;
-#if defined(ENABLE_CUDA)
+      std::shared_ptr<const SVTK_TT> pDa;
+#if defined(SENSEI_ENABLE_CUDA)
       if (this->DeviceId >= 0)
         {
 #if defined(SENSEI_DEBUG)
@@ -386,19 +400,35 @@ int HistogramInternals::AddLocalData(svtkDataArray *da,
           << (da->GetName() ? da->GetName() : "\"\"") << " CUDA" << std::endl;
 #endif
         // get a pointer to the data that's usable on the GPU
-        pDa = sensei::MemoryUtils::MakeCudaAccessible(
-          sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+        if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
+          {
+          auto tDa = static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
+          pDa = tDa->GetCUDAAccessible();
+          }
+        else
+          {
+          pDa = sensei::MemoryUtils::MakeCudaAccessible(
+            sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+          }
         }
       else
         {
 #endif
 #if defined(SENSEI_DEBUG)
         std::cerr << "HistogramInternals::AddLocalData "
-          << (da->GetName() ? da->GetName() : "\"\"") << " CPU" << std::endl;
+          << (da->GetName() ? da->GetName() : "\"\"") << " Host" << std::endl;
 #endif
-        pDa = sensei::MemoryUtils::MakeCpuAccessible(
-         sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
-#if defined(ENABLE_CUDA)
+        if (dynamic_cast<svtkHAMRDataArray<SVTK_TT>*>(da))
+          {
+          auto tDa = static_cast<svtkHAMRDataArray<SVTK_TT>*>(da);
+          pDa = tDa->GetHostAccessible();
+          }
+        else
+          {
+          pDa = sensei::MemoryUtils::MakeHostAccessible(
+            sensei::SVTKUtils::GetPointer<SVTK_TT>(da), nVals);
+          }
+#if defined(SENSEI_ENABLE_CUDA)
         }
 #endif
       // cache the GPU accessible pointer for use in the histogram calculation
@@ -427,10 +457,10 @@ int HistogramInternals::ComputeRange()
     {
     // get the data array. arrays in the cache have already been moved to the
     // GPU if that was neccessary.
-    std::shared_ptr<unsigned char> pGhosts = git->second;
+    std::shared_ptr<const unsigned char> pGhosts = git->second;
 
     svtkDataArray *da = dit->first;
-    std::shared_ptr<void> pvDa = dit->second;
+    std::shared_ptr<const void> pvDa = dit->second;
 
     size_t nVals = da->GetNumberOfTuples();
 
@@ -444,9 +474,9 @@ int HistogramInternals::ComputeRange()
 
         // cast to the correct type. The data will already be in the right place
         // data movement is handled in AddLocalData
-        std::shared_ptr<SVTK_TT> pDa = std::static_pointer_cast<SVTK_TT>(pvDa);
+        std::shared_ptr<const SVTK_TT> pDa = std::static_pointer_cast<const SVTK_TT>(pvDa);
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
         if (this->DeviceId >= 0)
           {
           // make the requested GPU the active one
@@ -461,9 +491,9 @@ int HistogramInternals::ComputeRange()
         else
           {
 #endif
-          // calculate range taking into account ghost zones on the CPU
-          SVTK_TT *rpDa = pDa.get();
-          unsigned char *rpGhosts = pGhosts.get();
+          // calculate range taking into account ghost zones on the Host
+          const SVTK_TT *rpDa = pDa.get();
+          const unsigned char *rpGhosts = pGhosts.get();
           for (size_t i = 0; i < nVals; ++i)
             {
             if (rpGhosts[i] == 0)
@@ -474,10 +504,10 @@ int HistogramInternals::ComputeRange()
               }
             }
 #if defined(SENSEI_DEBUG)
-          std::cerr << "HistogramInternals::ComputeRange CPU ["
+          std::cerr << "HistogramInternals::ComputeRange Host ["
              << blockMin << ", " << blockMax << "]" << std::endl;
 #endif
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
           }
 #endif
         // accumulate the min/max
@@ -542,7 +572,7 @@ int HistogramInternals::InitializeHistogram()
   size_t histBytes = nBins*sizeof(unsigned int);
   unsigned int *pHist = nullptr;
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
   if (this->DeviceId >= 0)
     {
 #if defined(SENSEI_DEBUG)
@@ -576,15 +606,15 @@ int HistogramInternals::InitializeHistogram()
 #endif
 #if defined(SENSEI_DEBUG)
     std::cerr << "InitializeHistogram initializing "
-      << this->NumberOfBins << " bins on the CPU" << std::endl;
+      << this->NumberOfBins << " bins on the Host" << std::endl;
 #endif
     pHist = (unsigned int*)malloc(histBytes);
     memset(pHist, 0, histBytes);
 
     // save the pointer for calculations of subsequent blocks
     this->Histogram = std::shared_ptr<unsigned int>(pHist,
-      sensei::MemoryUtils::FreeCpuPtr);
-#if defined(ENABLE_CUDA)
+      sensei::MemoryUtils::FreeHostPtr);
+#if defined(SENSEI_ENABLE_CUDA)
     }
 #endif
 
@@ -609,10 +639,10 @@ int HistogramInternals::ComputeLocalHistogram()
     {
     // get the data array. arrays in the cache have already been moved to the
     // GPU if that was neccessary.
-    std::shared_ptr<unsigned char> pGhosts = git->second;
+    std::shared_ptr<const unsigned char> pGhosts = git->second;
 
     svtkDataArray *da = dit->first;
-    std::shared_ptr<void> pDa = dit->second;
+    std::shared_ptr<const void> pDa = dit->second;
 
     // get the sizes of the datat array
     size_t nVals = da->GetNumberOfTuples();
@@ -625,7 +655,7 @@ int HistogramInternals::ComputeLocalHistogram()
     switch (da->GetDataType())
       {
       svtkTemplateMacro(
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
         if (this->DeviceId >= 0)
           {
 #if defined(SENSEI_DEBUG)
@@ -645,13 +675,13 @@ int HistogramInternals::ComputeLocalHistogram()
           {
 #endif
 #if defined(SENSEI_DEBUG)
-          std::cerr << "HistogramInternals::ComputeLocalHistogram CPU" << std::endl;
+          std::cerr << "HistogramInternals::ComputeLocalHistogram Host" << std::endl;
 #endif
-          // compute the histgram for this block's worth of data on the CPU
+          // compute the histgram for this block's worth of data on the Host
           // data is already in the right place, it is moved in AddLocalData
-          HistogramInternalsCPU::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
+          HistogramInternalsHost::block_local_histogram<SVTK_TT>((SVTK_TT*)pDa.get(),
             pGhosts.get(), nVals, this->Min, this->Width, this->Histogram.get(), nBins);
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
           }
 #endif
         );
@@ -678,7 +708,7 @@ int HistogramInternals::FinalizeHistogram()
   size_t nBins = this->NumberOfBins + 1;
   size_t histBytes = nBins*sizeof(unsigned int);
 
-#if defined(ENABLE_CUDA)
+#if defined(SENSEI_ENABLE_CUDA)
   // make the requested GPU the active one
   if (this->DeviceId >= 0)
     sensei::CUDAUtils::SetDevice(this->DeviceId);
@@ -687,10 +717,10 @@ int HistogramInternals::FinalizeHistogram()
   // fetch result from the GPU for the MPI parallel part of the reduction
   // this call synchronizes CUDA kernels
   std::shared_ptr<unsigned int> pHist =
-    sensei::MemoryUtils::MakeCpuAccessible(this->Histogram.get(), nBins);
+    sensei::MemoryUtils::MakeHostAccessible(this->Histogram.get(), nBins);
 
-  // allocate a buffer on teh CPU for the result of the MPI parallel reduction
-  // the result of the histogram is always coppied to the CPU
+  // allocate a buffer on the host for the result of the MPI parallel reduction
+  // the result of the histogram is always coppied to the host
   unsigned int *tmp = nullptr;
   if (rank == 0)
     {
@@ -708,7 +738,13 @@ int HistogramInternals::FinalizeHistogram()
 
   // Replace the internal copy of the histogram with the finalized result.
   // only MPI rank 0 has the result after this
+#if defined(SENSEI_CLANG_CUDA)
+  // work around an issue on clang17 cuda wrappers as of June 9 2023
+  this->Histogram = std::shared_ptr<unsigned int>(tmp,
+    (void (*)(void *) noexcept(true)) free);
+#else
   this->Histogram = std::shared_ptr<unsigned int>(tmp, free);
+#endif
 
   return 0;
 }

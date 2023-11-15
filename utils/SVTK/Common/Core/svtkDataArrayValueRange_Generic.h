@@ -22,6 +22,7 @@
 
 #include "svtkDataArrayAccessor.h"
 #include "svtkDataArrayMeta.h"
+#include "svtkIterator.h"
 
 #include <algorithm>
 #include <cassert>
@@ -506,7 +507,7 @@ protected:
 // Const value iterator
 template <typename ArrayType, ComponentIdType TupleSize>
 struct ConstValueIterator
-  : public std::iterator<std::random_access_iterator_tag, GetAPIType<ArrayType>, ValueIdType,
+  : public svtkIterator<std::random_access_iterator_tag, GetAPIType<ArrayType>, ValueIdType,
       // expected types don't have members, no op->().
       void, ConstValueReference<ArrayType, TupleSize> >
 {
@@ -516,7 +517,7 @@ private:
 
   using APIType = GetAPIType<ArrayType>;
   using IdStorageType = IdStorage<TupleSize>;
-  using Superclass = std::iterator<std::random_access_iterator_tag, APIType, ValueIdType, void,
+  using Superclass = svtkIterator<std::random_access_iterator_tag, APIType, ValueIdType, void,
     ConstValueReference<ArrayType, TupleSize> >;
 
 public:
@@ -672,7 +673,7 @@ private:
 // Component iterator
 template <typename ArrayType, ComponentIdType TupleSize>
 struct ValueIterator
-  : public std::iterator<std::random_access_iterator_tag, svtk::GetAPIType<ArrayType>, ValueIdType,
+  : public svtkIterator<std::random_access_iterator_tag, svtk::GetAPIType<ArrayType>, ValueIdType,
       ValueReference<ArrayType, TupleSize>, ValueReference<ArrayType, TupleSize> >
 {
 private:
@@ -681,7 +682,7 @@ private:
 
   using APIType = GetAPIType<ArrayType>;
   using IdStorageType = IdStorage<TupleSize>;
-  using Superclass = std::iterator<std::random_access_iterator_tag, GetAPIType<ArrayType>,
+  using Superclass = svtkIterator<std::random_access_iterator_tag, GetAPIType<ArrayType>,
     ValueIdType, ValueReference<ArrayType, TupleSize>, ValueReference<ArrayType, TupleSize> >;
 
 public:

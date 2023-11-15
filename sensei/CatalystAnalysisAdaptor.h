@@ -43,11 +43,12 @@ public:
   /** Adds a pipeline defined in a Catalyst python script. The Catalyst Python
    * script can be automatically generated using the ParaView GUI on a
    * representative dataset. The sensei::VTKPosthocIO and sensei::VTKAmrWriter
-   * can be used to obtain such data.
+   * can be used to obtain such data. If ParaView is unable to determine the
+   * version of the Script, if will default to the given version.
    */
-  virtual void AddPythonScriptPipeline(const std::string &fileName,
+  virtual void AddPythonScriptPipeline(const std::string& fileName,
     const std::string& resultProducer, const std::string& steerableSourceType,
-    const std::string& resultMesh);
+    const std::string& resultMesh, int versionHint = 2);
 
   /// Control how frequently the in situ processing occurs.
   int SetFrequency(unsigned int frequency);
@@ -66,7 +67,7 @@ public:
 
 protected:
   CatalystAnalysisAdaptor();
-  ~CatalystAnalysisAdaptor();
+  ~CatalystAnalysisAdaptor() override;
 
   void Initialize();
 

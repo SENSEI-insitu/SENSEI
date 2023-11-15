@@ -187,7 +187,9 @@ namespace detail
 {
 template<> inline char map_numpy_type<float>()                         { return 'f'; }
 template<> inline char map_numpy_type<double>()                        { return 'f'; }
+#if !defined(__NVCOMPILER)
 template<> inline char map_numpy_type<long double>()                   { return 'f'; }
+#endif
 
 template<> inline char map_numpy_type<int>()                           { return 'i'; }
 template<> inline char map_numpy_type<char>()                          { return 'i'; }
@@ -205,7 +207,9 @@ template<> inline char map_numpy_type<bool>()                          { return 
 
 template<> inline char map_numpy_type< std::complex<float> >()         { return 'c'; }
 template<> inline char map_numpy_type< std::complex<double> >()        { return 'c'; }
+#if !defined(__NVCOMPILER)
 template<> inline char map_numpy_type< std::complex<long double> >()   { return 'c'; }
+#endif
 }
 }
 }

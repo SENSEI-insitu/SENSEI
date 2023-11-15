@@ -22,6 +22,7 @@
 #include "svtkMeta.h"
 #include "svtkRange.h"
 #include "svtkSmartPointer.h"
+#include "svtkIterator.h"
 
 #include <cassert>
 
@@ -56,11 +57,11 @@ using DataObjectTreeIteratorReference =
   svtk::CompositeDataSetNodeReference<svtkDataObjectTreeIterator, DataObjectTreeIterator>;
 
 struct DataObjectTreeIterator
-  : public std::iterator<std::forward_iterator_tag, svtkDataObject*, int,
+  : public svtkIterator<std::forward_iterator_tag, svtkDataObject*, int,
       DataObjectTreeIteratorReference, DataObjectTreeIteratorReference>
 {
 private:
-  using Superclass = std::iterator<std::forward_iterator_tag, svtkDataObject*, int,
+  using Superclass = svtkIterator<std::forward_iterator_tag, svtkDataObject*, int,
     DataObjectTreeIteratorReference, DataObjectTreeIteratorReference>;
   using InternalIterator = svtkDataObjectTreeIterator;
   using SmartIterator = svtkSmartPointer<InternalIterator>;

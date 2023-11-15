@@ -43,7 +43,12 @@ public:
 #ifdef SVTK_INFORMATION_USE_HASH_MAP
   struct HashFun
   {
-    size_t operator()(KeyType key) const { return static_cast<size_t>(key - KeyType(nullptr)); }
+    size_t operator()(KeyType key) const {
+// TODO : clang warns about undefined behavior below.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnull-pointer-subtraction"
+        return static_cast<size_t>(key - KeyType(nullptr)); }
+#pragma clang diagnostic pop
   };
   typedef std::unordered_map<KeyType, DataType, HashFun> MapType;
 #else

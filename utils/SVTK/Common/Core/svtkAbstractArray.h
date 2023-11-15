@@ -169,7 +169,7 @@ public:
   /**
    * Get the number of complete tuples (a component group) in the array.
    */
-  svtkIdType GetNumberOfTuples() const { return (this->MaxId + 1) / this->NumberOfComponents; }
+  virtual svtkIdType GetNumberOfTuples() const { return this->GetNumberOfValues() / this->NumberOfComponents; }
 
   /**
    * Get the total number of values in the array. This is typically equivalent
@@ -177,7 +177,7 @@ public:
    * construction for subclasses that support component insertion, which may
    * result in an incomplete trailing tuple.
    */
-  inline svtkIdType GetNumberOfValues() const { return (this->MaxId + 1); }
+  virtual svtkIdType GetNumberOfValues() const { return (this->MaxId + 1); }
 
   /**
    * Set the tuple at dstTupleIdx in this array to the tuple at srcTupleIdx in

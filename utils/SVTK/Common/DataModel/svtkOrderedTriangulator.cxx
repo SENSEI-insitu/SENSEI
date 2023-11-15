@@ -382,10 +382,10 @@ void svtkOrderedTriangulator::Initialize()
   center[0] = (bounds[0] + bounds[1]) / 2.0;
   center[1] = (bounds[2] + bounds[3]) / 2.0;
   center[2] = (bounds[4] + bounds[5]) / 2.0;
-  length = 2.0 *
-    sqrt((radius2 = (bounds[1] - bounds[0]) * (bounds[1] - bounds[0]) +
+  radius2 = (bounds[1] - bounds[0]) * (bounds[1] - bounds[0]) +
         (bounds[3] - bounds[2]) * (bounds[3] - bounds[2]) +
-        (bounds[5] - bounds[4]) * (bounds[5] - bounds[4])));
+        (bounds[5] - bounds[4]) * (bounds[5] - bounds[4]);
+  length = 2.0 * sqrt(radius2);
   radius2 /= 2.0;
   this->Mesh->Tolerance2 = length * length * 1.0e-10;
 
@@ -860,7 +860,7 @@ int svtkOTMesh::CreateInsertionCavity(OTPoint* p, OTTetra* initialTet, double[4]
   // Process queue of tetras until exhausted
   //
   int i, valid;
-  int somethingNotValid = 0;
+  //int somethingNotValid = 0;
   OTTetra *nei, *tetra;
   TetraQueueIterator t;
   for (int numCycles = 0; !this->TetraStack.empty(); numCycles++)
@@ -916,7 +916,7 @@ int svtkOTMesh::CreateInsertionCavity(OTPoint* p, OTTetra* initialTet, double[4]
     // check for validity
     if (!valid) // broke out due to invalid face
     {
-      somethingNotValid++;
+      //somethingNotValid++;
       // add this tetra to queue
       this->DegenerateQueue.push_back(tetra);
 

@@ -41,7 +41,6 @@
 
 #include <mpi.h>
 
-
 //-----------------------------------------------------------------------------
 static
 std::string getBlockExtension(svtkDataObject *dob)
@@ -300,7 +299,6 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
   while (mit)
     {
     const std::string &meshName = mit.MeshName();
-
     // get the metadta
     MeshMetadataPtr mmd;
     if (mdMap.GetMeshMetadata(meshName, mmd))
@@ -391,9 +389,8 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
         SENSEI_ERROR("Block at " << it->GetCurrentFlatIndex() << " is null")
         return false;
         }
-
       // skip writing blocks that have no data
-      if (ds->GetNumberOfCells() < 1)
+      if (ds->GetNumberOfCells() < 1 && ds->GetNumberOfPoints() < 1)
         continue;
 
       long blockId = it->GetCurrentFlatIndex() - bidShift;
@@ -412,12 +409,17 @@ bool VTKPosthocIO::Execute(DataAdaptor* dataIn, DataAdaptor** dataOut)
 
       // convert from SVTK to VTK
       vtkDataSet *vds = SVTKUtils::VTKObjectFactory::New(ds);
-
       vtkDataArray *ga = vds->GetCellData()->GetArray("vtkGhostType");
       if (ga)
         {
         ga->SetName(this->GetGhostArrayName().c_str());
+#if VTK_MAJOR_VERSION < 9 ||                                       \
+    (VTK_MAJOR_VERSION == 9 && VTK_MINOR_VERSION < 2) ||           \
+    (VTK_MAJOR_VERSION == 9 && VTK_MINOR_VERSION == 2 && VTK_BUILD_VERSION < 20220823)
+        // deprecation happen after VTK 9.2 but before build 20220823
+        // which is the VTK version included in ParaView
         vds->UpdateCellGhostArrayCache();
+#endif
         }
 
       if (this->Writer == VTKPosthocIO::WRITER_VTK_LEGACY)

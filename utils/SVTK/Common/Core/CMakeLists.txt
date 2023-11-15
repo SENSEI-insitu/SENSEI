@@ -244,6 +244,7 @@ set(headers
   svtkIOStream.h
   svtkIOStreamFwd.h
   svtkInformationInternals.h
+  svtkIterator.h
   svtkMathUtilities.h
   svtkMeta.h
   svtkNew.h

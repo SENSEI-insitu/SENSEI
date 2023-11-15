@@ -28,7 +28,7 @@ configure_file(run_kripke_simple_example.sh
                ${CMAKE_CURRENT_BINARY_DIR}/run_kripke_simple_example.sh
                COPYONLY)
 
-if(ENABLE_OPENMP)
+if(SENSEI_ENABLE_OPENMP)
    set(kripke_openmp_flags "-DKRIPKE_USE_OPENMP")
 else()
    set(kripke_openmp_flags "")
@@ -39,7 +39,7 @@ include_directories("tools")
 
 #set(libs sMPI sConduit sensei)
 set(libs sMPI sensei)
-if(ENABLE_OPENMP)
+if(SENSEI_ENABLE_OPENMP)
     list(APPEND libs openmp)
 endif()
 

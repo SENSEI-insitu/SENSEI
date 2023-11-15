@@ -6,10 +6,11 @@ int svtkPixelTransfer::Blit(const svtkPixelExtent& srcWholeExt, const svtkPixelE
   void* srcData, int nDestComps, int destType, void* destData)
 {
   // first layer of dispatch
+  int iret = 0;
   switch (srcType)
   {
-    svtkTemplateMacro(return svtkPixelTransfer::Blit(srcWholeExt, srcExt, destWholeExt, destExt,
+    svtkTemplateMacro(iret = svtkPixelTransfer::Blit(srcWholeExt, srcExt, destWholeExt, destExt,
       nSrcComps, static_cast<SVTK_TT*>(srcData), nDestComps, destType, destData));
   }
-  return 0;
+  return iret;
 }

@@ -29,37 +29,95 @@ aimed at evolving to the exascale.
 
 [![Documentation Status](https://readthedocs.org/projects/sensei-insitu/badge/?version=rtd_user_guide)](https://sensei-insitu.readthedocs.io/en/rtd_user_guide/?badge=rtd_user_guide)
 
-## Project Organization
-### SENSEI library
+## SENSEI library
 The SENSEI library contains core base classes that declare the AnalysisAdaptor
 API which is used to interface to in situ infrastructures and implement custom
 analyses; the DataAdaptor API which AnalysisAdaptors use to access simulation
 data in a consistent way; and a number of implementations of both. For more
 information see our [SC16 paper](http://dl.acm.org/citation.cfm?id=3015010).
 
-#### DataAdaptors
-| Class                | Description |
-|----------------------|-------------|
-| DataAdaptor          | Base class declaring data adaptor API |
-| InTransitDataAdaptor | Base class declaring in transit data adaptor API |
-| VTKDataAdaptor       | Implementation for use with VTK data sets. This adaptor can be used to pass VTK data sets from the simulation to the Analysis. |
-| ADIOS1DataAdaptor    | Implementation that serves up data from ADIOS 1. For use in the SENSEI End point. |
-| HDF5DataAdaptor      | Implementation that serves up data from HDF5. For use in the SENSEI End point. |
+### Source code
+SENSEI is open source and freely available on github at https://github.com/SENSEI-insitu/SENSEI
 
-#### AnalysisAdaptors
-| Class                   | Description |
-|-------------------------|-------------|
-| AnalysisAdaptor         | Base class declaring analysis adaptor API |
-| ADIOS1AnalysisAdaptor   | Implementation for using ADIOS 1 from your simulation. |
-| HDF5AnalysisAdaptor     | Implementation for using HDF5 from your simulation. |
-| LibsimAnalysisAdaptor   | Implementation for using Libsim from your simulation. |
-| CatalystAnalysisAdaptor | Implementation for using Catalyst from your simulation. |
-| AscentAnalysisAdaptor   | Implementation for using Ascent from your simulation. |
-| Autocorrelation         | Implementation that computes [autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation)  |
-| Histogram               | Implementation that computes histograms. |
-| VTKPosthocIO            | Implementation that writes VTK data sets using VTK XML format to the ".visit" format readable by VisIt,  or ".pvd" format readable by ParaView. |
-| VTKAmrWriter            | Implementation that writes AMR data in VTK's XML format. Consumable by ParaView. |
-| ConfigurableAnalysis    | Implementation that reads an XML configuration to select and configure one or more of the other analysis adaptors. This can be used to quickly switch between the analysis adaptors at run time. |
+### Data model
+SENSEI makes use of a heavily stripped down and mangled version of the
+[VTK](https://vtk.org) 9.0.0 data model. The best source of documentation for
+SENSEI's data model is VTK itself ([VTK doxygen](https://vtk.org/doc/nightly/html/classvtkDataObject.html)).
+
+### Instrumenting a simulation
+Instrumenting a simulation typically involves creating and initializing an
+instance of sensei::ConfigurableAnalysis with an XML file and passing a
+simulation specific sensei::DataAdaptor when in situ processing is invoked.
+
+| Class | Description |
+| ----- | ----------- |
+| [sensei::ConfigurableAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_analysis.html) | uses a run time provided XML file to slect and confgure one or more library specific data consumers or in transit transports |
+| [sensei::DataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_data_adaptor.html) | simulations implement an instance that packages simulation data into SENSEI's data model |
+| [sensei::SVTKDataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_svtk_data_adaptor.html) | An adaptor that can manage and serve SVTK data objects. Use this to return data from an analysis  |
+
+### In situ data processing
+SENSEI comes with a number of ready to use in situ processing options. These include:
+
+| Class | Description |
+| ----- | ----------- |
+| [sensei::AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_analysis.html) | base class for in situ data processors |
+| [sensei::DataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_data_adaptor.html) | defines the API by which data processors fetch data from the simulation |
+| [sensei::Histogram](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_histogram.html) | Computes histograms |
+| [sensei::AscentAnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_ascent_analysis_adaptor.html) | Processes simulation data using Ascent |
+| [sensei::CatalystAnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_catalyst_analysis_adaptor.html) | Processes simulation data using ParaView Catalyst |
+| [sensei::LibsimAnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_libsim_analysis_adaptor.html) | Processes simulation data using VisIt Libsim |
+| [sensei::Autocorrelation](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_autocorrelation.html) | Compute autocorrelation of simulation data over time |
+| [sensei::VTKPosthocIO](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_vtk_posthoc_io.html) | Writes simulation data to disk in a VTK format |
+| [sensei::VTKAmrWriter](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_vtk_amr_writer.html) | Writes simulation data to disk in a VTK format |
+| [sensei::PythonAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_python_analysis.html) | Invokes user provided Pythons scripts that process simulation data |
+| [sensei::SliceExtract](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_slice_extract.html) | Computes planar slices and iso-surfaces on simulation data |
+| [sensei::DataBinning](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_data_binning.html) | Transforms point based samples onto a Cartesian mesh |
+
+### User defined in situ processing
+A unique feature of SENSEI is the ability to invoke user provided code written
+in Python or C++ on a SENSEI instrumented simulation. This makes SENSEI much
+easier to extend and customize than other solutions.
+
+| Class | Description |
+| ----- | ----------- |
+| [sensei::AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_analysis_adaptor.html) | used to invoke user defined C++ code. Override the sensei::AnalysisAdaptor::Execute method.  |
+| [sensei::PythonAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_python_analysis.html) | used to invoke user defined Python code Implement an Execute function in Python |
+
+For more information see our [ISAV 2018](https://doi.org/10.1145/3281464.3281465) paper.
+
+### In transit data processing
+It is often advantageous to move data onto a seperate set of compute nodes for
+concurrent processing in a job seperate from the simulation. SENSEI supports
+this through run time configurable transports and the SENSEIEndPoint an
+application written in C++ that can be configured to receive and process data
+while simulation is running.
+
+| Class | Description |
+| ----- | ----------- |
+| [sensei::AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_analysis_adaptor.html) | base class for the write side of the transport |
+| [sensei::DataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_data_adaptor.html) | base class for the read side of the transport |
+| [sensei::ConfigurableAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_analysis.html) | used to select and configure the write side of the transport at run time from XML |
+| [sensei::ConfigurableInTransitDataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_intransit_data_adaptor.html) | used to configure the read side of the transport at run time from XML |
+| [sensei::ADIOS2AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_adios2_analysis_adaptor.html) | The write side of the ADIOS 2 transport |
+| [sensei::ADIOS2DataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_adios2_data_adaptor.html) | The read side of the ADIOS 2 transport |
+| [sensei::HDF5AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_hdf5_analysis_adaptor.html) | The write side of the HDF5 transport |
+| [sensei::HDF5DataAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_hdf5_data_adaptor.html) | The read side of the HDF5 transport |
+| [sensei::Partitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_partitioner.html) | base class for data partitioner which maps data to MPI ranks as it is moved |
+| [sensei::ConfigurablePartitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_partitioner.html) | Selects and configures one of the partitioners at run time from XML |
+| [sensei::BlockPartitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_block_partitioner.html) | maps blocks to ranks such that consecutive blocks share a rank |
+| [sensei::PlanarPartitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_planar_partitioner.html) | Maps blocks to MPI ranks in a round robbin fassion |
+| [sensei::MappedPartitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_mapped_partitioner.html) | Maps blocks to MPI ranks using a run time user provided mapping |
+| [sensei::IsoSurfacePartitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_iso_surface_partitioner.html) | Maps blocks to MPI ranks such that blocks not intersecting the iso surface are excluded |
+| [sensei::PlanarSlicePartitioner](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_planar_slice_paritioner.html) | Maps blocks to MPI ranks such that blocks not intersecting the slice are excluded |
+
+For more information see our [EGPGV 2020](https://doi.org/10.2312/pgv.20201073)
+and [ISAV 2018](https://doi.org/10.1145/3364228.3364237) papers.
+
+### The SENSEI End point
+End points are programs that receive and analyze simulation data through transport
+layers such as ADIOS and LibIS. The SENSEI end point uses the transport's data adaptor to
+read data being serialized by the transport's analysis adaptor and pass it back
+into a SENSEI analysis for further processing.
 
 ### Mini-apps
 SENSEI ships with a number of mini-apps that demonstrate use of the SENSEI
@@ -76,14 +134,43 @@ mini-app's source directory.
   generates time varying data on a uniform mesh and demonstrates usage with in
   situ infrasturctures, histogram, and autocorrelation analyses.
 
-* [Newton](miniapps/newton/README.md) This Python n-body miniapp demonstrates
-  usage of in situ infrastructures and custom analyses from Python.
+* [Newton++](https://github.com/SENSEI-insitu/newtonpp) A complete re-write of
+  the original in C++ using OpenMP target offload for platform portable
+  acceleration. This mini app demonstrates zero-copy data transfer from GPUs and
+  accelerators. 
 
-### The SENSEI End point
-End points are programs that receive and analyze simulation data through transport
-layers such as ADIOS and LibIS. The SENSEI end point uses the transport's data adaptor to
-read data being serialized by the transport's analysis adaptor and pass it back
-into a SENSEI analysis for further processing.
+* [Newton Python](miniapps/newton/README.md) This Python n-body miniapp demonstrates
+  usage of in situ infrastructures and custom analyses from Python. This has been replaced by
+  the C++ port Newton++.
+
+### Data Model
+SENSEI makes use of a fork of VTK 9.0.0 that has been mangled and minified.
+Minification has removed all source code from our fork except for the data
+model and its dependencies. This substantially reduces the overheads associated
+with VTK providing only the features we need for our data model.  VTK filters
+and I/O can be used by pointing the build to an install of standard VTK as
+released by Kitware.
+Mangling changed the character sequences VTK and vtk to SVTK and svtk this
+allows for interoberability with VTK as released by Kitware.
+
+### Support for Heterogeneous Architectures
+Extensions to SENSEI's execution and data model have been introduced to support
+in situ on heterogeneous architectures. 
+Extensions to the data model make zero-copy transfer of accelerator backed
+memory possible.
+Simply use
+[svtkHAMRDataArray](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsvtk_h_a_m_r_data_array.html)
+when passing array based data in your data adaptor and initialize it using one of
+the zero-copy constructors.
+Extensions to SENSEI's execution model provide placement controls as well as
+control over synchronous or asynchronous execution method.
+The controls for our execution model extensions are accessed through the APIs defined in
+[sensei::AnalysisAdaptor](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_analysis_adaptor.html) or via XML attributes defined in
+[sensei::ConfigurableAnalysis](https://sensei-insitu.readthedocs.io/en/latest/doxygen/classsensei_1_1_configurable_analysis.html). 
+
+For more details including source code examples, XML, and a demonstration at
+scale on NERSC's Cray NVIDIA system Perlmutter please see our [SC23
+paper](https://arxiv.org/pdf/2310.02926.pdf).
 
 ## Build and Install
 The SENSEI project uses CMake 3.0 or later. The CMake build options allow you
@@ -104,18 +191,18 @@ $ make install
 ### Build Options
 | Build Option | Default | Description                     |
 |--------------|---------|---------------------------------|
-| `ENABLE_CUDA` | OFF | Enables CUDA accelerated codes. Requires compute capability 7.5 and CUDA 11 or later. |
-| `ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
-| `ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
-| `ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
-| `ENABLE_ASCENT` | OFF | Enables the Ascent analysis adaptor. |
-| `ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
-| `ENABLE_HDF5` | OFF | Enables HDF5 adaptors and endpoints. Set `HDF5_DIR`. |
-| `ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
-| `ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
-| `ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
-| `ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
-| `ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
+| `SENSEI_ENABLE_CUDA` | OFF | Enables CUDA accelerated codes. Requires compute capability 7.5 and CUDA 11 or later. |
+| `SENSEI_ENABLE_PYTHON` | OFF | Enables Python bindings. Requires VTK, Python, Numpy, mpi4py, and SWIG. |
+| `SENSEI_ENABLE_CATALYST` | OFF | Enables the Catalyst analysis adaptor. Depends on ParaView Catalyst. Set `ParaView_DIR`. |
+| `SENSEI_ENABLE_CATALYST_PYTHON` | OFF | Enables Python features of the Catalyst analysis adaptor.  |
+| `SENSEI_ENABLE_ASCENT` | OFF | Enables the Ascent analysis adaptor. |
+| `SENSEI_ENABLE_ADIOS1` | OFF | Enables ADIOS 1 adaptors and endpoints. Set `ADIOS_DIR`. |
+| `SENSEI_ENABLE_HDF5` | OFF | Enables HDF5 adaptors and endpoints. Set `HDF5_DIR`. |
+| `SENSEI_ENABLE_LIBSIM` | OFF | Enables Libsim data and analysis adaptors. Requires Libsim. Set `VTK_DIR` and `LIBSIM_DIR`. |
+| `SENSEI_ENABLE_VTK_IO` | OFF | Enables adaptors to write to VTK XML format. |
+| `SENSEI_ENABLE_VTK_MPI` | OFF | Enables MPI parallel VTK filters, such as parallel I/O. |
+| `SENSEI_ENABLE_VTKM` | ON | Enables analyses that use VTKm directly instead of via VTK. |
+| `SENSEI_ENABLE_OSCILLATORS` | ON | Enables the oscillators mini-app. |
 | `VTK_DIR` | | Set to the directory containing VTKConfig.cmake. |
 | `ParaView_DIR` | | Set to the directory containing ParaViewConfig.cmake. |
 | `ADIOS_DIR` | | Set to the directory containing ADIOSConfig.cmake |
@@ -144,7 +231,7 @@ cmake -DENABLE_SENSEI=ON -DENABLE_CATALYST=ON -DParaView_DIR=[your path] ..
 ```
 Optionally, `-DENABLE_CATALYST_PYTHON=ON` will enable Catalyst Python scripts.
 Note that a development version of ParaView is required when building with
-both `ENABLE_CATALYST` and `ENABLE_VTKM` are enabled as released versions of
+both `SENSEI_ENABLE_CATALYST` and `SENSEI_ENABLE_VTKM` are enabled as released versions of
 ParaView (5.5.2 and earlier) do not include a modern-enough version of vtk-m.
 
 ### For use with ADIOS 1
@@ -174,7 +261,7 @@ Can be used with either `ParaView_DIR` or `VTK_DIR`.
 cmake -DENABLE_SENSEI=ON -DENABLE_VTKM=ON -DVTK_DIR=[your path] ..
 ```
 Note that a development version of VTK is required when building with
-both `ENABLE_SENSEI` and `ENABLE_VTKM` are enabled as released versions of
+both `SENSEI_ENABLE_SENSEI` and `SENSEI_ENABLE_VTKM` are enabled as released versions of
 VTK (8.1.1 and earlier) do not include a modern-enough version of vtk-m.
 
 ## Using the SENSEI library from another project
@@ -188,31 +275,3 @@ target_link_libraries(myexec sensei ...)
 ```
 Additionally, your source code may need to include `senseiConfig.h` to capture
 compile time configuration.
-
-Included Software and Software Dependencies
--------------------------------------------
-The SENSEI framework includes the following software:
-
-* [DIY2](https://github.com/diatomic/diy), Copyright (c) 2015, The Regents of the University of California, through
-Lawrence Berkeley National Laboratory (subject to receipt of any required
-approvals from the U.S. Dept. of Energy).
-* [pugixml](https://github.com/zeux/pugixml), Copyright (c) 2006-2016 Arseny Kapoulkine.
-
-The SENSEI framework makes use of (links to) the following software:
-* [ADIOS 1](https://www.olcf.ornl.gov/center-projects/adios/), Copyright (c) 2008 - 2009.
-  UT-BATTELLE, LLC. Copyright (c) 2008 - 2009.  Georgia Institute of Technology.
-* [ParaView/Catalyst](https://gitlab.kitware.com/paraview/paraview), Copyright (c) 2005-2008 Sandia Corporation, Kitware Inc.
-  Sensei requires ParaView v5.5.1 or later when `ENABLE_CATALYST` is on
-  and a development version (v5.6.0 or later) when both `ENABLE_CATALYST` and `ENABLE_VTKM` are on.
-* [VisIt/libsim](http://visit.llnl.gov), Copyright (c) 2000 - 2016, Lawrence Livermore National Security, LLC.
-* [VTK](https://gitlab.kitware.com/vtk/vtk), Copyright (c) 1993-2015 Ken Martin, Will Schroeder, Bill Lorensen.
-  Sensei can use VTK provided separately or the VTK included with
-  VisIt/libSim (VTK v6.1 when `ENABLE_LIBSIM` is on) or
-  ParaView/Catalyst (VTK v8.1 when `ENABLE_CATALYST` is on).
-  If VTK is provided separately and both `ENABLE_VTK` and `ENABLE_VTKM` are on,
-  Sensei requires a development version (VTK v9.0 or later).
-* [VTKm](https://gitlab.kitware.com/vtk/vtkm), Copyright (c) 2014-2018 NTESS, SNL, LANL, UT-Battelle, Kitware, UC Davis.
-  A development version is currently required as packaging infrastructure has recently changed.
-
-For full license information regarding included and used software please refer
-to the file [THIRDPARTY_SOFTWARE_LICENSES](THIRDPARTY_SOFTWARE_LICENSES).

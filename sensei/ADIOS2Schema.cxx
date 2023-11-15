@@ -366,7 +366,7 @@ svtkDataObject *newDataObject(int code)
 // --------------------------------------------------------------------------
 bool streamIsFileBased(std::string engine)
 {
-  if (engine == "BPFile" || engine == "HDF5" || engine == "BP3" || engine == "BP4")
+  if (engine == "BPFile" || engine == "HDF5" || engine == "BP3" || engine == "BP4" || engine == "BP5")
     {
     return true;
     }
@@ -422,7 +422,12 @@ int InputStream::Initialize(MPI_Comm comm)
   sensei::TimeEvent<128> mark("senseiADIOS2::InputStream::Initialize");
 
   // initialize adios2
+#if ADIOS2_VERSION_MAJOR > 2 || (ADIOS2_VERSION_MAJOR == 2 && ADIOS2_VERSION_MINOR >= 9)
+  // adios2_init()'s signature changed in version 2.9.0
+  this->Adios = adios2_init(comm);
+#else
   this->Adios = adios2_init(comm, adios2_debug_mode(this->DebugMode));
+#endif
   if (this->Adios == nullptr)
     {
     SENSEI_ERROR("adios2_init failed")
@@ -651,7 +656,6 @@ int InputStream::Finalize()
   this->Handles.engine = nullptr;
   this->Handles.io = nullptr;
   this->ReadEngine = "";
-  this->DebugMode = 0;
 
   return 0;
 }

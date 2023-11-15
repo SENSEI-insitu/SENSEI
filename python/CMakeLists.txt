@@ -1,4 +1,4 @@
-if (ENABLE_PYTHON)
+if (SENSEI_ENABLE_PYTHON)
     set_property(SOURCE senseiPython.i PROPERTY CPLUSPLUS ON)
     set_property(SOURCE senseiPython.i PROPERTY SWIG_MODULE_NAME senseiPython)
     set_property(SOURCE senseiPython.i PROPERTY DEPENDS ../sensei/DataAdaptor.i)
@@ -19,6 +19,10 @@ if (ENABLE_PYTHON)
 
     set_property(TARGET senseiPython PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES ON)
 
+    if (SENSEI_ENABLE_OPENMP AND SENSEI_ENABLE_CUDA AND NOT SENSEI_NVHPC_CUDA)
+      target_link_options(senseiPython PUBLIC ${SENSEI_OPENMP_LINK_FLAGS})
+    endif ()
+
     # install the SWIG'ed SENSEI module
     install(TARGETS senseiPython DESTINATION ${SENSEI_PYTHON_DIR})
     install(FILES ${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/senseiPython.py
@@ -30,7 +34,7 @@ if (ENABLE_PYTHON)
     if (APPLE)
       set_target_properties(senseiPython PROPERTIES INSTALL_RPATH "@loader_path/./")
     elseif(UNIX)
-      set_target_properties(senseiPython PROPERTIES INSTALL_RPATH "\$ORIGIN/./")
+      set_target_properties(senseiPython PROPERTIES INSTALL_RPATH "\$ORIGIN/;\$ORIGIN/../svtk/")
     endif()
 
   configure_file(sensei.py "${CMAKE_BINARY_DIR}/${SENSEI_PYTHON_DIR}/__init__.py"

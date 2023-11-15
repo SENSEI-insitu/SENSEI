@@ -19,7 +19,7 @@ To run:
 mpirun -n ... ./oscillator sample.osc
 ```
 
-Usage (**ENABLE_SENSEI=ON**):
+Usage (**SENSEI_ENABLE_SENSEI=ON**):
 ```bash
 ./bin/oscillator [OPTIONS] OSCILLATORS.txt
 Options:
@@ -32,7 +32,7 @@ Options:
    -h, --help             show help
 ```
 
-Usage (**ENABLE_SENSEI=OFF**):
+Usage (**SENSEI_ENABLE_SENSEI=OFF**):
 ```bash
 ./bin/oscillator [OPTIONS] OSCILLATORS.txt
 Options:
