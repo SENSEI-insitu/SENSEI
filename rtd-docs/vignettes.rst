@@ -70,7 +70,12 @@ Papers
    :width: 600px
    :target: poster-murphy-ldav20.html
 
+.. |newtonpp| image:: images/random_ic_1kp_dt1e4.0400.png
+   :width: 600px
+   :target: paper-loring-isav23.html
 
++------------------+-----------------+
+| |newtonpp|       |                 |
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
@@ -92,6 +97,7 @@ Papers
    :name: vignettes_papers
    :numbered:
 
+   paper-loring-isav23
    paper-newberry-ewc22
    paper-loring-egpgv20
    poster-murphy-ldav20
