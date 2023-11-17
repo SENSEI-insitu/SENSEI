@@ -6,7 +6,7 @@ if (SENSEI_ENABLE_SENSEI)
   set(senseiCore_sources AnalysisAdaptor.cxx Autocorrelation.cxx
     BinaryStream.cxx BlockPartitioner.cxx ConfigurableInTransitDataAdaptor.cxx
     ConfigurablePartitioner.cxx DataAdaptor.cxx DataBinning.cxx
-    DataRequirements.cxx Error.cxx Histogram.cxx HistogramInternals.cxx
+    DataRequirements.cxx Error.cxx Fft.cxx Histogram.cxx HistogramInternals.cxx
     InTransitAdaptorFactory.cxx InTransitDataAdaptor.cxx
     IsoSurfacePartitioner.cxx MappedPartitioner.cxx MemoryProfiler.cxx
     MemoryUtils.cxx MeshMetadata.cxx MeshMetadataMap.cxx MPIManager.cxx
@@ -19,6 +19,10 @@ if (SENSEI_ENABLE_SENSEI)
   if (SENSEI_ENABLE_CONDUIT)
     list(APPEND senseiCore_sources ConduitDataAdaptor.cxx)
     list(APPEND senseiCore_libs sConduit)
+  endif()
+
+  if (SENSEI_ENABLE_FFT)
+    list(APPEND senseiCore_sources Fft.cxx)
   endif()
 
   if(SENSEI_ENABLE_ASCENT)
