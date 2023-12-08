@@ -74,8 +74,13 @@ Papers
    :width: 600px
    :target: paper-loring-isav23.html
 
+
+.. |nekrsISAV23| image:: images/nekrs_catalyst_pb146.png
+   :width: 600px
+   :target: paper-mateevitsi-isav23.html
+
 +------------------+-----------------+
-| |newtonpp|       |                 |
+| |newtonpp|       | |nekrsISAV23|   |
 +------------------+-----------------+
 | |EWC22|          | |blEGPGV20iso|  |
 |                  | |blEGPGV20bu|   |
@@ -98,6 +103,7 @@ Papers
    :numbered:
 
    paper-loring-isav23
+   paper-mateevitsi-isav23
    paper-newberry-ewc22
    paper-loring-egpgv20
    poster-murphy-ldav20
