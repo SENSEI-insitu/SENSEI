@@ -1,0 +1,10 @@
+<sensei>
+	<analysis type="python" script_file="/sensei/testing/fft_python_endpoint.py" enabled="1">
+<initialize_source>
+threshold = 1.0 
+mesh = "mesh"
+array = "data" 
+out_file = "fft_python_output.png"
+</initialize_source>
+</analysis>
+</sensei>

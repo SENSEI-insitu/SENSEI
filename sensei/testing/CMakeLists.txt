@@ -1,4 +1,9 @@
 if (BUILD_TESTING)
+  ##############################################################################
+  senseiAddTest(testFftSerial
+    SOURCES testFft.cpp LIBS sensei EXEC_NAME testFft
+    COMMAND $<TARGET_FILE:testFft>
+    LABELS FFT)
 
   ##############################################################################
   senseiAddTest(testHistogramSerial
